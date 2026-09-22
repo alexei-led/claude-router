@@ -1,0 +1,12 @@
+{
+  "name": "alexei-led-claude-router",
+  "owner": { "name": "Alexei Ledenev", "url": "https://github.com/alexei-led" },
+  "description": "Model and effort routing for Claude Code",
+  "plugins": [
+    {
+      "name": "router",
+      "description": "Local gateway that selects a model and an effort level for each user turn with a TypeSafe Jev Choice.",
+      "source": { "source": "npm", "package": "@alexeiled/claude-router" }
+    }
+  ]
+}
