@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# CI-equivalent validation before code leaves the machine (mirrors .github/workflows/ci.yml).
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+zero=0000000000000000000000000000000000000000
+
+[ -x node_modules/.bin/biome ] || {
+  echo "pre-push: node_modules/.bin/biome missing; run 'npm ci'" >&2
+  exit 1
+}
+command -v gitleaks >/dev/null || {
+  echo "pre-push: gitleaks missing; run 'brew install gitleaks'" >&2
+  exit 1
+}
+
+ranges=()
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue
+  if [ "$remote_sha" = "$zero" ]; then
+    ranges+=("$local_sha") # new remote branch: scan all reachable history
+  else
+    ranges+=("$remote_sha..$local_sha")
+  fi
+done
+
+[ "${#ranges[@]}" -eq 0 ] && exit 0 # deletion-only push
+
+npm run check
+npm test
+npm run pack:dry
+for range in "${ranges[@]}"; do
+  gitleaks git --redact --no-banner --log-opts="$range"
+done

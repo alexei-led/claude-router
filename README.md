@@ -64,6 +64,7 @@ authorization header and the OAuth value of `anthropic-beta` unchanged.
 
 ```sh
 npm install
+git config --local core.hooksPath scripts/git-hooks   # pre-commit: biome + gitleaks; pre-push: check, test, pack, gitleaks
 npm test          # node:test
 npm run check     # biome lint and format
 npm run validate  # claude plugin validate
