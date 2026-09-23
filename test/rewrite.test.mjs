@@ -35,6 +35,17 @@ test('haiku drops effort and thinking', () => {
   assert.equal(bare.output_config, undefined);
 });
 
+test('haiku drops clear_thinking edits and keeps other edits', () => {
+  const thinkingEdit = { type: 'clear_thinking_20251015', keep: 'all' };
+  const toolEdit = { type: 'clear_tool_uses_20250919' };
+  const mixed = body([user('x')], { context_management: { edits: [thinkingEdit, toolEdit] } });
+  assert.deepEqual(rewriteRequest(mixed, 'micro', config).context_management, { edits: [toolEdit] });
+  assert.equal(mixed.context_management.edits.length, 2);
+  const only = body([user('x')], { context_management: { edits: [thinkingEdit] } });
+  assert.equal(rewriteRequest(only, 'micro', config).context_management, undefined);
+  assert.deepEqual(rewriteRequest(only, 'high', config).context_management, { edits: [thinkingEdit] });
+});
+
 test('clampEffort picks the highest supported level at or below', () => {
   assert.equal(clampEffort('xhigh', ['low', 'medium', 'high', 'max']), 'high');
   assert.equal(clampEffort('max', ['low', 'medium', 'high', 'max']), 'max');

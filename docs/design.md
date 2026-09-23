@@ -18,7 +18,10 @@ the policy, and changes `model`, `output_config.effort` and `thinking`.
 Responses go through unchanged. The gateway reads `usage` from the response to
 get the context size, the cache reads and the cache TTL.
 
-The gateway never changes `system`, `tools` or `messages`. Thus preserved
+For a model without thinking (Haiku), the gateway also removes the
+`clear_thinking_*` edits from `context_management`, because the API rejects
+them without thinking. The gateway never changes `system`, `tools` or
+`messages`. Thus preserved
 thinking and prompt caching work as if Claude Code talked to Anthropic. Claude
 Code documents this gateway mode, including the OAuth value for a claude.ai
 login. See [llm-gateway](https://code.claude.com/docs/en/llm-gateway) and
