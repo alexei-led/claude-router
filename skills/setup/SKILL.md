@@ -13,6 +13,7 @@ Configure Claude Code for the router gateway. This session does not use the gate
    - `model`: `"jev-router[1m]"`. Claude Code does not know the model `jev-router` and assumes a 200K window; the `[1m]` suffix declares 1M. Claude Code strips the suffix before it sends the request. If `router.json` routes no model with a 1M `contextWindow`, use `"jev-router"`.
    - `env.ANTHROPIC_BASE_URL`: `"http://127.0.0.1:43170"`. If `router.json` sets `gateway.port`, use that port.
    - `env.ENABLE_TOOL_SEARCH`: `"true"`. With a custom `ANTHROPIC_BASE_URL`, Claude Code turns tool search off and loads every MCP tool schema into each request (about 50K tokens with the claude.ai connectors). This key keeps the schemas deferred, as with the Anthropic API.
+   - `env.CLAUDE_CODE_GATEWAY_HINT_HEADERS`: `"1"`. Claude Code then tells the gateway the class of each request (main turn, subagent, side request, compaction) instead of the gateway guessing it from the body.
    - Remove `env.CLAUDE_CODE_MAX_CONTEXT_TOKENS`. Older versions of this setup wrote it; Claude Code ignores it for `jev-router`. The gateway sends a turn only to a model whose window holds the context, and drops the 1M beta header for a model with a smaller window.
    - The `/model` picker row. In `modelPicker.options`, replace the row whose `model` is `"jev-router[1m]"`, `"jev-router"` or `"router"` (the name before 0.4.2), or append it if there is none:
      `{ "model": "jev-router[1m]", "label": "Jev Router (auto)", "description": "Auto-selects the model and effort for each turn", "behavesAs": "claude-opus-5-5" }`.
@@ -24,7 +25,7 @@ Configure Claude Code for the router gateway. This session does not use the gate
    - Restart Claude Code now. Until the restart, this session can show "There's an issue with the selected model (jev-router[1m])", because it still sends requests to Anthropic and not to the gateway.
    - After the restart, the router serves each turn, and `/router:status` shows the routes and the last turn.
    - The status line path contains the plugin version. After a plugin update, run `/router:setup` again.
-   - To stop the routing, remove `model`, `env.ANTHROPIC_BASE_URL`, `env.ENABLE_TOOL_SEARCH` and the `jev-router[1m]` row of `modelPicker.options`, and restore the status line command.
+   - To stop the routing, remove `model`, `env.ANTHROPIC_BASE_URL`, `env.ENABLE_TOOL_SEARCH`, `env.CLAUDE_CODE_GATEWAY_HINT_HEADERS` and the `jev-router[1m]` row of `modelPicker.options`, and restore the status line command.
 5. Write the whole object to `~/.claude/settings.json` with one Write call. Do not use a sequence of edits. Do nothing after this step.
 
 Do not change any other file.

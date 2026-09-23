@@ -31,7 +31,8 @@ high effort) and `high` (Opus at xhigh effort). The exact model IDs are in
 `~/.claude/router.json` and default to the current generation of each family.
 
 A tool continuation keeps the route of its turn — the gateway does not ask Jev.
-Side requests, for example session titles, get the baseline tier. A request for
+Side requests, for example session titles, get the baseline tier. A subagent
+that inherits the model gets routing with its own memory. A request for
 any other model goes through unchanged. This is how `/router:<tier>` pins and
 subagents with their own `model` work.
 

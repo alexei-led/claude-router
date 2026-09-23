@@ -23,7 +23,8 @@ starts it again.
   "model": "jev-router[1m]",
   "env": {
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:43170",
-    "ENABLE_TOOL_SEARCH": "true"
+    "ENABLE_TOOL_SEARCH": "true",
+    "CLAUDE_CODE_GATEWAY_HINT_HEADERS": "1"
   },
   "modelPicker": {
     "options": [
@@ -80,14 +81,23 @@ session, for example `jev-router ▸ opus-5-5 · xhigh`. Without a command
 after it, it prints only that line. The path contains the plugin version, so
 run `/router:setup` again after a plugin update.
 
-One optional key in `env`:
+`CLAUDE_CODE_GATEWAY_HINT_HEADERS: "1"` makes Claude Code send the gateway
+hint headers:
 
-- `CLAUDE_CODE_GATEWAY_HINT_HEADERS: "1"`. Claude Code then tells the gateway
-  the class of each request. Requests of the class `main` get routing. All
-  other classes (`auxiliary`, `subagent`, `workflow`, `compaction`) get
-  `gateway.auxiliaryTier`. A subagent with `model: inherit` runs on that tier.
-  Without the header, the gateway identifies side requests by their shape, and
-  subagents get routing like the main conversation.
+- `x-claude-code-request-class`. The classes `main`, `subagent` and `workflow`
+  get routing. `auxiliary` and `compaction` are side requests and get
+  `gateway.auxiliaryTier`.
+- `x-claude-code-context-compacted` on the first request after a compaction.
+  The gateway then drops the cached prefixes of every model.
+- `x-claude-code-agent-type`, for example `Explore` or `Plan`. It goes to
+  `decisions.jsonl` only.
+
+Without the headers, the gateway identifies side requests by their shape and
+a compaction by a context that shrank by more than 20%.
+
+A subagent with `model: inherit` sends `x-claude-code-agent-id` even without
+the hint headers. Each subagent keeps its own routing memory, so its turns do
+not change the route of the main conversation.
 
 ## Configuration file
 

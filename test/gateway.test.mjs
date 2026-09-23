@@ -391,3 +391,46 @@ test('the 1M context beta reaches only models with a 1M window', async (t) => {
     cases.map(([, beta]) => beta),
   );
 });
+
+test('a subagent keeps its own routing memory; hint headers reach the router', async (t) => {
+  const { upstream, url } = await upstreamWith((_body, res) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.end(SSE);
+  });
+  const router = plainRouter();
+  const seen = [];
+  const route = router.route.bind(router);
+  router.route = (body, hints) => {
+    seen.push(hints);
+    return route(body, hints);
+  };
+  const gateway = createGateway({ router, upstream: url });
+  t.after(() => shutdown(gateway, upstream));
+  const port = await listen(gateway);
+  const send = (headers) =>
+    fetch(`http://127.0.0.1:${port}/v1/messages`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-claude-code-session-id': 'sess-1', ...headers },
+      body: JSON.stringify(body([user('hello')])),
+    }).then((res) => res.text());
+
+  await send({ 'x-claude-code-request-class': 'main' });
+  await send({
+    'x-claude-code-request-class': 'subagent',
+    'x-claude-code-agent-id': 'agent-7',
+    'x-claude-code-agent-type': 'Explore',
+    'x-claude-code-context-compacted': 'auto',
+  });
+
+  assert.deepEqual(
+    seen.map((h) => h.sessionId),
+    ['sess-1', 'sess-1.agent-7'],
+  );
+  assert.deepEqual(seen[1], {
+    sessionId: 'sess-1.agent-7',
+    requestClass: 'subagent',
+    agentType: 'Explore',
+    contextCompacted: 'auto',
+  });
+  assert.equal(seen[0].agentType, null);
+});

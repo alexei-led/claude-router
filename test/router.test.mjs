@@ -200,3 +200,43 @@ test('Jev failing three times in a row is paused, then tried once per pause', as
   assert.ok(errors.some((m) => /routing resumed/.test(m)));
   assert.equal(errors.filter((m) => /in a row/.test(m)).length, 1);
 });
+
+test('subagent and workflow requests are routed turns; auxiliary and compaction are side requests', async () => {
+  const cases = [
+    ['main', false],
+    ['subagent', false],
+    ['workflow', false],
+    ['auxiliary', true],
+    ['compaction', true],
+  ];
+  for (const [requestClass, auxiliary] of cases) {
+    const { router, calls } = setup();
+    const out = await router.route(body([user('design the auth flow')]), { sessionId: 's1', requestClass });
+    assert.equal(out.auxiliary, auxiliary, requestClass);
+    assert.equal(calls.length, auxiliary ? 0 : 1, requestClass);
+  }
+});
+
+test('the first request after a compaction drops the cached prefixes', async () => {
+  const { router } = setup();
+  router.recordResponse('s1', 'low', {
+    model: 'claude-sonnet-5',
+    tokens: 50_000,
+    cacheReadTokens: 0,
+    outputTokens: 1,
+    ttl: '1h',
+  });
+  await router.route(body([user('go on')]), { sessionId: 's1', requestClass: 'main', contextCompacted: 'auto' });
+  assert.deepEqual(router.memory('s1').models, {});
+});
+
+test('the decision log records the agent type', async () => {
+  const { router, dataDir } = setup();
+  await router.route(body([user('find the parser')]), {
+    sessionId: 's1',
+    requestClass: 'subagent',
+    agentType: 'Explore',
+  });
+  const entry = JSON.parse(readFileSync(join(dataDir, 'decisions.jsonl'), 'utf8').trim().split('\n').at(-1));
+  assert.equal(entry.agentType, 'Explore');
+});

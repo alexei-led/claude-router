@@ -73,10 +73,12 @@ account.
 
 - New user turn (the last message has no `tool_result`): Jev and the policy.
 - Tool continuation: the route of the turn, without a Jev call.
-- Every request class other than `main`, from the header
+- The classes `auxiliary` and `compaction` from the header
   `x-claude-code-request-class`: `auxiliaryTier`, and the memory stays
-  unchanged. Without the header, a body with `thinking: disabled` and a
-  `format` is a side request.
+  unchanged. `main`, `subagent` and `workflow` get routing. Without the header,
+  a body with `thinking: disabled` and a `format` is a side request.
+- A subagent (header `x-claude-code-agent-id`): routing with its own memory,
+  under the key `<session>.<agent id>`. The main conversation keeps its route.
 - Any other `model`: unchanged. This covers `/router:<tier>` pins,
   `/model` changes and subagents with their own model.
 - A resent request (the same history length and the same last message): the
@@ -130,7 +132,7 @@ transcripts.
 | Context of the last request, cache reads, output | `usage` in the response (`message_start` and `message_delta`)                                                                   |
 | Granted TTL                                      | `usage.cache_creation.ephemeral_1h_input_tokens` or the `5m` field                                                              |
 | Cache warmth of a model                          | The time of the last response of that model, plus the TTL, minus 30 s                                                           |
-| Reusable prefix of a model                       | The context plus the output at the last response of that model. Cleared when the context shrinks by more than 20% (compaction). |
+| Reusable prefix of a model                       | The context plus the output at the last response of that model. Cleared by `x-claude-code-context-compacted`, or when the context shrinks by more than 20% (compaction).|
 | Failure signal                                   | Two `tool_result` blocks with `is_error` and the same signature, with an edit tool call between them                            |
 | Continuation                                     | The last message contains a `tool_result`. For a new prompt, a Jev Noul answers "does this prompt continue the task".           |
 
@@ -229,8 +231,9 @@ Agreed with Codex on 2026-09-22. The thresholds are start values.
   `decisions.jsonl` are the input for the tuning.
 - The gateway reads the configuration once. A reload without a restart is not
   implemented.
-- Without `CLAUDE_CODE_GATEWAY_HINT_HEADERS=1`, subagents with `model: inherit`
-  get routing like the main conversation.
+- Without `CLAUDE_CODE_GATEWAY_HINT_HEADERS=1`, the gateway guesses side
+  requests and compactions from the body; the guesses miss some.
+- `x-claude-code-agent-type` is logged, not used: no policy rule reads it yet.
 
 ## Release
 
