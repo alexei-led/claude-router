@@ -156,7 +156,7 @@ Agreed with Codex on 2026-09-22. The thresholds are start values.
 
 ```
   .claude-plugin/plugin.json   userConfig.typesafe_api_key (Keychain)
-  .claude-plugin/marketplace.json  source "./" (this repository)
+  .claude-plugin/marketplace.json  github source alexei-led/claude-router
   hooks/hooks.json             SessionStart -> scripts/ensure-gateway.mjs
   scripts/gateway.mjs          daemon entry
   scripts/ensure-gateway.mjs   port probe, detached spawn
@@ -196,8 +196,8 @@ Agreed with Codex on 2026-09-22. The thresholds are start values.
 
 The repository root is the plugin and the npm package `@alexeiled/claude-router`.
 The marketplace `alexei-led-claude-router` in `.claude-plugin/marketplace.json`
-points at the repository root (`"source": "./"`), so Claude Code installs the
-plugin from the git clone of the marketplace and never calls npm. An npm source
+points at this GitHub repository (`"source": "github"`), so Claude Code installs the
+plugin from git and never calls npm. An npm source
 fails under npm 12: Claude Code fetches the tarball URL, and npm 12 refuses
 remote tarballs by default (`EALLOWREMOTE`). `claude plugin update` compares
 the `version` in `.claude-plugin/plugin.json`, so each release bumps it. Local
