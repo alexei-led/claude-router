@@ -18,6 +18,6 @@ for (const tier of TIERS) {
 // Claude Code rejects `jev-router` unless the picker row maps it to a model it knows.
 test('skills/setup/SKILL.md maps router to the high route model', () => {
   const text = readFileSync(new URL('../skills/setup/SKILL.md', import.meta.url), 'utf8');
-  const row = JSON.parse(text.match(/`(\{ "model": "jev-router".*\})`/)[1]);
+  const row = JSON.parse(text.match(/`(\{ "model": "jev-router\[1m\]".*\})`/)[1]);
   assert.equal(row.behavesAs, DEFAULTS.models[DEFAULTS.routes.high.model].id);
 });

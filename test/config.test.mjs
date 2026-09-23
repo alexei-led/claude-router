@@ -51,3 +51,12 @@ for (const [name, userFile, message] of [
 test('rejects an unknown forced tier', () => {
   assert.throws(() => loadConfig({ env: { ROUTER_FORCE_TIER: 'ultra' } }), /ROUTER_FORCE_TIER/);
 });
+
+test('models.<alias>.maxOutput must be a positive integer when set', () => {
+  const bad = {
+    models: {
+      haiku: { id: 'h', input: 1, cacheRead: 0.1, contextWindow: 1, billing: 'plan', efforts: [], maxOutput: 0 },
+    },
+  };
+  assert.throws(() => loadConfig({ userFile: bad }), /models\.haiku\.maxOutput/);
+});

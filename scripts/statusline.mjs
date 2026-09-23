@@ -17,7 +17,10 @@ try {
 } catch {}
 
 const names = [config.gateway.alias, LEGACY_ALIAS, ROUTER_DISPLAY_NAME];
-const routed = [payload.model?.id, payload.model?.display_name].some((name) => names.includes(name));
+// `jev-router[1m]`: the suffix only tells Claude Code the window size.
+const routed = [payload.model?.id, payload.model?.display_name].some((name) =>
+  names.includes(name?.replace(/\[1m\]$/, '')),
+);
 const [status] = await Promise.all([
   routed ? fetchStatus(config.gateway.port, payload.session_id) : null,
   command ? runWrapped(command, args, input) : null,

@@ -53,3 +53,13 @@ test('clampEffort picks the highest supported level at or below', () => {
   assert.equal(clampEffort(undefined, ['low']), null);
   assert.equal(clampEffort('high', []), null);
 });
+
+test('max_tokens is capped at the output limit of the routed model', () => {
+  const cases = [
+    ['micro', 128_000, 64_000],
+    ['micro', 32_000, 32_000],
+    ['high', 128_000, 128_000],
+  ];
+  for (const [tier, sent, expected] of cases)
+    assert.equal(rewriteRequest(body([user('x')], { max_tokens: sent }), tier, config).max_tokens, expected, tier);
+});

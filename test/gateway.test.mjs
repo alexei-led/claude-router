@@ -351,3 +351,43 @@ test('a turn that waits for a tool result is tracked until the session sends its
   assert.equal(activity.waiting.has('w'), true);
   assert.equal(activity.inFlight, 0);
 });
+
+test('the 1M context beta reaches only models with a 1M window', async (t) => {
+  const seen = [];
+  const upstream = createServer((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      seen.push(req.headers['anthropic-beta']);
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      res.end(SSE);
+    });
+  });
+  const upPort = await listen(upstream);
+  const cases = [
+    ['micro', 'oauth-2025-04-20'],
+    ['medium', 'oauth-2025-04-20,context-1m-2025-08-07'],
+  ];
+  for (const [tier] of cases) {
+    const router = new Router({
+      config: loadConfig({ env: { ROUTER_FORCE_TIER: tier } }),
+      fetchFn: async () => {
+        throw new Error('no jev');
+      },
+      dataDir: mkdtempSync(join(tmpdir(), 'proxy-')),
+    });
+    const gateway = createGateway({ router, upstream: `http://127.0.0.1:${upPort}` });
+    t.after(() => shutdown(gateway));
+    const port = await listen(gateway);
+    const res = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'anthropic-beta': 'oauth-2025-04-20,context-1m-2025-08-07' },
+      body: JSON.stringify(body([user('hello')])),
+    });
+    await res.text();
+  }
+  t.after(() => shutdown(upstream));
+  assert.deepEqual(
+    seen,
+    cases.map(([, beta]) => beta),
+  );
+});

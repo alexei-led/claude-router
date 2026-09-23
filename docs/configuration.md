@@ -20,15 +20,14 @@ starts it again.
 
 ```json
 {
-  "model": "jev-router",
+  "model": "jev-router[1m]",
   "env": {
-    "ANTHROPIC_BASE_URL": "http://127.0.0.1:43170",
-    "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1000000"
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:43170"
   },
   "modelPicker": {
     "options": [
       {
-        "model": "jev-router",
+        "model": "jev-router[1m]",
         "label": "Jev Router (auto)",
         "description": "Auto-selects the model and effort for each turn",
         "behavesAs": "claude-opus-5-5"
@@ -47,11 +46,14 @@ routes it, and setup replaces that row.
 
 Setup writes the file as its last step. Restart Claude Code after it. Until
 the restart, the session sends `jev-router` to Anthropic and shows "There's an
-issue with the selected model (jev-router)".
+issue with the selected model (jev-router[1m])".
 
 Claude Code does not know the model `jev-router`, so it assumes a 200K window.
-`CLAUDE_CODE_MAX_CONTEXT_TOKENS` declares the real window: the largest
-`contextWindow` of the routed models, 1M by default. The gateway sends a turn
+The `[1m]` suffix declares 1M, the largest `contextWindow` of the default
+routes; Claude Code strips it before the request. `CLAUDE_CODE_MAX_CONTEXT_TOKENS`
+does not work here: Claude Code ignores it for this model. With the suffix,
+Claude Code sends the 1M context beta header on every request; the gateway
+drops it for a model with a smaller window (Haiku answers it with 400). The gateway sends a turn
 only to a model whose window holds the context with room to spare (80%). A
 large session skips Haiku (200K) and goes to Sonnet or Opus. The
 `/router:status` reason for such a turn is `context-fit`.
@@ -138,15 +140,17 @@ frontmatter of `skills/<tier>/SKILL.md`. A test makes sure that they agree.
 
 ### models
 
-| Alias    | ID                 | Input | Cache Read | Window | Billing | Efforts       |
-| -------- | ------------------ | ----- | ---------- | ------ | ------- | ------------- |
-| `opus`   | `claude-opus-5-5`  | $4    | $0.2       | 1M     | plan    | all           |
-| `sonnet` | `claude-sonnet-5`  | $2    | $0.2       | 1M     | plan    | low–xhigh–max |
-| `haiku`  | `claude-haiku-4-5` | $1    | $0.1       | 200k   | plan    | none          |
+| Alias    | ID                 | Input | Cache Read | Window | Max output | Billing | Efforts       |
+| -------- | ------------------ | ----- | ---------- | ------ | ---------- | ------- | ------------- |
+| `opus`   | `claude-opus-5-5`  | $4    | $0.2       | 1M     | as sent    | plan    | all           |
+| `sonnet` | `claude-sonnet-5`  | $2    | $0.2       | 1M     | as sent    | plan    | low–xhigh–max |
+| `haiku`  | `claude-haiku-4-5` | $1    | $0.1       | 200k   | 64k        | plan    | none          |
 
 `id` is the model id that the gateway sends to Anthropic. `input` and
 `cacheRead` are list prices in USD per million tokens. `contextWindow` is the
-size of the context window in tokens. `billing` is `plan` for models that use
+size of the context window in tokens. `maxOutput`, when set, caps the
+`max_tokens` that Claude Code sends; the API rejects a request above the
+model's output limit. `billing` is `plan` for models that use
 the subscription limits, or `credits` for models that bill usage credits.
 `policy.cashCapUsd` applies to `credits` models only. `efforts` lists the
 levels that the model accepts. An empty list means that the gateway removes
