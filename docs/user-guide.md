@@ -3,7 +3,7 @@
 ## Start a session
 
 After the install steps in the README, run `claude` as usual. Claude Code shows
-`Router (auto)` as the model. The transcript records the model that answered
+`Jev Router (auto)` as the model. The transcript records the model that answered
 each message. The first session starts the gateway, and all sessions share it.
 The gateway continues to run after a session ends. After two hours without
 requests it exits, unless a turn waits for a tool result, for example a
@@ -14,7 +14,7 @@ To try the gateway in one session without a change to the configuration:
 
 ```sh
 TYPESAFE_API_KEY=… node scripts/gateway.mjs &
-ANTHROPIC_BASE_URL=http://127.0.0.1:43170 claude --plugin-dir . --model router
+ANTHROPIC_BASE_URL=http://127.0.0.1:43170 claude --plugin-dir . --model jev-router
 ```
 
 ## What happens at each prompt
@@ -69,7 +69,7 @@ reason of the last turn in this session.
 The status line wrapper from `/router:setup` adds one line to your status line
 while the session uses the router:
 
-- `router ▸ opus-5-5 · xhigh`: the model and the effort of the last turn.
+- `jev-router ▸ opus-5-5 · xhigh`: the model and the effort of the last turn.
 - `router: no turn yet`: the session has no routed turn.
 - `router: gateway off, the next prompt starts it`: the gateway stopped after
   idle time, or it crashed. Either way the next prompt starts it.
@@ -97,7 +97,7 @@ assistant message in a Claude Code transcript.
 
 ## Troubleshooting
 
-- If Claude Code does not accept `router` as a model, make sure that the
+- If Claude Code does not accept `jev-router` as a model, make sure that the
   gateway runs and that `ANTHROPIC_BASE_URL` is set. The command
   `curl http://127.0.0.1:43170/v1/models` lists the alias.
 - If Claude Code reports that it does not use the gateway, run

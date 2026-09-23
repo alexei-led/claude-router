@@ -6,7 +6,7 @@ test('defaults load without a user file and resolve no key', () => {
   const config = loadConfig({ env: {} });
   assert.equal(config.apiKey, null);
   assert.equal(config.routes.low.model, 'sonnet');
-  assert.equal(config.gateway.alias, 'router');
+  assert.equal(config.gateway.alias, 'jev-router');
 });
 
 test('user file overrides merge deeply and keep the rest', () => {
@@ -21,7 +21,7 @@ test('user file overrides merge deeply and keep the rest', () => {
   assert.equal(config.policy.upgradeVotes, DEFAULTS.policy.upgradeVotes);
   assert.deepEqual(config.routes.medium, { model: 'sonnet', effort: 'max' });
   assert.equal(config.gateway.port, 5000);
-  assert.equal(config.gateway.alias, 'router');
+  assert.equal(config.gateway.alias, 'jev-router');
   assert.equal(config.gateway.idleShutdownMs, 2 * 3_600_000);
   assert.equal(loadConfig({ userFile: { gateway: { idleShutdownMs: 0 } } }).gateway.idleShutdownMs, 0);
 });

@@ -107,8 +107,8 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
   assert.equal(seen[1].body.model, 'claude-haiku-4-5');
 
   const models = await (await fetch(`http://127.0.0.1:${port}/v1/models?limit=1000`)).json();
-  assert.equal(models.data[0].id, 'router');
-  assert.equal(models.data[0].display_name, 'Router (auto)');
+  assert.equal(models.data[0].id, 'jev-router');
+  assert.equal(models.data[0].display_name, 'Jev Router (auto)');
   assert.match(models.data[0].description, /claude-opus-5-5 \/ claude-sonnet-5 \/ claude-haiku-4-5/);
 
   const status = await (await fetch(`http://127.0.0.1:${port}/router/status?session=sess-1`)).json();

@@ -21,6 +21,7 @@ function setup(env = {}, userFile = null) {
 test('passes through models other than the alias', () => {
   const { router } = setup();
   assert.equal(router.isRouted({ model: 'claude-opus-5' }), false);
+  assert.equal(router.isRouted({ model: 'jev-router' }), true);
   assert.equal(router.isRouted({ model: 'router' }), true);
 });
 

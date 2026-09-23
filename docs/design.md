@@ -10,7 +10,7 @@ terminal interface.
 
 ## Mechanism: local gateway (2026-09-22)
 
-Claude Code runs with `--model router`. `ANTHROPIC_BASE_URL` points at a
+Claude Code runs with `--model jev-router`. `ANTHROPIC_BASE_URL` points at a
 gateway on `127.0.0.1`. The gateway sends each request to `api.anthropic.com`
 unchanged, except a request whose `model` is the alias. For that request, the
 gateway reads facts from the body, asks Jev once for each new user turn, runs

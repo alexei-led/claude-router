@@ -26,12 +26,12 @@ test('the snapshot lists the routes and never carries the key', () => {
 
 for (const [name, status, expected] of [
   ['gateway off', null, 'router: gateway off, the next prompt starts it'],
-  ['no turn yet', statusSnapshot(config, null), 'router: no turn yet'],
-  ['last turn', statusSnapshot(config, lastTurn), 'router ▸ opus-5-5 · xhigh'],
+  ['no turn yet', statusSnapshot(config, null), 'jev-router: no turn yet'],
+  ['last turn', statusSnapshot(config, lastTurn), 'jev-router ▸ opus-5-5 · xhigh'],
   [
     'no observed model, no effort',
     statusSnapshot(config, { lastRoute: 'micro', lastEffort: null, lastRequest: null }),
-    'router ▸ haiku-4-5',
+    'jev-router ▸ haiku-4-5',
   ],
 ]) {
   test(`segment: ${name}`, () => assert.equal(statusSegment(status), expected));

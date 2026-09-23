@@ -13,7 +13,7 @@ test('high route sets the model and its effort, keeps everything else', () => {
   assert.deepEqual(out.output_config, { effort: 'xhigh' });
   assert.deepEqual(out.thinking, { type: 'adaptive' });
   assert.equal(out.messages, b.messages);
-  assert.equal(b.model, 'router');
+  assert.equal(b.model, 'jev-router');
 });
 
 test('a route without effort keeps the client effort, clamped to the family', () => {

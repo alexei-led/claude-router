@@ -20,7 +20,7 @@ starts it again.
 
 ```json
 {
-  "model": "router",
+  "model": "jev-router",
   "env": {
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:43170",
     "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1000000"
@@ -28,8 +28,8 @@ starts it again.
   "modelPicker": {
     "options": [
       {
-        "model": "router",
-        "label": "Router (auto)",
+        "model": "jev-router",
+        "label": "Jev Router (auto)",
         "description": "Auto-selects the model and effort for each turn",
         "behavesAs": "claude-opus-5-5"
       }
@@ -38,17 +38,18 @@ starts it again.
 }
 ```
 
-The `modelPicker` row adds `Router (auto)` to the `/model` picker, next to the
-built-in rows. `behavesAs` maps `router` to a model that Claude Code knows.
-Without it, Claude Code rejects `router` because the model is not in its
+The `modelPicker` row adds `Jev Router (auto)` to the `/model` picker, next to the
+built-in rows. `behavesAs` maps `jev-router` to a model that Claude Code knows.
+Without it, Claude Code rejects `jev-router` because the model is not in its
 catalog. Setup also removes the `ANTHROPIC_CUSTOM_MODEL_OPTION*` keys that
-older versions wrote.
+older versions wrote. Before 0.4.2 the alias was `router`; the gateway still
+routes it, and setup replaces that row.
 
 Setup writes the file as its last step. Restart Claude Code after it. Until
-the restart, the session sends `router` to Anthropic and shows "There's an
-issue with the selected model (router)".
+the restart, the session sends `jev-router` to Anthropic and shows "There's an
+issue with the selected model (jev-router)".
 
-Claude Code does not know the model `router`, so it assumes a 200K window.
+Claude Code does not know the model `jev-router`, so it assumes a 200K window.
 `CLAUDE_CODE_MAX_CONTEXT_TOKENS` declares the real window: the largest
 `contextWindow` of the routed models, 1M by default. The gateway sends a turn
 only to a model whose window holds the context with room to spare (80%). A
@@ -67,7 +68,7 @@ If you agree, it also wraps the status line command:
 ```
 
 The wrapper runs the command after it, then adds one line for a routed
-session, for example `router ▸ opus-5-5 · xhigh`. Without a command
+session, for example `jev-router ▸ opus-5-5 · xhigh`. Without a command
 after it, it prints only that line. The path contains the plugin version, so
 run `/router:setup` again after a plugin update.
 
@@ -89,7 +90,7 @@ path. Nested objects merge.
 {
   "gateway": {
     "port": 43170,
-    "alias": "router",
+    "alias": "jev-router",
     "baselineTier": "low",
     "auxiliaryTier": "low",
     "idleShutdownMs": 7200000

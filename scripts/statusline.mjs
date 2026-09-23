@@ -4,6 +4,7 @@
 // A wrapped command (for example claude-powerline) gets the same stdin; its output comes first.
 import { spawn } from 'node:child_process';
 import { text } from 'node:stream/consumers';
+import { LEGACY_ALIAS } from '../lib/config.mjs';
 import { loadRuntime } from '../lib/runtime.mjs';
 import { fetchStatus, ROUTER_DISPLAY_NAME, statusSegment } from '../lib/status.mjs';
 
@@ -15,7 +16,7 @@ try {
   payload = JSON.parse(input);
 } catch {}
 
-const names = [config.gateway.alias, ROUTER_DISPLAY_NAME];
+const names = [config.gateway.alias, LEGACY_ALIAS, ROUTER_DISPLAY_NAME];
 const routed = [payload.model?.id, payload.model?.display_name].some((name) => names.includes(name));
 const [status] = await Promise.all([
   routed ? fetchStatus(config.gateway.port, payload.session_id) : null,

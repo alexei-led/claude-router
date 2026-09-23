@@ -24,7 +24,7 @@ export function assistant(text, tools = []) {
 
 export function body(messages, extra = {}) {
   return {
-    model: 'router',
+    model: 'jev-router',
     max_tokens: 1000,
     stream: true,
     thinking: { type: 'adaptive' },

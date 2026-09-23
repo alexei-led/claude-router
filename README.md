@@ -16,13 +16,13 @@ runtime dependencies and needs Node 22 or later.
 ## How it works
 
 ```
-Claude Code  --model router  ──▶  gateway 127.0.0.1:43170  ──▶  api.anthropic.com
-                                   │
-   only requests for `router`:     ├─ facts.mjs    prompt, continuation, failures
-                                   ├─ jev.mjs      one Choice (tier) + one Noul (continuation?)
-                                   ├─ policy.mjs   stickiness, escalation, cost-gated votes
-                                   ├─ rewrite.mjs  model, effort, thinking per model family
-                                   └─ store.mjs    session memory, decisions.jsonl
+Claude Code  --model jev-router  ──▶  gateway 127.0.0.1:43170  ──▶  api.anthropic.com
+                                       │
+only requests for `jev-router`:        ├─ facts.mjs    prompt, continuation, failures
+                                       ├─ jev.mjs      one Choice (tier) + one Noul (continuation?)
+                                       ├─ policy.mjs   stickiness, escalation, cost-gated votes
+                                       ├─ rewrite.mjs  model, effort, thinking per model family
+                                       └─ store.mjs    session memory, decisions.jsonl
    responses go through unchanged; the gateway reads `usage` (context size, cache TTL)
 ```
 
@@ -95,7 +95,7 @@ git config --local core.hooksPath scripts/git-hooks   # pre-commit: biome + gitl
 npm test          # node:test
 npm run check     # biome lint and format
 npm run validate  # claude plugin validate
-claude --plugin-dir . --model router   # with ANTHROPIC_BASE_URL and TYPESAFE_API_KEY set
+claude --plugin-dir . --model jev-router   # with ANTHROPIC_BASE_URL and TYPESAFE_API_KEY set
 ```
 
 Releases: push a signed tag `v<version>` that matches `package.json`. The
