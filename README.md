@@ -46,9 +46,10 @@ Only `store` writes files. The Jev transport is injected.
 
 2. When Claude Code asks, enter the TypeSafe API key. The key goes to the
    macOS Keychain.
-3. In Claude Code, run `/router:setup`. It writes two keys to
-   `~/.claude/settings.json`: `model` and `env.ANTHROPIC_BASE_URL`.
-4. Restart Claude Code.
+3. In Claude Code, run `/router:setup`. It writes `model`,
+   `env.ANTHROPIC_BASE_URL` and the `/model` picker row to
+   `~/.claude/settings.json`, and offers a status line segment.
+4. Restart Claude Code. `/router:status` shows the routes and the last turn.
 
 The `SessionStart` hook of the plugin starts the gateway when the port does not
 answer. A claude.ai login continues to work: the gateway sends the

@@ -85,6 +85,17 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
 
   const models = await (await fetch(`http://127.0.0.1:${port}/v1/models?limit=1000`)).json();
   assert.equal(models.data[0].id, 'router');
+  assert.equal(models.data[0].display_name, 'Router (auto)');
+  assert.match(models.data[0].description, /claude-opus-5-5 \/ claude-sonnet-4-6 \/ claude-haiku-4-5/);
+
+  const status = await (await fetch(`http://127.0.0.1:${port}/router/status?session=sess-1`)).json();
+  assert.equal(status.keySet, false);
+  assert.deepEqual(
+    { tier: status.session.tier, model: status.session.model, effort: status.session.effort },
+    { tier: 'medium', model: 'claude-opus-5-5', effort: 'high' },
+  );
+  const fresh = await (await fetch(`http://127.0.0.1:${port}/router/status?session=other`)).json();
+  assert.equal(fresh.session, null);
   shutdown(gateway, upstream);
 });
 

@@ -1,15 +1,24 @@
 ---
 name: setup
-description: Point Claude Code at the router gateway. Adds `model` and `ANTHROPIC_BASE_URL` to the user settings.
+description: Point Claude Code at the router gateway. Adds `model`, `ANTHROPIC_BASE_URL` and the `/model` picker row to the user settings, and offers the status line.
 disable-model-invocation: true
 allowed-tools: Read, Edit, Write
 ---
+
 Configure Claude Code for the router gateway. Do these steps:
 
 1. Read `~/.claude/settings.json`. If the file does not exist, start from `{}`.
 2. Set the key `model` to `"router"`.
 3. Set the key `env.ANTHROPIC_BASE_URL` to `"http://127.0.0.1:43170"`. If `~/.claude/router.json` sets `gateway.port`, use that port.
-4. Keep every other key unchanged. Write the file.
-5. Tell the user: restart Claude Code, then the router serves each turn. To stop the routing, remove the two keys.
+4. Set these keys in `env`, for the `/model` picker row:
+   - `ANTHROPIC_CUSTOM_MODEL_OPTION`: `"router"`
+   - `ANTHROPIC_CUSTOM_MODEL_OPTION_NAME`: `"Router (auto)"`
+   - `ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION`: `"Picks Opus 5.5 / Sonnet 4.6 / Haiku 4.5 and the effort for each turn"`
+5. Keep every other key unchanged. Write the file.
+6. The status line can show the model and effort of the last routed turn. The command is `node ${CLAUDE_PLUGIN_ROOT}/scripts/statusline.mjs`, followed by the current status line command if there is one (for example `node ${CLAUDE_PLUGIN_ROOT}/scripts/statusline.mjs claude-powerline`). Show the user the current `statusLine` value and the new one, and ask. Change `statusLine.command` only if the user agrees. Keep the other `statusLine` keys.
+7. Tell the user:
+   - Restart Claude Code. Then the router serves each turn, and `/router:status` shows the routes and the last turn.
+   - The status line path contains the plugin version. After a plugin update, run `/router:setup` again.
+   - To stop the routing, remove `model`, `env.ANTHROPIC_BASE_URL` and the three `ANTHROPIC_CUSTOM_MODEL_OPTION*` keys, and restore the status line command.
 
 Do not change any other file.

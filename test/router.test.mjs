@@ -33,6 +33,8 @@ test('a new turn asks Jev once, rewrites the model and remembers the route', asy
   assert.equal(calls[0].state.currentRequest.text, 'design the auth flow');
   const saved = JSON.parse(readFileSync(join(dataDir, 'sessions', 's1.json'), 'utf8'));
   assert.equal(saved.lastRoute, 'high');
+  assert.equal(saved.lastEffort, 'xhigh');
+  assert.ok(saved.lastReason);
 });
 
 test('tool continuations reuse the route without asking Jev', async () => {

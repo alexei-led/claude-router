@@ -28,8 +28,13 @@ login. See [llm-gateway](https://code.claude.com/docs/en/llm-gateway) and
 [protocol](https://code.claude.com/docs/en/llm-gateway-protocol).
 
 The `SessionStart` hook of the plugin starts the gateway when the port does not
-answer. `/router:setup` writes `model` and `ANTHROPIC_BASE_URL` to the user settings
-once. A plugin cannot set them by itself.
+answer. `/router:setup` writes `model`, `ANTHROPIC_BASE_URL` and the picker row to
+the user settings once. A plugin cannot set them by itself.
+
+The gateway serves `GET /router/status?session=<id>`: the routes and the last
+turn of the session, never the key. `/router:status` and the status line
+wrapper read it. Claude Code shows only the alias as the model, so the wrapper
+is the only place where the real model of the turn is visible.
 
 ### Why not the native skill path
 
@@ -155,6 +160,8 @@ Agreed with Codex on 2026-09-22. The thresholds are start values.
   hooks/hooks.json             SessionStart -> scripts/ensure-gateway.mjs
   scripts/gateway.mjs          daemon entry
   scripts/ensure-gateway.mjs   port probe, detached spawn
+  scripts/statusline.mjs       status line wrapper: wrapped command, then the route
+  scripts/status.mjs           report for /router:status
   scripts/transcript-models.sh model for each assistant line of a transcript
   lib/runtime.mjs              configuration and data directory from the environment
   lib/config.mjs               defaults, user file, validation
@@ -167,8 +174,10 @@ Agreed with Codex on 2026-09-22. The thresholds are start values.
   lib/router.mjs               orchestration for one request, session memory
   lib/gateway.mjs              HTTP passthrough and rewrite
   lib/store.mjs                files: configuration, memory, decisions.jsonl
+  lib/status.mjs               status snapshot, status line segment, report
   skills/<tier>/SKILL.md       manual pins (model and effort frontmatter)
-  skills/setup/SKILL.md        writes model and ANTHROPIC_BASE_URL to the user settings
+  skills/setup/SKILL.md        writes model, base URL, picker row, status line
+  skills/status/SKILL.md       /router:status
   test/                        node:test, builders in helpers.mjs
 ```
 

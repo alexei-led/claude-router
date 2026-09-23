@@ -2,8 +2,8 @@
 
 ## Start a session
 
-After the install steps in the README, run `claude` as usual. The status line
-shows `router` as the model. The transcript records the model that answered
+After the install steps in the README, run `claude` as usual. Claude Code shows
+`Router (auto)` as the model. The transcript records the model that answered
 each message. The first session starts the gateway. The gateway continues to
 run after the session ends.
 
@@ -52,6 +52,21 @@ The gateway sends the real model id unchanged.
 ```
 
 `/model <name>` also works. It stops the routing for the rest of the session.
+
+## See the current route
+
+`/router:status` shows the gateway, the routes, and the model, effort and
+reason of the last turn in this session.
+
+The status line wrapper from `/router:setup` adds one line to your status line
+while the session uses the router:
+
+- `router ▸ opus-5-5 · xhigh (high)`: the model, the effort and the tier of the
+  last turn.
+- `router: no turn yet`: the session has no routed turn.
+- `router: gateway down`: the gateway does not answer.
+
+The line updates when Claude Code redraws the status line, after each message.
 
 ## Read the decisions
 

@@ -6,7 +6,7 @@
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | TypeSafe API key                | `TYPESAFE_API_KEY` in the environment of the gateway                                                                                                                                                 | One name in all places. The key is never in a file.                                                      |
 | The key for an installed plugin | The plugin option `typesafe_api_key`. Claude Code asks for it when you enable the plugin and stores it in the macOS Keychain. The `SessionStart` hook gives it to the gateway as `TYPESAFE_API_KEY`. | Claude Code exports plugin options as `CLAUDE_PLUGIN_OPTION_<KEY>`. The gateway does not read that name. |
-| Claude Code settings            | `~/.claude/settings.json`: `model` and `env.ANTHROPIC_BASE_URL`. `/router:setup` writes them.                                                                                                        | Claude Code reads the base URL at start. A plugin cannot set it.                                         |
+| Claude Code settings            | `~/.claude/settings.json`: `model`, `env.ANTHROPIC_BASE_URL`, the picker row, the status line. `/router:setup` writes them.                                                                          | Claude Code reads the base URL at start. A plugin cannot set it.                                         |
 | Routing configuration           | `~/.claude/router.json`, user scope only                                                                                                                                                             | A cloned repository must not change your routing or your spend.                                          |
 
 The gateway ignores project files. To use another file, set
@@ -21,11 +21,35 @@ starts it again.
 ```json
 {
   "model": "router",
-  "env": { "ANTHROPIC_BASE_URL": "http://127.0.0.1:43170" }
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:43170",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION": "router",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "Router (auto)",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION": "Picks Opus 5.5 / Sonnet 4.6 / Haiku 4.5 and the effort for each turn"
+  }
 }
 ```
 
-Two optional keys in `env`:
+The three `ANTHROPIC_CUSTOM_MODEL_OPTION*` keys add a `Router (auto)` row to
+the `/model` picker.
+
+If you agree, it also wraps the status line command:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "node <plugin root>/scripts/statusline.mjs claude-powerline"
+  }
+}
+```
+
+The wrapper runs the command after it, then adds one line for a routed
+session, for example `router ▸ opus-5-5 · xhigh (high)`. Without a command
+after it, it prints only that line. The path contains the plugin version, so
+run `/router:setup` again after a plugin update.
+
+One optional key in `env`:
 
 - `CLAUDE_CODE_GATEWAY_HINT_HEADERS: "1"`. Claude Code then tells the gateway
   the class of each request. Requests of the class `main` get routing. All
@@ -33,8 +57,6 @@ Two optional keys in `env`:
   `gateway.auxiliaryTier`. A subagent with `model: inherit` runs on that tier.
   Without the header, the gateway identifies side requests by their shape, and
   subagents get routing like the main conversation.
-- `ANTHROPIC_CUSTOM_MODEL_OPTION: "router"`. The `/model` picker then shows a
-  `router` row.
 
 ## Configuration file
 
