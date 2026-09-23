@@ -1,7 +1,7 @@
 {
   "name": "router",
   "displayName": "Router",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local gateway that selects a model and an effort level for each user turn with a TypeSafe Jev Choice.",
   "author": { "name": "Alexei Ledenev", "url": "https://github.com/alexei-led" },
   "repository": "https://github.com/alexei-led/claude-router",
