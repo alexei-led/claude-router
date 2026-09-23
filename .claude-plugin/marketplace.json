@@ -5,7 +5,7 @@
   "plugins": [
     {
       "name": "router",
-      "description": "Local gateway that selects a model and an effort level for each user turn with a TypeSafe Jev Choice.",
+      "description": "Auto-picks the right Claude model for each turn — small models for quick edits, mid-tier for code, frontier for hard problems. Uses Jev to classify each request.",
       "source": { "source": "github", "repo": "alexei-led/claude-router" }
     }
   ]

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { loadConfig } from '../lib/config.mjs';
-import { Router } from '../lib/router.mjs';
+import { JEV_PAUSE_MS, Router } from '../lib/router.mjs';
 import { assistant, body, jevResponse, toolResult, user } from './helpers.mjs';
 
 function setup(env = {}, userFile = null) {
@@ -121,4 +121,81 @@ test('compaction is sized by the main context; other side requests are not', asy
   assert.equal(compaction.tier, 'low');
   const title = await router.route(body([user('title?')]), { sessionId: 'c', requestClass: 'auxiliary' });
   assert.equal(title.tier, 'micro');
+});
+
+test('a resent request is the same turn: no second Jev call and no second vote', async () => {
+  const calls = [];
+  const fetchFn = async (_url, init) => {
+    calls.push(init);
+    return { ok: true, status: 200, json: async () => jevResponse('medium', { medium: 0.99 }) };
+  };
+  const config = loadConfig({ env: { TYPESAFE_API_KEY: 'k' } });
+  const router = new Router({ config, fetchFn, dataDir: mkdtempSync(join(tmpdir(), 'router-')), now: () => 1_000_000 });
+  const first = [user('refactor the parser')];
+  const ask = (messages) => router.route(body(messages), { sessionId: 's', requestClass: 'main' });
+  const turn = await ask(first);
+  // Claude Code resends the identical request after a 429, a 529 or a dropped stream.
+  const retry = await ask(first);
+  assert.deepEqual([turn.tier, turn.reason], ['low', 'upgrade-pending']);
+  assert.deepEqual([retry.tier, retry.reason], ['low', 'retry']);
+  assert.equal(calls.length, 1);
+  assert.equal(router.memory('s').lastReason, 'upgrade-pending');
+  const next = await ask([...first, assistant('done'), user('now the lexer')]);
+  assert.deepEqual([next.tier, next.reason], ['medium', 'upgrade']);
+  assert.equal(calls.length, 2);
+});
+
+test('a data directory that cannot be written keeps the decision and reports the error', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'router-'));
+  const notADirectory = join(dir, 'file');
+  writeFileSync(notADirectory, 'x');
+  const errors = [];
+  const router = new Router({
+    config: loadConfig({ env: { TYPESAFE_API_KEY: 'k' } }),
+    fetchFn: async () => ({ ok: true, status: 200, json: async () => jevResponse('high', { high: 0.97 }) }),
+    dataDir: notADirectory,
+    onError: (e) => errors.push(e.message),
+  });
+  const out = await router.route(body([user('design the auth flow')]), { sessionId: 's', requestClass: 'main' });
+  assert.equal(out.tier, 'high');
+  assert.equal(router.memory('s').lastRoute, 'high');
+  assert.equal(errors.length, 2); // session memory and decision log
+});
+
+test('Jev failing three times in a row is paused, then tried once per pause', async () => {
+  let t = 1_000_000;
+  let healthy = false;
+  let calls = 0;
+  const fetchFn = async () => {
+    calls += 1;
+    if (healthy) return { ok: true, status: 200, json: async () => jevResponse('high', { high: 0.97 }) };
+    return { ok: false, status: 401, json: async () => ({}) };
+  };
+  const errors = [];
+  const router = new Router({
+    config: loadConfig({ env: { TYPESAFE_API_KEY: 'k' } }),
+    fetchFn,
+    dataDir: mkdtempSync(join(tmpdir(), 'router-')),
+    now: () => t,
+    onError: (e) => errors.push(e.message),
+  });
+  let n = 0;
+  const newTurn = () => router.route(body([user(`task ${n}`)]), { sessionId: `s${n++}`, requestClass: 'main' });
+  for (let i = 0; i < 3; i += 1) await newTurn();
+  assert.equal(calls, 3);
+  const paused = await newTurn();
+  assert.equal(calls, 3);
+  assert.equal(paused.tier, 'low');
+  assert.equal(errors.filter((m) => /3 times in a row \(jev http 401\)/.test(m)).length, 1);
+  t += JEV_PAUSE_MS + 1;
+  await newTurn(); // one try, still failing: paused again
+  await newTurn();
+  assert.equal(calls, 4);
+  t += JEV_PAUSE_MS + 1;
+  healthy = true;
+  const back = await newTurn();
+  assert.equal(calls, 5);
+  assert.equal(back.tier, 'high');
+  assert.ok(errors.some((m) => /routing resumed/.test(m)));
+  assert.equal(errors.filter((m) => /in a row/.test(m)).length, 1);
 });

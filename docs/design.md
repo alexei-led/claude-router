@@ -61,7 +61,7 @@ keeps its route. The baseline is a configuration value.
 | ------ | ------ | ------- | -------------------- |
 | high   | opus   | xhigh   | claude-opus-5-5      |
 | medium | opus   | high    | claude-opus-5-5      |
-| low    | sonnet | as sent | claude-sonnet-5    |
+| low    | sonnet | as sent | claude-sonnet-5      |
 | micro  | haiku  | none    | claude-haiku-4-5     |
 
 The gateway lowers the effort to a level that the model family accepts. Sonnet
@@ -79,6 +79,46 @@ account.
   `format` is a side request.
 - Any other `model`: unchanged. This covers `/router:<tier>` pins,
   `/model` changes and subagents with their own model.
+- A resent request (the same history length and the same last message): the
+  route of the turn, without a Jev call or a vote. Claude Code resends after a
+  429, a 529 or a dropped connection.
+- A side endpoint with the alias, such as `/v1/messages/count_tokens`: the
+  model of the session's last route. Only `POST /v1/messages` is a turn.
+
+## Failure handling
+
+One gateway serves every Claude Code session on the machine, so a failure in one
+request must not reach the others.
+
+- Anthropic errors (429, 529, 5xx) pass through unchanged, with `Retry-After`.
+  Claude Code owns retries and backoff; a second retry layer in the gateway
+  would multiply attempts and cannot replay a stream that has started.
+- The response is relayed with `pipeline()`. An upstream reset destroys the
+  client response, so Claude Code sees a reset and retries at once. A client
+  that leaves (Esc) destroys the upstream request, so the model stops
+  generating an answer that nobody reads.
+- Disk errors while the gateway saves session memory or the decision log are
+  logged. The routing decision stands.
+- Jev: one retry on a network error or a transient status, after
+  `Retry-After` when it fits the 1.5 s budget. After three failures in a row,
+  new turns skip Jev for a minute, then try once.
+- The daemon logs a stray exception instead of exiting. On `SIGTERM` it
+  releases the port at once and finishes open streams for up to 10 minutes.
+  A second daemon on a busy port exits quietly.
+- The `SessionStart` and `UserPromptSubmit` hooks start the gateway when the
+  port does not answer, and replace a gateway older than the plugin. They never
+  replace a newer one.
+- The gateway exits after `gateway.idleShutdownMs` (two hours) without
+  requests. Claude Code holds no connection open between requests, so the
+  gateway cannot tell a closed session from an idle one; time is the signal.
+  Two cases keep it running: a request in flight, and a turn whose last
+  response asked for a tool (`stop_reason: tool_use`), such as an unanswered
+  permission prompt. The answer to that prompt reaches the gateway without a
+  new prompt, so without the hook that would start it again. A session that
+  died mid-turn stops counting after a day. Two hours outlast `/loop` wakeups
+  and Monitor waits, which also arrive without a prompt.
+- The gateway refuses requests with a non-loopback `Host` (DNS rebinding) or a
+  web `Origin` (cross-site requests from a browser).
 
 ## Cache and cost inputs
 

@@ -16,6 +16,7 @@ test('reads usage across split SSE chunks', () => {
   assert.equal(usage.tokens, 1100);
   assert.equal(usage.outputTokens, 321);
   assert.equal(usage.ttl, '1h');
+  assert.equal(reader.stopReason, 'end_turn');
 });
 
 test('reads a non-streaming JSON body', () => {
@@ -25,6 +26,7 @@ test('reads a non-streaming JSON body', () => {
       type: 'message',
       role: 'assistant',
       model: 'claude-haiku-4-5',
+      stop_reason: 'tool_use',
       usage: { input_tokens: 5, output_tokens: 7 },
     }),
   );
@@ -32,6 +34,7 @@ test('reads a non-streaming JSON body', () => {
   assert.equal(usage.model, 'claude-haiku-4-5');
   assert.equal(usage.tokens, 5);
   assert.equal(usage.ttl, '5m');
+  assert.equal(reader.stopReason, 'tool_use');
 });
 
 test('returns null without usage', () => {

@@ -56,21 +56,30 @@ Only `store` writes files. The Jev transport is injected.
    `~/.claude/settings.json`, and offers a status line segment.
 4. Restart Claude Code. `/router:status` shows the routes and the last turn.
 
-The `SessionStart` hook starts the gateway when the port does not answer.
+One gateway serves all Claude Code sessions on the machine. The plugin hooks
+start it at session start and before each prompt when it does not answer, so a
+stopped or crashed gateway comes back on the next prompt. After two hours
+without requests it exits by itself.
+
 A claude.ai login continues to work: the gateway forwards the authorization
 header and the `anthropic-beta` OAuth value unchanged.
 
 ## Update
 
 ```sh
+claude plugin marketplace update alexei-led-claude-router
 claude plugin update router@alexei-led-claude-router
-pkill -f scripts/gateway.mjs   # stop the old gateway
 ```
 
-The next session starts the updated gateway automatically. The Jev API key
-stays in the macOS Keychain — no need to re-enter it. Run `/router:setup` once
-after an update: the status line command path contains the plugin version and
-must be refreshed.
+Then restart Claude Code or run `/reload-plugins`. The next prompt replaces the
+running gateway with the new version: the old gateway releases the port at once
+and finishes the responses it is streaming. A session that still runs an older
+plugin never replaces a newer gateway. The Jev API key stays in the macOS
+Keychain. Run `/router:setup` once after an update: the status line command
+path contains the plugin version.
+
+Updating from 0.3.0 or earlier: these gateways cannot hand over, so stop the
+old one once with `pkill -f scripts/gateway.mjs`.
 
 ## Documentation
 

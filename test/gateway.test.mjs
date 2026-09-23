@@ -1,16 +1,19 @@
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
-import { createServer } from 'node:http';
+import { createServer, request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { loadConfig } from '../lib/config.mjs';
 import { createGateway } from '../lib/gateway.mjs';
+import { IdleTracker } from '../lib/idle.mjs';
 import { Router } from '../lib/router.mjs';
 import { body, user } from './helpers.mjs';
 
 const SSE =
   'event: message_start\ndata: {"type":"message_start","message":{"model":"claude-opus-5-5","usage":{"input_tokens":10,"cache_read_input_tokens":90,"output_tokens":1}}}\n\nevent: message_delta\ndata: {"type":"message_delta","usage":{"output_tokens":42}}\n\n';
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function listen(server) {
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server.address().port)));
@@ -22,6 +25,26 @@ function shutdown(...servers) {
     server.closeAllConnections();
     server.close();
   }
+}
+
+function plainRouter() {
+  return new Router({
+    config: loadConfig({}),
+    fetchFn: async () => {
+      throw new Error('no jev');
+    },
+    dataDir: mkdtempSync(join(tmpdir(), 'proxy-')),
+  });
+}
+
+// An upstream that answers every request with `respond(req, res)` after reading the body.
+async function upstreamWith(respond) {
+  const upstream = createServer((req, res) => {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => respond(JSON.parse(Buffer.concat(chunks).toString() || 'null'), res));
+  });
+  return { upstream, url: `http://127.0.0.1:${await listen(upstream)}` };
 }
 
 test('routed requests are rewritten, headers forwarded, responses piped verbatim, usage recorded', async () => {
@@ -90,10 +113,8 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
 
   const status = await (await fetch(`http://127.0.0.1:${port}/router/status?session=sess-1`)).json();
   assert.equal(status.keySet, false);
-  assert.deepEqual(
-    { tier: status.session.tier, model: status.session.model, effort: status.session.effort },
-    { tier: 'medium', model: 'claude-opus-5-5', effort: 'high' },
-  );
+  assert.equal(status.pid, process.pid);
+  assert.equal(status.jevPausedUntil, null);
   const fresh = await (await fetch(`http://127.0.0.1:${port}/router/status?session=other`)).json();
   assert.equal(fresh.session, null);
   shutdown(gateway, upstream);
@@ -165,4 +186,168 @@ test('auxiliary responses do not touch memory and a routing error falls back to 
   ).text();
   assert.equal(seen[2].model, 'claude-sonnet-5');
   shutdown(gateway, upstream);
+});
+
+test('an upstream reset mid-stream reaches the client as an error, not a hang', async (t) => {
+  const { upstream, url } = await upstreamWith((_body, res) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.write(`${SSE.split('\n\n')[0]}\n\n`);
+    setTimeout(() => res.socket.destroy(), 20);
+  });
+  const errors = [];
+  const gateway = createGateway({ router: plainRouter(), upstream: url, onError: (e) => errors.push(e.message) });
+  const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
+  const res = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
+    method: 'POST',
+    body: JSON.stringify(body([user('x')])),
+  });
+  const outcome = await Promise.race([
+    res.text().then(
+      () => 'ended',
+      () => 'errored',
+    ),
+    sleep(2_000).then(() => 'hung'),
+  ]);
+  assert.equal(outcome, 'errored');
+  await sleep(50); // the gateway logs after both sides have closed, the client can see its error first
+  assert.deepEqual(errors, ['upstream stream: aborted']);
+});
+
+test('a client that leaves mid-stream stops the upstream response', async (t) => {
+  const TOTAL = 100;
+  let upstreamClosed;
+  const closed = new Promise((resolve) => {
+    upstreamClosed = resolve;
+  });
+  const { upstream, url } = await upstreamWith((_body, res) => {
+    let written = 0;
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    const timer = setInterval(() => {
+      res.write('event: ping\ndata: {"type":"ping"}\n\n');
+      written += 1;
+      if (written === TOTAL) res.end();
+    }, 10);
+    res.on('close', () => {
+      clearInterval(timer);
+      upstreamClosed(written);
+    });
+  });
+  const errors = [];
+  const gateway = createGateway({ router: plainRouter(), upstream: url, onError: (e) => errors.push(e.message) });
+  const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
+  const req = request({ host: '127.0.0.1', port, path: '/v1/messages', method: 'POST' }, (res) => {
+    res.once('data', () => req.destroy());
+  });
+  req.on('error', () => {});
+  req.end(JSON.stringify(body([user('x')])));
+  const written = await closed;
+  assert.ok(written < TOTAL, `upstream wrote ${written} of ${TOTAL} events after the client left`);
+  await sleep(20);
+  assert.deepEqual(errors, []);
+});
+
+test('a failure while recording usage keeps the gateway serving', async (t) => {
+  const { upstream, url } = await upstreamWith((_body, res) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.end(SSE);
+  });
+  const router = plainRouter();
+  router.recordResponse = () => {
+    throw new Error('ENOSPC: no space left on device');
+  };
+  const errors = [];
+  const gateway = createGateway({ router, upstream: url, onError: (e) => errors.push(e.message) });
+  const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
+  const send = () =>
+    fetch(`http://127.0.0.1:${port}/v1/messages`, { method: 'POST', body: JSON.stringify(body([user('x')])) });
+  assert.equal(await (await send()).text(), SSE);
+  await sleep(20);
+  assert.equal(await (await send()).text(), SSE);
+  assert.ok(errors.includes('ENOSPC: no space left on device'));
+});
+
+test('count_tokens gets the session model without a Jev call or a policy turn', async (t) => {
+  const seen = [];
+  const { upstream, url } = await upstreamWith((received, res) => {
+    seen.push(received);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end('{"input_tokens":12}');
+  });
+  let jevCalls = 0;
+  const router = new Router({
+    config: loadConfig({ env: { TYPESAFE_API_KEY: 'k' } }),
+    fetchFn: async () => {
+      jevCalls += 1;
+      throw new Error('no jev');
+    },
+    dataDir: mkdtempSync(join(tmpdir(), 'proxy-')),
+  });
+  const gateway = createGateway({ router, upstream: url });
+  const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
+  const res = await fetch(`http://127.0.0.1:${port}/v1/messages/count_tokens?beta=true`, {
+    method: 'POST',
+    headers: { 'x-claude-code-session-id': 'ct' },
+    body: JSON.stringify({ model: 'router', messages: [user('how big is this')] }),
+  });
+  assert.equal(await res.text(), '{"input_tokens":12}');
+  assert.equal(seen[0].model, 'claude-sonnet-5');
+  assert.equal(jevCalls, 0);
+  assert.equal(router.memory('ct').state, null);
+  assert.equal(router.memory('ct').lastRoute, null);
+});
+
+test('requests from a foreign host or a web origin are refused', async (t) => {
+  const gateway = createGateway({ router: plainRouter(), upstream: 'http://127.0.0.1:1' });
+  const port = await listen(gateway);
+  t.after(() => shutdown(gateway));
+  const statusCode = (headers) =>
+    new Promise((resolve) => {
+      request({ host: '127.0.0.1', port, path: '/router/status', headers }, (res) => {
+        res.resume();
+        resolve(res.statusCode);
+      }).end();
+    });
+  assert.equal(await statusCode({ host: 'attacker.example' }), 403);
+  assert.equal(await statusCode({ origin: 'https://attacker.example' }), 403);
+  assert.equal(await statusCode({ origin: 'null' }), 403);
+  assert.equal(await statusCode({}), 200);
+  assert.equal(await statusCode({ host: `localhost:${port}`, origin: 'http://localhost:3000' }), 200);
+});
+
+test('a turn that waits for a tool result is tracked until the session sends its next request', async (t) => {
+  const TOOL_USE =
+    'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":3}}\n\n';
+  let answer = TOOL_USE;
+  const { upstream, url } = await upstreamWith((_body, res) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.end(answer);
+  });
+  const activity = new IdleTracker();
+  const gateway = createGateway({ router: plainRouter(), upstream: url, activity });
+  const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
+  const send = async (model) => {
+    const res = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
+      method: 'POST',
+      headers: { 'x-claude-code-session-id': 'w' },
+      body: JSON.stringify(body([user('x')], { model })),
+    });
+    await res.text();
+    await sleep(20);
+  };
+  await send('router');
+  assert.equal(activity.waiting.has('w'), true);
+  await (await fetch(`http://127.0.0.1:${port}/router/status?session=w`)).text();
+  assert.equal(activity.waiting.has('w'), true);
+  answer = SSE;
+  await send('router');
+  assert.equal(activity.waiting.has('w'), false);
+  answer = TOOL_USE;
+  await send('claude-opus-5-5'); // a pinned model passes through and is tracked too
+  assert.equal(activity.waiting.has('w'), true);
+  assert.equal(activity.inFlight, 0);
 });

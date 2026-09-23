@@ -4,8 +4,11 @@
 
 After the install steps in the README, run `claude` as usual. Claude Code shows
 `Router (auto)` as the model. The transcript records the model that answered
-each message. The first session starts the gateway. The gateway continues to
-run after the session ends.
+each message. The first session starts the gateway, and all sessions share it.
+The gateway continues to run after a session ends. After two hours without
+requests it exits, unless a turn waits for a tool result, for example a
+permission prompt that you have not answered. The next prompt starts it again
+(`gateway.idleShutdownMs` in [configuration](configuration.md)).
 
 To try the gateway in one session without a change to the configuration:
 
@@ -34,7 +37,12 @@ ANTHROPIC_BASE_URL=http://127.0.0.1:43170 claude --plugin-dir . --model router
   prompt for these credits, so the cap is the only guard. No default model
   bills credits; this applies once you add one in `router.json`.
 - When Jev fails or times out, or when there is no key, the baseline tier
-  serves the turn.
+  serves the turn. After three failures in a row, new turns skip Jev for one
+  minute and then try it once, so an outage costs one slow turn a minute, not
+  a second on every turn. `/router:status` shows the pause.
+- When Claude Code sends the same request again (after a 429, a 529 or a
+  dropped connection), the gateway keeps the route of that turn. A retry is
+  not a new vote and makes no Jev call.
 - Jev receives the prompt and the last six turns of text. Tool results are not
   sent. No other data leaves the machine, except the usual Anthropic request.
 
@@ -63,7 +71,8 @@ while the session uses the router:
 
 - `router ▸ opus-5-5 · xhigh`: the model and the effort of the last turn.
 - `router: no turn yet`: the session has no routed turn.
-- `router: gateway down`: the gateway does not answer.
+- `router: gateway off, the next prompt starts it`: the gateway stopped after
+  idle time, or it crashed. Either way the next prompt starts it.
 
 The line updates when Claude Code redraws the status line, after each message.
 
@@ -93,10 +102,16 @@ assistant message in a Claude Code transcript.
   `curl http://127.0.0.1:43170/v1/models` lists the alias.
 - If Claude Code reports that it does not use the gateway, run
   `/router:setup` and restart Claude Code.
-- If each turn runs on Sonnet, make sure that the key is set. Read the
-  `router:` lines in `gateway.log` next to `decisions.jsonl`.
+- If each turn runs on the default tier, make sure that the key is set, and
+  read `/router:status`: it shows when Jev is paused after failures. The
+  timestamped `router:` lines in `gateway.log` next to `decisions.jsonl` give
+  the reason, for example `jev http 401` for a rejected key.
 - If the effort is not what you set, read the `efforts` list of the model. The
   gateway lowers the effort to a level that the model accepts. Haiku has no
   effort and no thinking.
-- To stop the gateway, run `pkill -f scripts/gateway.mjs`. The next session
-  starts it again.
+- To stop the gateway, run `pkill -f scripts/gateway.mjs`. It releases the port
+  at once and finishes the responses it is streaming. The next prompt starts it
+  again.
+- Rate limits and overload errors from Anthropic (429, 529) reach Claude Code
+  unchanged. Claude Code waits and retries; the gateway does not add a second
+  layer of retries.

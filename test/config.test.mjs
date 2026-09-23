@@ -22,6 +22,8 @@ test('user file overrides merge deeply and keep the rest', () => {
   assert.deepEqual(config.routes.medium, { model: 'sonnet', effort: 'max' });
   assert.equal(config.gateway.port, 5000);
   assert.equal(config.gateway.alias, 'router');
+  assert.equal(config.gateway.idleShutdownMs, 2 * 3_600_000);
+  assert.equal(loadConfig({ userFile: { gateway: { idleShutdownMs: 0 } } }).gateway.idleShutdownMs, 0);
 });
 
 test('api key comes from TYPESAFE_API_KEY only', () => {
@@ -39,6 +41,7 @@ for (const [name, userFile, message] of [
   ['zero votes', { policy: { upgradeVotes: 0 } }, /upgradeVotes/],
   ['bad baseline', { gateway: { baselineTier: 'ultra' } }, /baselineTier/],
   ['bad port', { gateway: { port: 70000 } }, /port/],
+  ['negative idle shutdown', { gateway: { idleShutdownMs: -1 } }, /idleShutdownMs/],
 ]) {
   test(`rejects ${name}`, () => {
     assert.throws(() => loadConfig({ userFile }), message);

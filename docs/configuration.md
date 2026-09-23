@@ -11,7 +11,7 @@
 
 The gateway ignores project files. To use another file, set
 `ROUTER_CONFIG=/path/to/file.json`. The gateway reads the file at start. After
-an edit, stop the gateway with `pkill -f scripts/gateway.mjs`. The next session
+an edit, stop the gateway with `pkill -f scripts/gateway.mjs`. The next prompt
 starts it again.
 
 ## Claude Code settings
@@ -77,7 +77,8 @@ path. Nested objects merge.
     "port": 43170,
     "alias": "router",
     "baselineTier": "low",
-    "auxiliaryTier": "low"
+    "auxiliaryTier": "low",
+    "idleShutdownMs": 7200000
   },
   "routes": {
     "high": { "model": "opus", "effort": "xhigh" },
@@ -122,11 +123,11 @@ frontmatter of `skills/<tier>/SKILL.md`. A test makes sure that they agree.
 
 ### models
 
-| Alias    | ID                 | Input | Cache Read | Window | Billing | Efforts |
-| -------- | ------------------ | ----- | ---------- | ------ | ------- | ------- |
-| `opus`   | `claude-opus-5-5`  | $4    | $0.2       | 1M     | plan    | all     |
+| Alias    | ID                 | Input | Cache Read | Window | Billing | Efforts       |
+| -------- | ------------------ | ----- | ---------- | ------ | ------- | ------------- |
+| `opus`   | `claude-opus-5-5`  | $4    | $0.2       | 1M     | plan    | all           |
 | `sonnet` | `claude-sonnet-5`  | $2    | $0.2       | 1M     | plan    | low–xhigh–max |
-| `haiku`  | `claude-haiku-4-5` | $1    | $0.1       | 200k   | plan    | none    |
+| `haiku`  | `claude-haiku-4-5` | $1    | $0.1       | 200k   | plan    | none          |
 
 `id` is the model id that the gateway sends to Anthropic. `input` and
 `cacheRead` are list prices in USD per million tokens. `contextWindow` is the
@@ -142,6 +143,7 @@ effort and thinking from the request.
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | `gateway.baselineTier`                           | The tier when nothing else decides: Jev abstains, Jev fails, or the session is new.                                                          |
 | `gateway.auxiliaryTier`                          | The tier for side requests, for example session titles.                                                                                      |
+| `gateway.idleShutdownMs`                         | The gateway exits after this long without requests, when no turn waits for a tool result. Two hours by default; `0` keeps it running.        |
 | `upgradeVotes`                                   | The number of consecutive votes above the current tier before an upgrade of one tier.                                                        |
 | `upgradeBase`, `upgradeSlope`, `upgradePivotUsd` | The required probability mass: `base + slope * tax / (tax + pivot)`. The `tax` is the extra input cost to read the context on the new model. |
 | `jumpConfidence`                                 | The mass that lets a jump of two tiers skip the vote delay.                                                                                  |
@@ -158,3 +160,8 @@ effort and thinking from the request.
 | `ROUTER_CONFIG`      | The path of the configuration file.                                                                     |
 | `ROUTER_FORCE_TIER`  | `micro`, `low`, `medium` or `high`. Skips Jev and the policy and always routes to that tier. For tests. |
 | `CLAUDE_PLUGIN_DATA` | Set by Claude Code for hooks. The directory holds `sessions/`, `decisions.jsonl` and `gateway.log`.     |
+
+The gateway keeps the directory bounded. Above 20 MB, `decisions.jsonl` moves
+to `decisions.jsonl.1` (checked every hour), and `gateway.log` moves to
+`gateway.log.1` when a gateway starts. One previous generation is kept. Session
+files unused for 30 days are removed.

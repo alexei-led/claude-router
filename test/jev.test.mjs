@@ -10,7 +10,13 @@ function fakeFetch(responses) {
   const fn = async (url, init) => {
     calls.push({ url, init });
     const next = responses.shift();
-    return { ok: next.status === 200, status: next.status, json: async () => next.body };
+    if (next instanceof Error) throw next;
+    return {
+      ok: next.status === 200,
+      status: next.status,
+      headers: new Headers(next.headers ?? {}),
+      json: async () => next.body,
+    };
   };
   return { fn, calls };
 }
@@ -64,6 +70,42 @@ test('gives up when the budget is spent', async () => {
     { status: 200, body: GOOD },
   ]);
   await assert.rejects(askJev({ fetchFn: fn, config, apiKey: 'k', prompt: 'p', turns: [], now }), /timeout/);
+});
+
+test('retries once after a network error', async () => {
+  const noWait = async () => {};
+  const flaky = fakeFetch([new TypeError('fetch failed'), { status: 200, body: GOOD }]);
+  const advice = await askJev({ fetchFn: flaky.fn, config, apiKey: 'k', prompt: 'p', turns: [], sleep: noWait });
+  assert.equal(advice.choice, 'high');
+  assert.equal(flaky.calls.length, 2);
+  const down = fakeFetch([new TypeError('fetch failed'), new TypeError('fetch failed')]);
+  await assert.rejects(
+    askJev({ fetchFn: down.fn, config, apiKey: 'k', prompt: 'p', turns: [], sleep: noWait }),
+    /jev unreachable: fetch failed/,
+  );
+});
+
+test('waits for Retry-After when it fits the budget and gives up at once when it does not', async () => {
+  let t = 0;
+  const now = () => t;
+  const sleep = async (ms) => {
+    t += ms;
+  };
+  const soon = fakeFetch([
+    { status: 429, headers: { 'retry-after': '0.5' } },
+    { status: 200, body: GOOD },
+  ]);
+  assert.equal(
+    (await askJev({ fetchFn: soon.fn, config, apiKey: 'k', prompt: 'p', turns: [], now, sleep })).choice,
+    'high',
+  );
+  assert.equal(t, 500);
+  const late = fakeFetch([{ status: 429, headers: { 'retry-after': '30' } }]);
+  await assert.rejects(
+    askJev({ fetchFn: late.fn, config, apiKey: 'k', prompt: 'p', turns: [], now, sleep }),
+    /retry-after beyond the budget/,
+  );
+  assert.equal(late.calls.length, 1);
 });
 
 for (const [name, body] of [

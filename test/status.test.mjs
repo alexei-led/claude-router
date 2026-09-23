@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { loadConfig } from '../lib/config.mjs';
-import { statusReport, statusSegment, statusSnapshot } from '../lib/status.mjs';
+import { isOlderVersion, statusReport, statusSegment, statusSnapshot } from '../lib/status.mjs';
 
 const config = loadConfig({ env: { TYPESAFE_API_KEY: 'secret-key' } });
 const lastTurn = {
@@ -25,7 +25,7 @@ test('the snapshot lists the routes and never carries the key', () => {
 });
 
 for (const [name, status, expected] of [
-  ['gateway down', null, 'router: gateway down'],
+  ['gateway off', null, 'router: gateway off, the next prompt starts it'],
   ['no turn yet', statusSnapshot(config, null), 'router: no turn yet'],
   ['last turn', statusSnapshot(config, lastTurn), 'router ▸ opus-5-5 · xhigh'],
   [
@@ -43,5 +43,24 @@ test('the report shows the routes and the last turn', () => {
   assert.match(report, /Jev routing: active/);
   assert.match(report, /Last turn: high → claude-opus-5-5 at xhigh, reason upgrade, context 120000 tokens/);
   assert.match(statusReport(statusSnapshot(config, null)), /No routed turn/);
-  assert.match(statusReport(null), /does not answer/);
+  assert.match(statusReport(null), /not running\. The next prompt starts it/);
 });
+
+test('the report says when Jev is paused and when there is no key', () => {
+  const paused = statusReport({ ...statusSnapshot(config, null), jevPausedUntil: '2026-09-23T10:00:00.000Z' });
+  assert.match(paused, /Jev routing: paused after repeated failures, next try at 2026-09-23T10:00:00.000Z/);
+  assert.match(statusReport(statusSnapshot(loadConfig({}), null)), /Jev routing: inactive, no key/);
+});
+
+for (const [running, current, older] of [
+  ['0.3.0', '0.3.1', true],
+  ['0.3.1', '0.3.1', false],
+  ['0.4.0', '0.3.1', false],
+  ['1.0.0', '0.9.9', false],
+  ['0.9.10', '0.10.0', true],
+  [undefined, '0.3.1', true],
+  ['garbage', '0.3.1', true],
+]) {
+  test(`isOlderVersion(${running}, ${current}) is ${older}`, () =>
+    assert.equal(isOlderVersion(running, current), older));
+}
