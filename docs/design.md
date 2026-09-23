@@ -156,7 +156,7 @@ Agreed with Codex on 2026-09-22. The thresholds are start values.
 
 ```
   .claude-plugin/plugin.json   userConfig.typesafe_api_key (Keychain)
-  .claude-plugin/marketplace.json  npm source @alexeiled/claude-router
+  .claude-plugin/marketplace.json  source "./" (this repository)
   hooks/hooks.json             SessionStart -> scripts/ensure-gateway.mjs
   scripts/gateway.mjs          daemon entry
   scripts/ensure-gateway.mjs   port probe, detached spawn
@@ -196,7 +196,12 @@ Agreed with Codex on 2026-09-22. The thresholds are start values.
 
 The repository root is the plugin and the npm package `@alexeiled/claude-router`.
 The marketplace `alexei-led-claude-router` in `.claude-plugin/marketplace.json`
-points at that package. Local development uses `claude --plugin-dir .`.
+points at the repository root (`"source": "./"`), so Claude Code installs the
+plugin from the git clone of the marketplace and never calls npm. An npm source
+fails under npm 12: Claude Code fetches the tarball URL, and npm 12 refuses
+remote tarballs by default (`EALLOWREMOTE`). `claude plugin update` compares
+the `version` in `.claude-plugin/plugin.json`, so each release bumps it. Local
+development uses `claude --plugin-dir .`.
 
 A release is a signed annotated tag `v<version>` on `main`, where the version
 matches `package.json`. The `release.yml` workflow makes sure that the tag is

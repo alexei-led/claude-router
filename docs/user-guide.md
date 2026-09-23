@@ -89,11 +89,6 @@ assistant message in a Claude Code transcript.
 
 ## Troubleshooting
 
-- If `claude plugin install` fails with `code EALLOWREMOTE`, your npm is version
-  12 or later. Claude Code downloads the plugin by tarball URL, and npm 12
-  refuses remote tarballs by default (`allow-remote = "none"`). Run the install
-  with npm 11, for example `fnm exec --using 22 claude plugin install
-router@alexei-led-claude-router`, or set `npm config set allow-remote all`.
 - If Claude Code does not accept `router` as a model, make sure that the
   gateway runs and that `ANTHROPIC_BASE_URL` is set. The command
   `curl http://127.0.0.1:43170/v1/models` lists the alias.
