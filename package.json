@@ -1,7 +1,7 @@
 {
   "name": "@alexeiled/claude-router",
-  "version": "0.2.3",
-  "description": "Claude Code plugin: a local gateway that selects a model and an effort level for each user turn with a TypeSafe Jev Choice.",
+  "version": "0.3.0",
+  "description": "Claude Code plugin: auto-picks the right model and effort for each turn using Jev routing.",
   "license": "MIT",
   "author": "Alexei Ledenev",
   "repository": {

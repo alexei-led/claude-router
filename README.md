@@ -1,10 +1,15 @@
 # claude-router
 
-A Claude Code plugin that selects a model and an effort level for each user turn.
+[![CI](https://github.com/alexei-led/claude-router/actions/workflows/ci.yml/badge.svg)](https://github.com/alexei-led/claude-router/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@alexeiled/claude-router)](https://www.npmjs.com/package/@alexeiled/claude-router)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js ≥22](https://img.shields.io/node/v/@alexeiled/claude-router.svg)](https://nodejs.org/)
+
+A Claude Code plugin that auto-picks the right model and effort for each turn.
 
 A local gateway on `127.0.0.1` receives each request from Claude Code. For a
-new user turn, the gateway asks TypeSafe Jev which tier the turn needs. Then
-the gateway changes `model`, `effort` and `thinking` in the request and sends
+new user turn, the gateway asks Jev (TypeSafe) which tier the turn needs. Then
+the gateway rewrites `model`, `effort` and `thinking` in the request and sends
 it to Anthropic. All other data goes through unchanged. The gateway has no
 runtime dependencies and needs Node 22 or later.
 
@@ -21,14 +26,14 @@ Claude Code  --model router  ──▶  gateway 127.0.0.1:43170  ──▶  api.
    responses go through unchanged; the gateway reads `usage` (context size, cache TTL)
 ```
 
-The tiers are `micro` (haiku), `low` (sonnet, the baseline), `medium` (opus at
-high effort) and `high` (opus at xhigh effort).
+The tiers are `micro` (Haiku), `low` (Sonnet, the baseline), `medium` (Opus at
+high effort) and `high` (Opus at xhigh effort). The exact model IDs are in
+`~/.claude/router.json` and default to the current generation of each family.
 
-A tool continuation is a request whose last message is a `tool_result`. It
-keeps the route of the turn, and the gateway does not ask Jev. Side requests,
-for example session titles, get the baseline tier. A request for any other
-model goes through unchanged. This is how `/router:<tier>` pins and subagents
-with their own `model` work.
+A tool continuation keeps the route of its turn — the gateway does not ask Jev.
+Side requests, for example session titles, get the baseline tier. A request for
+any other model goes through unchanged. This is how `/router:<tier>` pins and
+subagents with their own `model` work.
 
 Module dependencies point in one direction: `gateway.mjs` (HTTP) →
 `router.mjs` (orchestration) → `facts`, `jev`, `policy` → `cost`, `rewrite`,
@@ -44,16 +49,28 @@ Only `store` writes files. The Jev transport is injected.
    claude plugin install router@alexei-led-claude-router
    ```
 
-2. When Claude Code asks, enter the TypeSafe API key. The key goes to the
-   macOS Keychain.
+2. When Claude Code asks, enter the Jev API key from [typesafe.ai](https://typesafe.ai).
+   The key goes to the macOS Keychain and persists across updates.
 3. In Claude Code, run `/router:setup`. It writes `model`,
    `env.ANTHROPIC_BASE_URL` and the `/model` picker row to
    `~/.claude/settings.json`, and offers a status line segment.
 4. Restart Claude Code. `/router:status` shows the routes and the last turn.
 
-The `SessionStart` hook of the plugin starts the gateway when the port does not
-answer. A claude.ai login continues to work: the gateway sends the
-authorization header and the OAuth value of `anthropic-beta` unchanged.
+The `SessionStart` hook starts the gateway when the port does not answer.
+A claude.ai login continues to work: the gateway forwards the authorization
+header and the `anthropic-beta` OAuth value unchanged.
+
+## Update
+
+```sh
+claude plugin update router@alexei-led-claude-router
+pkill -f scripts/gateway.mjs   # stop the old gateway
+```
+
+The next session starts the updated gateway automatically. The Jev API key
+stays in the macOS Keychain — no need to re-enter it. Run `/router:setup` once
+after an update: the status line command path contains the plugin version and
+must be refreshed.
 
 ## Documentation
 

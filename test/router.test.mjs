@@ -76,23 +76,23 @@ test('forced tier and missing key skip Jev', async () => {
 test('recorded usage feeds warmth and compaction detection', async () => {
   const { router } = setup();
   router.recordResponse('s2', 'low', {
-    model: 'claude-sonnet-4-6',
+    model: 'claude-sonnet-5',
     tokens: 50_000,
     cacheReadTokens: 49_000,
     outputTokens: 100,
     ttl: '1h',
   });
   const m = router.memory('s2');
-  assert.equal(m.models['claude-sonnet-4-6'].prefixTokens, 50_100);
+  assert.equal(m.models['claude-sonnet-5'].prefixTokens, 50_100);
   router.recordResponse('s2', 'low', {
-    model: 'claude-sonnet-4-6',
+    model: 'claude-sonnet-5',
     tokens: 10_000,
     cacheReadTokens: 0,
     outputTokens: 10,
     ttl: '1h',
   });
-  assert.deepEqual(Object.keys(router.memory('s2').models), ['claude-sonnet-4-6']);
-  assert.equal(router.memory('s2').models['claude-sonnet-4-6'].prefixTokens, 10_010);
+  assert.deepEqual(Object.keys(router.memory('s2').models), ['claude-sonnet-5']);
+  assert.equal(router.memory('s2').models['claude-sonnet-5'].prefixTokens, 10_010);
 });
 
 test('a context too large for the routed model moves the turn to a model that fits', async () => {
@@ -105,13 +105,13 @@ test('a context too large for the routed model moves the turn to a model that fi
   const large = await router.route(body([user('y')]), { sessionId: 'big', requestClass: 'main' });
   assert.equal(large.tier, 'low');
   assert.equal(large.reason, 'context-fit');
-  assert.equal(large.body.model, 'claude-sonnet-4-6');
+  assert.equal(large.body.model, 'claude-sonnet-5');
 });
 
 test('compaction is sized by the main context; other side requests are not', async () => {
   const { router } = setup({}, { gateway: { auxiliaryTier: 'micro' } });
   router.recordResponse('c', 'low', {
-    model: 'claude-sonnet-4-6',
+    model: 'claude-sonnet-5',
     tokens: 400_000,
     cacheReadTokens: 0,
     outputTokens: 0,

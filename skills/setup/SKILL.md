@@ -13,7 +13,7 @@ Configure Claude Code for the router gateway. Do these steps:
 4. Set these keys in `env`, for the `/model` picker row:
    - `ANTHROPIC_CUSTOM_MODEL_OPTION`: `"router"`
    - `ANTHROPIC_CUSTOM_MODEL_OPTION_NAME`: `"Router (auto)"`
-   - `ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION`: `"Picks Opus 5.5 / Sonnet 4.6 / Haiku 4.5 and the effort for each turn"`
+   - `ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION`: `"Auto-selects the model and effort for each turn"`
 5. Set the key `env.CLAUDE_CODE_MAX_CONTEXT_TOKENS` to `"1000000"`. Claude Code does not know the model `router` and assumes a 200K window without this key. If `~/.claude/router.json` changes `routes` or `models`, use the largest `contextWindow` of the models that the routes use. The gateway sends a turn only to a model whose window holds the context.
 6. Keep every other key unchanged. Write the file.
 7. The status line can show the model and effort of the last routed turn. The command is `node ${CLAUDE_PLUGIN_ROOT}/scripts/statusline.mjs`, followed by the current status line command if there is one (for example `node ${CLAUDE_PLUGIN_ROOT}/scripts/statusline.mjs claude-powerline`). Show the user the current `statusLine` value and the new one, and ask. Change `statusLine.command` only if the user agrees. Keep the other `statusLine` keys.

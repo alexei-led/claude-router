@@ -61,8 +61,7 @@ reason of the last turn in this session.
 The status line wrapper from `/router:setup` adds one line to your status line
 while the session uses the router:
 
-- `router ▸ opus-5-5 · xhigh (high)`: the model, the effort and the tier of the
-  last turn.
+- `router ▸ opus-5-5 · xhigh`: the model and the effort of the last turn.
 - `router: no turn yet`: the session has no routed turn.
 - `router: gateway down`: the gateway does not answer.
 
@@ -97,7 +96,7 @@ assistant message in a Claude Code transcript.
 - If each turn runs on Sonnet, make sure that the key is set. Read the
   `router:` lines in `gateway.log` next to `decisions.jsonl`.
 - If the effort is not what you set, read the `efforts` list of the model. The
-  gateway lowers the effort to a level that the model accepts. Sonnet 4.6 has
-  no `xhigh`. Haiku has no effort and no thinking.
+  gateway lowers the effort to a level that the model accepts. Haiku has no
+  effort and no thinking.
 - To stop the gateway, run `pkill -f scripts/gateway.mjs`. The next session
   starts it again.

@@ -18,8 +18,8 @@ test('high route sets the model and its effort, keeps everything else', () => {
 
 test('a route without effort keeps the client effort, clamped to the family', () => {
   const out = rewriteRequest(body([user('x')], { output_config: { effort: 'xhigh' } }), 'low', config);
-  assert.equal(out.model, 'claude-sonnet-4-6');
-  assert.equal(out.output_config.effort, 'high');
+  assert.equal(out.model, 'claude-sonnet-5');
+  assert.equal(out.output_config.effort, 'xhigh');
 });
 
 test('haiku drops effort and thinking', () => {

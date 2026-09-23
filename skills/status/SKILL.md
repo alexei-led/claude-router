@@ -1,9 +1,10 @@
 ---
 name: status
-description: Show the router routes, the Jev key state, and the model and effort of the last routed turn.
+description: Show which model served the last turn, whether Jev routing is active, and the routing config.
 disable-model-invocation: true
 allowed-tools: Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/status.mjs *)
 ---
+
 Router status:
 
 !`node ${CLAUDE_PLUGIN_ROOT}/scripts/status.mjs ${CLAUDE_SESSION_ID}`

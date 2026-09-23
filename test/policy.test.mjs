@@ -11,7 +11,7 @@ function facts({
   lastRoute = null,
   tokens = 20_000,
   failure = null,
-  servedBy = 'claude-sonnet-4-6',
+  servedBy = 'claude-sonnet-5',
   extraModels = {},
 } = {}) {
   const m = served(servedBy, { tokens, output: 0, at: T0 });

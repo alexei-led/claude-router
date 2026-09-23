@@ -26,7 +26,7 @@ starts it again.
     "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1000000",
     "ANTHROPIC_CUSTOM_MODEL_OPTION": "router",
     "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "Router (auto)",
-    "ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION": "Picks Opus 5.5 / Sonnet 4.6 / Haiku 4.5 and the effort for each turn"
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION": "Picks Opus 5.5 / Sonnet 5 / Haiku 4.5 and the effort for each turn"
   }
 }
 ```
@@ -53,7 +53,7 @@ If you agree, it also wraps the status line command:
 ```
 
 The wrapper runs the command after it, then adds one line for a routed
-session, for example `router ▸ opus-5-5 · xhigh (high)`. Without a command
+session, for example `router ▸ opus-5-5 · xhigh`. Without a command
 after it, it prints only that line. The path contains the plugin version, so
 run `/router:setup` again after a plugin update.
 
@@ -87,12 +87,12 @@ path. Nested objects merge.
   },
   "models": {
     "sonnet": {
-      "id": "claude-sonnet-4-6",
-      "input": 3,
-      "cacheRead": 0.3,
+      "id": "claude-sonnet-5",
+      "input": 2,
+      "cacheRead": 0.2,
       "contextWindow": 1000000,
       "billing": "plan",
-      "efforts": ["low", "medium", "high", "max"]
+      "efforts": ["low", "medium", "high", "xhigh", "max"]
     }
   },
   "policy": {
@@ -122,11 +122,11 @@ frontmatter of `skills/<tier>/SKILL.md`. A test makes sure that they agree.
 
 ### models
 
-| Alias    | ID                  | Input | Cache Read | Window | Billing | Efforts |
-| -------- | ------------------- | ----- | ---------- | ------ | ------- | ------- |
-| `opus`   | `claude-opus-5-5`   | $4    | $0.2       | 1M     | plan    | all     |
-| `sonnet` | `claude-sonnet-4-6` | $3    | $0.3       | 1M     | plan    | low–max |
-| `haiku`  | `claude-haiku-4-5`  | $1    | $0.1       | 200k   | plan    | none    |
+| Alias    | ID                 | Input | Cache Read | Window | Billing | Efforts |
+| -------- | ------------------ | ----- | ---------- | ------ | ------- | ------- |
+| `opus`   | `claude-opus-5-5`  | $4    | $0.2       | 1M     | plan    | all     |
+| `sonnet` | `claude-sonnet-5`  | $2    | $0.2       | 1M     | plan    | low–xhigh–max |
+| `haiku`  | `claude-haiku-4-5` | $1    | $0.1       | 200k   | plan    | none    |
 
 `id` is the model id that the gateway sends to Anthropic. `input` and
 `cacheRead` are list prices in USD per million tokens. `contextWindow` is the

@@ -61,7 +61,7 @@ keeps its route. The baseline is a configuration value.
 | ------ | ------ | ------- | -------------------- |
 | high   | opus   | xhigh   | claude-opus-5-5      |
 | medium | opus   | high    | claude-opus-5-5      |
-| low    | sonnet | as sent | claude-sonnet-4-6    |
+| low    | sonnet | as sent | claude-sonnet-5    |
 | micro  | haiku  | none    | claude-haiku-4-5     |
 
 The gateway lowers the effort to a level that the model family accepts. Sonnet
@@ -141,7 +141,7 @@ Agreed with Codex on 2026-09-22. The thresholds are start values.
 ## Test results (2026-09-22, Max plan, Claude Code 2.1.278)
 
 - Easy prompt: Jev gave `micro` at confidence 1. It was the first vote, so
-  `low` served (`claude-sonnet-4-6`, 103,799 context tokens on the first
+  `low` served (`claude-sonnet-5`, 103,799 context tokens on the first
   request).
 - Hard prompt: Jev gave `high` at 0.66. A cold Fable write cost $1.30 against
   the cap of $0.50 at that time, so `medium` served (`claude-opus-5`). Four

@@ -86,7 +86,7 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
   const models = await (await fetch(`http://127.0.0.1:${port}/v1/models?limit=1000`)).json();
   assert.equal(models.data[0].id, 'router');
   assert.equal(models.data[0].display_name, 'Router (auto)');
-  assert.match(models.data[0].description, /claude-opus-5-5 \/ claude-sonnet-4-6 \/ claude-haiku-4-5/);
+  assert.match(models.data[0].description, /claude-opus-5-5 \/ claude-sonnet-5 \/ claude-haiku-4-5/);
 
   const status = await (await fetch(`http://127.0.0.1:${port}/router/status?session=sess-1`)).json();
   assert.equal(status.keySet, false);
@@ -151,7 +151,7 @@ test('auxiliary responses do not touch memory and a routing error falls back to 
   ).text();
   await new Promise((r) => setTimeout(r, 20));
   assert.equal(JSON.stringify(router.memory('sess-2')), before);
-  assert.equal(seen[1].model, 'claude-sonnet-4-6');
+  assert.equal(seen[1].model, 'claude-sonnet-5');
 
   router.route = async () => {
     throw new Error('boom');
@@ -163,6 +163,6 @@ test('auxiliary responses do not touch memory and a routing error falls back to 
       body: JSON.stringify(body([user('x')])),
     })
   ).text();
-  assert.equal(seen[2].model, 'claude-sonnet-4-6');
+  assert.equal(seen[2].model, 'claude-sonnet-5');
   shutdown(gateway, upstream);
 });
