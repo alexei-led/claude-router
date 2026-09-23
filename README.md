@@ -7,11 +7,17 @@
 
 A Claude Code plugin that auto-picks the right model and effort for each turn.
 
-A local gateway on `127.0.0.1` receives each request from Claude Code. For a
-new user turn, the gateway asks Jev (TypeSafe) which tier the turn needs. Then
-the gateway rewrites `model`, `effort` and `thinking` in the request and sends
-it to Anthropic. All other data goes through unchanged. The gateway has no
-runtime dependencies and needs Node 22 or later.
+**Status: experimental.** I built this to dogfood Jev, TypeSafe's routing
+model, inside Claude Code. It works for me; I don't know yet if it holds up
+outside my setup. Try it and open an issue with what you find.
+
+## Why
+
+One model for every turn is a compromise: strong enough for the hard turns
+and it burns your limits on "rename this variable"; cheap enough for the easy
+turns and it struggles on the hard ones. Switching models by hand works, but
+it is friction you pay on every message. This plugin asks a small router
+model which tier a turn needs and switches for you, automatically.
 
 ## How it works
 
@@ -26,20 +32,23 @@ only requests for `jev-router`:        ├─ facts.mjs    prompt, continuation,
    responses go through unchanged; the gateway reads `usage` (context size, cache TTL)
 ```
 
+A local gateway on `127.0.0.1` receives each request from Claude Code. For a
+new user turn, the gateway asks Jev which tier the turn needs, then rewrites
+`model`, `effort` and `thinking` and sends the request to Anthropic. All other
+data goes through unchanged. No runtime dependencies; Node 22 or later.
+
 The tiers are `micro` (Haiku), `low` (Sonnet, the baseline), `medium` (Opus at
 high effort) and `high` (Opus at xhigh effort). The exact model IDs are in
 `~/.claude/router.json` and default to the current generation of each family.
 
 A tool continuation keeps the route of its turn — the gateway does not ask Jev.
 Side requests, for example session titles, get the baseline tier. A subagent
-that inherits the model gets routing with its own memory. A request for
-any other model goes through unchanged. This is how `/router:<tier>` pins and
+that inherits the model gets routing with its own memory. A request for any
+other model goes through unchanged; this is how `/router:<tier>` pins and
 subagents with their own `model` work.
 
-Module dependencies point in one direction: `gateway.mjs` (HTTP) →
-`router.mjs` (orchestration) → `facts`, `jev`, `policy` → `cost`, `rewrite`,
-`store`. The modules `facts`, `cost`, `rewrite`, `sse` and `policy` are pure.
-Only `store` writes files. The Jev transport is injected.
+See [Architecture](docs/architecture.md) for the module map, the switching
+policy, and a real-usage evaluation.
 
 ## Install
 
@@ -79,14 +88,11 @@ plugin never replaces a newer gateway. The Jev API key stays in the macOS
 Keychain. Run `/router:setup` once after an update: the status line command
 path contains the plugin version.
 
-Updating from 0.3.0 or earlier: these gateways cannot hand over, so stop the
-old one once with `pkill -f scripts/gateway.mjs`.
-
 ## Documentation
 
 - [User guide](docs/user-guide.md): daily use, pins, decision log, troubleshooting.
 - [Configuration](docs/configuration.md): each key, and where the API key and the configuration file are.
-- [Design](docs/design.md): decisions, the switching policy, test results.
+- [Architecture](docs/architecture.md): how the gateway works, the switching policy, a real-usage evaluation.
 
 ## Develop
 
@@ -102,4 +108,4 @@ claude --plugin-dir . --model jev-router   # with ANTHROPIC_BASE_URL and TYPESAF
 Releases: push a signed tag `v<version>` that matches `package.json`. The
 release workflow publishes `@alexeiled/claude-router` to npm with trusted
 publishing and creates the GitHub release. See
-[docs/design.md](docs/design.md#release).
+[docs/architecture.md](docs/architecture.md#release).

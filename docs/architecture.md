@@ -1,4 +1,4 @@
-# Design record
+# Architecture
 
 Each decision has the date when the owner took it.
 
@@ -21,11 +21,16 @@ get the context size, the cache reads and the cache TTL.
 For a model without thinking (Haiku), the gateway also removes the
 `clear_thinking_*` edits from `context_management`, because the API rejects
 them without thinking. The gateway never changes `system`, `tools` or
-`messages`. Thus preserved
-thinking and prompt caching work as if Claude Code talked to Anthropic. Claude
-Code documents this gateway mode, including the OAuth value for a claude.ai
-login. See [llm-gateway](https://code.claude.com/docs/en/llm-gateway) and
+`messages`. Thinking and prompt caching work as if Claude Code talked to
+Anthropic directly. Claude Code documents this gateway mode, including the
+OAuth value for a claude.ai login. See
+[llm-gateway](https://code.claude.com/docs/en/llm-gateway) and
 [protocol](https://code.claude.com/docs/en/llm-gateway-protocol).
+
+Module dependencies point in one direction: `gateway.mjs` (HTTP) →
+`router.mjs` (orchestration) → `facts`, `jev`, `policy` → `cost`, `rewrite`,
+`store`. The modules `facts`, `cost`, `rewrite`, `sse` and `policy` are pure.
+Only `store` writes files. The Jev transport is injected.
 
 The `SessionStart` hook of the plugin starts the gateway when the port does not
 answer. `/router:setup` writes `model`, `ANTHROPIC_BASE_URL` and the picker row to
@@ -38,22 +43,14 @@ is the only place where the real model of the turn is visible.
 
 ### Why not the native skill path
 
-The first design used a `UserPromptSubmit` hook. The hook asked Claude to call
-a tier skill. The frontmatter `model:` and `effort:` of the skill were to serve
-the rest of the turn.
-
-The test on Claude Code 2.1.278 gave this result. A skill that the user types
-(`/router:medium …`) changes the model for the turn. The same skill,
-called by Claude through the Skill tool, does not change the model. The
-transcript records `attributionSkill`, but the session model answers. The test
-ran in three sessions, in auto mode and in `acceptEdits` mode, with Opus and
-Fable targets. The documentation says "when this skill is active". The
-behavior is user invocation only. A feedback report is filed. The skills stay
-as manual pins.
-
-This result also removed the "Sonnet session model" argument from the peer
-review. The gateway has no bootstrap request and no cache drop for a turn that
-keeps its route. The baseline is a configuration value.
+The first design used a `UserPromptSubmit` hook that asked Claude to call a
+tier skill, relying on the skill's frontmatter `model:` and `effort:` to serve
+the rest of the turn. On Claude Code 2.1.278 that only works for a skill the
+user types (`/router:medium …`); the same skill called by Claude through the
+Skill tool does not change the model — the transcript records
+`attributionSkill`, but the session model answers. So `/router:<tier>` skills
+stay as manual pins, and the gateway is the only path that routes turns Claude
+calls on its own.
 
 ## Tiers
 
@@ -64,10 +61,9 @@ keeps its route. The baseline is a configuration value.
 | low    | sonnet | as sent | claude-sonnet-5      |
 | micro  | haiku  | none    | claude-haiku-4-5     |
 
-The gateway lowers the effort to a level that the model family accepts. Sonnet
-4.6 has no `xhigh`. Haiku gets no effort and no adaptive thinking. The ids are
-configuration. `sonnet` is 4.6 because the alias resolved to 4.6 on the test
-account.
+The gateway lowers the effort to a level the model's `efforts` list accepts
+(see [configuration](configuration.md#models)); Haiku accepts none, so it gets
+no effort and no adaptive thinking. The ids are configuration.
 
 ## Request classes
 
@@ -103,7 +99,7 @@ request must not reach the others.
   logged. The routing decision stands.
 - Jev: one retry on a network error or a transient status, after
   `Retry-After` when it fits the 1.5 s budget. After three failures in a row,
-  new turns skip Jev for a minute, then try once.
+  new turns skip Jev for a minute, then try once per pause.
 - The daemon logs a stray exception instead of exiting. On `SIGTERM` it
   releases the port at once and finishes open streams for up to 10 minutes.
   A second daemon on a busy port exits quietly.
@@ -127,18 +123,19 @@ request must not reach the others.
 All inputs come from the traffic of the gateway. The gateway does not read
 transcripts.
 
-| Input                                            | Source                                                                                                                          |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Context of the last request, cache reads, output | `usage` in the response (`message_start` and `message_delta`)                                                                   |
-| Granted TTL                                      | `usage.cache_creation.ephemeral_1h_input_tokens` or the `5m` field                                                              |
-| Cache warmth of a model                          | The time of the last response of that model, plus the TTL, minus 30 s                                                           |
-| Reusable prefix of a model                       | The context plus the output at the last response of that model. Cleared by `x-claude-code-context-compacted`, or when the context shrinks by more than 20% (compaction).|
-| Failure signal                                   | Two `tool_result` blocks with `is_error` and the same signature, with an edit tool call between them                            |
-| Continuation                                     | The last message contains a `tool_result`. For a new prompt, a Jev Noul answers "does this prompt continue the task".           |
+| Input                                            | Source                                                                                                                                                                   |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Context of the last request, cache reads, output | `usage` in the response (`message_start` and `message_delta`)                                                                                                            |
+| Granted TTL                                      | `usage.cache_creation.ephemeral_1h_input_tokens` or the `5m` field                                                                                                       |
+| Cache warmth of a model                          | The time of the last response of that model, plus the TTL, minus 30 s                                                                                                    |
+| Reusable prefix of a model                       | The context plus the output at the last response of that model. Cleared by `x-claude-code-context-compacted`, or when the context shrinks by more than 20% (compaction). |
+| Failure signal                                   | Two `tool_result` blocks with `is_error` and the same signature, with an edit tool call between them                                                                     |
+| Continuation                                     | The last message contains a `tool_result`. For a new prompt, a Jev Noul answers "does this prompt continue the task".                                                    |
 
-Prices are a list-price table in the configuration. `modelPricing` is a
-managed setting and is not readable. The switching tax for a candidate `c`
-against the current route `i` is:
+Prices are a list-price table in the configuration (see
+[configuration](configuration.md#models)). `modelPricing` is a managed setting
+and is not readable. The switching tax for a candidate `c` against the current
+route `i` is:
 
 ```
 input_cost(m) = P_read(m) * W_m + P_write(m) * (N - W_m)
@@ -148,11 +145,11 @@ tax = max(0, input_cost(c) - input_cost(i))
 The subscription economics are not symmetric. Every default model uses the plan
 limits, and dollars give the order between them. A model with `billing:
 "credits"` bills cash, on the 5m TTL, and behind the gateway without the
-consent prompt of Claude Code. `policy.cashCapUsd` ($2 by default) caps the
-cold cache write that the gateway will pay for an automatic route to such a
-model. A Claude Code turn starts at about 100k tokens (system prompt and 159
-tool definitions), so the gate binds on the first switch, not later. No default
-model bills credits; the gate stays for configurations that add one.
+consent prompt of Claude Code. `policy.cashCapUsd` caps the cold cache write
+that the gateway will pay for an automatic route to such a model. A Claude
+Code turn starts at about 100k tokens (system prompt and tool definitions), so
+the gate binds on the first switch, not later. No default model bills
+credits; the gate stays for configurations that add one.
 
 ## Switching policy v0
 
@@ -180,19 +177,28 @@ Agreed with Codex on 2026-09-22. The thresholds are start values.
    and cache reads of each routed response. The memory changes only from
    responses that the gateway sent.
 
-## Test results (2026-09-22, Max plan, Claude Code 2.1.278)
+## Real-world evaluation (2026-09-23)
 
-- Easy prompt: Jev gave `micro` at confidence 1. It was the first vote, so
-  `low` served (`claude-sonnet-5`, 103,799 context tokens on the first
-  request).
-- Hard prompt: Jev gave `high` at 0.66. A cold Fable write cost $1.30 against
-  the cap of $0.50 at that time, so `medium` served (`claude-opus-5`). Four
-  tool continuations kept the route, with cache reads within 1% of the
-  context.
-- Claude Code accepted `message_start.model` with the real model. The status
-  line showed the alias at all times.
-- Cold start: the `SessionStart` hook started the gateway before the first
-  request.
+A day of dogfooding this repository on the installed plugin: 31 Claude Code
+sessions, 1,578 routed requests, one machine. `decisions.jsonl` holds the
+tier, the reason and the token counts for every request — no prompt text.
+
+![Share of requests by tier, and the input-token cost of the same traffic repriced at Opus's rates](tier-share.svg)
+
+82% of turns never needed more than Sonnet, 10% stayed on Haiku, and 8% needed
+Opus. `medium` (Opus at `high` effort) fired once: a confident vote jumps two
+tiers straight to `high` instead of stopping at `medium` (switching policy,
+rule 4).
+
+Repricing that same traffic — same tokens, same observed cache reads — at
+Opus's rates puts the input-token bill 18.8% above what the router actually
+spent. That number covers input tokens only: the price table has no output
+price (see [Cache and cost inputs](#cache-and-cost-inputs)), so it cannot say
+how much of the real saving is left out — likely more, since Haiku and Sonnet
+also bill less per output token than Opus. Answer quality isn't measured
+here either.
+
+One developer, one day: a dogfood snapshot, not a benchmark.
 
 ## Layout
 

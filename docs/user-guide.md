@@ -115,3 +115,6 @@ assistant message in a Claude Code transcript.
 - Rate limits and overload errors from Anthropic (429, 529) reach Claude Code
   unchanged. Claude Code waits and retries; the gateway does not add a second
   layer of retries.
+- Updating from 0.3.0 or earlier: those gateways cannot hand over to a newer
+  one. Stop the old one once with `pkill -f scripts/gateway.mjs`; the next
+  prompt starts the new version.
