@@ -12,9 +12,10 @@ function facts({
   tokens = 20_000,
   failure = null,
   servedBy = 'claude-sonnet-5',
+  effort = null,
   extraModels = {},
 } = {}) {
-  const m = served(servedBy, { tokens, output: 0, at: T0 });
+  const m = served(servedBy, { tokens, output: 0, at: T0, effort });
   return {
     lastRoute,
     lastRequest: m.lastRequest,
@@ -86,13 +87,34 @@ test('a cold metered model above the cash cap routes to the strongest plan tier 
   assert.equal(d.reason, 'cash-gate');
   assert.equal(d.tier, 'low');
   assert.ok(d.estimate.coldUsd > metered.policy.cashCapUsd);
+  assert.equal(d.estimate.cache, 'unknown');
 });
 
-test('a warm metered model passes the cash gate', () => {
-  const warm = served('claude-opus-5-5', { tokens: 100_000, ttl: '5m', at: T0 }).models;
-  const f = facts({ tokens: 100_000, extraModels: warm });
+test('a warm metered model passes the cash gate even when a cold write would not', () => {
+  // 300k at $10/M with the 5m write multiplier: $3.75 cold, above the $2 cap. The warm cache of high's effort passes.
+  const warm = served('claude-opus-5-5', { tokens: 300_000, ttl: '5m', at: T0, effort: 'xhigh' }).models;
+  const f = facts({ tokens: 300_000, extraModels: warm });
   const [d] = runTurns(f, [advice('high', { high: 0.97 })], initialState(), metered);
   assert.equal(d.reason, 'jump');
+  // Warm at another effort is another cache: the guard still applies.
+  const otherEffort = served('claude-opus-5-5', { tokens: 300_000, ttl: '5m', at: T0, effort: 'high' }).models;
+  const [guarded] = runTurns(
+    facts({ tokens: 300_000, extraModels: otherEffort }),
+    [advice('high', { high: 0.97 })],
+    initialState(),
+    metered,
+  );
+  assert.equal(guarded.reason, 'cash-gate');
+});
+
+// Regression: medium and high are one model at two efforts; the switch rewrites the messages cache.
+test('an effort-only upgrade pays the switching tax of a new messages cache', () => {
+  const f = facts({ lastRoute: 'medium', servedBy: 'claude-opus-5-5', effort: 'high', tokens: 400_000 });
+  const votes = [advice('high', { high: 0.8, medium: 0.2 }), advice('high', { high: 0.8, medium: 0.2 })];
+  const [, second] = runTurns(f, votes);
+  assert.equal(second.reason, 'upgrade-pending');
+  assert.ok(second.estimate.taxUsd > 3);
+  assert.deepEqual(second.estimate.cache, { candidate: 'unknown', incumbent: 'warm' });
 });
 
 test('downgrade needs mass and two consecutive votes', () => {

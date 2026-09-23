@@ -29,13 +29,20 @@ ANTHROPIC_BASE_URL=http://127.0.0.1:43170 claude --plugin-dir . --model jev-rout
   route stays there for two turns. A repair is an edit between the two errors.
 - An upgrade needs two consecutive votes for a higher tier. A jump of two
   tiers with high confidence happens at once. The required confidence goes up
-  with the cost to read the context again on the new model.
+  with the cost to read the context again on the new model. Opus at `high` and
+  Opus at `xhigh` are two caches: a change of effort rewrites the cached
+  conversation, so `medium` to `high` is not free.
 - A downgrade needs two consecutive confident votes.
-- A cold switch to a model that bills usage credits is refused when the cache
-  write costs more than `policy.cashCapUsd`. Then the strongest plan tier
-  serves the turn. Behind the gateway, Claude Code does not show its consent
-  prompt for these credits, so the cap is the only guard. No default model
-  bills credits; this applies once you add one in `router.json`.
+- When the conversation gets shorter, after a compaction or a rewind, the
+  gateway forgets the cached prefixes, the pending votes and the escalation
+  hold. They were about turns that are no longer in the conversation.
+- The cold-write guard: an automatic switch to a model that bills usage
+  credits is refused when that model's cache is not warm and the first cache
+  write would cost more than `policy.cashCapUsd`. Then the strongest plan tier
+  serves the turn. The guard limits that one estimated write, not the cost of
+  the turn: output is not counted. Behind the gateway, Claude Code does not
+  show its consent prompt for these credits. No default model bills credits;
+  this applies once you add one in `router.json`.
 - When Jev fails or times out, or when there is no key, the baseline tier
   serves the turn. After three failures in a row, new turns skip Jev for one
   minute and then try it once, so an outage costs one slow turn a minute, not
@@ -64,12 +71,19 @@ The gateway sends the real model id unchanged.
 ## See the current route
 
 `/router:status` shows the gateway, the routes, and the model, effort and
-reason of the last turn in this session.
+reason of the last turn in this session. It also says why in words, and for
+a vote it shows the estimate: the probability mass, the bar it had to reach,
+the switching tax and whether each cache was `warm`, `expired` or `unknown`.
+`unknown` means no response for that cache since the session started or the
+conversation got shorter. The dollars are list prices. For plan models they
+are a list-price equivalent, not a charge.
 
 The status line wrapper from `/router:setup` adds one line to your status line
 while the session uses the router:
 
-- `jev-router ▸ opus-5-5 · xhigh`: the model and the effort of the last turn.
+- `jev-router ▸ opus-5-5 · xhigh · upgrade`: the model, the effort and the
+  reason of the last turn. `upgrade-pending` means that Jev asked for a higher
+  tier and the policy held the route back.
 - `router: no turn yet`: the session has no routed turn.
 - `router: gateway off, the next prompt starts it`: the gateway stopped after
   idle time, or it crashed. Either way the next prompt starts it.
@@ -84,13 +98,19 @@ the plugin data directory. The directory is
 by hand, the directory is `$TMPDIR/router/`.
 
 ```sh
-tail -n 20 ~/.claude/plugins/data/router-*/decisions.jsonl | jq -c '{tier, reason, estimate, observed}'
+tail -n 20 ~/.claude/plugins/data/router-*/decisions.jsonl | jq -c '{tier, reason, estimate, shadow, observed}'
 ```
 
 `tier` is the selected tier. `reason` is the rule that decided. The `observed`
 lines carry the model that answered, the context tokens and the cache reads
 from the response. Compare the estimated and the observed cache reads to tune
 the thresholds.
+
+`shadow` is what following Jev's choice instead of the current route would
+cost, at list prices: the next turn, each later turn, and the number of turns
+until a cheaper route repays its cache write. The policy does not read it.
+`historyBreak` lines mark a compaction or a rewind; `cacheReset` lines mark a
+context that shrank by more than a fifth.
 
 `scripts/transcript-models.sh <transcript.jsonl>` shows the model for each
 assistant message in a Claude Code transcript.

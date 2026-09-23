@@ -27,7 +27,18 @@ test('the snapshot lists the routes and never carries the key', () => {
 for (const [name, status, expected] of [
   ['gateway off', null, 'router: gateway off, the next prompt starts it'],
   ['no turn yet', statusSnapshot(config, null), 'jev-router: no turn yet'],
-  ['last turn', statusSnapshot(config, lastTurn), 'jev-router ▸ opus-5-5 · xhigh'],
+  ['last turn', statusSnapshot(config, lastTurn), 'jev-router ▸ opus-5-5 · xhigh · upgrade'],
+  [
+    'a held-back upgrade shows its reason',
+    statusSnapshot(config, {
+      ...lastTurn,
+      lastRoute: 'low',
+      lastReason: 'upgrade-pending',
+      lastEffort: 'high',
+      lastRequest: null,
+    }),
+    'jev-router ▸ sonnet-5 · high · upgrade-pending',
+  ],
   [
     'no observed model, no effort',
     statusSnapshot(config, { lastRoute: 'micro', lastEffort: null, lastRequest: null }),
@@ -42,8 +53,39 @@ test('the report shows the routes and the last turn', () => {
   assert.match(report, /\| medium \| claude-opus-5-5 \| high \|/);
   assert.match(report, /Jev routing: active/);
   assert.match(report, /Last turn: high → claude-opus-5-5 at xhigh, reason upgrade, context 120000 tokens/);
+  assert.match(report, /Why: Jev voted above the current tier/);
   assert.match(statusReport(statusSnapshot(config, null)), /No routed turn/);
   assert.match(statusReport(null), /not running\. The next prompt starts it/);
+});
+
+test('the report explains a held-back upgrade and a cold-write guard with their estimates', () => {
+  const pending = statusReport(
+    statusSnapshot(config, {
+      ...lastTurn,
+      lastReason: 'upgrade-pending',
+      lastEstimate: {
+        taxUsd: 1.234,
+        threshold: 0.866,
+        upgradeMass: 0.8,
+        streak: 2,
+        cache: { candidate: 'unknown', incumbent: 'warm' },
+      },
+    }),
+  );
+  assert.match(pending, /Why: Jev asked for a higher tier/);
+  assert.match(
+    pending,
+    /Estimate: upgrade mass 0\.80 against a bar of 0\.87, switching tax \$1\.23 at list prices, 2 vote\(s\) in a row, cache: candidate unknown, current warm\./,
+  );
+  const guarded = statusReport(
+    statusSnapshot(config, {
+      ...lastTurn,
+      lastReason: 'cash-gate',
+      lastEstimate: { coldUsd: 3.75, cap: 2, cache: 'expired' },
+    }),
+  );
+  assert.match(guarded, /Why: cold-write guard/);
+  assert.match(guarded, /Estimate: cold write \$3\.75 against the cap of \$2\.00, cache expired\./);
 });
 
 test('the report says when Jev is paused and when there is no key', () => {

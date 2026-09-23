@@ -240,3 +240,75 @@ test('the decision log records the agent type', async () => {
   const entry = JSON.parse(readFileSync(join(dataDir, 'decisions.jsonl'), 'utf8').trim().split('\n').at(-1));
   assert.equal(entry.agentType, 'Explore');
 });
+
+// Jev asks for medium at 0.8 every turn: one vote is pending, two consecutive votes upgrade.
+function votingRouter() {
+  const dataDir = mkdtempSync(join(tmpdir(), 'router-'));
+  const fetchFn = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => jevResponse('medium', { medium: 0.8, low: 0.2 }),
+  });
+  const config = loadConfig({ env: { TYPESAFE_API_KEY: 'k' } });
+  const router = new Router({ config, fetchFn, dataDir, now: () => 1_000_000 });
+  const ask = (messages, hints = {}) =>
+    router.route(body(messages), { sessionId: 's', requestClass: 'main', ...hints });
+  const usage = (tokens) => ({ model: 'claude-sonnet-5', tokens, cacheReadTokens: 0, outputTokens: 10, ttl: '1h' });
+  const log = () => readFileSync(join(dataDir, 'decisions.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  return { router, ask, usage, log };
+}
+
+const history = [user('plan the parser'), assistant('plan'), user('write it')];
+
+test('a growing history keeps its votes: the second vote upgrades', async () => {
+  const { ask } = votingRouter();
+  assert.equal((await ask(history)).reason, 'upgrade-pending');
+  assert.equal((await ask([...history, assistant('done'), user('now the lexer')])).reason, 'upgrade');
+});
+
+test('a shorter history (a rewind) drops the votes and the cached prefixes', async () => {
+  const { router, ask, usage, log } = votingRouter();
+  await ask(history);
+  router.recordResponse('s', 'low', usage(50_000), 'high');
+  assert.ok(router.memory('s').models['claude-sonnet-5@high']);
+  const rewound = await ask([user('plan the lexer instead')]);
+  assert.equal(rewound.reason, 'upgrade-pending');
+  assert.equal(router.memory('s').state.votes.length, 1);
+  assert.deepEqual(router.memory('s').models, {});
+  assert.ok(log().some((e) => e.historyBreak === 'shorter-history'));
+});
+
+test('the compaction header drops the votes and the escalation hold', async () => {
+  const { router, ask } = votingRouter();
+  await ask(history);
+  router.memory('s').state = { ...router.memory('s').state, holdUntilTurn: 9, escalatedSignature: 'error: x' };
+  const out = await ask([...history, assistant('ok'), user('go on')], { contextCompacted: 'auto' });
+  assert.equal(out.reason, 'upgrade-pending');
+  const { state } = router.memory('s');
+  assert.deepEqual([state.votes.length, state.holdUntilTurn, state.escalatedSignature], [1, 0, null]);
+});
+
+test('context editing shrinks the context but keeps the messages: only the cached prefixes go', async () => {
+  const { router, ask, usage, log } = votingRouter();
+  await ask(history);
+  router.recordResponse('s', 'low', usage(100_000), 'high');
+  router.recordResponse('s', 'low', usage(10_000), 'high');
+  assert.equal(router.memory('s').models['claude-sonnet-5@high'].prefixTokens, 10_010);
+  assert.ok(log().some((e) => e.cacheReset === 'context-shrink'));
+  assert.equal((await ask([...history, assistant('done'), user('next')])).reason, 'upgrade');
+});
+
+test('a turn logs the shadow economics of following Jev and keeps its estimate for the status', async () => {
+  const { router, ask, usage, log } = votingRouter();
+  await ask(history);
+  router.recordResponse('s', 'low', usage(10_000), 'high');
+  await ask([...history, assistant('done'), user('next')]);
+  const turn = log()
+    .filter((e) => e.shadow)
+    .at(-1);
+  // Medium (Opus) costs more per turn than Sonnet: an upgrade never repays in dollars.
+  assert.ok(turn.shadow.laterTurnUsd > 0);
+  assert.equal(turn.shadow.paybackTurns, null);
+  assert.equal(router.memory('s').lastReason, 'upgrade');
+  assert.ok(router.memory('s').lastEstimate.upgradeMass >= 0.8);
+});

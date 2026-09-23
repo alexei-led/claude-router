@@ -40,10 +40,12 @@ export function memory({ lastRoute = null, models = {}, lastRequest = null, stat
   return { lastRoute, models, lastRequest, state };
 }
 
-export function served(modelId, { tokens = 20_000, output = 500, ttl = '1h', at = T0 } = {}) {
+// `effort` is the effort the gateway sent: the cache key is `<model>@<effort>`, or the model alone without one.
+export function served(modelId, { tokens = 20_000, output = 500, ttl = '1h', at = T0, effort = null } = {}) {
+  const key = effort ? `${modelId}@${effort}` : modelId;
   return {
     lastRequest: { model: modelId, tokens, outputTokens: output, cacheReadTokens: tokens, ttl, at },
-    models: { [modelId]: { lastAt: at, prefixTokens: tokens + output, ttl } },
+    models: { [key]: { lastAt: at, prefixTokens: tokens + output, ttl } },
   };
 }
 

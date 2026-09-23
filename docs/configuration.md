@@ -77,7 +77,7 @@ If you agree, it also wraps the status line command:
 ```
 
 The wrapper runs the command after it, then adds one line for a routed
-session, for example `jev-router ▸ opus-5-5 · xhigh`. Without a command
+session, for example `jev-router ▸ opus-5-5 · xhigh · upgrade`. Without a command
 after it, it prints only that line. The path contains the plugin version, so
 run `/router:setup` again after a plugin update.
 
@@ -88,12 +88,16 @@ hint headers:
   get routing. `auxiliary` and `compaction` are side requests and get
   `gateway.auxiliaryTier`.
 - `x-claude-code-context-compacted` on the first request after a compaction.
-  The gateway then drops the cached prefixes of every model.
+  The gateway then drops the cached prefixes of every model, the pending
+  votes and the escalation hold.
 - `x-claude-code-agent-type`, for example `Explore` or `Plan`. It goes to
   `decisions.jsonl` only.
 
-Without the headers, the gateway identifies side requests by their shape and
-a compaction by a context that shrank by more than 20%.
+Without the headers, the gateway identifies side requests by their shape. A
+main request with fewer messages than the last one is a compaction or a
+rewind, with or without the headers: the gateway drops the same state. A
+context that shrank by more than 20% with no fewer messages is context
+editing; it drops only the cached prefixes.
 
 A subagent with `model: inherit` sends `x-claude-code-agent-id` even without
 the hint headers. Each subagent keeps its own routing memory, so its turns do
@@ -123,6 +127,7 @@ path. Nested objects merge.
     "sonnet": {
       "id": "claude-sonnet-5",
       "input": 2,
+      "output": 10,
       "cacheRead": 0.2,
       "contextWindow": 1000000,
       "billing": "plan",
@@ -156,14 +161,18 @@ frontmatter of `skills/<tier>/SKILL.md`. A test makes sure that they agree.
 
 ### models
 
-| Alias    | ID                 | Input | Cache Read | Window | Max output | Billing | Efforts       |
-| -------- | ------------------ | ----- | ---------- | ------ | ---------- | ------- | ------------- |
-| `opus`   | `claude-opus-5-5`  | $4    | $0.2       | 1M     | as sent    | plan    | all           |
-| `sonnet` | `claude-sonnet-5`  | $2    | $0.2       | 1M     | as sent    | plan    | low–xhigh–max |
-| `haiku`  | `claude-haiku-4-5` | $1    | $0.1       | 200k   | 64k        | plan    | none          |
+| Alias    | ID                 | Input | Output | Cache Read | Window | Max output | Billing | Efforts       |
+| -------- | ------------------ | ----- | ------ | ---------- | ------ | ---------- | ------- | ------------- |
+| `opus`   | `claude-opus-5-5`  | $4    | $20    | $0.2       | 1M     | as sent    | plan    | all           |
+| `sonnet` | `claude-sonnet-5`  | $2    | $10    | $0.2       | 1M     | as sent    | plan    | low–xhigh–max |
+| `haiku`  | `claude-haiku-4-5` | $1    | $5     | $0.1       | 200k   | 64k        | plan    | none          |
 
-`id` is the model id that the gateway sends to Anthropic. `input` and
-`cacheRead` are list prices in USD per million tokens. `contextWindow` is the
+`id` is the model id that the gateway sends to Anthropic. `input`, `output`
+and `cacheRead` are list prices in USD per million tokens. `output` is
+optional and feeds only the `shadow` estimate in `decisions.jsonl`; the policy
+does not read it. The defaults match `test/fixtures/list-prices.json`, which
+names its source and the date it was checked; a test fails when the two
+differ. `contextWindow` is the
 size of the context window in tokens. `maxOutput`, when set, caps the
 `max_tokens` that Claude Code sends; the API rejects a request above the
 model's output limit. `billing` is `plan` for models that use
@@ -180,12 +189,12 @@ effort and thinking from the request.
 | `gateway.auxiliaryTier`                          | The tier for side requests, for example session titles.                                                                                      |
 | `gateway.idleShutdownMs`                         | The gateway exits after this long without requests, when no turn waits for a tool result. Two hours by default; `0` keeps it running.        |
 | `upgradeVotes`                                   | The number of consecutive votes above the current tier before an upgrade of one tier.                                                        |
-| `upgradeBase`, `upgradeSlope`, `upgradePivotUsd` | The required probability mass: `base + slope * tax / (tax + pivot)`. The `tax` is the extra input cost to read the context on the new model. |
+| `upgradeBase`, `upgradeSlope`, `upgradePivotUsd` | The required probability mass: `base + slope * tax / (tax + pivot)`. The `tax` is the extra input cost to read the context on the new route; the cache is per model and effort. |
 | `jumpConfidence`                                 | The mass that lets a jump of two tiers skip the vote delay.                                                                                  |
 | `downgradeVotes`, `downgradeMass`                | The number of consecutive votes, and the mass at or below the candidate, for a downgrade.                                                    |
 | `continuationMass`                               | The Jev probability for "this prompt continues the task" that keeps the current route.                                                       |
 | `escalationHoldTurns`                            | The number of turns to hold one tier up after two failed repairs of the same error.                                                          |
-| `cashCapUsd`                                     | The cold cache-write cost above which the gateway refuses an automatic route to a `credits` model.                                           |
+| `cashCapUsd`                                     | The cold-write guard: the estimated first cache write above which the gateway refuses an automatic route to a `credits` model whose cache is not warm. Not a budget for the turn: output is not counted. |
 
 ## Environment variables
 

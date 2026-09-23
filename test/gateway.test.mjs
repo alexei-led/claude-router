@@ -96,7 +96,8 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
   await new Promise((r) => setTimeout(r, 20));
   const memory = router.memory('sess-1');
   assert.equal(memory.lastRoute, 'medium');
-  assert.equal(memory.models['claude-opus-5-5'].prefixTokens, 142);
+  // The cache is keyed by the model and the effort the gateway sent.
+  assert.equal(memory.models['claude-opus-5-5@high'].prefixTokens, 142);
 
   const passthrough = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
     method: 'POST',

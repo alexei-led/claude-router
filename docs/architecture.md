@@ -82,6 +82,10 @@ no effort and no adaptive thinking. The ids are configuration.
   429, a 529 or a dropped connection.
 - A side endpoint with the alias, such as `/v1/messages/count_tokens`: the
   model of the session's last route. Only `POST /v1/messages` is a turn.
+- A history break: a main request with fewer messages than the last one (a
+  compaction or a rewind), or the header `x-claude-code-context-compacted`.
+  The gateway drops the cached prefixes, the votes and the escalation hold,
+  then routes the request as usual. The route stays until the next decision.
 
 ## Failure handling
 
@@ -127,8 +131,9 @@ transcripts.
 | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Context of the last request, cache reads, output | `usage` in the response (`message_start` and `message_delta`)                                                                                                            |
 | Granted TTL                                      | `usage.cache_creation.ephemeral_1h_input_tokens` or the `5m` field                                                                                                       |
-| Cache warmth of a model                          | The time of the last response of that model, plus the TTL, minus 30 s                                                                                                    |
-| Reusable prefix of a model                       | The context plus the output at the last response of that model. Cleared by `x-claude-code-context-compacted`, or when the context shrinks by more than 20% (compaction). |
+| Cache identity                                   | The model id and the effort the gateway sent (`claude-opus-5-5@xhigh`). An effort change rewrites the messages cache, so each effort is its own cache.                  |
+| Cache warmth                                     | The time of the last response for that cache, plus the TTL, minus 30 s. `unknown` when no response since the session started or the history broke.                      |
+| Reusable prefix                                  | The context plus the output at the last response for that cache. Cleared by a history break, or when the context shrinks by more than 20% (context editing).             |
 | Failure signal                                   | Two `tool_result` blocks with `is_error` and the same signature, with an edit tool call between them                                                                     |
 | Continuation                                     | The last message contains a `tool_result`. For a new prompt, a Jev Noul answers "does this prompt continue the task".                                                    |
 
@@ -145,11 +150,13 @@ tax = max(0, input_cost(c) - input_cost(i))
 The subscription economics are not symmetric. Every default model uses the plan
 limits, and dollars give the order between them. A model with `billing:
 "credits"` bills cash, on the 5m TTL, and behind the gateway without the
-consent prompt of Claude Code. `policy.cashCapUsd` caps the cold cache write
-that the gateway will pay for an automatic route to such a model. A Claude
-Code turn starts at about 100k tokens (system prompt and tool definitions), so
-the gate binds on the first switch, not later. No default model bills
-credits; the gate stays for configurations that add one.
+consent prompt of Claude Code. `policy.cashCapUsd` is a cold-write guard: it
+caps the estimated first cache write of an automatic route to such a model
+when its cache is not warm. It is not a budget: a warm cache passes, and
+output is not counted. A Claude Code turn starts at about 100k tokens (system
+prompt and tool definitions), so the guard binds on the first switch, not
+later. No default model bills credits; the guard stays for configurations that
+add one.
 
 ## Switching policy v0
 
@@ -168,14 +175,51 @@ Agreed with Codex on 2026-09-22. The thresholds are start values.
    `U >= 0.75 + 0.15 * tax / (tax + 0.5)`. A jump of two tiers with
    `U >= 0.95` skips the delay. A downgrade needs `D >= 0.90` and two
    consecutive votes.
-5. Cash gate. An automatic route to a `credits` model needs a warm cache, or a
-   cold write below the cap. Otherwise the strongest `plan` tier serves.
+5. Cold-write guard (reason `cash-gate`). An automatic route to a `credits`
+   model needs a warm cache, or a cold write below the cap. Otherwise the
+   strongest `plan` tier serves.
 6. No cooldown on upgrades. Plan, then execute, then hard again is sometimes
    the correct routing. The log separates reversals from real changes in the
    required capability.
 7. Logs. The tier, the reason, the estimates, and the observed model, tokens
    and cache reads of each routed response. The memory changes only from
    responses that the gateway sent.
+
+## Cache identity, history breaks and shadow economics (2026-09-23)
+
+From a design review with the architect of pi-model-router, the Pi router
+that uses the same Jev tiers.
+
+- Cache identity is the model and the effort. A top-level effort change
+  invalidates the messages cache; the cache-preserving per-message effort is
+  not available on Opus 5.5. Before 0.6.1 the key was the model alone, so
+  `medium` ↔ `high` (Opus at `high` and `xhigh`) looked like a free switch
+  between warm caches.
+- A history break (fewer messages, or the compaction header) drops the cached
+  prefixes, the votes and the escalation hold: they were about turns that are
+  gone. Context editing shrinks the context but keeps the messages; it drops
+  only the prefixes. The gateway has no branch id, so it does not restore state
+  from before a rewind; `unknown` is the honest cache state after one.
+- `/router:status` and the status line show the reason; the report adds the
+  estimate. The dollars are list prices, a list-price equivalent for plan
+  models.
+- Shadow economics in `decisions.jsonl`, not read by the policy: for a turn
+  where Jev's choice differs from the current route, the extra cost of the
+  next turn, the difference for each later turn (input and output), and the
+  turns until a cheaper route repays its cache write. The owner's first
+  request (2026-09-22) was to stay while the model works on a warm cache and
+  to step down once the thinking is done. Rule 2 covers the first half; the
+  shadow estimate measures the second before any rule acts on it.
+- The default prices match `test/fixtures/list-prices.json`, which names its
+  source and date. A test pins how a tenfold cache-read error changes one
+  decision: the bar moves within `upgradeBase` and `upgradeBase +
+  upgradeSlope`, and a confident jump ignores it. That error happened once
+  (a838f7c).
+
+Not taken: the agent type as a routing signal; a payback check on downgrades
+before shadow data; removing the switching tax from the upgrade bar before a
+replay of the logs. The Pi router rejects the tax-to-confidence formula
+because it mixes dollars with an uncalibrated probability; the replay decides.
 
 ## Real-world evaluation (2026-09-23)
 
@@ -215,7 +259,7 @@ One developer, one day: a dogfood snapshot, not a benchmark.
   lib/config.mjs               defaults, user file, validation
   lib/facts.mjs                request body and memory -> facts (pure)
   lib/jev.mjs                  request, injected transport, parse
-  lib/cost.mjs                 warmth, input cost, switching tax
+  lib/cost.mjs                 cache key, warmth, input cost, switching tax, shadow economics
   lib/policy.mjs               switching policy v0
   lib/rewrite.mjs              model, effort, thinking per model family
   lib/sse.mjs                  usage reader for SSE and JSON bodies
@@ -238,8 +282,16 @@ One developer, one day: a dogfood snapshot, not a benchmark.
 - The gateway reads the configuration once. A reload without a restart is not
   implemented.
 - Without `CLAUDE_CODE_GATEWAY_HINT_HEADERS=1`, the gateway guesses side
-  requests and compactions from the body; the guesses miss some.
+  requests from the body; the guesses miss some. A missed side request with
+  a short history also counts as a history break.
 - `x-claude-code-agent-type` is logged, not used: no policy rule reads it yet.
+- Does a downgrade that the shadow estimate says never repays deserve a rule,
+  and does the switching tax belong in the upgrade bar? A replay of
+  `decisions.jsonl` against the `shadow` and `observed` lines decides.
+- Effort changes how much a model writes. The shadow estimate uses the last
+  output size for both routes.
+- Whether tools and system survive an effort change is model-specific; the
+  gateway counts the whole prefix as lost, an upper bound.
 
 ## Release
 
