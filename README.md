@@ -22,7 +22,7 @@ Claude Code  --model router  ──▶  gateway 127.0.0.1:43170  ──▶  api.
 ```
 
 The tiers are `micro` (haiku), `low` (sonnet, the baseline), `medium` (opus at
-high effort) and `high` (fable at xhigh effort).
+high effort) and `high` (opus at xhigh effort).
 
 A tool continuation is a request whose last message is a `tool_result`. It
 keeps the route of the turn, and the gateway does not ask Jev. Side requests,

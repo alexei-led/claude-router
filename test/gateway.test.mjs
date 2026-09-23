@@ -10,10 +10,18 @@ import { Router } from '../lib/router.mjs';
 import { body, user } from './helpers.mjs';
 
 const SSE =
-  'event: message_start\ndata: {"type":"message_start","message":{"model":"claude-opus-5","usage":{"input_tokens":10,"cache_read_input_tokens":90,"output_tokens":1}}}\n\nevent: message_delta\ndata: {"type":"message_delta","usage":{"output_tokens":42}}\n\n';
+  'event: message_start\ndata: {"type":"message_start","message":{"model":"claude-opus-5-5","usage":{"input_tokens":10,"cache_read_input_tokens":90,"output_tokens":1}}}\n\nevent: message_delta\ndata: {"type":"message_delta","usage":{"output_tokens":42}}\n\n';
 
 function listen(server) {
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve(server.address().port)));
+}
+
+// fetch keeps its sockets alive, and close() alone waits for them: the process would never exit.
+function shutdown(...servers) {
+  for (const server of servers) {
+    server.closeAllConnections();
+    server.close();
+  }
 }
 
 test('routed requests are rewritten, headers forwarded, responses piped verbatim, usage recorded', async () => {
@@ -56,7 +64,7 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('x-upstream'), 'yes');
   assert.equal(text, SSE);
-  assert.equal(seen[0].body.model, 'claude-opus-5');
+  assert.equal(seen[0].body.model, 'claude-opus-5-5');
   assert.equal(seen[0].body.output_config.effort, 'high');
   assert.equal(seen[0].headers.authorization, 'Bearer secret');
   assert.equal(seen[0].headers['anthropic-beta'], 'oauth-2025-04-20');
@@ -65,7 +73,7 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
   await new Promise((r) => setTimeout(r, 20));
   const memory = router.memory('sess-1');
   assert.equal(memory.lastRoute, 'medium');
-  assert.equal(memory.models['claude-opus-5'].prefixTokens, 142);
+  assert.equal(memory.models['claude-opus-5-5'].prefixTokens, 142);
 
   const passthrough = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
     method: 'POST',
@@ -77,8 +85,7 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
 
   const models = await (await fetch(`http://127.0.0.1:${port}/v1/models?limit=1000`)).json();
   assert.equal(models.data[0].id, 'router');
-  gateway.close();
-  upstream.close();
+  shutdown(gateway, upstream);
 });
 
 test('an unreachable upstream answers 502', async () => {
@@ -88,7 +95,7 @@ test('an unreachable upstream answers 502', async () => {
   const port = await listen(gateway);
   const res = await fetch(`http://127.0.0.1:${port}/v1/messages`, { method: 'POST', body: '{}' });
   assert.equal(res.status, 502);
-  gateway.close();
+  shutdown(gateway);
 });
 
 test('auxiliary responses do not touch memory and a routing error falls back to the baseline', async () => {
@@ -146,6 +153,5 @@ test('auxiliary responses do not touch memory and a routing error falls back to 
     })
   ).text();
   assert.equal(seen[2].model, 'claude-sonnet-4-6');
-  gateway.close();
-  upstream.close();
+  shutdown(gateway, upstream);
 });

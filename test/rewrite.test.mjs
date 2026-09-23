@@ -9,7 +9,7 @@ const config = loadConfig({});
 test('high route sets the model and its effort, keeps everything else', () => {
   const b = body([user('x')]);
   const out = rewriteRequest(b, 'high', config);
-  assert.equal(out.model, 'claude-fable-5-1');
+  assert.equal(out.model, 'claude-opus-5-5');
   assert.deepEqual(out.output_config, { effort: 'xhigh' });
   assert.deepEqual(out.thinking, { type: 'adaptive' });
   assert.equal(out.messages, b.messages);

@@ -28,17 +28,18 @@ ANTHROPIC_BASE_URL=http://127.0.0.1:43170 claude --plugin-dir . --model router
   tiers with high confidence happens at once. The required confidence goes up
   with the cost to read the context again on the new model.
 - A downgrade needs two consecutive confident votes.
-- A cold switch to Fable is refused when the cache write costs more than
-  `policy.cashCapUsd`. Then Opus serves the turn. Fable bills usage credits.
-  Behind the gateway, Claude Code does not show its consent prompt for these
-  credits. The cap is the only guard.
+- A cold switch to a model that bills usage credits is refused when the cache
+  write costs more than `policy.cashCapUsd`. Then the strongest plan tier
+  serves the turn. Behind the gateway, Claude Code does not show its consent
+  prompt for these credits, so the cap is the only guard. No default model
+  bills credits; this applies once you add one in `router.json`.
 - When Jev fails or times out, or when there is no key, the baseline tier
   serves the turn.
 - Jev receives the prompt and the last six turns of text. Tool results are not
   sent. No other data leaves the machine, except the usual Anthropic request.
 
 A Claude Code turn starts at about 100k tokens of system prompt and tool
-definitions. A cold Fable cache write costs about $1.25 before any history.
+definitions, so the first switch to a model is the expensive one.
 
 ## Pin a tier by hand
 
@@ -77,7 +78,7 @@ assistant message in a Claude Code transcript.
   12 or later. Claude Code downloads the plugin by tarball URL, and npm 12
   refuses remote tarballs by default (`allow-remote = "none"`). Run the install
   with npm 11, for example `fnm exec --using 22 claude plugin install
-  router@alexei-led-claude-router`, or set `npm config set allow-remote all`.
+router@alexei-led-claude-router`, or set `npm config set allow-remote all`.
 - If Claude Code does not accept `router` as a model, make sure that the
   gateway runs and that `ANTHROPIC_BASE_URL` is set. The command
   `curl http://127.0.0.1:43170/v1/models` lists the alias.

@@ -30,7 +30,7 @@ const GOOD = {
 test('request carries every tier with its route, an uncertain option and a continuation question', () => {
   const body = buildRequest(config, 'do x', [{ role: 'user', text: 'hi' }]);
   assert.deepEqual(Object.keys(body.questions.route.criteria), ['micro', 'low', 'medium', 'high', 'uncertain']);
-  assert.deepEqual(body.questions.route.criteria.high.route, { model: 'fable', effort: 'xhigh' });
+  assert.deepEqual(body.questions.route.criteria.high.route, { model: 'opus', effort: 'xhigh' });
   assert.equal(body.questions.continuation.type, 'noul');
   assert.equal(body.state.currentRequest.text, 'do x');
 });

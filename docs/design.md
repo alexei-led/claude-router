@@ -49,12 +49,12 @@ keeps its route. The baseline is a configuration value.
 
 ## Tiers
 
-| Tier   | model  | effort   | id sent to Anthropic |
-| ------ | ------ | -------- | -------------------- |
-| high   | fable  | xhigh    | claude-fable-5-1     |
-| medium | opus   | high     | claude-opus-5        |
-| low    | sonnet | as sent  | claude-sonnet-4-6    |
-| micro  | haiku  | none     | claude-haiku-4-5     |
+| Tier   | model  | effort  | id sent to Anthropic |
+| ------ | ------ | ------- | -------------------- |
+| high   | opus   | xhigh   | claude-opus-5-5      |
+| medium | opus   | high    | claude-opus-5-5      |
+| low    | sonnet | as sent | claude-sonnet-4-6    |
+| micro  | haiku  | none    | claude-haiku-4-5     |
 
 The gateway lowers the effort to a level that the model family accepts. Sonnet
 4.6 has no `xhigh`. Haiku gets no effort and no adaptive thinking. The ids are
@@ -77,14 +77,14 @@ account.
 All inputs come from the traffic of the gateway. The gateway does not read
 transcripts.
 
-| Input | Source |
-| ----- | ------ |
-| Context of the last request, cache reads, output | `usage` in the response (`message_start` and `message_delta`) |
-| Granted TTL | `usage.cache_creation.ephemeral_1h_input_tokens` or the `5m` field |
-| Cache warmth of a model | The time of the last response of that model, plus the TTL, minus 30 s |
-| Reusable prefix of a model | The context plus the output at the last response of that model. Cleared when the context shrinks by more than 20% (compaction). |
-| Failure signal | Two `tool_result` blocks with `is_error` and the same signature, with an edit tool call between them |
-| Continuation | The last message contains a `tool_result`. For a new prompt, a Jev Noul answers "does this prompt continue the task". |
+| Input                                            | Source                                                                                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Context of the last request, cache reads, output | `usage` in the response (`message_start` and `message_delta`)                                                                   |
+| Granted TTL                                      | `usage.cache_creation.ephemeral_1h_input_tokens` or the `5m` field                                                              |
+| Cache warmth of a model                          | The time of the last response of that model, plus the TTL, minus 30 s                                                           |
+| Reusable prefix of a model                       | The context plus the output at the last response of that model. Cleared when the context shrinks by more than 20% (compaction). |
+| Failure signal                                   | Two `tool_result` blocks with `is_error` and the same signature, with an edit tool call between them                            |
+| Continuation                                     | The last message contains a `tool_result`. For a new prompt, a Jev Noul answers "does this prompt continue the task".           |
 
 Prices are a list-price table in the configuration. `modelPricing` is a
 managed setting and is not readable. The switching tax for a candidate `c`
@@ -95,12 +95,14 @@ input_cost(m) = P_read(m) * W_m + P_write(m) * (N - W_m)
 tax = max(0, input_cost(c) - input_cost(i))
 ```
 
-The subscription economics are not symmetric. Sonnet, Opus and Haiku use the
-plan limits. Dollars give the order between them. Fable bills usage credits in
-cash, on the 5m TTL, and behind the gateway without the consent prompt of
-Claude Code. A Claude Code turn starts at about 100k tokens (system prompt and
-159 tool definitions). A cold Fable write costs about $1.25 before any history.
-`policy.cashCapUsd` is $2 by default.
+The subscription economics are not symmetric. Every default model uses the plan
+limits, and dollars give the order between them. A model with `billing:
+"credits"` bills cash, on the 5m TTL, and behind the gateway without the
+consent prompt of Claude Code. `policy.cashCapUsd` ($2 by default) caps the
+cold cache write that the gateway will pay for an automatic route to such a
+model. A Claude Code turn starts at about 100k tokens (system prompt and 159
+tool definitions), so the gate binds on the first switch, not later. No default
+model bills credits; the gate stays for configurations that add one.
 
 ## Switching policy v0
 

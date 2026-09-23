@@ -26,15 +26,18 @@ function facts({
   };
 }
 
-function runTurns(f, advices, state = initialState()) {
+function runTurns(f, advices, state = initialState(), cfg = config) {
   const out = [];
   for (const a of advices) {
-    const d = decide({ config, facts: f, advice: a, state, baseline: 'low', now: NOW });
+    const d = decide({ config: cfg, facts: f, advice: a, state, baseline: 'low', now: NOW });
     state = d.state;
     out.push(d);
   }
   return out;
 }
+
+// No default model bills credits, so the cash gate is inert until a user adds one in router.json.
+const metered = loadConfig({ userFile: { models: { opus: { billing: 'credits', input: 10 } } } });
 
 test('mass helpers exclude uncertain', () => {
   const p = { micro: 0.1, low: 0.2, medium: 0.3, high: 0.3, uncertain: 0.1 };
@@ -78,16 +81,17 @@ test('the upgrade threshold rises with the switching tax', () => {
   assert.ok(pending.estimate.threshold > 0.8);
 });
 
-test('cold Fable above the cash cap routes to the strongest plan tier instead', () => {
-  const [d] = runTurns(facts({ tokens: 300_000 }), [advice('high', { high: 0.97 })]);
+test('a cold metered model above the cash cap routes to the strongest plan tier instead', () => {
+  const [d] = runTurns(facts({ tokens: 300_000 }), [advice('high', { high: 0.97 })], initialState(), metered);
   assert.equal(d.reason, 'cash-gate');
-  assert.equal(d.tier, 'medium');
-  assert.ok(d.estimate.coldUsd > config.policy.cashCapUsd);
+  assert.equal(d.tier, 'low');
+  assert.ok(d.estimate.coldUsd > metered.policy.cashCapUsd);
 });
 
-test('warm Fable passes the cash gate', () => {
-  const warm = served('claude-fable-5-1', { tokens: 100_000, ttl: '5m', at: T0 }).models;
-  const [d] = runTurns(facts({ tokens: 100_000, extraModels: warm }), [advice('high', { high: 0.97 })]);
+test('a warm metered model passes the cash gate', () => {
+  const warm = served('claude-opus-5-5', { tokens: 100_000, ttl: '5m', at: T0 }).models;
+  const f = facts({ tokens: 100_000, extraModels: warm });
+  const [d] = runTurns(f, [advice('high', { high: 0.97 })], initialState(), metered);
   assert.equal(d.reason, 'jump');
 });
 

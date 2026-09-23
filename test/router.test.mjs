@@ -28,7 +28,7 @@ test('a new turn asks Jev once, rewrites the model and remembers the route', asy
   const { router, calls, dataDir } = setup();
   const out = await router.route(body([user('design the auth flow')]), { sessionId: 's1', requestClass: 'main' });
   assert.equal(out.tier, 'high');
-  assert.equal(out.body.model, 'claude-fable-5-1');
+  assert.equal(out.body.model, 'claude-opus-5-5');
   assert.equal(calls.length, 1);
   assert.equal(calls[0].state.currentRequest.text, 'design the auth flow');
   const saved = JSON.parse(readFileSync(join(dataDir, 'sessions', 's1.json'), 'utf8'));

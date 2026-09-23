@@ -32,7 +32,7 @@ test('api key comes from TYPESAFE_API_KEY only', () => {
 
 for (const [name, userFile, message] of [
   ['unknown route model', { routes: { high: { model: 'gpt' } } }, /not in models/],
-  ['bad effort', { routes: { high: { model: 'fable', effort: 'ultra' } } }, /effort/],
+  ['bad effort', { routes: { high: { model: 'opus', effort: 'ultra' } } }, /effort/],
   ['negative price', { models: { opus: { input: -1 } } }, /input/],
   ['bad efforts list', { models: { opus: { efforts: ['huge'] } } }, /efforts/],
   ['mass above 1', { policy: { downgradeMass: 1.5 } }, /downgradeMass/],
