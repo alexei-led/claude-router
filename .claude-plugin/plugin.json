@@ -1,6 +1,6 @@
 {
   "name": "router",
-  "displayName": "Router",
+  "displayName": "jev-router",
   "version": "0.4.2",
   "description": "Auto-picks the right Claude model for each turn — small models for quick edits, mid-tier for code, frontier for hard problems. Uses Jev to classify each request.",
   "author": { "name": "Alexei Ledenev", "url": "https://github.com/alexei-led" },
