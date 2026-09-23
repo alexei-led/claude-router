@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { loadConfig } from '../lib/config.mjs';
-import { decide, initialState, massAbove, massAtOrBelow } from '../lib/policy.mjs';
+import { decide, fitTier, initialState, massAbove, massAtOrBelow } from '../lib/policy.mjs';
 import { advice, served, T0 } from './helpers.mjs';
 
 const config = loadConfig({});
@@ -126,4 +126,19 @@ test('repeated failure escalates one tier and holds, once per signature', () => 
   assert.notEqual(turns[3].reason, 'hold');
   assert.equal(turns[3].state.escalatedSignature, 'error: tests failed');
   assert.equal(turns[0].tier, 'medium');
+});
+
+test('fitTier climbs past models whose window the context would overflow', () => {
+  const cases = [
+    { tier: 'micro', tokens: 100_000, want: 'micro' }, // Haiku 200K holds it
+    { tier: 'micro', tokens: 170_000, want: 'low' }, // above 80% of Haiku's window
+    { tier: 'high', tokens: 900_000, want: 'high' },
+  ];
+  for (const { tier, tokens, want } of cases) assert.equal(fitTier(config, tier, tokens), want, `${tier} @ ${tokens}`);
+});
+
+test('fitTier looks down, then to the largest window, when no higher route fits', () => {
+  const cfg = loadConfig({ userFile: { routes: { high: { model: 'haiku' }, medium: { model: 'haiku' } } } });
+  assert.equal(fitTier(cfg, 'high', 500_000), 'low');
+  assert.equal(fitTier(cfg, 'micro', 5_000_000), 'low');
 });

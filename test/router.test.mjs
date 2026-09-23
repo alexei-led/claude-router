@@ -94,3 +94,31 @@ test('recorded usage feeds warmth and compaction detection', async () => {
   assert.deepEqual(Object.keys(router.memory('s2').models), ['claude-sonnet-4-6']);
   assert.equal(router.memory('s2').models['claude-sonnet-4-6'].prefixTokens, 10_010);
 });
+
+test('a context too large for the routed model moves the turn to a model that fits', async () => {
+  const { router } = setup({ ROUTER_FORCE_TIER: 'micro' });
+  const usage = (tokens) => ({ model: 'claude-haiku-4-5', tokens, cacheReadTokens: 0, outputTokens: 1_000, ttl: '1h' });
+  router.recordResponse('big', 'micro', usage(100_000));
+  const small = await router.route(body([user('x')]), { sessionId: 'big', requestClass: 'main' });
+  assert.equal(small.tier, 'micro');
+  router.recordResponse('big', 'micro', usage(190_000));
+  const large = await router.route(body([user('y')]), { sessionId: 'big', requestClass: 'main' });
+  assert.equal(large.tier, 'low');
+  assert.equal(large.reason, 'context-fit');
+  assert.equal(large.body.model, 'claude-sonnet-4-6');
+});
+
+test('compaction is sized by the main context; other side requests are not', async () => {
+  const { router } = setup({}, { gateway: { auxiliaryTier: 'micro' } });
+  router.recordResponse('c', 'low', {
+    model: 'claude-sonnet-4-6',
+    tokens: 400_000,
+    cacheReadTokens: 0,
+    outputTokens: 0,
+    ttl: '1h',
+  });
+  const compaction = await router.route(body([user('summarize')]), { sessionId: 'c', requestClass: 'compaction' });
+  assert.equal(compaction.tier, 'low');
+  const title = await router.route(body([user('title?')]), { sessionId: 'c', requestClass: 'auxiliary' });
+  assert.equal(title.tier, 'micro');
+});

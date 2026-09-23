@@ -23,6 +23,7 @@ starts it again.
   "model": "router",
   "env": {
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:43170",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1000000",
     "ANTHROPIC_CUSTOM_MODEL_OPTION": "router",
     "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "Router (auto)",
     "ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION": "Picks Opus 5.5 / Sonnet 4.6 / Haiku 4.5 and the effort for each turn"
@@ -32,6 +33,13 @@ starts it again.
 
 The three `ANTHROPIC_CUSTOM_MODEL_OPTION*` keys add a `Router (auto)` row to
 the `/model` picker.
+
+Claude Code does not know the model `router`, so it assumes a 200K window.
+`CLAUDE_CODE_MAX_CONTEXT_TOKENS` declares the real window: the largest
+`contextWindow` of the routed models, 1M by default. The gateway sends a turn
+only to a model whose window holds the context with room to spare (80%). A
+large session skips Haiku (200K) and goes to Sonnet or Opus. The
+`/router:status` reason for such a turn is `context-fit`.
 
 If you agree, it also wraps the status line command:
 
