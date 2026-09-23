@@ -6,7 +6,7 @@
 | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | TypeSafe API key                | `TYPESAFE_API_KEY` in the environment of the gateway                                                                                                                                                 | One name in all places. The key is never in a file.                                                      |
 | The key for an installed plugin | The plugin option `typesafe_api_key`. Claude Code asks for it when you enable the plugin and stores it in the macOS Keychain. The `SessionStart` hook gives it to the gateway as `TYPESAFE_API_KEY`. | Claude Code exports plugin options as `CLAUDE_PLUGIN_OPTION_<KEY>`. The gateway does not read that name. |
-| Claude Code settings            | `~/.claude/settings.json`: `model`, `env.ANTHROPIC_BASE_URL`, the picker row, the status line. `/router:setup` writes them.                                                                          | Claude Code reads the base URL at start. A plugin cannot set it.                                         |
+| Claude Code settings            | `~/.claude/settings.json`: `model`, `env.ANTHROPIC_BASE_URL`, the `modelPicker` row, the status line. `/router:setup` writes them.                                                                   | Claude Code reads the base URL at start. A plugin cannot set it.                                         |
 | Routing configuration           | `~/.claude/router.json`, user scope only                                                                                                                                                             | A cloned repository must not change your routing or your spend.                                          |
 
 The gateway ignores project files. To use another file, set
@@ -23,16 +23,30 @@ starts it again.
   "model": "router",
   "env": {
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:43170",
-    "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1000000",
-    "ANTHROPIC_CUSTOM_MODEL_OPTION": "router",
-    "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "Router (auto)",
-    "ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION": "Picks Opus 5.5 / Sonnet 5 / Haiku 4.5 and the effort for each turn"
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "1000000"
+  },
+  "modelPicker": {
+    "options": [
+      {
+        "model": "router",
+        "label": "Router (auto)",
+        "description": "Auto-selects the model and effort for each turn",
+        "behavesAs": "claude-opus-5-5"
+      }
+    ]
   }
 }
 ```
 
-The three `ANTHROPIC_CUSTOM_MODEL_OPTION*` keys add a `Router (auto)` row to
-the `/model` picker.
+The `modelPicker` row adds `Router (auto)` to the `/model` picker, next to the
+built-in rows. `behavesAs` maps `router` to a model that Claude Code knows.
+Without it, Claude Code rejects `router` because the model is not in its
+catalog. Setup also removes the `ANTHROPIC_CUSTOM_MODEL_OPTION*` keys that
+older versions wrote.
+
+Setup writes the file as its last step. Restart Claude Code after it. Until
+the restart, the session sends `router` to Anthropic and shows "There's an
+issue with the selected model (router)".
 
 Claude Code does not know the model `router`, so it assumes a 200K window.
 `CLAUDE_CODE_MAX_CONTEXT_TOKENS` declares the real window: the largest
