@@ -22,7 +22,8 @@ starts it again.
 {
   "model": "jev-router[1m]",
   "env": {
-    "ANTHROPIC_BASE_URL": "http://127.0.0.1:43170"
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:43170",
+    "ENABLE_TOOL_SEARCH": "true"
   },
   "modelPicker": {
     "options": [
@@ -36,6 +37,11 @@ starts it again.
   }
 }
 ```
+
+With a custom `ANTHROPIC_BASE_URL`, Claude Code turns tool search off: every
+MCP tool schema goes into each request, about 50K tokens with the claude.ai
+connectors. `ENABLE_TOOL_SEARCH` keeps the schemas deferred, as with the
+Anthropic API; `/context` lists them as "MCP tools (deferred)".
 
 The `modelPicker` row adds `Jev Router (auto)` to the `/model` picker, next to the
 built-in rows. `behavesAs` maps `jev-router` to a model that Claude Code knows.
