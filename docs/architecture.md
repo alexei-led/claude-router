@@ -141,7 +141,8 @@ flowchart TD
 | Not a turn      | `count_tokens` and other endpoints get the last route of the session.                                                                                                    |
 | Side request    | Header `x-claude-code-request-class` is `auxiliary` or `compaction`. Without the header: thinking disabled or an output format in the body.                               |
 | History break   | Fewer messages than the last main request (a compaction or a rewind), or the header `x-claude-code-context-compacted`.                                                     |
-| Resent request  | Same message count and same last message. Claude Code resends after a 429, a 529 or a dropped stream. No Jev call, no vote.                                              |
+| Resent request  | Same last user message at the same position. Claude Code resends after a 429, a 529, a dropped stream, or a 400 that it answers by dropping a feature. No Jev call, no vote. |
+| System messages | Claude Code sends hook output and tool additions as `system` messages after the prompt. The turn is the last user or assistant message; Jev never receives `system` text. |
 | Context fit     | The route moves to a model whose window holds the next context at 80% fill. Reason `context-fit`.                                                                        |
 | Session memory  | Key `x-claude-code-session-id`. A subagent adds its agent id: `<session>.<agent id>`. Its turns do not change the route of the main conversation.                          |
 

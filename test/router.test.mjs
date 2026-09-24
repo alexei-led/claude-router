@@ -25,6 +25,16 @@ test('passes through models other than the alias', () => {
   assert.equal(router.isRouted({ model: 'router' }), true);
 });
 
+// Claude Code 2.1.x sends hook output as a `system` message after the prompt. Before, the router saw no prompt there
+// and never asked Jev: every real turn logged `no-advice`.
+test('a turn whose last message is a system message (hook output) still asks Jev with the prompt', async () => {
+  const { router, calls } = setup();
+  const hook = { role: 'system', content: [{ type: 'text', text: 'UserPromptSubmit hook output' }] };
+  await router.route(body([user('design the auth flow'), hook]), { sessionId: 's', requestClass: 'main' });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].state.currentRequest.text, 'design the auth flow');
+});
+
 test('a new turn asks Jev once, rewrites the model and remembers the route', async () => {
   const { router, calls, dataDir } = setup();
   const out = await router.route(body([user('design the auth flow')]), { sessionId: 's1', requestClass: 'main' });

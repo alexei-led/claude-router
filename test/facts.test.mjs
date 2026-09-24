@@ -5,6 +5,45 @@ import { assistant, body, memory, toolResult, user } from './helpers.mjs';
 
 const CONTEXT = { recentTurns: 4, maxTextChars: 30 };
 
+// Claude Code 2.1.x puts hook output (and tool additions) in a `system` message after the user message, and keeps
+// it in the history. Shapes captured from a live session on 2026-09-24.
+const system = (text, extra = []) => ({ role: 'system', content: [{ type: 'text', text }, ...extra] });
+const TOOL_ADDITION = { type: 'tool_addition', tool: { name: 'ToolSearch' } };
+
+test('a trailing system message (hook output) does not hide the prompt', () => {
+  const facts = factsFromRequest(
+    body([user('fix the bug'), system('hook said x'), assistant('done'), user('now the tests'), system('hook')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.equal(facts.prompt, 'now the tests');
+  assert.equal(facts.continuation, false);
+  assert.deepEqual(
+    facts.turns.map((t) => [t.role, t.text]),
+    [
+      ['user', 'fix the bug'],
+      ['assistant', 'done'],
+    ],
+  );
+});
+
+test('a tool result followed by a system message is still a continuation', () => {
+  const facts = factsFromRequest(
+    body([user('fix'), system('hook'), assistant('reading', ['Read']), toolResult('ok'), system('hook')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.equal(facts.continuation, true);
+  assert.equal(facts.prompt, '');
+});
+
+test('a resend that drops the tool addition from the system message keeps its turn key', () => {
+  const first = factsFromRequest(body([user('go'), system('hook', [TOOL_ADDITION])]), memory(), CONTEXT);
+  const resent = factsFromRequest(body([user('go'), system('hook')]), memory(), CONTEXT);
+  assert.ok(first.turnKey);
+  assert.equal(resent.turnKey, first.turnKey);
+});
+
 test('a new user turn yields the prompt without system reminders', () => {
   const b = body([
     user('fix the bug'),
