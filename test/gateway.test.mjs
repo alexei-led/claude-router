@@ -316,7 +316,10 @@ test('requests from a foreign host or a web origin are refused', async (t) => {
   assert.equal(await statusCode({ origin: 'https://attacker.example' }), 403);
   assert.equal(await statusCode({ origin: 'null' }), 403);
   assert.equal(await statusCode({}), 200);
-  assert.equal(await statusCode({ host: `localhost:${port}`, origin: 'http://localhost:3000' }), 200);
+  assert.equal(await statusCode({ host: `localhost:${port}` }), 200);
+  // Claude Code sends no Origin. A page on another loopback port could still fire blind POSTs that spend Jev quota.
+  assert.equal(await statusCode({ host: `localhost:${port}`, origin: 'http://localhost:3000' }), 403);
+  assert.equal(await statusCode({ origin: `http://127.0.0.1:${port}` }), 403);
 });
 
 test('a turn that waits for a tool result is tracked until the session sends its next request', async (t) => {

@@ -342,7 +342,8 @@ stateDiagram-v2
 ## Security and privacy
 
 - The gateway listens on `127.0.0.1` only. It refuses a non-loopback `Host`
-  (DNS rebinding) and a web `Origin` (cross-site requests).
+  (DNS rebinding) and any request with an `Origin` header, also from a page on
+  another loopback port: Claude Code sends none.
 - Jev receives the prompt and the text of the six turns before it, up to
   1,200 characters each. A longer text keeps its first and last 600
   characters. Tool results and system reminders are not sent.
