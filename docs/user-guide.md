@@ -1,140 +1,121 @@
 # User guide
 
-## Start a session
+After the [install](../README.md#install), work in Claude Code as usual. The
+router selects the model and the effort for each turn.
+[How Jev selects a tier](../README.md#how-jev-selects-a-tier) gives the rules.
 
-After the install steps in the README, run `claude` as usual. Claude Code shows
-`Jev Router (auto)` as the model. The transcript records the model that answered
-each message. The first session starts the gateway, and all sessions share it.
-The gateway continues to run after a session ends. After two hours without
-requests it exits, unless a turn waits for a tool result, for example a
-permission prompt that you have not answered. The next prompt starts it again
-(`gateway.idleShutdownMs` in [configuration](configuration.md)).
+## Read the status line
 
-To try the gateway in one session without a change to the configuration:
+`/router:setup` can add one line to your status line:
 
-```sh
-TYPESAFE_API_KEY=… node scripts/gateway.mjs &
-ANTHROPIC_BASE_URL=http://127.0.0.1:43170 claude --plugin-dir . --model jev-router
+```text
+jev-router ▸ opus-5-5 · xhigh · upgrade
+             │          │       └─ reason for the route
+             │          └─ effort
+             └─ model of the last turn
 ```
 
-## What happens at each prompt
+| Line                                              | Meaning                                                   |
+| ------------------------------------------------- | --------------------------------------------------------- |
+| `jev-router ▸ …`                                  | The route of the last turn in this session.               |
+| `jev-router: no turn yet`                         | This session has no routed turn.                          |
+| `router: gateway off, the next prompt starts it`  | The gateway stopped after idle time, or it crashed.       |
 
-- A new prompt causes one Jev call. The call takes about one second and gives
-  a tier. Then the policy decides if it acts on the tier.
-- Tool calls inside the turn keep the route. The gateway does not ask Jev, and
-  the cache of the model continues to hit.
-- A prompt that continues the task keeps the route. Examples: "continue",
-  "yes", "now fix the tests".
-- After two failed repairs of the same error, the route goes up one tier. The
-  route stays there for two turns. A repair is an edit between the two errors.
-- An upgrade needs two consecutive votes for a higher tier. A jump of two
-  tiers with high confidence happens at once. The required confidence goes up
-  with the cost to read the context again on the new model. Opus at `high` and
-  Opus at `xhigh` are two caches: a change of effort rewrites the cached
-  conversation, so `medium` to `high` is not free.
-- A downgrade needs two consecutive confident votes.
-- When the conversation gets shorter, after a compaction or a rewind, the
-  gateway forgets the cached prefixes, the pending votes and the escalation
-  hold. They were about turns that are no longer in the conversation.
-- The cold-write guard: an automatic switch to a model that bills usage
-  credits is refused when that model's cache is not warm and the first cache
-  write would cost more than `policy.cashCapUsd`. Then the strongest plan tier
-  serves the turn. The guard limits that one estimated write, not the cost of
-  the turn: output is not counted. Behind the gateway, Claude Code does not
-  show its consent prompt for these credits. No default model bills credits;
-  this applies once you add one in `router.json`.
-- When Jev fails or times out, or when there is no key, the baseline tier
-  serves the turn. After three failures in a row, new turns skip Jev for one
-  minute and then try it once, so an outage costs one slow turn a minute, not
-  a second on every turn. `/router:status` shows the pause.
-- When Claude Code sends the same request again (after a 429, a 529 or a
-  dropped connection), the gateway keeps the route of that turn. A retry is
-  not a new vote and makes no Jev call.
-- Jev receives the prompt and the last six turns of text. Tool results are not
-  sent. No other data leaves the machine, except the usual Anthropic request.
+The line changes when Claude Code draws the status line, after each message.
 
-A Claude Code turn starts at about 100k tokens of system prompt and tool
-definitions, so the first switch to a model is the expensive one.
+## Reasons
 
-## Pin a tier by hand
+| Reason              | Meaning                                                                        |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `upgrade`           | Jev voted for a higher tier often enough, with enough confidence.              |
+| `jump`              | Jev was confident enough to go up two tiers at once.                           |
+| `downgrade`         | Jev voted for a lower tier often enough, with enough confidence.               |
+| `upgrade-pending`   | Jev asked for a higher tier. The route stays until the votes are enough.       |
+| `downgrade-pending` | Jev asked for a lower tier. The route stays until the votes are enough.        |
+| `same-tier`         | Jev agreed with the current tier.                                              |
+| `continuation`      | The prompt continues the task, so the route stays.                             |
+| `uncertain`         | Jev did not select a tier, so the route stays.                                 |
+| `no-advice`         | No Jev answer: no key, an error, a pause, or a prompt without text.            |
+| `escalation`        | The same error came back after an edit. The route went up one tier.            |
+| `hold`              | The route stays up for two turns after an escalation.                          |
+| `context-fit`       | The selected model cannot hold the context. A model with a larger window serves. |
+| `cash-gate`         | The cold-write guard stopped a switch to a `credits` model.                    |
+| `forced`            | `ROUTER_FORCE_TIER` is set.                                                    |
 
-Type the tier skill as a command. The turn runs on the model of that skill.
-The gateway sends the real model id unchanged.
+`/router:status` shows the routes, the Jev state and the last turn. It gives
+the reason in words and, for a vote, the estimate: the confidence, the bar,
+the switching cost and the cache state (`warm`, `expired` or `unknown`).
 
-```
+## Pin a tier
+
+To run one turn on a fixed tier, type the tier skill before the prompt:
+
+```text
 /router:high  redesign the auth flow
 /router:micro rename foo to bar in this file
 ```
 
-`/model <name>` also works. It stops the routing for the rest of the session.
+`/model <name>` also works, but it stops the routing for the rest of the
+session.
 
-## See the current route
+## Read the decision log
 
-`/router:status` shows the gateway, the routes, and the model, effort and
-reason of the last turn in this session. It also says why in words, and for
-a vote it shows the estimate: the probability mass, the bar it had to reach,
-the switching tax and whether each cache was `warm`, `expired` or `unknown`.
-`unknown` means no response for that cache since the session started or the
-conversation got shorter. The dollars are list prices. For plan models they
-are a list-price equivalent, not a charge.
-
-The status line wrapper from `/router:setup` adds one line to your status line
-while the session uses the router:
-
-- `jev-router ▸ opus-5-5 · xhigh · upgrade`: the model, the effort and the
-  reason of the last turn. `upgrade-pending` means that Jev asked for a higher
-  tier and the policy held the route back.
-- `router: no turn yet`: the session has no routed turn.
-- `router: gateway off, the next prompt starts it`: the gateway stopped after
-  idle time, or it crashed. Either way the next prompt starts it.
-
-The line updates when Claude Code redraws the status line, after each message.
-
-## Read the decisions
-
-The gateway writes one line for each routed request to `decisions.jsonl` in
-the plugin data directory. The directory is
-`~/.claude/plugins/data/router-<marketplace>/`. For a gateway that you started
-by hand, the directory is `$TMPDIR/router/`.
+The gateway writes one JSON line for each routed request to `decisions.jsonl`
+in `~/.claude/plugins/data/router-alexei-led-claude-router/`. The log has no
+prompt text.
 
 ```sh
 tail -n 20 ~/.claude/plugins/data/router-*/decisions.jsonl | jq -c '{tier, reason, estimate, shadow, observed}'
 ```
 
-`tier` is the selected tier. `reason` is the rule that decided. The `observed`
-lines carry the model that answered, the context tokens and the cache reads
-from the response. Compare the estimated and the observed cache reads to tune
-the thresholds.
+| Field          | Content                                                                                 |
+| -------------- | --------------------------------------------------------------------------------------- |
+| `tier`         | The tier of the request.                                                                |
+| `reason`       | The rule that decided. Tool calls show `tool-continuation`.                             |
+| `advice`       | The Jev probabilities for each tier, and for "continues the task".                      |
+| `estimate`     | The numbers of a vote: confidence, bar, switching cost, cache state.                    |
+| `shadow`       | The cost of the Jev choice against the current route. The policy does not use it.      |
+| `observed`     | The usage of the response: model, context tokens, cache reads, output.                  |
+| `historyBreak` | A compaction or a rewind. The votes and the cache estimates reset.                      |
+| `cacheReset`   | The context shrank by more than 20%. The cache estimates reset.                         |
 
-`shadow` is what following Jev's choice instead of the current route would
-cost, at list prices: the next turn, each later turn, and the number of turns
-until a cheaper route repays its cache write. The policy does not read it.
-`historyBreak` lines mark a compaction or a rewind; `cacheReset` lines mark a
-context that shrank by more than a fifth.
-
-`scripts/transcript-models.sh <transcript.jsonl>` shows the model for each
+`scripts/transcript-models.sh <transcript.jsonl>` shows the model of each
 assistant message in a Claude Code transcript.
+
+## Update
+
+1. Update the marketplace and the plugin:
+
+   ```sh
+   claude plugin marketplace update alexei-led-claude-router
+   claude plugin update router@alexei-led-claude-router
+   ```
+
+2. Restart Claude Code. The next prompt replaces the running gateway.
+3. Run `/router:setup` once. The status line command contains the plugin
+   version.
+
+## Stop using the router
+
+1. In `~/.claude/settings.json`, remove `model`, `env.ANTHROPIC_BASE_URL`,
+   `env.ENABLE_TOOL_SEARCH`, `env.CLAUDE_CODE_GATEWAY_HINT_HEADERS` and the
+   `jev-router[1m]` row of `modelPicker.options`.
+2. If setup changed your status line, restore the old command.
+3. Restart Claude Code.
+4. To remove the plugin, run
+   `claude plugin uninstall router@alexei-led-claude-router`.
+
+The gateway stops by itself after two hours without requests.
 
 ## Troubleshooting
 
-- If Claude Code does not accept `jev-router` as a model, make sure that the
-  gateway runs and that `ANTHROPIC_BASE_URL` is set. The command
-  `curl http://127.0.0.1:43170/v1/models` lists the alias.
-- If Claude Code reports that it does not use the gateway, run
-  `/router:setup` and restart Claude Code.
-- If each turn runs on the default tier, make sure that the key is set, and
-  read `/router:status`: it shows when Jev is paused after failures. The
-  timestamped `router:` lines in `gateway.log` next to `decisions.jsonl` give
-  the reason, for example `jev http 401` for a rejected key.
-- If the effort is not what you set, read the `efforts` list of the model. The
-  gateway lowers the effort to a level that the model accepts. Haiku has no
-  effort and no thinking.
-- To stop the gateway, run `pkill -f scripts/gateway.mjs`. It releases the port
-  at once and finishes the responses it is streaming. The next prompt starts it
-  again.
-- Rate limits and overload errors from Anthropic (429, 529) reach Claude Code
-  unchanged. Claude Code waits and retries; the gateway does not add a second
-  layer of retries.
-- Updating from 0.3.0 or earlier: those gateways cannot hand over to a newer
-  one. Stop the old one once with `pkill -f scripts/gateway.mjs`; the next
-  prompt starts the new version.
+| Symptom                                     | Cause                                              | Fix                                                                                   |
+| ------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Claude Code rejects `jev-router`            | The session does not use the gateway.              | Run `/router:setup`, then restart Claude Code.                                        |
+| Every turn has the reason `no-advice`       | No Jev key, or Jev fails.                          | Run `/router:status`. Read the `router:` lines in `gateway.log` next to the log.        |
+| The effort is not the effort that you set   | The model does not accept that effort.             | The gateway uses the nearest lower level. Haiku has no effort and no thinking.        |
+| 429 or 529 errors                           | Anthropic rate limits or overload.                 | Claude Code waits and tries again. The gateway sends these errors through unchanged.  |
+| A `router.json` change has no effect        | The gateway reads the configuration at start.      | Run `pkill -f scripts/gateway.mjs`. The next prompt starts a new gateway.             |
+
+To see if the gateway runs, open `http://127.0.0.1:43170/v1/models`. The list
+shows the alias.

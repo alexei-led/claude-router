@@ -5,52 +5,99 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js ≥22](https://img.shields.io/node/v/@alexeiled/claude-router.svg)](https://nodejs.org/)
 
-A Claude Code plugin that auto-picks the right model and effort for each turn.
+**jev-router for Claude Code: the right model and effort for each turn.**
 
-**Status: experimental.** I built this to dogfood Jev, TypeSafe's routing
-model, inside Claude Code. It works for me; I don't know yet if it holds up
-outside my setup. Try it and open an issue with what you find.
+Easy work goes to Sonnet or Haiku. Hard work goes to Opus. You do not change
+models by hand. [Jev](https://typesafe.ai), a small routing model from
+TypeSafe, reads each new prompt and advises the tier.
 
-## Why
+> **Status: experimental.** The data below comes from one developer. Try it,
+> and open an issue with your results.
 
-One model for every turn is a compromise: strong enough for the hard turns
-and it burns your limits on "rename this variable"; cheap enough for the easy
-turns and it struggles on the hard ones. Switching models by hand works, but
-it is friction you pay on every message. This plugin asks a small router
-model which tier a turn needs and switches for you, automatically.
+## Why use it
+
+- **Opus where it matters.** In a day of real work, 86.5% of the requests ran
+  on Sonnet or Haiku. Opus served the hard 13.5%.
+- **15% less than Opus for everything.** The same work at list prices cost
+  $141 with the router and $166 with Opus at xhigh effort for each request.
+- **Less than the best manual choice.** A user who knows the strongest model
+  that each session needs pays $147. The router pays $141.
+- **No switches by hand.** You work in Claude Code as usual. When you want a
+  fixed tier, pin it: `/router:high`.
+
+![jev-router in Claude Code: where the requests went, and what the work cost](docs/tier-share.svg)
+
+The baselines use the same tokens as the router. They get the cache reads of
+the sessions, and a full cache hit where the router changed models. The
+savings are a lower bound, because the baselines keep the output of the
+router, and a stronger model writes more. [Evaluation](docs/evaluation.md)
+gives the method and the table.
 
 ## How it works
 
+```mermaid
+flowchart LR
+  YOU["You"] --> CC["Claude Code<br/>model: jev-router"]
+  CC --> GW["Local gateway<br/>127.0.0.1"]
+  GW -->|"prompt and<br/>recent turns"| JEV{{"Jev"}}
+  JEV -->|"tier"| GW
+  GW -->|"model, effort"| API["Anthropic API"]
+  API -->|"response, unchanged"| CC
+
+  classDef jev fill:#fef3c7,stroke:#d97706,color:#451a03
+  classDef gw fill:#ecfdf5,stroke:#059669,color:#064e3b
+  classDef ext fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
+  class JEV jev
+  class GW gw
+  class API ext
 ```
-Claude Code  --model jev-router  ──▶  gateway 127.0.0.1:43170  ──▶  api.anthropic.com
-                                       │
-only requests for `jev-router`:        ├─ facts.mjs    prompt, continuation, failures
-                                       ├─ jev.mjs      one Choice (tier) + one Noul (continuation?)
-                                       ├─ policy.mjs   stickiness, escalation, cost-gated votes
-                                       ├─ rewrite.mjs  model, effort, thinking per model family
-                                       └─ store.mjs    session memory, decisions.jsonl
-   responses go through unchanged; the gateway reads `usage` (context size, cache TTL)
+
+A local gateway receives each request from Claude Code. It changes the model,
+the effort and the thinking setting. For Haiku, it also limits the output
+size. It does not change your prompt, your tools or your history. Prompt
+caching and a claude.ai login work as usual.
+
+## How Jev selects a tier
+
+```mermaid
+flowchart LR
+  P["New prompt<br/>+ last 6 turns"] --> J{{"Jev"}}
+  J --> T["<b>Tier probabilities</b> (example)<br/>high ▇▇▇▇▇▇▇ 0.70<br/>medium ▇▇ 0.20<br/>low ▇ 0.08<br/>micro ▏0.02"]
+  J --> C["Does the prompt<br/>continue the task?"]
+  T --> POL["Router policy<br/>votes · cache cost · repeated errors"]
+  C --> POL
+  POL --> R(["Model and effort<br/>for this turn"])
+
+  classDef jev fill:#fef3c7,stroke:#d97706,color:#451a03
+  classDef out fill:#ecfdf5,stroke:#059669,color:#064e3b
+  class J jev
+  class R out
 ```
 
-A local gateway on `127.0.0.1` receives each request from Claude Code. For a
-new user turn, the gateway asks Jev which tier the turn needs, then rewrites
-`model`, `effort` and `thinking` and sends the request to Anthropic. All other
-data goes through unchanged. No runtime dependencies; Node 22 or later.
+| Tier     | Model and effort          | Jev selects it for                                                    |
+| -------- | ------------------------- | --------------------------------------------------------------------- |
+| `micro`  | Haiku 4.5, no thinking    | Lookups, trivial edits, one-step mechanical work                      |
+| `low`    | Sonnet 5, your effort     | Clear, low-risk coding steps with one obvious approach                |
+| `medium` | Opus 5.5, `high` effort   | Features, bug fixes and refactors with interacting constraints        |
+| `high`   | Opus 5.5, `xhigh` effort  | Architecture, unclear bugs, security, work where correctness is vital |
 
-The tiers are `micro` (Haiku), `low` (Sonnet, the baseline), `medium` (Opus at
-high effort) and `high` (Opus at xhigh effort). The exact model IDs are in
-`~/.claude/router.json` and default to the current generation of each family.
+The router tells Jev to put correctness before cost, and not to judge by prompt
+length, language or single topic words. The router then keeps the choice
+stable:
 
-A tool continuation keeps the route of its turn — the gateway does not ask Jev.
-Side requests, for example session titles, get the baseline tier. A subagent
-that inherits the model gets routing with its own memory. A request for any
-other model goes through unchanged; this is how `/router:<tier>` pins and
-subagents with their own `model` work.
+- Tool calls in a turn keep the model of the turn, so the cache stays warm.
+- A switch up needs two votes, or one confident vote for a jump of two tiers.
+  A larger cache write needs more confidence.
+- If the same error comes back after a fix, the route goes one tier up.
+- If Jev fails or is slow, the current route stays.
 
-See [Architecture](docs/architecture.md) for the module map, the switching
-policy, and a real-usage evaluation.
+Jev receives the prompt and the text of the last six turns, up to 1,200
+characters each. It does not receive tool results or your system prompt.
 
 ## Install
+
+You need Claude Code, Node.js 22 or later, and a Jev API key from
+[typesafe.ai](https://typesafe.ai).
 
 1. Add the marketplace and install the plugin:
 
@@ -59,53 +106,19 @@ policy, and a real-usage evaluation.
    claude plugin install router@alexei-led-claude-router
    ```
 
-2. When Claude Code asks, enter the Jev API key from [typesafe.ai](https://typesafe.ai).
-   The key goes to the macOS Keychain and persists across updates.
-3. In Claude Code, run `/router:setup`. It writes `model`,
-   `env.ANTHROPIC_BASE_URL` and the `/model` picker row to
-   `~/.claude/settings.json`, and offers a status line segment.
-4. Restart Claude Code. `/router:status` shows the routes and the last turn.
+2. When Claude Code asks, enter the Jev API key. The key goes to the macOS
+   Keychain.
+3. In Claude Code, run `/router:setup`. It sets the model and the gateway
+   address, and it can add the route to your status line.
+4. Restart Claude Code.
 
-One gateway serves all Claude Code sessions on the machine. The plugin hooks
-start it at session start and before each prompt when it does not answer, so a
-stopped or crashed gateway comes back on the next prompt. After two hours
-without requests it exits by itself.
-
-A claude.ai login continues to work: the gateway forwards the authorization
-header and the `anthropic-beta` OAuth value unchanged.
-
-## Update
-
-```sh
-claude plugin marketplace update alexei-led-claude-router
-claude plugin update router@alexei-led-claude-router
-```
-
-Then restart Claude Code or run `/reload-plugins`. The next prompt replaces the
-running gateway with the new version: the old gateway releases the port at once
-and finishes the responses it is streaming. A session that still runs an older
-plugin never replaces a newer gateway. The Jev API key stays in the macOS
-Keychain. Run `/router:setup` once after an update: the status line command
-path contains the plugin version.
+The status line shows the route of each turn, for example
+`jev-router ▸ opus-5-5 · xhigh · upgrade`. For more detail, run
+`/router:status`.
 
 ## Documentation
 
-- [User guide](docs/user-guide.md): daily use, pins, decision log, troubleshooting.
-- [Configuration](docs/configuration.md): each key, and where the API key and the configuration file are.
-- [Architecture](docs/architecture.md): how the gateway works, the switching policy, a real-usage evaluation.
-
-## Develop
-
-```sh
-npm install
-git config --local core.hooksPath scripts/git-hooks   # pre-commit: biome + gitleaks; pre-push: check, test, pack, gitleaks
-npm test          # node:test
-npm run check     # biome lint and format
-npm run validate  # claude plugin validate
-claude --plugin-dir . --model jev-router   # with ANTHROPIC_BASE_URL and TYPESAFE_API_KEY set
-```
-
-Releases: push a signed tag `v<version>` that matches `package.json`. The
-release workflow publishes `@alexeiled/claude-router` to npm with trusted
-publishing and creates the GitHub release. See
-[docs/architecture.md](docs/architecture.md#release).
+- [User guide](docs/user-guide.md): daily use, pins, the decision log, troubleshooting, updates.
+- [Configuration](docs/configuration.md): models, tiers and policy settings.
+- [Architecture](docs/architecture.md): the gateway, the switching policy, the cache and cost model.
+- [Evaluation](docs/evaluation.md): the method and the numbers behind the chart.
