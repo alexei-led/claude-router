@@ -41,6 +41,16 @@ test('sonnet keeps system messages but not tool additions; the cache breakpoint 
   assert.deepEqual(rewriteRequest(removal, 'low', config).messages[1].content, [{ type: 'text', text: 'hook' }]);
 });
 
+// Per-turn control is an `output_config` on the system message (live 400 on Sonnet 5, 2026-09-24:
+// "messages.1.output_config: Extra inputs are not permitted").
+test('per-turn output_config on a message goes for a model without per-turn control', () => {
+  const turn = [user('hi'), { ...system('hook'), output_config: { effort: 'high' } }];
+  assert.equal(rewriteRequest(body(turn), 'high', config).messages[1].output_config.effort, 'high');
+  const sonnet = rewriteRequest(body(turn), 'low', config).messages;
+  assert.deepEqual(sonnet[1], system('hook'));
+  assert.ok(!('output_config' in rewriteRequest(body(turn), 'micro', config).messages[0]));
+});
+
 test('a system message that held only a tool addition is dropped for sonnet', () => {
   const b = body([user('hi'), { role: 'system', content: [toolAddition(undefined)] }]);
   assert.deepEqual(
