@@ -10,13 +10,17 @@ import { fetchStatus, ROUTER_DISPLAY_NAME, statusSegment } from '../lib/status.m
 
 const input = await text(process.stdin);
 const [command, ...args] = process.argv.slice(2);
-const { config } = loadRuntime(process.env);
+// A broken router.json must not break the status line: skip the router segment, still run a wrapped command.
+let config = null;
+try {
+  ({ config } = loadRuntime(process.env));
+} catch {}
 let payload = {};
 try {
   payload = JSON.parse(input);
 } catch {}
 
-const names = [config.gateway.alias, LEGACY_ALIAS, ROUTER_DISPLAY_NAME];
+const names = config ? [config.gateway.alias, LEGACY_ALIAS, ROUTER_DISPLAY_NAME] : [];
 // `jev-router[1m]`: the suffix only tells Claude Code the window size.
 const routed = [payload.model?.id, payload.model?.display_name].some((name) =>
   names.includes(name?.replace(/\[1m\]$/, '')),

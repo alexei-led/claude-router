@@ -3,7 +3,7 @@
 import { createGateway } from '../lib/gateway.mjs';
 import { IdleTracker } from '../lib/idle.mjs';
 import { Router } from '../lib/router.mjs';
-import { loadRuntime } from '../lib/runtime.mjs';
+import { cliArg, loadRuntime } from '../lib/runtime.mjs';
 import { ROUTER_VERSION } from '../lib/status.mjs';
 import { housekeeping } from '../lib/store.mjs';
 
@@ -21,7 +21,17 @@ const onError = (error) => log(error.message);
 process.on('uncaughtException', (error) => log(`uncaught exception: ${error.stack ?? error.message}`));
 process.on('unhandledRejection', (reason) => log(`unhandled rejection: ${reason?.stack ?? reason}`));
 
-const { config, dataDir } = loadRuntime(process.env);
+let config;
+let dataDir;
+try {
+  ({ config, dataDir } = loadRuntime(process.env, {
+    configPath: cliArg(process.argv, '--config'),
+    forceTier: cliArg(process.argv, '--force-tier'),
+  }));
+} catch (error) {
+  log(`invalid configuration: ${error.message}`);
+  process.exit(1);
+}
 const { port, alias, idleShutdownMs } = config.gateway;
 const router = new Router({ config, fetchFn: globalThis.fetch, dataDir, onError });
 const activity = new IdleTracker();

@@ -11,8 +11,11 @@
 
 - The hooks give the key to the gateway as `TYPESAFE_API_KEY`. The key is
   never in a file.
-- The gateway ignores project files. A cloned repository cannot change your
-  routing or your spend.
+- The gateway reads only `~/.claude/router.json`. A project can set
+  environment variables for the plugin hooks, so the hooks take your home
+  directory from your OS user account, not from `$HOME`, and accept
+  `ROUTER_CONFIG` only for a path under `~/.claude/`. A cloned repository
+  cannot change your routing, your spend or the destination of your Jev key.
 - The gateway reads `router.json` at start. After a change, run
   `pkill -f scripts/gateway.mjs`. The next prompt starts a new gateway.
 
@@ -144,12 +147,28 @@ The [switching policy](architecture.md#switching-policy) uses these values.
 
 ## Environment variables
 
-| Variable             | Effect                                                                         |
-| -------------------- | ------------------------------------------------------------------------------ |
-| `TYPESAFE_API_KEY`   | The Jev key. The hooks set it from the plugin option.                          |
-| `ROUTER_CONFIG`      | Another path for the router configuration.                                     |
-| `ROUTER_FORCE_TIER`  | `micro`, `low`, `medium` or `high`. Skips Jev and the policy. For tests.       |
-| `CLAUDE_PLUGIN_DATA` | The data directory. Claude Code sets it for the plugin hooks.                  |
+| Variable             | Effect                                                                                          |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `TYPESAFE_API_KEY`   | The Jev key. The hooks set it from the plugin option.                                           |
+| `ROUTER_CONFIG`      | Another path for the router configuration, under `~/.claude/` only. Another path is ignored, with a warning. |
+| `CLAUDE_PLUGIN_DATA` | The data directory. Claude Code sets it for the plugin hooks.                                   |
+
+## Command-line flags
+
+A project cannot change these: they are part of the command, not of the
+environment.
+
+| Flag                  | Script                                   | Effect                                                                  |
+| --------------------- | ---------------------------------------- | ----------------------------------------------------------------------- |
+| `--config <path>`     | `gateway.mjs`, `ensure-gateway.mjs`      | The router configuration, at any path.                                  |
+| `--force-tier <tier>` | `gateway.mjs`                            | `micro`, `low`, `medium` or `high`. Skips Jev and the policy. For tests. |
+
+To force a tier, stop the gateway and start it by hand:
+
+```sh
+pkill -f scripts/gateway.mjs
+node <plugin>/scripts/gateway.mjs --force-tier high
+```
 
 ## Data directory
 

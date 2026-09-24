@@ -19,19 +19,21 @@ async function freePort() {
   return port;
 }
 
+// Every spawn passes `--config`: the scripts resolve their default config from the OS user's home, so without the
+// flag a test would read the real ~/.claude/router.json and touch the live gateway's port.
 function environment(port, gateway = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'router-daemon-'));
   const configPath = join(dir, 'router.json');
   writeFileSync(configPath, JSON.stringify({ gateway: { port, ...gateway } }));
   const env = {
     ...process.env,
-    ROUTER_CONFIG: configPath,
     CLAUDE_PLUGIN_DATA: dir,
     TYPESAFE_API_KEY: '',
     CLAUDE_PLUGIN_OPTION_TYPESAFE_API_KEY: '',
     ANTHROPIC_BASE_URL: `http://127.0.0.1:${port}`,
   };
-  return { dir, env };
+  delete env.ROUTER_CONFIG;
+  return { dir, env, config: ['--config', configPath] };
 }
 
 function run(script, args, env) {
@@ -76,8 +78,8 @@ function stop(pid) {
 
 test('the daemon answers, a second one on the same port exits quietly, SIGTERM stops it cleanly', async () => {
   const port = await freePort();
-  const { env } = environment(port);
-  const daemon = spawn(process.execPath, [join(SCRIPTS, 'gateway.mjs')], { env });
+  const { env, config } = environment(port);
+  const daemon = spawn(process.execPath, [join(SCRIPTS, 'gateway.mjs'), ...config], { env });
   let log = '';
   daemon.stderr.on('data', (c) => {
     log += c;
@@ -87,7 +89,7 @@ test('the daemon answers, a second one on the same port exits quietly, SIGTERM s
     const status = await until(() => statusOf(port));
     assert.equal(status.version, ROUTER_VERSION);
     assert.equal(status.pid, daemon.pid);
-    const second = await run('gateway.mjs', [], env);
+    const second = await run('gateway.mjs', config, env);
     assert.equal(second.code, 0);
     assert.match(second.stderr, /port \d+ is in use, another gateway serves it/);
     daemon.kill('SIGTERM');
@@ -101,7 +103,7 @@ test('the daemon answers, a second one on the same port exits quietly, SIGTERM s
 
 test('ensure-gateway replaces an older gateway and leaves a current one alone', async () => {
   const port = await freePort();
-  const { dir, env } = environment(port);
+  const { dir, env, config } = environment(port);
   // An older gateway: reports an old version and its pid, and releases the port on SIGTERM.
   const old = spawn(process.execPath, [
     '-e',
@@ -114,7 +116,7 @@ test('ensure-gateway replaces an older gateway and leaves a current one alone', 
   let current = null;
   try {
     assert.ok(await until(async () => (await statusOf(port))?.version === '0.0.1'));
-    const replaced = await run('ensure-gateway.mjs', [], env);
+    const replaced = await run('ensure-gateway.mjs', config, env);
     assert.equal(replaced.code, 0);
     assert.match(
       replaced.stdout,
@@ -124,7 +126,7 @@ test('ensure-gateway replaces an older gateway and leaves a current one alone', 
     current = await until(() => statusOf(port));
     assert.equal(current.version, ROUTER_VERSION);
 
-    const again = await run('ensure-gateway.mjs', ['--quiet'], env);
+    const again = await run('ensure-gateway.mjs', ['--quiet', ...config], env);
     assert.deepEqual([again.code, again.stdout], [0, '']);
     assert.equal((await statusOf(port)).pid, current.pid);
     assert.match(readFileSync(join(dir, 'gateway.log'), 'utf8'), /listening on/);
@@ -136,15 +138,15 @@ test('ensure-gateway replaces an older gateway and leaves a current one alone', 
 
 test('ensure-gateway starts a gateway on a free port and restarts it after it dies', async () => {
   const port = await freePort();
-  const { env } = environment(port);
+  const { env, config } = environment(port);
   let pid = null;
   try {
-    const started = await run('ensure-gateway.mjs', [], env);
+    const started = await run('ensure-gateway.mjs', config, env);
     assert.match(started.stdout, new RegExp(`gateway ${ROUTER_VERSION} started on 127\\.0\\.0\\.1:${port}`));
     ({ pid } = await until(() => statusOf(port)));
     process.kill(pid, 'SIGKILL'); // a crash: no drain
     assert.ok(await until(async () => (await statusOf(port)) === null));
-    const restarted = await run('ensure-gateway.mjs', ['--quiet'], env);
+    const restarted = await run('ensure-gateway.mjs', ['--quiet', ...config], env);
     assert.deepEqual([restarted.code, restarted.stdout], [0, '']);
     const status = await until(() => statusOf(port));
     assert.notEqual(status.pid, pid);
@@ -156,8 +158,8 @@ test('ensure-gateway starts a gateway on a free port and restarts it after it di
 
 test('the daemon exits by itself after the idle time', async () => {
   const port = await freePort();
-  const { env } = environment(port, { idleShutdownMs: 300 });
-  const daemon = spawn(process.execPath, [join(SCRIPTS, 'gateway.mjs')], { env });
+  const { env, config } = environment(port, { idleShutdownMs: 300 });
+  const daemon = spawn(process.execPath, [join(SCRIPTS, 'gateway.mjs'), ...config], { env });
   let log = '';
   daemon.stderr.on('data', (c) => {
     log += c;
@@ -171,4 +173,25 @@ test('the daemon exits by itself after the idle time', async () => {
   } finally {
     daemon.kill('SIGKILL');
   }
+});
+
+// C1: a project's `.claude/settings.json` sets env for the hooks. ROUTER_CONFIG outside ~/.claude must not choose
+// the config (and so the port, the Jev endpoint and where the key goes). The canary has no key to leak and an
+// endpoint that cannot answer, in case this test ever runs against a gateway that still honors the variable.
+test('ensure-gateway ignores a ROUTER_CONFIG outside ~/.claude and follows --config', async (t) => {
+  const port = await freePort();
+  const canaryPort = await freePort();
+  const { dir, env, config } = environment(port);
+  const canaryPath = join(dir, 'canary.json');
+  writeFileSync(canaryPath, JSON.stringify({ gateway: { port: canaryPort }, jev: { endpoint: 'http://127.0.0.1:1' } }));
+  t.after(async () => {
+    for (const p of [port, canaryPort]) {
+      const status = await statusOf(p);
+      if (status?.pid) stop(status.pid);
+    }
+  });
+  const started = await run('ensure-gateway.mjs', config, { ...env, ROUTER_CONFIG: canaryPath });
+  assert.equal(started.code, 0);
+  assert.ok(await until(() => statusOf(port)), 'the gateway answers on the --config port');
+  assert.equal(await statusOf(canaryPort), null, 'nothing answers on the canary port');
 });

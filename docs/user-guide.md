@@ -89,7 +89,7 @@ The line changes after each message.
 | `uncertain`         | Jev did not select a tier.                                          |
 | `no-advice`         | No Jev answer: no key, an error, a pause, or a prompt without text. |
 
-`forced` means that `ROUTER_FORCE_TIER` is set.
+`forced` means that the gateway was started with `--force-tier`.
 
 ## Read `/router:status`
 
