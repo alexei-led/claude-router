@@ -35,6 +35,39 @@ test('a turn whose last message is a system message (hook output) still asks Jev
   assert.equal(calls[0].state.currentRequest.text, 'design the auth flow');
 });
 
+// A typed /router:<tier>, as Claude Code 2.1.x sends it (captured 2026-09-24): the route of the alias, no model switch.
+const pinned = (tier, args) => ({
+  role: 'user',
+  content: [
+    {
+      type: 'text',
+      text: `<command-message>router:${tier}</command-message>\n<command-name>/router:${tier}</command-name>\n<command-args>${args}</command-args>`,
+    },
+    { type: 'text', text: 'Routing tier applied. Continue with the user request as written.' },
+  ],
+});
+
+test('a /router:<tier> pin routes its turn to that tier without asking Jev; its tool calls stay there', async () => {
+  const { router, calls } = setup();
+  const hook = { role: 'system', content: [{ type: 'text', text: 'hook' }] };
+  const turn = [pinned('micro', 'what is 5+5'), hook];
+  const out = await router.route(body(turn), { sessionId: 's', requestClass: 'main' });
+  assert.deepEqual([out.tier, out.reason, out.body.model], ['micro', 'pinned', 'claude-haiku-4-5']);
+  assert.equal(calls.length, 0);
+  const tool = await router.route(body([...turn, assistant('reading', ['Read']), toolResult('ok')]), {
+    sessionId: 's',
+    requestClass: 'main',
+  });
+  assert.deepEqual([tool.tier, tool.reason], ['micro', 'tool-continuation']);
+});
+
+test('a pin to an unknown tier is an ordinary turn', async () => {
+  const { router, calls } = setup();
+  const out = await router.route(body([pinned('ultra', 'x')]), { sessionId: 's', requestClass: 'main' });
+  assert.notEqual(out.reason, 'pinned');
+  assert.equal(calls.length, 1);
+});
+
 test('a new turn asks Jev once, rewrites the model and remembers the route', async () => {
   const { router, calls, dataDir } = setup();
   const out = await router.route(body([user('design the auth flow')]), { sessionId: 's1', requestClass: 'main' });

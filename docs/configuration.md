@@ -109,11 +109,11 @@ A test makes sure that they agree.
 
 ### models
 
-| Alias    | `id`               | `input` | `output` | `cacheRead` | `contextWindow` | `maxOutput` | `billing` | `efforts` |
-| -------- | ------------------ | ------- | -------- | ----------- | --------------- | ----------- | --------- | --------- |
-| `opus`   | `claude-opus-5-5`  | 4       | 20       | 0.2         | 1,000,000       | —           | `plan`    | all five  |
-| `sonnet` | `claude-sonnet-5`  | 2       | 10       | 0.2         | 1,000,000       | —           | `plan`    | all five  |
-| `haiku`  | `claude-haiku-4-5` | 1       | 5        | 0.1         | 200,000         | 64,000      | `plan`    | none      |
+| Alias    | `id`               | `input` | `output` | `cacheRead` | `contextWindow` | `maxOutput` | `billing` | `efforts` | `features`                |
+| -------- | ------------------ | ------- | -------- | ----------- | --------------- | ----------- | --------- | --------- | ------------------------- |
+| `opus`   | `claude-opus-5-5`  | 4       | 20       | 0.2         | 1,000,000       | —           | `plan`    | all five  | all three                 |
+| `sonnet` | `claude-sonnet-5`  | 2       | 10       | 0.2         | 1,000,000       | —           | `plan`    | all five  | `mid-conversation-system` |
+| `haiku`  | `claude-haiku-4-5` | 1       | 5        | 0.1         | 200,000         | 64,000      | `plan`    | none      | none                      |
 
 | Field           | Meaning                                                                                              |
 | --------------- | ---------------------------------------------------------------------------------------------------- |
@@ -123,6 +123,7 @@ A test makes sure that they agree.
 | `maxOutput`     | Optional limit for `max_tokens`. Haiku 4.5 rejects more than 64K.                                     |
 | `billing`       | `plan` for the subscription limits. `credits` for models that bill usage credits.                    |
 | `efforts`       | The effort levels that the model accepts. An empty list removes effort and thinking.                 |
+| `features`      | The request features of Claude Code that the model accepts: `mid-conversation-system`, `per-turn-control`, `mid-conversation-tool-changes`. The gateway removes the others ([architecture](architecture.md#system-context)). Without the field: none. |
 
 The default prices match `test/fixtures/list-prices.json`, which names its
 source and date. The default `efforts` match `test/fixtures/effort-support.json`,

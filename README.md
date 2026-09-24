@@ -54,7 +54,9 @@ flowchart LR
 
 A local gateway receives each request from Claude Code. It changes the model,
 the effort and the thinking setting. For Haiku, it also limits the output
-size. It does not change your prompt, your tools or your history. Prompt
+size. It does not change your prompt or your tools. Sonnet and Haiku do not
+accept all the request features that Claude Code uses for Opus, so the gateway
+adapts those parts of the history for them, as Claude Code itself does. Prompt
 caching and a claude.ai login work as usual.
 
 ## How Jev selects a tier

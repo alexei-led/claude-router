@@ -124,6 +124,9 @@ To run one turn on a fixed tier, type the tier skill before the prompt:
 /router:micro rename foo to bar in this file
 ```
 
+The status line shows the reason `pinned`. Tool calls in that turn stay on the
+tier; the next prompt goes back to Jev.
+
 `/model <name>` also works, but it stops the routing for the rest of the
 session.
 

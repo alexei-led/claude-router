@@ -58,14 +58,25 @@ flowchart TB
 - The gateway changes only requests for the alias. It sets `model`,
   `output_config.effort` and `thinking`. For a small model, it also limits
   `max_tokens` and removes the 1M context beta header and the thinking edits.
-- The gateway never changes `system`, `tools` or `messages`. Prompt caching
-  and a claude.ai login work as with a direct connection.
+- Claude Code builds each request for the model that the alias behaves as
+  (Opus). A model without one of its [request features](configuration.md#models)
+  gets the request without it, the way Claude Code retries after a 400:
+  - no `mid-conversation-tool-changes` (Sonnet, Haiku): `tool_addition` and
+    `tool_removal` blocks go; their cache breakpoint moves to the block before;
+  - no `per-turn-control` (Sonnet, Haiku): only the beta header goes;
+  - no `mid-conversation-system` (Haiku): each `system` message becomes a
+    `<system-reminder>` text in the user message next to it.
+  The same history adapts the same way on every turn, so the cached prefix
+  holds.
+- The gateway never changes `system` or `tools`, and never changes `messages`
+  for a model that takes all the features. Prompt caching and a claude.ai
+  login work as with a direct connection.
 - Responses go back unchanged. The gateway reads `usage` from them.
 
-**Why a gateway.** The `model:` frontmatter of a skill changes the model only
-when the user types the skill. When Claude calls the same skill, the session
-model answers. The tier skills are therefore manual pins, and only a gateway
-can route every turn.
+**Why a gateway.** Only a gateway can route every turn. The tier skills are
+manual pins: Claude Code 2.1.x ignores their `model:` frontmatter and sends the
+turn to the alias, and the gateway reads the `/router:<tier>` command in the
+prompt.
 
 ## Tiers
 
@@ -137,7 +148,8 @@ flowchart TD
 
 | Check           | How the gateway decides                                                                                                                                                  |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Pass through    | Any other model: `/router:<tier>` pins, `/model`, subagents with their own model.                                                                                        |
+| Pass through    | Any other model: `/model`, subagents with their own model.                                                                                                              |
+| Pin             | The current message starts with the `/router:<tier>` command block. That tier serves the turn and its tool calls, reason `pinned`. No Jev call. |
 | Not a turn      | `count_tokens` and other endpoints get the last route of the session.                                                                                                    |
 | Side request    | Header `x-claude-code-request-class` is `auxiliary` or `compaction`. Without the header: thinking disabled or an output format in the body.                               |
 | History break   | Fewer messages than the last main request (a compaction or a rewind), or the header `x-claude-code-context-compacted`.                                                     |

@@ -37,6 +37,46 @@ test('a tool result followed by a system message is still a continuation', () =>
   assert.equal(facts.prompt, '');
 });
 
+// A typed /router:<tier> reaches the gateway as a command message (captured 2026-09-24); Claude Code no longer
+// switches the model from the skill's frontmatter.
+const command = (tier, args) => ({
+  role: 'user',
+  content: [
+    { type: 'text', text: '<system-reminder>ctx</system-reminder>' },
+    {
+      type: 'text',
+      text: `<command-message>router:${tier}</command-message>\n<command-name>/router:${tier}</command-name>\n<command-args>${args}</command-args>`,
+    },
+    { type: 'text', text: 'Base directory for this skill: …\n\nRouting tier applied.' },
+  ],
+});
+
+test('a typed /router:<tier> in the current message is a pin', () => {
+  const facts = factsFromRequest(body([command('micro', 'what is 5+5'), system('hook')]), memory(), CONTEXT);
+  assert.equal(facts.pin, 'micro');
+});
+
+test('only the current message pins, and only a command block that starts with the marker', () => {
+  const older = factsFromRequest(
+    body([command('high', 'x'), system('hook'), assistant('ok'), user('next'), system('hook')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.equal(older.pin, null);
+  const quoted = factsFromRequest(
+    body([user('the log says <command-message>router:high</command-message> here')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.equal(quoted.pin, null);
+  const tool = factsFromRequest(
+    body([command('high', 'x'), assistant('reading', ['Read']), toolResult('ok')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.equal(tool.pin, null);
+});
+
 test('a resend that drops the tool addition from the system message keeps its turn key', () => {
   const first = factsFromRequest(body([user('go'), system('hook', [TOOL_ADDITION])]), memory(), CONTEXT);
   const resent = factsFromRequest(body([user('go'), system('hook')]), memory(), CONTEXT);
