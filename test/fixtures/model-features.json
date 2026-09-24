@@ -1,0 +1,9 @@
+{
+  "source": "Live probe: Claude Code 2.1.281 interactive sessions through an isolated gateway with a forced tier and a request tap, real Anthropic API. A model without a feature answers 400: \"role 'system' is not supported on this model\" (mid-conversation-system), \"output_config.effort requires a model that supports per-turn effort; this model does not\" (per-turn-control), \"tool_addition/tool_removal is not supported on this model\" (mid-conversation-tool-changes). Opus took all three on the first attempt.",
+  "checked": "2026-09-24",
+  "models": {
+    "claude-opus-5-5": ["mid-conversation-system", "per-turn-control", "mid-conversation-tool-changes"],
+    "claude-sonnet-5": ["mid-conversation-system"],
+    "claude-haiku-4-5": []
+  }
+}

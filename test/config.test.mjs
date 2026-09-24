@@ -37,6 +37,12 @@ for (const [name, userFile, message] of [
   ['bad effort', { routes: { high: { model: 'opus', effort: 'ultra' } } }, /effort/],
   ['negative price', { models: { opus: { input: -1 } } }, /input/],
   ['bad efforts list', { models: { opus: { efforts: ['huge'] } } }, /efforts/],
+  [
+    'unknown feature',
+    { models: { opus: { features: ['telepathy'] } } },
+    /models\.opus\.features must list known features/,
+  ],
+  ['features not a list', { models: { opus: { features: 'all' } } }, /models\.opus\.features must list known features/],
   ['mass above 1', { policy: { downgradeMass: 1.5 } }, /downgradeMass/],
   ['zero votes', { policy: { upgradeVotes: 0 } }, /upgradeVotes/],
   ['bad baseline', { gateway: { baselineTier: 'ultra' } }, /baselineTier/],
