@@ -214,9 +214,10 @@ test('a router.json with an unknown key: the hook says so in one line, the daemo
   const daemon = await run('gateway.mjs', ['--config', badPath], env);
   assert.equal(daemon.code, 1);
   assert.match(daemon.stderr, /invalid configuration: .*bad\.json: routs is not a known key/);
-  // /router:status reads the file and starts nothing: the place to see the error.
+  // /router:status reads the file and starts nothing: the place to see the error. It exits 0: the skill injects its
+  // output, and Claude Code drops a skill whose injected command fails, error line and all.
   const status = await run('status.mjs', ['--config', badPath], env);
-  assert.equal(status.code, 1);
+  assert.equal(status.code, 0);
   assert.equal(status.stdout.trim().split('\n').length, 1);
   assert.match(status.stdout, /invalid configuration: .*bad\.json: routs is not a known key/);
   assert.equal(status.stderr, '');

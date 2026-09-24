@@ -12,8 +12,9 @@
   request fails to connect until you fix the file. The SessionStart hook
   prints the error; the prompt hook is quiet. `/router:status` shows it too.
 - **`ROUTER_CONFIG` counts only under `~/.claude/`.** The home directory comes
-  from your OS user account, not from `$HOME` (except for a user with no
-  account entry, as in some containers). A path elsewhere is ignored, with a
+  from your OS user account, not from `$HOME`. A user with no account entry
+  (some containers) has no trusted home: the gateway then ignores
+  `router.json` and runs on the defaults, with a warning. A path elsewhere is ignored, with a
   warning. Move the file under `~/.claude/`: the hooks and the status line
   pass no flags, so `--config` works only for a gateway that you start by hand.
 - **`ROUTER_FORCE_TIER` is gone.** Use `scripts/gateway.mjs --force-tier <tier>`.

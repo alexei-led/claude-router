@@ -13,7 +13,8 @@ let config;
 try {
   ({ config } = loadRuntime(process.env, { configPath }));
 } catch (error) {
+  // Exit 0: /router:status injects this output into a skill, and Claude Code drops a skill whose command fails.
   process.stdout.write(`router: invalid configuration: ${error.message}\n`);
-  process.exit(1);
+  process.exit(0);
 }
 process.stdout.write(`${statusReport(await fetchStatus(config.gateway.port, session))}\n`);

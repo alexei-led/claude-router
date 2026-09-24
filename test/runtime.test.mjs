@@ -10,16 +10,28 @@ function tmpHome() {
   return mkdtempSync(join(tmpdir(), 'router-home-'));
 }
 
-test('home comes from the OS user record; a UID without one (arbitrary container UID) falls back to $HOME', () => {
-  const envHome = () => '/env/home';
-  assert.equal(
-    userHome(() => ({ homedir: '/os/home' }), envHome),
-    '/os/home',
-  );
+// A UID without a passwd entry (arbitrary container UID): $HOME is the only home, and a project can set it. The
+// gateway must still start, and the project must still not choose its configuration.
+test('without an OS user record there is no trusted home: defaults, no router.json, no ROUTER_CONFIG', () => {
   const noPasswdEntry = () => {
     throw Object.assign(new Error('uv_os_get_passwd returned ENOENT'), { code: 'ERR_SYSTEM_ERROR' });
   };
-  assert.equal(userHome(noPasswdEntry, envHome), '/env/home');
+  assert.equal(
+    userHome(() => ({ homedir: '/os/home' })),
+    '/os/home',
+  );
+  assert.equal(userHome(noPasswdEntry), null);
+  const projectHome = tmpHome();
+  const configPath = join(projectHome, '.claude', 'router.json');
+  const resolved = resolveConfigPath({ ROUTER_CONFIG: configPath, HOME: projectHome }, { home: null });
+  assert.equal(resolved.path, null);
+  assert.match(resolved.warning, /no OS user account entry/);
+  assert.doesNotMatch(resolved.warning, new RegExp(projectHome));
+  const { config, warning } = loadRuntime({ ROUTER_CONFIG: configPath, HOME: projectHome }, { home: null });
+  assert.equal(config.gateway.port, 43170);
+  assert.match(warning, /no OS user account entry/);
+  const explicit = resolveConfigPath({}, { home: null, configPath });
+  assert.equal(explicit.path, configPath);
 });
 
 test('without ROUTER_CONFIG, the default path is <home>/.claude/router.json', () => {
