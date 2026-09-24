@@ -249,7 +249,8 @@ flowchart TD
   subgraph scripts["scripts/ · entry points"]
     D["gateway.mjs<br/>daemon"]
     E["ensure-gateway.mjs<br/>hook"]
-    SL["statusline.mjs<br/>status.mjs"]
+    SL["statusline.mjs<br/>status line"]
+    SC["status.mjs<br/>/router:status"]
   end
   subgraph lib["lib/"]
     GW["gateway<br/>HTTP, relay"]
@@ -267,13 +268,15 @@ flowchart TD
   end
 
   D -->|"creates, injects router"| GW
-  D --> RT & RUN
+  D --> RT & RUN & IDLE & STA & STORE
   GW --> IDLE & SSE & STA
-  RT --> FA & JEV & POL & RW & STORE
+  GW -.->|"side-request test"| RT
+  RT --> FA & JEV & POL & COST & RW & STORE
   POL --> COST --> RW
   STA --> RW
-  E --> RUN & STA
+  E --> RUN & STA & STORE
   SL --> RUN & STA
+  SC --> RUN & STA
   RUN --> STORE
 
   classDef pure fill:#ecfdf5,stroke:#059669,color:#064e3b
@@ -285,9 +288,12 @@ flowchart TD
 ```
 
 Green modules are pure functions. Orange modules do I/O: `gateway` serves
-HTTP, `jev` calls Jev, and `store` is the only module that writes files. The
-Jev transport and the router are injected, so tests run without a network.
-All modules read `config.mjs`.
+HTTP, `jev` calls Jev, and in `lib/` `store` is the only module that writes
+files. Outside `lib/`, the hook `ensure-gateway.mjs` also opens `gateway.log`
+for the daemon that it starts. The Jev transport and the router are injected,
+so tests run without a network. `gateway` imports one pure function from
+`router`, the side-request test, not the router itself. Modules that need
+settings or tier names import `config.mjs` (not drawn).
 
 | Module    | Responsibility                                                              |
 | --------- | --------------------------------------------------------------------------- |
@@ -302,7 +308,7 @@ All modules read `config.mjs`.
 | `idle`    | When the daemon can exit.                                                   |
 | `status`  | Status snapshot, status line segment, `/router:status` report.              |
 | `store`   | Session memory, `decisions.jsonl`, rotation.                                |
-| `runtime` | Configuration file and data directory from the environment.                 |
+| `runtime` | Configuration path (anchored under `~/.claude`), data directory, flags, gateway process check. |
 
 ## Gateway lifecycle
 
