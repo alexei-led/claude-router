@@ -87,3 +87,10 @@ test('isRouterGateway accepts only a live pid whose command runs scripts/gateway
     assert.equal(isRouterGateway(pid, gateway), false);
   assert.deepEqual(calls, []);
 });
+
+test('a bad --force-tier names the flag, not the config file', () => {
+  assert.throws(
+    () => loadRuntime({}, { home: tmpHome(), forceTier: 'ultra' }),
+    (error) => /--force-tier/.test(error.message) && !/router\.json/.test(error.message),
+  );
+});

@@ -14,8 +14,11 @@
 - The gateway reads only `~/.claude/router.json`. A project can set
   environment variables for the plugin hooks, so the hooks take your home
   directory from your OS user account, not from `$HOME`, and accept
-  `ROUTER_CONFIG` only for a path under `~/.claude/`. A cloned repository
-  cannot change your routing, your spend or the destination of your Jev key.
+  `ROUTER_CONFIG` only for a path under `~/.claude/`. So a cloned repository
+  cannot choose the router configuration (and with it the port, the routes or
+  the Jev endpoint) through `router.json`, `ROUTER_CONFIG` or `$HOME`. The
+  gateway still inherits the other environment variables of the session that
+  started it.
 - The gateway reads `router.json` at start. After a change, run
   `pkill -f scripts/gateway.mjs`. The next prompt starts a new gateway.
 
