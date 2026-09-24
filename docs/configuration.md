@@ -11,10 +11,11 @@
 
 - The hooks give the key to the gateway as `TYPESAFE_API_KEY`. The key is
   never in a file.
-- The gateway reads only `~/.claude/router.json`. A project can set
+- The gateway that the hooks start reads `~/.claude/router.json`, or the file
+  that `ROUTER_CONFIG` names when it is under `~/.claude/`. A project can set
   environment variables for the plugin hooks, so the hooks take your home
-  directory from your OS user account, not from `$HOME`, and accept
-  `ROUTER_CONFIG` only for a path under `~/.claude/`. So a cloned repository
+  directory from your OS user account, not from `$HOME`, and ignore
+  `ROUTER_CONFIG` for a path outside `~/.claude/`. So a cloned repository
   cannot choose the router configuration (and with it the port, the routes or
   the Jev endpoint) through `router.json`, `ROUTER_CONFIG` or `$HOME`. The
   gateway still inherits the other environment variables of the session that
@@ -65,13 +66,15 @@ model (jev-router[1m])".
 Each key in `~/.claude/router.json` is optional. A key replaces the default
 at the same path, and objects merge.
 
-The file is strict. An unknown key (a typo such as `routs`), a value of the
-wrong type, or a number out of range stops a new gateway from starting. The
-error names the file and the field, never the value. A gateway that already
-runs keeps serving. When no gateway runs, every request fails to connect until
-you fix the file. The SessionStart hook prints the error; the prompt hook is
-quiet. To see it, run `node <plugin>/scripts/ensure-gateway.mjs`. For example, to run `low` on Sonnet at
-`high` effort and give Jev more time:
+The file is strict. Text that is not valid JSON, an unknown key (a typo such
+as `routs`), a value of the wrong type, or a number out of range stops a new
+gateway from starting. The error names the file and the field, never the
+value. A gateway that already runs keeps serving. When no gateway runs, every
+request fails to connect until you fix the file. The SessionStart hook prints
+the error; the prompt hook is quiet. `/router:status` also shows it: it reads
+the file and starts nothing.
+
+For example, to run `low` on Sonnet at `high` effort and give Jev more time:
 
 ```json
 {
@@ -171,14 +174,20 @@ environment.
 
 | Flag                  | Script                                   | Effect                                                                  |
 | --------------------- | ---------------------------------------- | ----------------------------------------------------------------------- |
-| `--config <path>`     | `gateway.mjs`, `ensure-gateway.mjs`      | The router configuration, at any path.                                  |
+| `--config <path>`     | `gateway.mjs`, `ensure-gateway.mjs`, `status.mjs` | The router configuration, at any path.                         |
 | `--force-tier <tier>` | `gateway.mjs`                            | `micro`, `low`, `medium` or `high`. Skips Jev and the policy. For tests. |
 
-To force a tier, stop the gateway and start it by hand:
+The flags are for a gateway that you start by hand. The hooks and the status
+line do not pass them. To use another file with the hooks, keep it under
+`~/.claude/` and set `ROUTER_CONFIG`.
+
+To force a tier, stop the gateway and start it by hand with the data directory
+of the plugin, so the log stays in its place:
 
 ```sh
 pkill -f scripts/gateway.mjs
-node <plugin>/scripts/gateway.mjs --force-tier high
+CLAUDE_PLUGIN_DATA=~/.claude/plugins/data/router-alexei-led-claude-router \
+  node <plugin>/scripts/gateway.mjs --force-tier high
 ```
 
 ## Data directory

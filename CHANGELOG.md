@@ -10,11 +10,12 @@
   gateway from starting. The error names the file and the field, never the
   value. A gateway that already runs keeps serving. If no gateway runs, every
   request fails to connect until you fix the file. The SessionStart hook
-  prints the error; the prompt hook is quiet. Run
-  `node <plugin>/scripts/ensure-gateway.mjs` to see it.
+  prints the error; the prompt hook is quiet. `/router:status` shows it too.
 - **`ROUTER_CONFIG` counts only under `~/.claude/`.** The home directory comes
-  from your OS user account, not from `$HOME`. A path elsewhere is ignored,
-  with a warning. For another path, use `--config <path>`.
+  from your OS user account, not from `$HOME` (except for a user with no
+  account entry, as in some containers). A path elsewhere is ignored, with a
+  warning. Move the file under `~/.claude/`: the hooks and the status line
+  pass no flags, so `--config` works only for a gateway that you start by hand.
 - **`ROUTER_FORCE_TIER` is gone.** Use `scripts/gateway.mjs --force-tier <tier>`.
 - **A request with an `Origin` header gets 403.** Claude Code sends none. A
   browser page, also one on another loopback port, cannot use the gateway.
@@ -24,8 +25,8 @@
 
 ### Added
 
-- `--config <path>` on `scripts/gateway.mjs` and `scripts/ensure-gateway.mjs`,
-  and `--force-tier <tier>` on `scripts/gateway.mjs`.
+- `--config <path>` on `scripts/gateway.mjs`, `scripts/ensure-gateway.mjs` and
+  `scripts/status.mjs`, and `--force-tier <tier>` on `scripts/gateway.mjs`.
 - `decisions.jsonl`: `model` and `effort` on each decision line, `effort` on
   each `observed` line, a `failed` line for a routed turn that Anthropic
   answered with an error, and a `reason: error` line when routing fails.
@@ -36,7 +37,8 @@
 
 - The hook sends a stop signal only to a pid that runs `scripts/gateway.mjs`.
 - `Retry-After` from Jev is also read as an HTTP date.
-- The status line keeps working when `router.json` fails to load.
+- The status line keeps working when `router.json` fails to load, and
+  `/router:status` names the error in one line.
 
 ### Fixed
 
@@ -49,4 +51,6 @@
   `policy.cashCapUsd` turned off the cold-write guard.
 - A side request (title, classifier, compaction) on a session cleared its
   pending tool wait, so the gateway could exit under an open permission
-  prompt.
+  prompt. This needs the request-class header that `/router:setup` turns on
+  (`CLAUDE_CODE_GATEWAY_HINT_HEADERS`); without it the gateway cannot tell a
+  side request from a turn and keeps the old behavior.

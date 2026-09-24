@@ -178,10 +178,11 @@ test('the daemon exits by itself after the idle time', async () => {
   }
 });
 
-// C1: a project's `.claude/settings.json` sets env for the hooks. ROUTER_CONFIG outside ~/.claude must not choose
-// the config (and so the port, the Jev endpoint and where the key goes). The canary has no key to leak and an
-// endpoint that cannot answer, in case this test ever runs against a gateway that still honors the variable.
-test('ensure-gateway ignores a ROUTER_CONFIG outside ~/.claude and follows --config', async (t) => {
+// C1: a project's `.claude/settings.json` sets env for the hooks, but not a hook's argv. --config wins over a
+// ROUTER_CONFIG from the environment. The ~/.claude anchor for ROUTER_CONFIG itself is covered by the
+// resolveConfigPath tests in runtime.test.mjs: a process test would have to use the real ~/.claude and port.
+// The canary has no key to leak and an endpoint that cannot answer.
+test('ensure-gateway follows --config over a ROUTER_CONFIG from the environment', async (t) => {
   const port = await freePort();
   const canaryPort = await freePort();
   const { dir, env, config } = environment(port);
@@ -213,6 +214,12 @@ test('a router.json with an unknown key: the hook says so in one line, the daemo
   const daemon = await run('gateway.mjs', ['--config', badPath], env);
   assert.equal(daemon.code, 1);
   assert.match(daemon.stderr, /invalid configuration: .*bad\.json: routs is not a known key/);
+  // /router:status reads the file and starts nothing: the place to see the error.
+  const status = await run('status.mjs', ['--config', badPath], env);
+  assert.equal(status.code, 1);
+  assert.equal(status.stdout.trim().split('\n').length, 1);
+  assert.match(status.stdout, /invalid configuration: .*bad\.json: routs is not a known key/);
+  assert.equal(status.stderr, '');
 });
 
 // H3: whatever answers on the port reports a pid. The hook signals it only when that pid runs scripts/gateway.mjs.
