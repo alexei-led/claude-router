@@ -60,7 +60,14 @@ model (jev-router[1m])".
 ## Router configuration
 
 Each key in `~/.claude/router.json` is optional. A key replaces the default
-at the same path, and objects merge. For example, to run `low` on Sonnet at
+at the same path, and objects merge.
+
+The file is strict. An unknown key (a typo such as `routs`), a value of the
+wrong type, or a number out of range stops a new gateway from starting. The
+error names the file and the field, never the value. A gateway that already
+runs keeps serving. When no gateway runs, every request fails to connect until
+you fix the file. The SessionStart hook prints the error; the prompt hook is
+quiet. To see it, run `node <plugin>/scripts/ensure-gateway.mjs`. For example, to run `low` on Sonnet at
 `high` effort and give Jev more time:
 
 ```json

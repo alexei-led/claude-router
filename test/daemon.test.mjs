@@ -195,3 +195,19 @@ test('ensure-gateway ignores a ROUTER_CONFIG outside ~/.claude and follows --con
   assert.ok(await until(() => statusOf(port)), 'the gateway answers on the --config port');
   assert.equal(await statusOf(canaryPort), null, 'nothing answers on the canary port');
 });
+
+// Strict router.json: a bad file stops a new gateway, but the hook exits 0 so a running gateway keeps serving.
+test('a router.json with an unknown key: the hook says so in one line, the daemon exits 1', async () => {
+  const port = await freePort();
+  const { dir, env } = environment(port);
+  const badPath = join(dir, 'bad.json');
+  writeFileSync(badPath, JSON.stringify({ gateway: { port }, routs: {} }));
+  const hook = await run('ensure-gateway.mjs', ['--config', badPath], env);
+  assert.equal(hook.code, 0);
+  assert.equal(hook.stdout.trim().split('\n').length, 1);
+  assert.match(hook.stdout, /bad\.json: routs is not a known key/);
+  assert.equal(await statusOf(port), null);
+  const daemon = await run('gateway.mjs', ['--config', badPath], env);
+  assert.equal(daemon.code, 1);
+  assert.match(daemon.stderr, /invalid configuration: .*bad\.json: routs is not a known key/);
+});

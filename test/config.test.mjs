@@ -60,3 +60,80 @@ test('models.<alias>.maxOutput must be a positive integer when set', () => {
   };
   assert.throws(() => loadConfig({ userFile: bad }), /models\.haiku\.maxOutput/);
 });
+
+// Strict router.json: every key must be known, every number finite. A typo fails loudly instead of doing nothing.
+const parse = (json) => JSON.parse(json); // JSON.parse keeps "__proto__" as an own key, as readJsonFile does
+
+for (const [name, userFile, message] of [
+  ['an unknown top-level key', { routs: {} }, /routs/],
+  ['an unknown gateway key', { gateway: { prot: 1 } }, /gateway\.prot/],
+  ['an unknown tier', { routes: { ultra: { model: 'opus' } } }, /routes\.ultra/],
+  ['an unknown route key', { routes: { high: { model: 'opus', effrt: 'max' } } }, /routes\.high\.effrt/],
+  ['an unknown model key', { models: { opus: { inputt: 1 } } }, /models\.opus\.inputt/],
+  ['an unknown policy key', { policy: { upgradeSlop: 1 } }, /policy\.upgradeSlop/],
+  ['an unknown cache key', { cache: { ttl: 1 } }, /cache\.ttl/],
+  ['an unknown jev key', { jev: { url: 'x' } }, /jev\.url/],
+  ['an unknown context key', { context: { turns: 3 } }, /context\.turns/],
+  ['a __proto__ key at the top', parse('{"__proto__": {"log": false}}'), /__proto__/],
+  ['a __proto__ model alias', parse('{"models": {"__proto__": {}}}'), /models\.__proto__/],
+  ['a __proto__ ttl', parse('{"cache": {"ttlMs": {"__proto__": 1}}}'), /cache\.ttlMs\.__proto__/],
+  ['a constructor model alias', { models: { constructor: {} } }, /models\.constructor/],
+  ['a route to an inherited property', { routes: { low: { model: 'constructor' } } }, /routes\.low\.model/],
+  ['a route to toString', { routes: { low: { model: 'toString' } } }, /routes\.low\.model/],
+  ['a section that is not an object', { routes: 'opus' }, /routes must be an object/],
+  ['a section that is an array', { policy: [] }, /policy must be an object/],
+  ['a non-finite upgradeSlope', { policy: { upgradeSlope: 'steep' } }, /policy\.upgradeSlope/],
+  ['a negative upgradeSlope', { policy: { upgradeSlope: -0.1 } }, /policy\.upgradeSlope/],
+  ['a zero upgradePivotUsd', { policy: { upgradePivotUsd: 0 } }, /policy\.upgradePivotUsd/],
+  ['an infinite cashCapUsd', parse('{"policy": {"cashCapUsd": 1e999}}'), /policy\.cashCapUsd/],
+  ['an infinite jev timeout', parse('{"jev": {"timeoutMs": 1e999}}'), /jev\.timeoutMs/],
+  ['an empty jev endpoint', { jev: { endpoint: '' } }, /jev\.endpoint/],
+  ['a non-string jev model', { jev: { model: 5 } }, /jev\.model/],
+  ['a zero write multiplier', { cache: { writeMultiplier: { '5m': 0 } } }, /cache\.writeMultiplier\.5m/],
+  ['a negative ttl', { cache: { ttlMs: { '1h': -1 } } }, /cache\.ttlMs\.1h/],
+  ['a negative warm margin', { cache: { warmMarginMs: -1 } }, /cache\.warmMarginMs/],
+  ['zero recent turns', { context: { recentTurns: 0 } }, /context\.recentTurns/],
+  ['fractional text chars', { context: { maxTextChars: 1.5 } }, /context\.maxTextChars/],
+  ['a non-boolean log', { log: 'yes' }, /log must be/],
+]) {
+  test(`rejects ${name}`, () => {
+    assert.throws(() => loadConfig({ userFile }), message);
+  });
+}
+
+for (const [name, userFile] of [
+  ['an array', []],
+  ['a string', 'opus'],
+  ['a number', 5],
+]) {
+  test(`rejects a router.json that is ${name}`, () => {
+    assert.throws(() => loadConfig({ userFile }), /router\.json must be an object/);
+  });
+}
+
+test('error messages name the field, never the value', () => {
+  for (const userFile of [
+    { routes: { high: { model: 'secret-model' } } },
+    { routes: { high: { model: 'opus', effort: 'secret-effort' } } },
+  ]) {
+    assert.throws(
+      () => loadConfig({ userFile }),
+      (error) => !/secret/.test(error.message),
+    );
+  }
+});
+
+test('the documented example and a new model alias pass', () => {
+  const config = loadConfig({
+    userFile: {
+      routes: { low: { model: 'sonnet', effort: 'high' }, micro: { model: 'mine' } },
+      jev: { timeoutMs: 2500 },
+      models: { mine: { id: 'm', input: 1, cacheRead: 0.1, contextWindow: 200_000, billing: 'credits', efforts: [] } },
+      cache: { ttlMs: { '5m': 300_000 }, warmMarginMs: 0 },
+      log: false,
+    },
+  });
+  assert.equal(config.routes.micro.model, 'mine');
+  assert.equal(config.cache.ttlMs['1h'], DEFAULTS.cache.ttlMs['1h']);
+  assert.equal(config.log, false);
+});
