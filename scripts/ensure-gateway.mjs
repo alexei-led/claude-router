@@ -8,7 +8,7 @@ import { mkdirSync, openSync } from 'node:fs';
 import { connect } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cliArg, isRouterGateway, loadRuntime } from '../lib/runtime.mjs';
+import { cliArg, configArgs, isRouterGateway, loadRuntime } from '../lib/runtime.mjs';
 import { isOlderVersion, ROUTER_VERSION, STATUS_PATH } from '../lib/status.mjs';
 import { rotate } from '../lib/store.mjs';
 
@@ -115,7 +115,7 @@ async function start() {
   };
   const child = spawn(
     process.execPath,
-    [join(dirname(fileURLToPath(import.meta.url)), 'gateway.mjs'), '--config', configPath],
+    [join(dirname(fileURLToPath(import.meta.url)), 'gateway.mjs'), ...configArgs(configPath)],
     {
       detached: true,
       stdio: ['ignore', log, log],

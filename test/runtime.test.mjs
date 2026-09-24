@@ -4,7 +4,14 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { isRouterGateway, loadRuntime, resolveConfigPath, userHome } from '../lib/runtime.mjs';
+import { configArgs, isRouterGateway, loadRuntime, resolveConfigPath, userHome } from '../lib/runtime.mjs';
+
+// spawn() turns a null argument into the string "null": `--config null` would read `<project cwd>/null`, a file a
+// cloned repository can commit. The hook passes a --config to the gateway only for a path it resolved.
+test('the gateway it starts gets --config only for a resolved path', () => {
+  assert.deepEqual(configArgs('/home/u/.claude/router.json'), ['--config', '/home/u/.claude/router.json']);
+  assert.deepEqual(configArgs(null), []);
+});
 
 function tmpHome() {
   return mkdtempSync(join(tmpdir(), 'router-home-'));
