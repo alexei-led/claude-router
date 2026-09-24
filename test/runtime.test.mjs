@@ -4,11 +4,23 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { isRouterGateway, loadRuntime, resolveConfigPath } from '../lib/runtime.mjs';
+import { isRouterGateway, loadRuntime, resolveConfigPath, userHome } from '../lib/runtime.mjs';
 
 function tmpHome() {
   return mkdtempSync(join(tmpdir(), 'router-home-'));
 }
+
+test('home comes from the OS user record; a UID without one (arbitrary container UID) falls back to $HOME', () => {
+  const envHome = () => '/env/home';
+  assert.equal(
+    userHome(() => ({ homedir: '/os/home' }), envHome),
+    '/os/home',
+  );
+  const noPasswdEntry = () => {
+    throw Object.assign(new Error('uv_os_get_passwd returned ENOENT'), { code: 'ERR_SYSTEM_ERROR' });
+  };
+  assert.equal(userHome(noPasswdEntry, envHome), '/env/home');
+});
 
 test('without ROUTER_CONFIG, the default path is <home>/.claude/router.json', () => {
   const home = tmpHome();
