@@ -97,7 +97,7 @@ The line changes after each message.
 vote, it also shows the numbers:
 
 ```text
-Router v0.6.1, gateway: http://127.0.0.1:43170, alias `jev-router`.
+Router v0.7.0, gateway: http://127.0.0.1:43170, alias `jev-router`.
 Jev routing: active.
 Default tier: low.
 …
