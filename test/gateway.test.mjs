@@ -47,7 +47,7 @@ async function upstreamWith(respond) {
   return { upstream, url: `http://127.0.0.1:${await listen(upstream)}` };
 }
 
-test('routed requests are rewritten, headers forwarded, responses piped verbatim, usage recorded', async () => {
+test('routed requests are rewritten, headers forwarded, responses piped verbatim, usage recorded', async (t) => {
   const seen = [];
   const upstream = createServer((req, res) => {
     const chunks = [];
@@ -70,6 +70,7 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
   });
   const gateway = createGateway({ router, upstream: `http://127.0.0.1:${upPort}` });
   const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
 
   const res = await fetch(`http://127.0.0.1:${port}/v1/messages?beta=true`, {
     method: 'POST',
@@ -118,20 +119,19 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
   assert.equal(status.jevPausedUntil, null);
   const fresh = await (await fetch(`http://127.0.0.1:${port}/router/status?session=other`)).json();
   assert.equal(fresh.session, null);
-  shutdown(gateway, upstream);
 });
 
-test('an unreachable upstream answers 502', async () => {
+test('an unreachable upstream answers 502', async (t) => {
   const config = loadConfig({});
   const router = new Router({ config, fetchFn: async () => null, dataDir: mkdtempSync(join(tmpdir(), 'proxy-')) });
   const gateway = createGateway({ router, upstream: 'http://127.0.0.1:1', onError: () => {} });
   const port = await listen(gateway);
+  t.after(() => shutdown(gateway));
   const res = await fetch(`http://127.0.0.1:${port}/v1/messages`, { method: 'POST', body: '{}' });
   assert.equal(res.status, 502);
-  shutdown(gateway);
 });
 
-test('auxiliary responses do not touch memory and a routing error falls back to the baseline', async () => {
+test('auxiliary responses do not touch memory and a routing error falls back to the baseline', async (t) => {
   const seen = [];
   const upstream = createServer((req, res) => {
     const chunks = [];
@@ -154,6 +154,7 @@ test('auxiliary responses do not touch memory and a routing error falls back to 
   });
   const gateway = createGateway({ router, upstream: `http://127.0.0.1:${upPort}` });
   const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
   const headers = { 'content-type': 'application/json', 'x-claude-code-session-id': 'sess-2' };
   await (
     await fetch(`http://127.0.0.1:${port}/v1/messages`, {
@@ -186,7 +187,6 @@ test('auxiliary responses do not touch memory and a routing error falls back to 
     })
   ).text();
   assert.equal(seen[2].model, 'claude-sonnet-5');
-  shutdown(gateway, upstream);
 });
 
 test('an upstream reset mid-stream reaches the client as an error, not a hang', async (t) => {
