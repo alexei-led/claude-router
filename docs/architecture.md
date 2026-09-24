@@ -67,8 +67,8 @@ flowchart TB
     `output_config` on messages (the effort of each turn) go;
   - no `mid-conversation-system` (Haiku): each `system` message becomes a
     `<system-reminder>` text in the user message next to it.
-  The same history adapts the same way on every turn, so the cached prefix
-  holds.
+    The same history adapts the same way on every turn, so the cached prefix
+    holds.
 - On a model with `per-turn-control`, the effort of each turn overrides the
   request's effort. A route with its own effort (`medium`, `high`) therefore
   sets it in every message's `output_config` too.
@@ -152,17 +152,17 @@ flowchart TD
   class RESET,KEEP,POL,FIT act
 ```
 
-| Check           | How the gateway decides                                                                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Pass through    | Any other model: `/model`, subagents with their own model.                                                                                                              |
-| Pin             | The current message starts with the `/router:<tier>` command block. That tier serves the turn and its tool calls, reason `pinned`. No Jev call. |
-| Not a turn      | `count_tokens` and other endpoints get the last route of the session.                                                                                                    |
-| Side request    | Header `x-claude-code-request-class` is `auxiliary` or `compaction`. Without the header: thinking disabled or an output format in the body.                               |
-| History break   | Fewer messages than the last main request (a compaction or a rewind), or the header `x-claude-code-context-compacted`.                                                     |
+| Check           | How the gateway decides                                                                                                                                                      |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pass through    | Any other model: `/model`, subagents with their own model.                                                                                                                   |
+| Pin             | The current message starts with the `/router:<tier>` command block. That tier serves the turn and its tool calls, reason `pinned`. No Jev call.                              |
+| Not a turn      | `count_tokens` and other endpoints get the last route of the session.                                                                                                        |
+| Side request    | Header `x-claude-code-request-class` is `auxiliary` or `compaction`. Without the header: thinking disabled or an output format in the body.                                  |
+| History break   | Fewer messages than the last main request (a compaction or a rewind), or the header `x-claude-code-context-compacted`.                                                       |
 | Resent request  | Same last user message at the same position. Claude Code resends after a 429, a 529, a dropped stream, or a 400 that it answers by dropping a feature. No Jev call, no vote. |
-| System messages | Claude Code sends hook output and tool additions as `system` messages after the prompt. The turn is the last user or assistant message; Jev never receives `system` text. |
-| Context fit     | The route moves to a model whose window holds the next context at 80% fill. Reason `context-fit`.                                                                        |
-| Session memory  | Key `x-claude-code-session-id`. A subagent adds its agent id: `<session>.<agent id>`. Its turns do not change the route of the main conversation.                          |
+| System messages | Claude Code sends hook output and tool additions as `system` messages after the prompt. The turn is the last user or assistant message; Jev never receives `system` text.    |
+| Context fit     | The route moves to a model whose window holds the next context at 80% fill. Reason `context-fit`.                                                                            |
+| Session memory  | Key `x-claude-code-session-id`. A subagent adds its agent id: `<session>.<agent id>`. Its turns do not change the route of the main conversation.                            |
 
 ## Switching policy
 
@@ -185,7 +185,7 @@ flowchart TD
   JMP -- no --> UPQ{"2 votes,<br/>U ≥ bar?"}
   UPQ -- yes --> UP["upgrade"]
   UPQ -- no --> R5["upgrade-pending"]
-  DIR -- lower --> DNQ{"2 votes,<br/>D ≥ 0.90?"}
+  DIR -- lower --> DNQ{"2 votes,<br/>D ≥ bar?"}
   DNQ -- yes --> DOWN["downgrade"]
   DNQ -- no --> R6["downgrade-pending"]
 
@@ -205,9 +205,11 @@ only when that tier is above the current route.
   or below the candidate. The `uncertain` mass supports neither.
 - The upgrade bar grows with the switching tax:
   `bar = 0.75 + 0.15 × tax / (tax + $0.50)`. It stays between 0.75 and 0.90.
+- The downgrade bar grows the same way, from the other side: a candidate
+  colder than the incumbent pays a cache write, not just a smaller model.
+  `bar = 0.90 + 0.08 × tax / (tax + $0.50)`. It stays between 0.90 and 0.98.
 - A prompt continues the task when the Jev continuation answer is 0.7 or
   more. A continuing prompt never votes for a downgrade.
-- A downgrade has no tax term.
 - Upgrades have no cooldown. Plan, then execute, then hard work again is a
   valid sequence.
 - A failure signal is two `tool_result` errors with the same text and an edit
@@ -239,11 +241,11 @@ input_cost = P_read × W + P_write × (N − W)
 tax        = max(0, input_cost(candidate) − input_cost(current))
 ```
 
-| Symbol    | Source                                                                                                  |
-| --------- | ------------------------------------------------------------------------------------------------------- |
-| `N`       | Next context: tokens and output of the last response.                                                   |
-| `W`       | Warm prefix of the candidate cache. Zero when the cache is `expired` or `unknown`.                      |
-| `P_read`  | List price for cache reads.                                                                             |
+| Symbol    | Source                                                                                                 |
+| --------- | ------------------------------------------------------------------------------------------------------ |
+| `N`       | Next context: tokens and output of the last response.                                                  |
+| `W`       | Warm prefix of the candidate cache. Zero when the cache is `expired` or `unknown`.                     |
+| `P_read`  | List price for cache reads.                                                                            |
 | `P_write` | Input list price × 1.25 (5-minute TTL) or × 2 (1-hour TTL). The TTL comes from `usage.cache_creation`. |
 
 - **Upper bound.** An effort change counts the whole prefix as lost. On some
@@ -314,19 +316,19 @@ so tests run without a network. `gateway` imports one pure function from
 `router`, the side-request test, not the router itself. Modules that need
 settings or tier names import `config.mjs` (not drawn).
 
-| Module    | Responsibility                                                              |
-| --------- | --------------------------------------------------------------------------- |
-| `gateway` | HTTP server, loopback checks, relay with `pipeline()`, status endpoint.     |
-| `router`  | One request: class, facts, advice, policy, rewrite, session memory, log.    |
-| `facts`   | Prompt, recent turns, continuation, failure signal, resend key.            |
-| `jev`     | One bounded Jev request with a Choice (tier) and a Noul (continuation).     |
-| `policy`  | Switching policy, context fit, cold-write guard.                            |
-| `cost`    | Cache key, warmth, input cost, switching tax, shadow estimate.              |
-| `rewrite` | Model, effort, thinking and output limit for each model family.             |
-| `sse`     | `usage` from SSE and JSON responses.                                        |
-| `idle`    | When the daemon can exit.                                                   |
-| `status`  | Status snapshot, status line segment, `/router:status` report.              |
-| `store`   | Session memory, `decisions.jsonl`, rotation.                                |
+| Module    | Responsibility                                                                                 |
+| --------- | ---------------------------------------------------------------------------------------------- |
+| `gateway` | HTTP server, loopback checks, relay with `pipeline()`, status endpoint.                        |
+| `router`  | One request: class, facts, advice, policy, rewrite, session memory, log.                       |
+| `facts`   | Prompt, recent turns, continuation, failure signal, resend key.                                |
+| `jev`     | One bounded Jev request with a Choice (tier) and a Noul (continuation).                        |
+| `policy`  | Switching policy, context fit, cold-write guard.                                               |
+| `cost`    | Cache key, warmth, input cost, switching tax, shadow estimate.                                 |
+| `rewrite` | Model, effort, thinking and output limit for each model family.                                |
+| `sse`     | `usage` from SSE and JSON responses.                                                           |
+| `idle`    | When the daemon can exit.                                                                      |
+| `status`  | Status snapshot, status line segment, `/router:status` report.                                 |
+| `store`   | Session memory, `decisions.jsonl`, rotation.                                                   |
 | `runtime` | Configuration path (anchored under `~/.claude`), data directory, flags, gateway process check. |
 
 ## Gateway lifecycle
@@ -353,16 +355,16 @@ stateDiagram-v2
 
 ## Failure handling
 
-| Failure                            | Behavior                                                                                      |
-| ---------------------------------- | --------------------------------------------------------------------------------------------- |
-| Anthropic 429, 529, 5xx            | Pass through with `Retry-After`. Claude Code owns retries.                                    |
-| Upstream reset during a stream     | The client connection resets, and Claude Code retries at once.                                |
-| Client leaves (Esc)                | The gateway stops the upstream request.                                                       |
-| Jev error or timeout               | One retry inside the 1.5 s budget. Then the current route stays.                              |
-| Three Jev failures in a row        | New turns skip Jev for one minute, then try once.                                             |
-| Routing error                      | The baseline tier serves. The alias never goes to Anthropic.                                  |
-| Disk error                         | Logged. The routing decision stays.                                                           |
-| Unexpected exception               | Logged. The daemon continues.                                                                 |
+| Failure                        | Behavior                                                         |
+| ------------------------------ | ---------------------------------------------------------------- |
+| Anthropic 429, 529, 5xx        | Pass through with `Retry-After`. Claude Code owns retries.       |
+| Upstream reset during a stream | The client connection resets, and Claude Code retries at once.   |
+| Client leaves (Esc)            | The gateway stops the upstream request.                          |
+| Jev error or timeout           | One retry inside the 1.5 s budget. Then the current route stays. |
+| Three Jev failures in a row    | New turns skip Jev for one minute, then try once.                |
+| Routing error                  | The baseline tier serves. The alias never goes to Anthropic.     |
+| Disk error                     | Logged. The routing decision stays.                              |
+| Unexpected exception           | Logged. The daemon continues.                                    |
 
 ## Security and privacy
 
