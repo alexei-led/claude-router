@@ -1,0 +1,9 @@
+{
+  "source": "Live probe: an isolated gateway on its own port, a forced tier, real Anthropic API calls with each effort level (15 calls). A model that rejects effort answers 400 \"This model does not support the effort parameter\".",
+  "checked": "2026-09-24",
+  "models": {
+    "claude-opus-5-5": ["low", "medium", "high", "xhigh", "max"],
+    "claude-sonnet-5": ["low", "medium", "high", "xhigh", "max"],
+    "claude-haiku-4-5": []
+  }
+}

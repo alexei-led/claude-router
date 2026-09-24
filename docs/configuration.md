@@ -119,7 +119,8 @@ A test makes sure that they agree.
 | `efforts`       | The effort levels that the model accepts. An empty list removes effort and thinking.                 |
 
 The default prices match `test/fixtures/list-prices.json`, which names its
-source and date. A test fails when they differ.
+source and date. The default `efforts` match `test/fixtures/effort-support.json`,
+from a probe against the real API. A test fails when they differ.
 
 ### policy
 
