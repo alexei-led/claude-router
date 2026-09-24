@@ -133,6 +133,23 @@ test('weak downgrade mass never switches', () => {
   assert.equal(b.reason, 'downgrade-pending');
 });
 
+// Regression: a downgrade is not always cheaper this turn. A candidate colder than the incumbent pays a cache
+// write the confidence bar must account for, the same way an upgrade's tax raises its bar.
+test('the downgrade bar rises when the candidate is colder than the incumbent', () => {
+  const votes = [advice('low', { low: 0.92, high: 0.08 }), advice('low', { low: 0.92, high: 0.08 })];
+
+  const warmCandidate = facts({ lastRoute: 'high' }); // default servedBy: sonnet (low) is warm, opus (high) is not
+  const [, warm] = runTurns(warmCandidate, votes);
+  assert.equal(warm.reason, 'downgrade');
+  assert.equal(warm.estimate.threshold, config.policy.downgradeMass);
+
+  const coldCandidate = facts({ lastRoute: 'high', servedBy: 'claude-opus-5-5', effort: 'xhigh', tokens: 100_000 });
+  const [, cold] = runTurns(coldCandidate, votes);
+  assert.equal(cold.reason, 'downgrade-pending');
+  assert.ok(cold.estimate.threshold > config.policy.downgradeMass);
+  assert.ok(cold.estimate.taxUsd > 0);
+});
+
 test('repeated failure escalates one tier and holds, once per signature', () => {
   const failing = facts({ failure: { signature: 'error: tests failed', index: 9 } });
   const turns = runTurns(failing, [
