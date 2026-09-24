@@ -356,6 +356,46 @@ test('a turn that waits for a tool result is tracked until the session sends its
   assert.equal(activity.inFlight, 0);
 });
 
+// H1: a side request (session title, classifier, compaction) shares the session key. It neither answers a pending
+// tool wait nor starts one, or the gateway could idle out under a permission prompt.
+test('side requests on a session neither clear nor set its tool wait', async (t) => {
+  const TOOL_USE =
+    'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":3}}\n\n';
+  let answer = TOOL_USE;
+  const { upstream, url } = await upstreamWith((_body, res) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.end(answer);
+  });
+  const activity = new IdleTracker();
+  const gateway = createGateway({ router: plainRouter(), upstream: url, activity });
+  const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
+  const send = async (session, requestClass = null, extra = {}) => {
+    const headers = { 'x-claude-code-session-id': session };
+    if (requestClass) headers['x-claude-code-request-class'] = requestClass;
+    const res = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body([user('x')], extra)),
+    });
+    await res.text();
+    await sleep(20);
+  };
+  await send('w', 'main');
+  assert.equal(activity.waiting.has('w'), true);
+  answer = SSE;
+  await send('w', 'auxiliary');
+  await send('w', 'compaction');
+  await send('w', null, { thinking: { type: 'disabled' } }); // a side request by shape, without the header
+  assert.equal(activity.waiting.has('w'), true);
+  answer = TOOL_USE;
+  await send('v', 'auxiliary');
+  assert.equal(activity.waiting.has('v'), false);
+  answer = SSE;
+  await send('w', 'main');
+  assert.equal(activity.waiting.has('w'), false);
+});
+
 test('the 1M context beta reaches only models with a 1M window', async (t) => {
   const seen = [];
   const upstream = createServer((req, res) => {
