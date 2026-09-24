@@ -7,14 +7,14 @@ import { loadConfig } from '../lib/config.mjs';
 import { JEV_PAUSE_MS, Router } from '../lib/router.mjs';
 import { assistant, body, jevResponse, toolResult, user } from './helpers.mjs';
 
-function setup(env = {}, userFile = null) {
+function setup({ forcedTier = null, ...env } = {}, userFile = null) {
   const dataDir = mkdtempSync(join(tmpdir(), 'router-'));
   const calls = [];
   const fetchFn = async (_url, init) => {
     calls.push(JSON.parse(init.body));
     return { ok: true, status: 200, json: async () => jevResponse('high', { high: 0.97 }) };
   };
-  const config = loadConfig({ env: { TYPESAFE_API_KEY: 'k', ...env }, userFile });
+  const config = loadConfig({ env: { TYPESAFE_API_KEY: 'k', ...env }, userFile, forcedTier });
   return { router: new Router({ config, fetchFn, dataDir, now: () => 1_000_000 }), calls, dataDir };
 }
 
@@ -64,7 +64,7 @@ test('auxiliary requests take the auxiliary tier and leave memory alone', async 
 });
 
 test('forced tier and missing key skip Jev', async () => {
-  const forced = setup({ ROUTER_FORCE_TIER: 'medium' });
+  const forced = setup({ forcedTier: 'medium' });
   const out = await forced.router.route(body([user('x')]), { sessionId: 's', requestClass: 'main' });
   assert.equal(out.tier, 'medium');
   assert.equal(forced.calls.length, 0);
@@ -97,7 +97,7 @@ test('recorded usage feeds warmth and compaction detection', async () => {
 });
 
 test('a context too large for the routed model moves the turn to a model that fits', async () => {
-  const { router } = setup({ ROUTER_FORCE_TIER: 'micro' });
+  const { router } = setup({ forcedTier: 'micro' });
   const usage = (tokens) => ({ model: 'claude-haiku-4-5', tokens, cacheReadTokens: 0, outputTokens: 1_000, ttl: '1h' });
   router.recordResponse('big', 'micro', usage(100_000));
   const small = await router.route(body([user('x')]), { sessionId: 'big', requestClass: 'main' });
@@ -233,7 +233,7 @@ test('the first request after a compaction drops the cached prefixes', async () 
 // After a history break the real context size is unknown until the next response. The last size is an upper bound
 // after a rewind, which can still leave most of the context: the first turn after it must not go to a small window.
 test('after a rewind, the last context size still keeps a turn off a window it would overflow', async () => {
-  const { router } = setup({ ROUTER_FORCE_TIER: 'micro' });
+  const { router } = setup({ forcedTier: 'micro' });
   const usage = { model: 'claude-sonnet-5', tokens: 250_000, cacheReadTokens: 0, outputTokens: 1, ttl: '1h' };
   const long = [user('a'), assistant('b'), user('c'), assistant('d'), user('e')];
   await router.route(body(long), { sessionId: 's1', requestClass: 'main' });
@@ -343,7 +343,7 @@ test('a decision line names the model and the effort sent; an observed line the 
 });
 
 test('a decision for a model without effort logs effort null', async () => {
-  const { router, dataDir } = setup({ ROUTER_FORCE_TIER: 'micro' });
+  const { router, dataDir } = setup({ forcedTier: 'micro' });
   await router.route(body([user('rename x')]), { sessionId: 's1', requestClass: 'main' });
   const [decision] = readLog(dataDir);
   assert.deepEqual([decision.model, decision.effort], ['claude-haiku-4-5', null]);

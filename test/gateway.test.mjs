@@ -59,7 +59,7 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
     });
   });
   const upPort = await listen(upstream);
-  const config = loadConfig({ env: { ROUTER_FORCE_TIER: 'medium' } });
+  const config = loadConfig({ forcedTier: 'medium' });
   const router = new Router({
     config,
     fetchFn: async () => {
@@ -443,7 +443,7 @@ test('the 1M context beta reaches only models with a 1M window', async (t) => {
   ];
   for (const [tier] of cases) {
     const router = new Router({
-      config: loadConfig({ env: { ROUTER_FORCE_TIER: tier } }),
+      config: loadConfig({ forcedTier: tier }),
       fetchFn: async () => {
         throw new Error('no jev');
       },

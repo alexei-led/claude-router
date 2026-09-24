@@ -49,7 +49,7 @@ for (const [name, userFile, message] of [
 }
 
 test('rejects an unknown forced tier', () => {
-  assert.throws(() => loadConfig({ env: { ROUTER_FORCE_TIER: 'ultra' } }), /ROUTER_FORCE_TIER/);
+  assert.throws(() => loadConfig({ forcedTier: 'ultra' }), /forced tier/);
 });
 
 test('models.<alias>.maxOutput must be a positive integer when set', () => {
