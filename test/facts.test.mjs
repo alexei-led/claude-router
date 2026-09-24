@@ -5,6 +5,85 @@ import { assistant, body, memory, toolResult, user } from './helpers.mjs';
 
 const CONTEXT = { recentTurns: 4, maxTextChars: 30 };
 
+// Claude Code 2.1.x puts hook output (and tool additions) in a `system` message after the user message, and keeps
+// it in the history. Shapes captured from a live session on 2026-09-24.
+const system = (text, extra = []) => ({ role: 'system', content: [{ type: 'text', text }, ...extra] });
+const TOOL_ADDITION = { type: 'tool_addition', tool: { name: 'ToolSearch' } };
+
+test('a trailing system message (hook output) does not hide the prompt', () => {
+  const facts = factsFromRequest(
+    body([user('fix the bug'), system('hook said x'), assistant('done'), user('now the tests'), system('hook')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.equal(facts.prompt, 'now the tests');
+  assert.equal(facts.continuation, false);
+  assert.deepEqual(
+    facts.turns.map((t) => [t.role, t.text]),
+    [
+      ['user', 'fix the bug'],
+      ['assistant', 'done'],
+    ],
+  );
+});
+
+test('a tool result followed by a system message is still a continuation', () => {
+  const facts = factsFromRequest(
+    body([user('fix'), system('hook'), assistant('reading', ['Read']), toolResult('ok'), system('hook')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.equal(facts.continuation, true);
+  assert.equal(facts.prompt, '');
+});
+
+// A typed /router:<tier> reaches the gateway as a command message (captured 2026-09-24); Claude Code no longer
+// switches the model from the skill's frontmatter.
+const command = (tier, args) => ({
+  role: 'user',
+  content: [
+    { type: 'text', text: '<system-reminder>ctx</system-reminder>' },
+    {
+      type: 'text',
+      text: `<command-message>router:${tier}</command-message>\n<command-name>/router:${tier}</command-name>\n<command-args>${args}</command-args>`,
+    },
+    { type: 'text', text: 'Base directory for this skill: …\n\nRouting tier applied.' },
+  ],
+});
+
+test('a typed /router:<tier> in the current message is a pin', () => {
+  const facts = factsFromRequest(body([command('micro', 'what is 5+5'), system('hook')]), memory(), CONTEXT);
+  assert.equal(facts.pin, 'micro');
+});
+
+test('only the current message pins, and only a command block that starts with the marker', () => {
+  const older = factsFromRequest(
+    body([command('high', 'x'), system('hook'), assistant('ok'), user('next'), system('hook')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.equal(older.pin, null);
+  const quoted = factsFromRequest(
+    body([user('the log says <command-message>router:high</command-message> here')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.equal(quoted.pin, null);
+  const tool = factsFromRequest(
+    body([command('high', 'x'), assistant('reading', ['Read']), toolResult('ok')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.equal(tool.pin, null);
+});
+
+test('a resend that drops the tool addition from the system message keeps its turn key', () => {
+  const first = factsFromRequest(body([user('go'), system('hook', [TOOL_ADDITION])]), memory(), CONTEXT);
+  const resent = factsFromRequest(body([user('go'), system('hook')]), memory(), CONTEXT);
+  assert.ok(first.turnKey);
+  assert.equal(resent.turnKey, first.turnKey);
+});
+
 test('a new user turn yields the prompt without system reminders', () => {
   const b = body([
     user('fix the bug'),
@@ -22,7 +101,7 @@ test('a new user turn yields the prompt without system reminders', () => {
   assert.equal(facts.continuation, false);
   assert.deepEqual(
     facts.turns.map((t) => t.role),
-    ['user', 'assistant', 'user'],
+    ['user', 'assistant'],
   );
 });
 
@@ -68,4 +147,66 @@ test('memory fields pass through', () => {
   const facts = factsFromRequest(body([user('x')]), m, CONTEXT);
   assert.equal(facts.lastRoute, 'high');
   assert.deepEqual(facts.models, { a: 1 });
+});
+
+// Jev input: the prompt is capped like every turn (head and tail kept), and it is not also the last turn.
+test('a long prompt is capped to maxTextChars and keeps its head and tail', () => {
+  const long = `HEAD-${'x'.repeat(10_000)}-TAIL`;
+  const { prompt } = factsFromRequest(body([user(long)]), memory(), CONTEXT);
+  assert.ok(prompt.length <= CONTEXT.maxTextChars, `length ${prompt.length}`);
+  assert.ok(prompt.startsWith('HEAD-'));
+  assert.ok(prompt.endsWith('-TAIL'));
+});
+
+test('a prompt within the cap is unchanged', () => {
+  const { prompt } = factsFromRequest(body([user('fix the flaky test')]), memory(), CONTEXT);
+  assert.equal(prompt, 'fix the flaky test');
+});
+
+test('a long earlier turn keeps its head and tail', () => {
+  const facts = factsFromRequest(
+    body([user(`START-${'y'.repeat(500)}-END`), assistant('ok'), user('next')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.ok(facts.turns[0].text.length <= CONTEXT.maxTextChars);
+  assert.ok(facts.turns[0].text.startsWith('START-'));
+  assert.ok(facts.turns[0].text.endsWith('-END'));
+});
+
+test('the current user message is the prompt only, not also the last turn', () => {
+  const facts = factsFromRequest(
+    body([user('first task'), assistant('done'), user('CURRENT-MARKER now this')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.match(facts.prompt, /CURRENT-MARKER/);
+  assert.ok(facts.turns.every((t) => !t.text.includes('CURRENT-MARKER')));
+});
+
+test('a trailing tool result with text is not a turn either', () => {
+  const trailing = {
+    role: 'user',
+    content: [
+      { type: 'tool_result', tool_use_id: 't', content: [{ type: 'text', text: 'ok' }] },
+      { type: 'text', text: 'TRAILING-MARKER' },
+    ],
+  };
+  const facts = factsFromRequest(body([user('go'), assistant('running', ['Bash']), trailing]), memory(), CONTEXT);
+  assert.ok(facts.turns.every((t) => !t.text.includes('TRAILING-MARKER')));
+  assert.deepEqual(
+    facts.turns.map((t) => t.text),
+    ['go', 'running'],
+  );
+});
+
+test('a history that ends with the assistant keeps it as the last turn', () => {
+  const facts = factsFromRequest(body([user('go'), assistant('LAST-ASSISTANT')]), memory(), CONTEXT);
+  assert.equal(facts.turns.at(-1).text, 'LAST-ASSISTANT');
+  assert.equal(facts.prompt, '');
+});
+
+test('a cap smaller than the marker still bounds the text', () => {
+  const { prompt } = factsFromRequest(body([user('abcdefgh')]), memory(), { ...CONTEXT, maxTextChars: 2 });
+  assert.ok(prompt.length <= 2);
 });

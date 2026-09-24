@@ -11,8 +11,15 @@
 
 - The hooks give the key to the gateway as `TYPESAFE_API_KEY`. The key is
   never in a file.
-- The gateway ignores project files. A cloned repository cannot change your
-  routing or your spend.
+- The gateway that the hooks start reads `~/.claude/router.json`, or the file
+  that `ROUTER_CONFIG` names when it is under `~/.claude/`. A project can set
+  environment variables for the plugin hooks, so the hooks take your home
+  directory from your OS user account, not from `$HOME`, and ignore
+  `ROUTER_CONFIG` for a path outside `~/.claude/`. So a cloned repository
+  cannot choose the router configuration (and with it the port, the routes or
+  the Jev endpoint) through `router.json`, `ROUTER_CONFIG` or `$HOME`. The
+  gateway still inherits the other environment variables of the session that
+  started it.
 - The gateway reads `router.json` at start. After a change, run
   `pkill -f scripts/gateway.mjs`. The next prompt starts a new gateway.
 
@@ -57,8 +64,17 @@ model (jev-router[1m])".
 ## Router configuration
 
 Each key in `~/.claude/router.json` is optional. A key replaces the default
-at the same path, and objects merge. For example, to run `low` on Sonnet at
-`high` effort and give Jev more time:
+at the same path, and objects merge.
+
+The file is strict. Text that is not valid JSON, an unknown key (a typo such
+as `routs`), a value of the wrong type, or a number out of range stops a new
+gateway from starting. The error names the file and the field, never the
+value. A gateway that already runs keeps serving. When no gateway runs, every
+request fails to connect until you fix the file. The SessionStart hook prints
+the error; the prompt hook is quiet. `/router:status` also shows it: it reads
+the file and starts nothing.
+
+For example, to run `low` on Sonnet at `high` effort and give Jev more time:
 
 ```json
 {
@@ -93,11 +109,11 @@ A test makes sure that they agree.
 
 ### models
 
-| Alias    | `id`               | `input` | `output` | `cacheRead` | `contextWindow` | `maxOutput` | `billing` | `efforts` |
-| -------- | ------------------ | ------- | -------- | ----------- | --------------- | ----------- | --------- | --------- |
-| `opus`   | `claude-opus-5-5`  | 4       | 20       | 0.2         | 1,000,000       | —           | `plan`    | all five  |
-| `sonnet` | `claude-sonnet-5`  | 2       | 10       | 0.2         | 1,000,000       | —           | `plan`    | all five  |
-| `haiku`  | `claude-haiku-4-5` | 1       | 5        | 0.1         | 200,000         | 64,000      | `plan`    | none      |
+| Alias    | `id`               | `input` | `output` | `cacheRead` | `contextWindow` | `maxOutput` | `billing` | `efforts` | `features`                |
+| -------- | ------------------ | ------- | -------- | ----------- | --------------- | ----------- | --------- | --------- | ------------------------- |
+| `opus`   | `claude-opus-5-5`  | 4       | 20       | 0.2         | 1,000,000       | —           | `plan`    | all five  | all three                 |
+| `sonnet` | `claude-sonnet-5`  | 2       | 10       | 0.2         | 1,000,000       | —           | `plan`    | all five  | `mid-conversation-system` |
+| `haiku`  | `claude-haiku-4-5` | 1       | 5        | 0.1         | 200,000         | 64,000      | `plan`    | none      | none                      |
 
 | Field           | Meaning                                                                                              |
 | --------------- | ---------------------------------------------------------------------------------------------------- |
@@ -107,9 +123,11 @@ A test makes sure that they agree.
 | `maxOutput`     | Optional limit for `max_tokens`. Haiku 4.5 rejects more than 64K.                                     |
 | `billing`       | `plan` for the subscription limits. `credits` for models that bill usage credits.                    |
 | `efforts`       | The effort levels that the model accepts. An empty list removes effort and thinking.                 |
+| `features`      | The request features of Claude Code that the model accepts: `mid-conversation-system`, `per-turn-control`, `mid-conversation-tool-changes`. The gateway removes the others ([architecture](architecture.md#system-context)). Without the field: none. |
 
 The default prices match `test/fixtures/list-prices.json`, which names its
-source and date. A test fails when they differ.
+source and date. The default `efforts` match `test/fixtures/effort-support.json`,
+from a probe against the real API. A test fails when they differ.
 
 ### policy
 
@@ -139,17 +157,39 @@ The [switching policy](architecture.md#switching-policy) uses these values.
 | `jev.model`                | `jev-1.13.0`                           | The Jev model.                                           |
 | `jev.timeoutMs`            | `1500`                                 | The total time for one Jev answer, one retry included.   |
 | `context.recentTurns`      | `6`                                    | The number of recent turns that Jev receives.            |
-| `context.maxTextChars`     | `1200`                                 | The characters of each turn that Jev receives.           |
+| `context.maxTextChars`     | `1200`                                 | The characters of the prompt and of each turn that Jev receives. A longer text keeps its start and end. |
 | `log`                      | `true`                                 | Write `decisions.jsonl`.                                 |
 
 ## Environment variables
 
-| Variable             | Effect                                                                         |
-| -------------------- | ------------------------------------------------------------------------------ |
-| `TYPESAFE_API_KEY`   | The Jev key. The hooks set it from the plugin option.                          |
-| `ROUTER_CONFIG`      | Another path for the router configuration.                                     |
-| `ROUTER_FORCE_TIER`  | `micro`, `low`, `medium` or `high`. Skips Jev and the policy. For tests.       |
-| `CLAUDE_PLUGIN_DATA` | The data directory. Claude Code sets it for the plugin hooks.                  |
+| Variable             | Effect                                                                                          |
+| -------------------- | ----------------------------------------------------------------------------------------------- |
+| `TYPESAFE_API_KEY`   | The Jev key. The hooks set it from the plugin option.                                           |
+| `ROUTER_CONFIG`      | Another path for the router configuration, under `~/.claude/` only. Another path is ignored, with a warning. |
+| `CLAUDE_PLUGIN_DATA` | The data directory. Claude Code sets it for the plugin hooks.                                   |
+
+## Command-line flags
+
+A project cannot change these: they are part of the command, not of the
+environment.
+
+| Flag                  | Script                                   | Effect                                                                  |
+| --------------------- | ---------------------------------------- | ----------------------------------------------------------------------- |
+| `--config <path>`     | `gateway.mjs`, `ensure-gateway.mjs`, `status.mjs` | The router configuration, at any path.                         |
+| `--force-tier <tier>` | `gateway.mjs`                            | `micro`, `low`, `medium` or `high`. Skips Jev and the policy. For tests. |
+
+The flags are for a gateway that you start by hand. The hooks and the status
+line do not pass them. To use another file with the hooks, keep it under
+`~/.claude/` and set `ROUTER_CONFIG`.
+
+To force a tier, stop the gateway and start it by hand with the data directory
+of the plugin, so the log stays in its place:
+
+```sh
+pkill -f scripts/gateway.mjs
+CLAUDE_PLUGIN_DATA=~/.claude/plugins/data/router-alexei-led-claude-router \
+  node <plugin>/scripts/gateway.mjs --force-tier high
+```
 
 ## Data directory
 

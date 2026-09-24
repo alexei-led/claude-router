@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { createServer, request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -47,7 +47,7 @@ async function upstreamWith(respond) {
   return { upstream, url: `http://127.0.0.1:${await listen(upstream)}` };
 }
 
-test('routed requests are rewritten, headers forwarded, responses piped verbatim, usage recorded', async () => {
+test('routed requests are rewritten, headers forwarded, responses piped verbatim, usage recorded', async (t) => {
   const seen = [];
   const upstream = createServer((req, res) => {
     const chunks = [];
@@ -59,7 +59,7 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
     });
   });
   const upPort = await listen(upstream);
-  const config = loadConfig({ env: { ROUTER_FORCE_TIER: 'medium' } });
+  const config = loadConfig({ forcedTier: 'medium' });
   const router = new Router({
     config,
     fetchFn: async () => {
@@ -70,6 +70,7 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
   });
   const gateway = createGateway({ router, upstream: `http://127.0.0.1:${upPort}` });
   const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
 
   const res = await fetch(`http://127.0.0.1:${port}/v1/messages?beta=true`, {
     method: 'POST',
@@ -118,20 +119,19 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
   assert.equal(status.jevPausedUntil, null);
   const fresh = await (await fetch(`http://127.0.0.1:${port}/router/status?session=other`)).json();
   assert.equal(fresh.session, null);
-  shutdown(gateway, upstream);
 });
 
-test('an unreachable upstream answers 502', async () => {
+test('an unreachable upstream answers 502', async (t) => {
   const config = loadConfig({});
   const router = new Router({ config, fetchFn: async () => null, dataDir: mkdtempSync(join(tmpdir(), 'proxy-')) });
   const gateway = createGateway({ router, upstream: 'http://127.0.0.1:1', onError: () => {} });
   const port = await listen(gateway);
+  t.after(() => shutdown(gateway));
   const res = await fetch(`http://127.0.0.1:${port}/v1/messages`, { method: 'POST', body: '{}' });
   assert.equal(res.status, 502);
-  shutdown(gateway);
 });
 
-test('auxiliary responses do not touch memory and a routing error falls back to the baseline', async () => {
+test('auxiliary responses do not touch memory and a routing error falls back to the baseline', async (t) => {
   const seen = [];
   const upstream = createServer((req, res) => {
     const chunks = [];
@@ -154,6 +154,7 @@ test('auxiliary responses do not touch memory and a routing error falls back to 
   });
   const gateway = createGateway({ router, upstream: `http://127.0.0.1:${upPort}` });
   const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
   const headers = { 'content-type': 'application/json', 'x-claude-code-session-id': 'sess-2' };
   await (
     await fetch(`http://127.0.0.1:${port}/v1/messages`, {
@@ -186,7 +187,6 @@ test('auxiliary responses do not touch memory and a routing error falls back to 
     })
   ).text();
   assert.equal(seen[2].model, 'claude-sonnet-5');
-  shutdown(gateway, upstream);
 });
 
 test('an upstream reset mid-stream reaches the client as an error, not a hang', async (t) => {
@@ -316,7 +316,10 @@ test('requests from a foreign host or a web origin are refused', async (t) => {
   assert.equal(await statusCode({ origin: 'https://attacker.example' }), 403);
   assert.equal(await statusCode({ origin: 'null' }), 403);
   assert.equal(await statusCode({}), 200);
-  assert.equal(await statusCode({ host: `localhost:${port}`, origin: 'http://localhost:3000' }), 200);
+  assert.equal(await statusCode({ host: `localhost:${port}` }), 200);
+  // Claude Code sends no Origin. A page on another loopback port could still fire blind POSTs that spend Jev quota.
+  assert.equal(await statusCode({ host: `localhost:${port}`, origin: 'http://localhost:3000' }), 403);
+  assert.equal(await statusCode({ origin: `http://127.0.0.1:${port}` }), 403);
 });
 
 test('a turn that waits for a tool result is tracked until the session sends its next request', async (t) => {
@@ -353,6 +356,76 @@ test('a turn that waits for a tool result is tracked until the session sends its
   assert.equal(activity.inFlight, 0);
 });
 
+// H1: a side request (session title, classifier, compaction) shares the session key. By its hint header it does not
+// answer a pending tool wait, or the gateway could idle out under a permission prompt. Without the header the body
+// cannot tell a side request from a turn with thinking off, so the wait bookkeeping fails safe: any tool_use stop
+// starts a wait, and any request without a side-request header ends it.
+test('side requests on a session keep its tool wait; a tool_use stop always starts one', async (t) => {
+  const TOOL_USE =
+    'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":3}}\n\n';
+  let answer = TOOL_USE;
+  const { upstream, url } = await upstreamWith((_body, res) => {
+    res.writeHead(200, { 'content-type': 'text/event-stream' });
+    res.end(answer);
+  });
+  const activity = new IdleTracker();
+  const gateway = createGateway({ router: plainRouter(), upstream: url, activity });
+  const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
+  const send = async (session, requestClass = null, extra = {}) => {
+    const headers = { 'x-claude-code-session-id': session };
+    if (requestClass) headers['x-claude-code-request-class'] = requestClass;
+    const res = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body([user('x')], extra)),
+    });
+    await res.text();
+    await sleep(20);
+  };
+  await send('w', 'main');
+  assert.equal(activity.waiting.has('w'), true);
+  answer = SSE;
+  await send('w', 'auxiliary');
+  await send('w', 'compaction');
+  assert.equal(activity.waiting.has('w'), true);
+  answer = SSE;
+  await send('w', 'main');
+  assert.equal(activity.waiting.has('w'), false);
+  // No header, thinking off: a main turn with thinking disabled looks like a side request by shape. It must still
+  // start the wait when it stops for a tool.
+  answer = TOOL_USE;
+  await send('v', null, { thinking: { type: 'disabled' } });
+  assert.equal(activity.waiting.has('v'), true);
+});
+
+test('a routed turn that fails upstream leaves a failed line and no prompt text in the log', async (t) => {
+  const { upstream, url } = await upstreamWith((_body, res) => {
+    res.writeHead(529, { 'content-type': 'application/json' });
+    res.end('{"type":"error","error":{"type":"overloaded_error"}}');
+  });
+  const router = plainRouter();
+  const gateway = createGateway({ router, upstream: url });
+  const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
+  const res = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
+    method: 'POST',
+    headers: { 'x-claude-code-session-id': 'f', 'x-claude-code-request-class': 'main' },
+    body: JSON.stringify(body([user('CANARY-PROMPT fix it')])),
+  });
+  assert.equal(res.status, 529);
+  await res.text();
+  await sleep(20);
+  const text = readFileSync(join(router.dataDir, 'decisions.jsonl'), 'utf8');
+  const failed = text
+    .trim()
+    .split('\n')
+    .map((l) => JSON.parse(l))
+    .find((e) => e.failed);
+  assert.deepEqual(failed.failed, { status: 529, tier: 'low', model: 'claude-sonnet-5', effort: 'high' });
+  assert.doesNotMatch(text, /CANARY/);
+});
+
 test('the 1M context beta reaches only models with a 1M window', async (t) => {
   const seen = [];
   const upstream = createServer((req, res) => {
@@ -370,7 +443,7 @@ test('the 1M context beta reaches only models with a 1M window', async (t) => {
   ];
   for (const [tier] of cases) {
     const router = new Router({
-      config: loadConfig({ env: { ROUTER_FORCE_TIER: tier } }),
+      config: loadConfig({ forcedTier: tier }),
       fetchFn: async () => {
         throw new Error('no jev');
       },

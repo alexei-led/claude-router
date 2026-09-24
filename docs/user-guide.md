@@ -89,7 +89,7 @@ The line changes after each message.
 | `uncertain`         | Jev did not select a tier.                                          |
 | `no-advice`         | No Jev answer: no key, an error, a pause, or a prompt without text. |
 
-`forced` means that `ROUTER_FORCE_TIER` is set.
+`forced` means that the gateway was started with `--force-tier`.
 
 ## Read `/router:status`
 
@@ -124,6 +124,9 @@ To run one turn on a fixed tier, type the tier skill before the prompt:
 /router:micro rename foo to bar in this file
 ```
 
+The status line shows the reason `pinned`. Tool calls in that turn stay on the
+tier; the next prompt goes back to Jev.
+
 `/model <name>` also works, but it stops the routing for the rest of the
 session.
 
@@ -136,11 +139,13 @@ log has no prompt text.
 | Field          | Content                                                                            |
 | -------------- | ---------------------------------------------------------------------------------- |
 | `tier`         | The tier of the request.                                                           |
-| `reason`       | The rule that decided. Tool calls show `tool-continuation`.                        |
+| `model`, `effort` | The model id and the effort that the gateway sent. `effort` is `null` for a model without effort. |
+| `reason`       | The rule that decided. Tool calls show `tool-continuation`. `error`: routing failed and the default tier served. |
 | `advice`       | The Jev probabilities for each tier, and for "continues the task".                 |
 | `estimate`     | The numbers of a vote: confidence, bar, switching tax, cache state.                |
 | `shadow`       | The cost of the Jev choice against the current route. The policy does not use it. |
-| `observed`     | The usage of the response: model, context tokens, cache reads, output.             |
+| `observed`     | The usage of the response: model, effort, context tokens, cache reads, output.     |
+| `failed`       | Anthropic answered a routed turn with an error: status, tier, model, effort.       |
 | `historyBreak` | A compaction or a rewind. The votes and the cache estimates reset.                 |
 | `cacheReset`   | The context shrank by more than 20%. The cache estimates reset.                    |
 
@@ -150,6 +155,7 @@ Two useful queries:
 LOG=~/.claude/plugins/data/router-alexei-led-claude-router/decisions.jsonl
 jq -r 'select(.observed) | .observed.model' $LOG | sort | uniq -c    # requests by model
 jq -r 'select(.reason) | .reason' $LOG | sort | uniq -c | sort -rn   # decisions by reason
+jq -c 'select(.failed) | .failed' $LOG                              # failed turns
 ```
 
 `scripts/transcript-models.sh <transcript.jsonl>` shows the model of each
@@ -186,7 +192,7 @@ The gateway stops by itself after two hours without requests.
 | ----------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
 | "There's an issue with the selected model (jev-router[1m])"       | The session started before the restart.       | Restart Claude Code.                                                                 |
 | Claude Code rejects `jev-router`                                  | The session does not use the gateway.         | Run `/router:setup`, then restart Claude Code.                                       |
-| The status line shows `gateway off` after the next prompt         | The gateway cannot start.                     | Read `gateway.log` next to `decisions.jsonl`.                                        |
+| The status line shows `gateway off` after the next prompt         | The gateway cannot start, for example because `router.json` has an unknown key. | Run `/router:status` to see the error. Read `gateway.log` next to `decisions.jsonl`. |
 | Every turn has the reason `no-advice`                             | No Jev key, or Jev fails.                     | Run `/router:status`. Read the `router:` lines in `gateway.log`.                     |
 | The effort is not the effort that you set                         | The model does not accept that effort.        | The gateway uses the nearest lower level. Haiku has no effort and no thinking.       |
 | 429 or 529 errors                                                 | Anthropic rate limits or overload.            | Claude Code waits and tries again. The gateway sends these errors through unchanged. |

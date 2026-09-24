@@ -8,7 +8,7 @@ import { mkdirSync, openSync } from 'node:fs';
 import { connect } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadRuntime } from '../lib/runtime.mjs';
+import { cliArg, configArgs, isRouterGateway, loadRuntime } from '../lib/runtime.mjs';
 import { isOlderVersion, ROUTER_VERSION, STATUS_PATH } from '../lib/status.mjs';
 import { rotate } from '../lib/store.mjs';
 
@@ -18,12 +18,30 @@ const STATUS_TIMEOUT_MS = 500;
 
 const env = process.env;
 const quiet = process.argv.includes('--quiet');
-const { config, dataDir } = loadRuntime(env);
-const port = config.gateway.port;
 
 function say(message) {
   if (!quiet) process.stdout.write(`router: ${message}\n`);
 }
+
+let config;
+let dataDir;
+let configPath;
+let configWarning;
+try {
+  ({
+    config,
+    dataDir,
+    configPath,
+    warning: configWarning,
+  } = loadRuntime(env, {
+    configPath: cliArg(process.argv, '--config'),
+  }));
+} catch (error) {
+  say(`invalid configuration (${error.message}); the next prompt tries again`);
+  process.exit(0);
+}
+if (configWarning) say(configWarning);
+const port = config.gateway.port;
 
 function probe() {
   return new Promise((resolve) => {
@@ -66,6 +84,10 @@ async function retire(running) {
     );
     return false;
   }
+  if (!isRouterGateway(running.pid)) {
+    say(`port ${port} answers as gateway ${from}, but pid ${running.pid} is not a router gateway: left alone`);
+    return false;
+  }
   try {
     process.kill(running.pid, 'SIGTERM');
   } catch (error) {
@@ -91,11 +113,15 @@ async function start() {
     ...env,
     TYPESAFE_API_KEY: env.TYPESAFE_API_KEY || env.CLAUDE_PLUGIN_OPTION_TYPESAFE_API_KEY || '',
   };
-  const child = spawn(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'gateway.mjs')], {
-    detached: true,
-    stdio: ['ignore', log, log],
-    env: childEnv,
-  });
+  const child = spawn(
+    process.execPath,
+    [join(dirname(fileURLToPath(import.meta.url)), 'gateway.mjs'), ...configArgs(configPath)],
+    {
+      detached: true,
+      stdio: ['ignore', log, log],
+      env: childEnv,
+    },
+  );
   child.unref();
   // Wait for the listener so the session's first request finds it.
   return { pid: child.pid, up: await waitFor(true) };

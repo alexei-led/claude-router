@@ -58,14 +58,31 @@ flowchart TB
 - The gateway changes only requests for the alias. It sets `model`,
   `output_config.effort` and `thinking`. For a small model, it also limits
   `max_tokens` and removes the 1M context beta header and the thinking edits.
-- The gateway never changes `system`, `tools` or `messages`. Prompt caching
-  and a claude.ai login work as with a direct connection.
+- Claude Code builds each request for the model that the alias behaves as
+  (Opus). A model without one of its [request features](configuration.md#models)
+  gets the request without it, the way Claude Code retries after a 400:
+  - no `mid-conversation-tool-changes` (Sonnet, Haiku): `tool_addition` and
+    `tool_removal` blocks go; their cache breakpoint moves to the block before;
+  - no `per-turn-control` (Sonnet, Haiku): the beta header and the
+    `output_config` on messages (the effort of each turn) go;
+  - no `mid-conversation-system` (Haiku): each `system` message becomes a
+    `<system-reminder>` text in the user message next to it.
+  The same history adapts the same way on every turn, so the cached prefix
+  holds.
+- On a model with `per-turn-control`, the effort of each turn overrides the
+  request's effort. A route with its own effort (`medium`, `high`) therefore
+  sets it in every message's `output_config` too.
+- The gateway never changes `system` or `tools`, and never changes `messages`
+  for a model that takes all the features. Prompt caching and a claude.ai
+  login work as with a direct connection.
 - Responses go back unchanged. The gateway reads `usage` from them.
 
-**Why a gateway.** The `model:` frontmatter of a skill changes the model only
-when the user types the skill. When Claude calls the same skill, the session
-model answers. The tier skills are therefore manual pins, and only a gateway
-can route every turn.
+**Why a gateway.** Only a gateway can route every turn. The tier skills are
+manual pins. Claude Code 2.1.x switches the model from their `model:`
+frontmatter for `sonnet` and `opus`, and that turn passes through. For `haiku`
+it sends the turn to the alias; the gateway reads the `/router:micro` command
+in the prompt and serves the turn on `micro`, reason `pinned`. After a pin, the
+next prompt is decided from the route before the pin.
 
 ## Tiers
 
@@ -137,11 +154,13 @@ flowchart TD
 
 | Check           | How the gateway decides                                                                                                                                                  |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Pass through    | Any other model: `/router:<tier>` pins, `/model`, subagents with their own model.                                                                                        |
+| Pass through    | Any other model: `/model`, subagents with their own model.                                                                                                              |
+| Pin             | The current message starts with the `/router:<tier>` command block. That tier serves the turn and its tool calls, reason `pinned`. No Jev call. |
 | Not a turn      | `count_tokens` and other endpoints get the last route of the session.                                                                                                    |
 | Side request    | Header `x-claude-code-request-class` is `auxiliary` or `compaction`. Without the header: thinking disabled or an output format in the body.                               |
 | History break   | Fewer messages than the last main request (a compaction or a rewind), or the header `x-claude-code-context-compacted`.                                                     |
-| Resent request  | Same message count and same last message. Claude Code resends after a 429, a 529 or a dropped stream. No Jev call, no vote.                                              |
+| Resent request  | Same last user message at the same position. Claude Code resends after a 429, a 529, a dropped stream, or a 400 that it answers by dropping a feature. No Jev call, no vote. |
+| System messages | Claude Code sends hook output and tool additions as `system` messages after the prompt. The turn is the last user or assistant message; Jev never receives `system` text. |
 | Context fit     | The route moves to a model whose window holds the next context at 80% fill. Reason `context-fit`.                                                                        |
 | Session memory  | Key `x-claude-code-session-id`. A subagent adds its agent id: `<session>.<agent id>`. Its turns do not change the route of the main conversation.                          |
 
@@ -249,7 +268,8 @@ flowchart TD
   subgraph scripts["scripts/ · entry points"]
     D["gateway.mjs<br/>daemon"]
     E["ensure-gateway.mjs<br/>hook"]
-    SL["statusline.mjs<br/>status.mjs"]
+    SL["statusline.mjs<br/>status line"]
+    SC["status.mjs<br/>/router:status"]
   end
   subgraph lib["lib/"]
     GW["gateway<br/>HTTP, relay"]
@@ -267,13 +287,15 @@ flowchart TD
   end
 
   D -->|"creates, injects router"| GW
-  D --> RT & RUN
+  D --> RT & RUN & IDLE & STA & STORE
   GW --> IDLE & SSE & STA
-  RT --> FA & JEV & POL & RW & STORE
+  GW -.->|"side-request test"| RT
+  RT --> FA & JEV & POL & COST & RW & STORE
   POL --> COST --> RW
   STA --> RW
-  E --> RUN & STA
+  E --> RUN & STA & STORE
   SL --> RUN & STA
+  SC --> RUN & STA
   RUN --> STORE
 
   classDef pure fill:#ecfdf5,stroke:#059669,color:#064e3b
@@ -285,9 +307,12 @@ flowchart TD
 ```
 
 Green modules are pure functions. Orange modules do I/O: `gateway` serves
-HTTP, `jev` calls Jev, and `store` is the only module that writes files. The
-Jev transport and the router are injected, so tests run without a network.
-All modules read `config.mjs`.
+HTTP, `jev` calls Jev, and in `lib/` `store` is the only module that writes
+files. Outside `lib/`, the hook `ensure-gateway.mjs` also opens `gateway.log`
+for the daemon that it starts. The Jev transport and the router are injected,
+so tests run without a network. `gateway` imports one pure function from
+`router`, the side-request test, not the router itself. Modules that need
+settings or tier names import `config.mjs` (not drawn).
 
 | Module    | Responsibility                                                              |
 | --------- | --------------------------------------------------------------------------- |
@@ -302,7 +327,7 @@ All modules read `config.mjs`.
 | `idle`    | When the daemon can exit.                                                   |
 | `status`  | Status snapshot, status line segment, `/router:status` report.              |
 | `store`   | Session memory, `decisions.jsonl`, rotation.                                |
-| `runtime` | Configuration file and data directory from the environment.                 |
+| `runtime` | Configuration path (anchored under `~/.claude`), data directory, flags, gateway process check. |
 
 ## Gateway lifecycle
 
@@ -342,9 +367,11 @@ stateDiagram-v2
 ## Security and privacy
 
 - The gateway listens on `127.0.0.1` only. It refuses a non-loopback `Host`
-  (DNS rebinding) and a web `Origin` (cross-site requests).
-- Jev receives the prompt and the text of the last six turns, 1,200
-  characters each. Tool results and system reminders are not sent.
+  (DNS rebinding) and any request with an `Origin` header, also from a page on
+  another loopback port: Claude Code sends none.
+- Jev receives the prompt and the text of the six turns before it, up to
+  1,200 characters each. A longer text keeps about 600 characters from its
+  start and from its end. Tool results and system reminders are not sent.
 - The Jev key is in the macOS Keychain. The status endpoint shows only whether
   a key is set.
 - `decisions.jsonl` has no prompt text.
@@ -353,8 +380,10 @@ stateDiagram-v2
 
 - `GET /router/status?session=<id>` gives the routes and the last turn of a
   session. The status line and `/router:status` read it.
-- `decisions.jsonl` has one line for each decision and each response. It has
-  no prompt text.
+- `decisions.jsonl` has one line for each decision (with the model and the
+  effort sent), each response, each failed routed turn (`failed`, with the
+  status) and each routing error (`reason: error`, without the message). It
+  has no prompt text.
 - `gateway.log` has the daemon events.
 
 The [user guide](user-guide.md#read-the-status-line) explains how to read

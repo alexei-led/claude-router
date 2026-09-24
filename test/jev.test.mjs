@@ -108,6 +108,33 @@ test('waits for Retry-After when it fits the budget and gives up at once when it
   assert.equal(late.calls.length, 1);
 });
 
+// Retry-After is delay-seconds or an HTTP-date. A date is relative to the injected clock; a past date retries at once.
+test('Retry-After as an HTTP-date waits until that time when it fits the budget', async () => {
+  const T = Date.parse('2026-09-24T10:00:00Z');
+  const cases = [
+    ['Thu, 24 Sep 2026 10:00:01 GMT', 1000, 'high'],
+    ['Thu, 24 Sep 2026 09:59:00 GMT', 0, 'high'],
+    ['Thu, 24 Sep 2026 10:00:30 GMT', 0, /retry-after beyond the budget/],
+    ['1', 1000, 'high'], // delay-seconds first: Date.parse('1') would read it as the year 2001
+    ['soon', 100, 'high'], // unreadable: the default retry delay
+  ];
+  for (const [header, waited, outcome] of cases) {
+    let t = T;
+    const now = () => t;
+    const sleep = async (ms) => {
+      t += ms;
+    };
+    const fake = fakeFetch([
+      { status: 503, headers: { 'retry-after': header } },
+      { status: 200, body: GOOD },
+    ]);
+    const call = askJev({ fetchFn: fake.fn, config, apiKey: 'k', prompt: 'p', turns: [], now, sleep });
+    if (outcome instanceof RegExp) await assert.rejects(call, outcome, header);
+    else assert.equal((await call).choice, outcome, header);
+    assert.equal(t - T, waited, header);
+  }
+});
+
 for (const [name, body] of [
   ['missing route', { answers: {} }],
   ['wrong type', { answers: { route: { type: 'score', probabilities: {} } } }],

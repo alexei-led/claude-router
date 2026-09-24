@@ -7,14 +7,14 @@ import { loadConfig } from '../lib/config.mjs';
 import { JEV_PAUSE_MS, Router } from '../lib/router.mjs';
 import { assistant, body, jevResponse, toolResult, user } from './helpers.mjs';
 
-function setup(env = {}, userFile = null) {
+function setup({ forcedTier = null, ...env } = {}, userFile = null) {
   const dataDir = mkdtempSync(join(tmpdir(), 'router-'));
   const calls = [];
   const fetchFn = async (_url, init) => {
     calls.push(JSON.parse(init.body));
     return { ok: true, status: 200, json: async () => jevResponse('high', { high: 0.97 }) };
   };
-  const config = loadConfig({ env: { TYPESAFE_API_KEY: 'k', ...env }, userFile });
+  const config = loadConfig({ env: { TYPESAFE_API_KEY: 'k', ...env }, userFile, forcedTier });
   return { router: new Router({ config, fetchFn, dataDir, now: () => 1_000_000 }), calls, dataDir };
 }
 
@@ -23,6 +23,65 @@ test('passes through models other than the alias', () => {
   assert.equal(router.isRouted({ model: 'claude-opus-5' }), false);
   assert.equal(router.isRouted({ model: 'jev-router' }), true);
   assert.equal(router.isRouted({ model: 'router' }), true);
+});
+
+// Claude Code 2.1.x sends hook output as a `system` message after the prompt. Before, the router saw no prompt there
+// and never asked Jev: every real turn logged `no-advice`.
+test('a turn whose last message is a system message (hook output) still asks Jev with the prompt', async () => {
+  const { router, calls } = setup();
+  const hook = { role: 'system', content: [{ type: 'text', text: 'UserPromptSubmit hook output' }] };
+  await router.route(body([user('design the auth flow'), hook]), { sessionId: 's', requestClass: 'main' });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].state.currentRequest.text, 'design the auth flow');
+});
+
+// A typed /router:<tier>, as Claude Code 2.1.x sends it (captured 2026-09-24): the route of the alias, no model switch.
+const pinned = (tier, args) => ({
+  role: 'user',
+  content: [
+    {
+      type: 'text',
+      text: `<command-message>router:${tier}</command-message>\n<command-name>/router:${tier}</command-name>\n<command-args>${args}</command-args>`,
+    },
+    { type: 'text', text: 'Routing tier applied. Continue with the user request as written.' },
+  ],
+});
+
+test('a /router:<tier> pin routes its turn to that tier without asking Jev; its tool calls stay there', async () => {
+  const { router, calls } = setup();
+  const hook = { role: 'system', content: [{ type: 'text', text: 'hook' }] };
+  const turn = [pinned('micro', 'what is 5+5'), hook];
+  const out = await router.route(body(turn), { sessionId: 's', requestClass: 'main' });
+  assert.deepEqual([out.tier, out.reason, out.body.model], ['micro', 'pinned', 'claude-haiku-4-5']);
+  assert.equal(calls.length, 0);
+  const tool = await router.route(body([...turn, assistant('reading', ['Read']), toolResult('ok')]), {
+    sessionId: 's',
+    requestClass: 'main',
+  });
+  assert.deepEqual([tool.tier, tool.reason], ['micro', 'tool-continuation']);
+});
+
+// The docs promise that the next prompt goes back to Jev: a pin is one turn, not the session's new route.
+test('after a pinned turn, the next prompt is decided from the route before the pin', async () => {
+  const { router } = setup({ TYPESAFE_API_KEY: '' });
+  const ask = (messages) => router.route(body(messages), { sessionId: 's', requestClass: 'main' });
+  const first = [user('hello')];
+  assert.deepEqual((await ask(first)).tier, 'low');
+  const pin = [...first, assistant('hi'), pinned('high', 'design it')];
+  assert.deepEqual([(await ask(pin)).tier, (await ask(pin)).reason], ['high', 'retry']);
+  const next = await ask([...pin, assistant('done'), user('thanks, and rename x')]);
+  assert.deepEqual([next.tier, next.reason], ['low', 'no-advice']);
+  const repin = [...pin, assistant('done'), pinned('micro', 'a'), assistant('ok'), pinned('high', 'b')];
+  await ask(repin.slice(0, -2));
+  assert.equal((await ask(repin)).tier, 'high');
+  assert.equal((await ask([...repin, assistant('x'), user('y')])).tier, 'low', 'two pins in a row still return');
+});
+
+test('a pin to an unknown tier is an ordinary turn', async () => {
+  const { router, calls } = setup();
+  const out = await router.route(body([pinned('ultra', 'x')]), { sessionId: 's', requestClass: 'main' });
+  assert.notEqual(out.reason, 'pinned');
+  assert.equal(calls.length, 1);
 });
 
 test('a new turn asks Jev once, rewrites the model and remembers the route', async () => {
@@ -64,7 +123,7 @@ test('auxiliary requests take the auxiliary tier and leave memory alone', async 
 });
 
 test('forced tier and missing key skip Jev', async () => {
-  const forced = setup({ ROUTER_FORCE_TIER: 'medium' });
+  const forced = setup({ forcedTier: 'medium' });
   const out = await forced.router.route(body([user('x')]), { sessionId: 's', requestClass: 'main' });
   assert.equal(out.tier, 'medium');
   assert.equal(forced.calls.length, 0);
@@ -97,7 +156,7 @@ test('recorded usage feeds warmth and compaction detection', async () => {
 });
 
 test('a context too large for the routed model moves the turn to a model that fits', async () => {
-  const { router } = setup({ ROUTER_FORCE_TIER: 'micro' });
+  const { router } = setup({ forcedTier: 'micro' });
   const usage = (tokens) => ({ model: 'claude-haiku-4-5', tokens, cacheReadTokens: 0, outputTokens: 1_000, ttl: '1h' });
   router.recordResponse('big', 'micro', usage(100_000));
   const small = await router.route(body([user('x')]), { sessionId: 'big', requestClass: 'main' });
@@ -230,6 +289,18 @@ test('the first request after a compaction drops the cached prefixes', async () 
   assert.deepEqual(router.memory('s1').models, {});
 });
 
+// After a history break the real context size is unknown until the next response. The last size is an upper bound
+// after a rewind, which can still leave most of the context: the first turn after it must not go to a small window.
+test('after a rewind, the last context size still keeps a turn off a window it would overflow', async () => {
+  const { router } = setup({ forcedTier: 'micro' });
+  const usage = { model: 'claude-sonnet-5', tokens: 250_000, cacheReadTokens: 0, outputTokens: 1, ttl: '1h' };
+  const long = [user('a'), assistant('b'), user('c'), assistant('d'), user('e')];
+  await router.route(body(long), { sessionId: 's1', requestClass: 'main' });
+  router.recordResponse('s1', 'low', usage);
+  const rewound = await router.route(body(long.slice(0, 3)), { sessionId: 's1', requestClass: 'main' });
+  assert.deepEqual([rewound.tier, rewound.reason], ['low', 'context-fit']);
+});
+
 test('the decision log records the agent type', async () => {
   const { router, dataDir } = setup();
   await router.route(body([user('find the parser')]), {
@@ -311,4 +382,45 @@ test('a turn logs the shadow economics of following Jev and keeps its estimate f
   assert.equal(turn.shadow.paybackTurns, null);
   assert.equal(router.memory('s').lastReason, 'upgrade');
   assert.ok(router.memory('s').lastEstimate.upgradeMass >= 0.8);
+});
+
+// M8/M9: the decision log shows the model and the effort that ran, and the turns that failed; never prompt text.
+const readLog = (dataDir) =>
+  readFileSync(join(dataDir, 'decisions.jsonl'), 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+
+test('a decision line names the model and the effort sent; an observed line the effort', async () => {
+  const { router, dataDir } = setup();
+  await router.route(body([user('design the auth flow')]), { sessionId: 's1', requestClass: 'main' });
+  const usage = { model: 'claude-opus-5-5', tokens: 1000, cacheReadTokens: 0, outputTokens: 1, ttl: '1h' };
+  router.recordResponse('s1', 'high', usage, 'xhigh');
+  const [decision, observed] = readLog(dataDir);
+  assert.deepEqual([decision.model, decision.effort], ['claude-opus-5-5', 'xhigh']);
+  assert.equal(observed.observed.effort, 'xhigh');
+});
+
+test('a decision for a model without effort logs effort null', async () => {
+  const { router, dataDir } = setup({ forcedTier: 'micro' });
+  await router.route(body([user('rename x')]), { sessionId: 's1', requestClass: 'main' });
+  const [decision] = readLog(dataDir);
+  assert.deepEqual([decision.model, decision.effort], ['claude-haiku-4-5', null]);
+});
+
+test('a routing error logs a decision with reason error and no message text', () => {
+  const { router, dataDir } = setup();
+  const out = router.fallback(body([user('CANARY-PROMPT secret text')]), 's1', { requestClass: 'main' });
+  assert.equal(out.reason, 'error');
+  const [line] = readLog(dataDir);
+  assert.deepEqual([line.session, line.reason, line.tier, line.model], ['s1', 'error', 'low', 'claude-sonnet-5']);
+  assert.doesNotMatch(readFileSync(join(dataDir, 'decisions.jsonl'), 'utf8'), /CANARY/);
+});
+
+test('a failed upstream response logs a failed line', () => {
+  const { router, dataDir } = setup();
+  router.recordFailure('s1', { tier: 'high', effort: 'xhigh', body: { model: 'claude-opus-5-5' } }, 529);
+  const [line] = readLog(dataDir);
+  assert.equal(line.session, 's1');
+  assert.deepEqual(line.failed, { status: 529, tier: 'high', model: 'claude-opus-5-5', effort: 'xhigh' });
 });

@@ -1,10 +1,144 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { loadConfig } from '../lib/config.mjs';
-import { clampEffort, rewriteRequest } from '../lib/rewrite.mjs';
-import { body, user } from './helpers.mjs';
+import { adaptBetas, clampEffort, rewriteRequest } from '../lib/rewrite.mjs';
+import { assistant, body, user } from './helpers.mjs';
 
 const config = loadConfig({});
+
+// Shapes captured from Claude Code 2.1.281 sessions on 2026-09-24: hook output goes in a `system` message after the
+// prompt, and turn 1 adds the advisor tool with a `tool_addition` block that carries the cache breakpoint.
+const CACHE = { type: 'ephemeral', ttl: '1h' };
+const system = (text, extra = []) => ({ role: 'system', content: [{ type: 'text', text }, ...extra] });
+const toolAddition = (cache = CACHE) => ({
+  type: 'tool_addition',
+  tool: { type: 'tool_reference', name: 'advisor' },
+  cache_control: cache,
+});
+const conversation = () => [
+  user('hi'),
+  system('SessionStart hook output', [toolAddition()]),
+  assistant('4'),
+  user('next'),
+  system('UserPromptSubmit hook output'),
+];
+
+test('opus takes system messages and tool changes: the messages are untouched', () => {
+  const b = body(conversation());
+  assert.equal(rewriteRequest(b, 'high', config).messages, b.messages);
+});
+
+test('sonnet keeps system messages but not tool additions; the cache breakpoint moves to the block before', () => {
+  const b = body(conversation());
+  const out = rewriteRequest(b, 'low', config).messages;
+  assert.deepEqual(
+    out.map((m) => m.role),
+    ['user', 'system', 'assistant', 'user', 'system'],
+  );
+  assert.deepEqual(out[1].content, [{ type: 'text', text: 'SessionStart hook output', cache_control: CACHE }]);
+  assert.equal(b.messages[1].content.length, 2, 'the request body is not mutated');
+  const removal = body([user('hi'), system('hook', [{ type: 'tool_removal', tool: { name: 'advisor' } }])]);
+  assert.deepEqual(rewriteRequest(removal, 'low', config).messages[1].content, [{ type: 'text', text: 'hook' }]);
+});
+
+// Per-turn control is an `output_config` on the system message (live 400 on Sonnet 5, 2026-09-24:
+// "messages.1.output_config: Extra inputs are not permitted").
+test('per-turn output_config on a message goes for a model without per-turn control', () => {
+  const turn = [user('hi'), { ...system('hook'), output_config: { effort: 'high' } }];
+  const sonnet = rewriteRequest(body(turn), 'low', config).messages;
+  assert.deepEqual(sonnet[1], system('hook'));
+  assert.ok(!('output_config' in rewriteRequest(body(turn), 'micro', config).messages[0]));
+  const onlyControl = [user('hi'), { role: 'system', content: [], output_config: { effort: 'high' } }];
+  assert.deepEqual(
+    rewriteRequest(body(onlyControl), 'low', config).messages.map((m) => m.role),
+    ['user'],
+    'a system message left empty is dropped',
+  );
+});
+
+// Per-turn effort overrides the request's effort on a model with per-turn control, so a route with its own effort
+// sets it there too: otherwise `high` (Opus at xhigh) would run at the session's effort, like `medium`.
+test('a route with its own effort sets the per-turn effort of every message; a route without one keeps it', () => {
+  const history = [
+    user('a'),
+    { ...system('hook'), output_config: { effort: 'medium' } },
+    assistant('b'),
+    user('c'),
+    { ...system('hook'), output_config: { effort: 'high' } },
+  ];
+  const turnEfforts = (tier, cfg = config) =>
+    rewriteRequest(body(history), tier, cfg)
+      .messages.filter((m) => m.output_config)
+      .map((m) => m.output_config.effort);
+  assert.deepEqual(turnEfforts('high'), ['xhigh', 'xhigh']);
+  assert.deepEqual(turnEfforts('medium'), ['high', 'high']);
+  const asSent = loadConfig({ userFile: { routes: { low: { model: 'opus' } } } });
+  assert.deepEqual(turnEfforts('low', asSent), ['medium', 'high']);
+  assert.equal(history[1].output_config.effort, 'medium', 'the request body is not mutated');
+});
+
+test('a system message that held only a tool addition is dropped for sonnet', () => {
+  const b = body([user('hi'), { role: 'system', content: [toolAddition(undefined)] }]);
+  assert.deepEqual(
+    rewriteRequest(b, 'low', config).messages.map((m) => m.role),
+    ['user'],
+  );
+});
+
+test('haiku takes no system messages: their text joins the user message as a system reminder', () => {
+  const out = rewriteRequest(body(conversation()), 'micro', config).messages;
+  assert.deepEqual(out, [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'hi' },
+        { type: 'text', text: '<system-reminder>\nSessionStart hook output\n</system-reminder>', cache_control: CACHE },
+      ],
+    },
+    { role: 'assistant', content: [{ type: 'text', text: '4' }] },
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'next' },
+        { type: 'text', text: '<system-reminder>\nUserPromptSubmit hook output\n</system-reminder>' },
+      ],
+    },
+  ]);
+});
+
+test('the same history adapts the same way every turn, so the cached prefix holds', () => {
+  const turn1 = rewriteRequest(body(conversation().slice(0, 2)), 'micro', config).messages;
+  const turn2 = rewriteRequest(body(conversation()), 'micro', config).messages;
+  assert.deepEqual(turn2[0], turn1[0]);
+});
+
+test('a model added without features gets neither system messages nor tool changes', () => {
+  const custom = loadConfig({
+    userFile: {
+      models: {
+        other: { id: 'claude-other', input: 1, cacheRead: 0.1, contextWindow: 200_000, billing: 'plan', efforts: [] },
+      },
+      routes: { micro: { model: 'other' } },
+    },
+  });
+  const out = rewriteRequest(body(conversation()), 'micro', custom).messages;
+  assert.deepEqual(
+    out.map((m) => m.role),
+    ['user', 'assistant', 'user'],
+  );
+});
+
+test('betas the routed model does not support are dropped', () => {
+  const sent =
+    'oauth-2025-04-20,context-1m-2025-08-07,mid-conversation-system-2026-04-07,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01';
+  assert.equal(adaptBetas(sent, 'claude-opus-5-5', config), sent);
+  assert.equal(
+    adaptBetas(sent, 'claude-sonnet-5', config),
+    'oauth-2025-04-20,context-1m-2025-08-07,mid-conversation-system-2026-04-07',
+  );
+  assert.equal(adaptBetas(sent, 'claude-haiku-4-5', config), 'oauth-2025-04-20');
+  assert.equal(adaptBetas('context-1m-2025-08-07', 'claude-haiku-4-5', config), null);
+});
 
 test('high route sets the model and its effort, keeps everything else', () => {
   const b = body([user('x')]);

@@ -3,9 +3,20 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, utimesSync, writeFi
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { housekeeping, rotate, saveMemory } from '../lib/store.mjs';
+import { housekeeping, readJsonFile, rotate, saveMemory } from '../lib/store.mjs';
 
 const tempDir = () => mkdtempSync(join(tmpdir(), 'store-'));
+
+// The hook prints this error into the session. V8's JSON message quotes the text around the bad token.
+test('a malformed JSON file names the file, not its content', () => {
+  const path = join(tempDir(), 'router.json');
+  writeFileSync(path, '{ "jev": { "endpoint": https://example.test/SECRET-FRAGMENT } }');
+  assert.throws(
+    () => readJsonFile(path),
+    (error) => error.message === `cannot read ${path}: not valid JSON`,
+  );
+  assert.equal(readJsonFile(join(tempDir(), 'missing.json')), null);
+});
 
 test('rotate keeps one previous generation once the file passes the limit', () => {
   const path = join(tempDir(), 'decisions.jsonl');

@@ -58,3 +58,31 @@ test('a price error moves the bar only within its bounds, and a confident jump i
   assert.ok(held.estimate.threshold > upgradeBase && held.estimate.threshold < upgradeBase + upgradeSlope);
   assert.equal(upgradeFromSonnet(wrong, 0.96).reason, 'jump');
 });
+
+// The effort levels each default model accepts, as probed against the real API. clampEffort relies on them.
+const efforts = JSON.parse(readFileSync(new URL('./fixtures/effort-support.json', import.meta.url), 'utf8'));
+
+test('the effort fixture names its method and the date it was checked', () => {
+  assert.match(efforts.source, /^Live probe: /);
+  assert.match(efforts.checked, /^\d{4}-\d{2}-\d{2}$/);
+});
+
+for (const [alias, model] of Object.entries(DEFAULTS.models)) {
+  test(`default efforts of ${alias} match the probed fixture`, () => {
+    assert.deepEqual(model.efforts, efforts.models[model.id]);
+  });
+}
+
+// The request features each default model accepts, as probed against the real API. rewrite.mjs strips the rest.
+const features = JSON.parse(readFileSync(new URL('./fixtures/model-features.json', import.meta.url), 'utf8'));
+
+test('the feature fixture names its method and the date it was checked', () => {
+  assert.match(features.source, /^Live probe: /);
+  assert.match(features.checked, /^\d{4}-\d{2}-\d{2}$/);
+});
+
+for (const [alias, model] of Object.entries(DEFAULTS.models)) {
+  test(`default features of ${alias} match the probed fixture`, () => {
+    assert.deepEqual(model.features, features.models[model.id]);
+  });
+}
