@@ -356,9 +356,11 @@ test('a turn that waits for a tool result is tracked until the session sends its
   assert.equal(activity.inFlight, 0);
 });
 
-// H1: a side request (session title, classifier, compaction) shares the session key. It neither answers a pending
-// tool wait nor starts one, or the gateway could idle out under a permission prompt.
-test('side requests on a session neither clear nor set its tool wait', async (t) => {
+// H1: a side request (session title, classifier, compaction) shares the session key. By its hint header it does not
+// answer a pending tool wait, or the gateway could idle out under a permission prompt. Without the header the body
+// cannot tell a side request from a turn with thinking off, so the wait bookkeeping fails safe: any tool_use stop
+// starts a wait, and any request without a side-request header ends it.
+test('side requests on a session keep its tool wait; a tool_use stop always starts one', async (t) => {
   const TOOL_USE =
     'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":3}}\n\n';
   let answer = TOOL_USE;
@@ -386,14 +388,15 @@ test('side requests on a session neither clear nor set its tool wait', async (t)
   answer = SSE;
   await send('w', 'auxiliary');
   await send('w', 'compaction');
-  await send('w', null, { thinking: { type: 'disabled' } }); // a side request by shape, without the header
   assert.equal(activity.waiting.has('w'), true);
-  answer = TOOL_USE;
-  await send('v', 'auxiliary');
-  assert.equal(activity.waiting.has('v'), false);
   answer = SSE;
   await send('w', 'main');
   assert.equal(activity.waiting.has('w'), false);
+  // No header, thinking off: a main turn with thinking disabled looks like a side request by shape. It must still
+  // start the wait when it stops for a tool.
+  answer = TOOL_USE;
+  await send('v', null, { thinking: { type: 'disabled' } });
+  assert.equal(activity.waiting.has('v'), true);
 });
 
 test('a routed turn that fails upstream leaves a failed line and no prompt text in the log', async (t) => {
