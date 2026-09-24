@@ -61,6 +61,22 @@ test('a /router:<tier> pin routes its turn to that tier without asking Jev; its 
   assert.deepEqual([tool.tier, tool.reason], ['micro', 'tool-continuation']);
 });
 
+// The docs promise that the next prompt goes back to Jev: a pin is one turn, not the session's new route.
+test('after a pinned turn, the next prompt is decided from the route before the pin', async () => {
+  const { router } = setup({ TYPESAFE_API_KEY: '' });
+  const ask = (messages) => router.route(body(messages), { sessionId: 's', requestClass: 'main' });
+  const first = [user('hello')];
+  assert.deepEqual((await ask(first)).tier, 'low');
+  const pin = [...first, assistant('hi'), pinned('high', 'design it')];
+  assert.deepEqual([(await ask(pin)).tier, (await ask(pin)).reason], ['high', 'retry']);
+  const next = await ask([...pin, assistant('done'), user('thanks, and rename x')]);
+  assert.deepEqual([next.tier, next.reason], ['low', 'no-advice']);
+  const repin = [...pin, assistant('done'), pinned('micro', 'a'), assistant('ok'), pinned('high', 'b')];
+  await ask(repin.slice(0, -2));
+  assert.equal((await ask(repin)).tier, 'high');
+  assert.equal((await ask([...repin, assistant('x'), user('y')])).tier, 'low', 'two pins in a row still return');
+});
+
 test('a pin to an unknown tier is an ordinary turn', async () => {
   const { router, calls } = setup();
   const out = await router.route(body([pinned('ultra', 'x')]), { sessionId: 's', requestClass: 'main' });

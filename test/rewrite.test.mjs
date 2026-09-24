@@ -45,10 +45,36 @@ test('sonnet keeps system messages but not tool additions; the cache breakpoint 
 // "messages.1.output_config: Extra inputs are not permitted").
 test('per-turn output_config on a message goes for a model without per-turn control', () => {
   const turn = [user('hi'), { ...system('hook'), output_config: { effort: 'high' } }];
-  assert.equal(rewriteRequest(body(turn), 'high', config).messages[1].output_config.effort, 'high');
   const sonnet = rewriteRequest(body(turn), 'low', config).messages;
   assert.deepEqual(sonnet[1], system('hook'));
   assert.ok(!('output_config' in rewriteRequest(body(turn), 'micro', config).messages[0]));
+  const onlyControl = [user('hi'), { role: 'system', content: [], output_config: { effort: 'high' } }];
+  assert.deepEqual(
+    rewriteRequest(body(onlyControl), 'low', config).messages.map((m) => m.role),
+    ['user'],
+    'a system message left empty is dropped',
+  );
+});
+
+// Per-turn effort overrides the request's effort on a model with per-turn control, so a route with its own effort
+// sets it there too: otherwise `high` (Opus at xhigh) would run at the session's effort, like `medium`.
+test('a route with its own effort sets the per-turn effort of every message; a route without one keeps it', () => {
+  const history = [
+    user('a'),
+    { ...system('hook'), output_config: { effort: 'medium' } },
+    assistant('b'),
+    user('c'),
+    { ...system('hook'), output_config: { effort: 'high' } },
+  ];
+  const turnEfforts = (tier, cfg = config) =>
+    rewriteRequest(body(history), tier, cfg)
+      .messages.filter((m) => m.output_config)
+      .map((m) => m.output_config.effort);
+  assert.deepEqual(turnEfforts('high'), ['xhigh', 'xhigh']);
+  assert.deepEqual(turnEfforts('medium'), ['high', 'high']);
+  const asSent = loadConfig({ userFile: { routes: { low: { model: 'opus' } } } });
+  assert.deepEqual(turnEfforts('low', asSent), ['medium', 'high']);
+  assert.equal(history[1].output_config.effort, 'medium', 'the request body is not mutated');
 });
 
 test('a system message that held only a tool addition is dropped for sonnet', () => {

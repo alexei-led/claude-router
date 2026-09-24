@@ -12,13 +12,18 @@
 - **The gateway adapts the history for Sonnet and Haiku.** Claude Code builds
   each request for Opus. For a model without a request feature, the gateway
   now removes it, as Claude Code does after a 400: Sonnet and Haiku lose
-  `tool_addition`/`tool_removal` blocks and the per-turn-control beta; Haiku
-  also gets each `system` message as a `<system-reminder>` in the user message.
-  A model that you add in `router.json` without `features` gets all three
-  removed.
-- **`/router:<tier>` pins work again.** Claude Code 2.1.x ignores the skill's
-  `model:` and sends the turn to the alias; the gateway now reads the command
-  and serves the turn on that tier, reason `pinned`.
+  `tool_addition`/`tool_removal` blocks and per-turn control (the beta and the
+  `output_config` on messages); Haiku also gets each `system` message as a
+  `<system-reminder>` in the user message. A model that you add in
+  `router.json` without `features` gets all three removed.
+- **`high` runs at `xhigh` again.** On Opus, the per-turn effort that Claude
+  Code puts on messages overrides the request's effort, so `medium` and `high`
+  both ran at your session effort. A route with its own effort now sets it on
+  the messages too.
+- **`/router:micro` pins again.** Claude Code 2.1.x ignores `model: haiku` in the
+  skill and sends the turn to the alias; the gateway now reads the command and
+  serves the turn on `micro`, reason `pinned`. The next prompt goes back to Jev
+  from the route before the pin.
 - **`router.json` is strict.** An unknown key (for example a typo such as
   `routs`), a forbidden key (`__proto__`, `constructor`, `prototype`), a
   section that is not an object, or a number out of range now stops a new
@@ -70,7 +75,7 @@
   history for the rest of the session: Opus then lost its features, and the
   router saw a shorter history and reset its votes. Sonnet answered the first
   turn with two 400s before Claude Code retried without the features.
-- `/router:<tier>` did not switch the model with Claude Code 2.1.x.
+- `/router:micro` did not switch the model with Claude Code 2.1.x.
 - A project's `.claude/settings.json` could point the shared gateway at its own
   `router.json` (and so its own Jev endpoint) through `ROUTER_CONFIG`, while
   the hook passed the real Jev key to that gateway.

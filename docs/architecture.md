@@ -63,20 +63,26 @@ flowchart TB
   gets the request without it, the way Claude Code retries after a 400:
   - no `mid-conversation-tool-changes` (Sonnet, Haiku): `tool_addition` and
     `tool_removal` blocks go; their cache breakpoint moves to the block before;
-  - no `per-turn-control` (Sonnet, Haiku): only the beta header goes;
+  - no `per-turn-control` (Sonnet, Haiku): the beta header and the
+    `output_config` on messages (the effort of each turn) go;
   - no `mid-conversation-system` (Haiku): each `system` message becomes a
     `<system-reminder>` text in the user message next to it.
   The same history adapts the same way on every turn, so the cached prefix
   holds.
+- On a model with `per-turn-control`, the effort of each turn overrides the
+  request's effort. A route with its own effort (`medium`, `high`) therefore
+  sets it in every message's `output_config` too.
 - The gateway never changes `system` or `tools`, and never changes `messages`
   for a model that takes all the features. Prompt caching and a claude.ai
   login work as with a direct connection.
 - Responses go back unchanged. The gateway reads `usage` from them.
 
 **Why a gateway.** Only a gateway can route every turn. The tier skills are
-manual pins: Claude Code 2.1.x ignores their `model:` frontmatter and sends the
-turn to the alias, and the gateway reads the `/router:<tier>` command in the
-prompt.
+manual pins. Claude Code 2.1.x switches the model from their `model:`
+frontmatter for `sonnet` and `opus`, and that turn passes through. For `haiku`
+it sends the turn to the alias; the gateway reads the `/router:micro` command
+in the prompt and serves the turn on `micro`, reason `pinned`. After a pin, the
+next prompt is decided from the route before the pin.
 
 ## Tiers
 
