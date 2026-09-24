@@ -228,6 +228,25 @@ test('the first request after a compaction drops the cached prefixes', async () 
   });
   await router.route(body([user('go on')]), { sessionId: 's1', requestClass: 'main', contextCompacted: 'auto' });
   assert.deepEqual(router.memory('s1').models, {});
+  assert.equal(router.memory('s1').lastRequest, null);
+});
+
+// M1: the context size before a compaction must not decide the window of the first turn after it.
+test('after a compaction, the old context size no longer forces a bigger window', async () => {
+  const { router } = setup({ ROUTER_FORCE_TIER: 'micro' });
+  const usage = { model: 'claude-sonnet-5', tokens: 190_000, cacheReadTokens: 0, outputTokens: 1, ttl: '1h' };
+  router.recordResponse('s1', 'low', usage);
+  const before = await router.route(body([user('a'), assistant('b'), user('c')]), {
+    sessionId: 's1',
+    requestClass: 'main',
+  });
+  assert.equal(before.reason, 'context-fit');
+  const after = await router.route(body([user('summary'), assistant('ok'), user('go on')]), {
+    sessionId: 's1',
+    requestClass: 'main',
+    contextCompacted: 'auto',
+  });
+  assert.deepEqual([after.tier, after.reason], ['micro', 'forced']);
 });
 
 test('the decision log records the agent type', async () => {
@@ -275,6 +294,7 @@ test('a shorter history (a rewind) drops the votes and the cached prefixes', asy
   assert.equal(rewound.reason, 'upgrade-pending');
   assert.equal(router.memory('s').state.votes.length, 1);
   assert.deepEqual(router.memory('s').models, {});
+  assert.equal(router.memory('s').lastRequest, null);
   assert.ok(log().some((e) => e.historyBreak === 'shorter-history'));
 });
 
