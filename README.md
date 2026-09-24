@@ -91,8 +91,9 @@ stable:
 - If the same error comes back after a fix, the route goes one tier up.
 - If Jev fails or is slow, the current route stays.
 
-Jev receives the prompt and the text of the last six turns, up to 1,200
-characters each. It does not receive tool results or your system prompt.
+Jev receives the prompt and the text of the six turns before it, up to 1,200
+characters each: the start and the end of a longer text. It does not receive
+tool results or your system prompt.
 
 ## Install
 

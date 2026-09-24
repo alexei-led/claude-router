@@ -22,7 +22,7 @@ test('a new user turn yields the prompt without system reminders', () => {
   assert.equal(facts.continuation, false);
   assert.deepEqual(
     facts.turns.map((t) => t.role),
-    ['user', 'assistant', 'user'],
+    ['user', 'assistant'],
   );
 });
 
@@ -68,4 +68,66 @@ test('memory fields pass through', () => {
   const facts = factsFromRequest(body([user('x')]), m, CONTEXT);
   assert.equal(facts.lastRoute, 'high');
   assert.deepEqual(facts.models, { a: 1 });
+});
+
+// Jev input: the prompt is capped like every turn (head and tail kept), and it is not also the last turn.
+test('a long prompt is capped to maxTextChars and keeps its head and tail', () => {
+  const long = `HEAD-${'x'.repeat(10_000)}-TAIL`;
+  const { prompt } = factsFromRequest(body([user(long)]), memory(), CONTEXT);
+  assert.ok(prompt.length <= CONTEXT.maxTextChars, `length ${prompt.length}`);
+  assert.ok(prompt.startsWith('HEAD-'));
+  assert.ok(prompt.endsWith('-TAIL'));
+});
+
+test('a prompt within the cap is unchanged', () => {
+  const { prompt } = factsFromRequest(body([user('fix the flaky test')]), memory(), CONTEXT);
+  assert.equal(prompt, 'fix the flaky test');
+});
+
+test('a long earlier turn keeps its head and tail', () => {
+  const facts = factsFromRequest(
+    body([user(`START-${'y'.repeat(500)}-END`), assistant('ok'), user('next')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.ok(facts.turns[0].text.length <= CONTEXT.maxTextChars);
+  assert.ok(facts.turns[0].text.startsWith('START-'));
+  assert.ok(facts.turns[0].text.endsWith('-END'));
+});
+
+test('the current user message is the prompt only, not also the last turn', () => {
+  const facts = factsFromRequest(
+    body([user('first task'), assistant('done'), user('CURRENT-MARKER now this')]),
+    memory(),
+    CONTEXT,
+  );
+  assert.match(facts.prompt, /CURRENT-MARKER/);
+  assert.ok(facts.turns.every((t) => !t.text.includes('CURRENT-MARKER')));
+});
+
+test('a trailing tool result with text is not a turn either', () => {
+  const trailing = {
+    role: 'user',
+    content: [
+      { type: 'tool_result', tool_use_id: 't', content: [{ type: 'text', text: 'ok' }] },
+      { type: 'text', text: 'TRAILING-MARKER' },
+    ],
+  };
+  const facts = factsFromRequest(body([user('go'), assistant('running', ['Bash']), trailing]), memory(), CONTEXT);
+  assert.ok(facts.turns.every((t) => !t.text.includes('TRAILING-MARKER')));
+  assert.deepEqual(
+    facts.turns.map((t) => t.text),
+    ['go', 'running'],
+  );
+});
+
+test('a history that ends with the assistant keeps it as the last turn', () => {
+  const facts = factsFromRequest(body([user('go'), assistant('LAST-ASSISTANT')]), memory(), CONTEXT);
+  assert.equal(facts.turns.at(-1).text, 'LAST-ASSISTANT');
+  assert.equal(facts.prompt, '');
+});
+
+test('a cap smaller than the marker still bounds the text', () => {
+  const { prompt } = factsFromRequest(body([user('abcdefgh')]), memory(), { ...CONTEXT, maxTextChars: 2 });
+  assert.ok(prompt.length <= 2);
 });

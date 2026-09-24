@@ -149,7 +149,7 @@ The [switching policy](architecture.md#switching-policy) uses these values.
 | `jev.model`                | `jev-1.13.0`                           | The Jev model.                                           |
 | `jev.timeoutMs`            | `1500`                                 | The total time for one Jev answer, one retry included.   |
 | `context.recentTurns`      | `6`                                    | The number of recent turns that Jev receives.            |
-| `context.maxTextChars`     | `1200`                                 | The characters of each turn that Jev receives.           |
+| `context.maxTextChars`     | `1200`                                 | The characters of the prompt and of each turn that Jev receives. A longer text keeps its start and end. |
 | `log`                      | `true`                                 | Write `decisions.jsonl`.                                 |
 
 ## Environment variables

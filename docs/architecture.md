@@ -343,8 +343,9 @@ stateDiagram-v2
 
 - The gateway listens on `127.0.0.1` only. It refuses a non-loopback `Host`
   (DNS rebinding) and a web `Origin` (cross-site requests).
-- Jev receives the prompt and the text of the last six turns, 1,200
-  characters each. Tool results and system reminders are not sent.
+- Jev receives the prompt and the text of the six turns before it, up to
+  1,200 characters each. A longer text keeps its first and last 600
+  characters. Tool results and system reminders are not sent.
 - The Jev key is in the macOS Keychain. The status endpoint shows only whether
   a key is set.
 - `decisions.jsonl` has no prompt text.
