@@ -228,25 +228,18 @@ test('the first request after a compaction drops the cached prefixes', async () 
   });
   await router.route(body([user('go on')]), { sessionId: 's1', requestClass: 'main', contextCompacted: 'auto' });
   assert.deepEqual(router.memory('s1').models, {});
-  assert.equal(router.memory('s1').lastRequest, null);
 });
 
-// M1: the context size before a compaction must not decide the window of the first turn after it.
-test('after a compaction, the old context size no longer forces a bigger window', async () => {
+// After a history break the real context size is unknown until the next response. The last size is an upper bound
+// after a rewind, which can still leave most of the context: the first turn after it must not go to a small window.
+test('after a rewind, the last context size still keeps a turn off a window it would overflow', async () => {
   const { router } = setup({ ROUTER_FORCE_TIER: 'micro' });
-  const usage = { model: 'claude-sonnet-5', tokens: 190_000, cacheReadTokens: 0, outputTokens: 1, ttl: '1h' };
+  const usage = { model: 'claude-sonnet-5', tokens: 250_000, cacheReadTokens: 0, outputTokens: 1, ttl: '1h' };
+  const long = [user('a'), assistant('b'), user('c'), assistant('d'), user('e')];
+  await router.route(body(long), { sessionId: 's1', requestClass: 'main' });
   router.recordResponse('s1', 'low', usage);
-  const before = await router.route(body([user('a'), assistant('b'), user('c')]), {
-    sessionId: 's1',
-    requestClass: 'main',
-  });
-  assert.equal(before.reason, 'context-fit');
-  const after = await router.route(body([user('summary'), assistant('ok'), user('go on')]), {
-    sessionId: 's1',
-    requestClass: 'main',
-    contextCompacted: 'auto',
-  });
-  assert.deepEqual([after.tier, after.reason], ['micro', 'forced']);
+  const rewound = await router.route(body(long.slice(0, 3)), { sessionId: 's1', requestClass: 'main' });
+  assert.deepEqual([rewound.tier, rewound.reason], ['low', 'context-fit']);
 });
 
 test('the decision log records the agent type', async () => {
@@ -294,7 +287,6 @@ test('a shorter history (a rewind) drops the votes and the cached prefixes', asy
   assert.equal(rewound.reason, 'upgrade-pending');
   assert.equal(router.memory('s').state.votes.length, 1);
   assert.deepEqual(router.memory('s').models, {});
-  assert.equal(router.memory('s').lastRequest, null);
   assert.ok(log().some((e) => e.historyBreak === 'shorter-history'));
 });
 

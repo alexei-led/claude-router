@@ -50,5 +50,3 @@
 - A side request (title, classifier, compaction) on a session cleared its
   pending tool wait, so the gateway could exit under an open permission
   prompt.
-- After a compaction or a rewind, the old context size still decided the
-  window, the switching tax and the cold-write guard of the next turn.
