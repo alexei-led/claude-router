@@ -332,3 +332,44 @@ test('a turn logs the shadow economics of following Jev and keeps its estimate f
   assert.equal(router.memory('s').lastReason, 'upgrade');
   assert.ok(router.memory('s').lastEstimate.upgradeMass >= 0.8);
 });
+
+// M8/M9: the decision log shows the model and the effort that ran, and the turns that failed; never prompt text.
+const readLog = (dataDir) =>
+  readFileSync(join(dataDir, 'decisions.jsonl'), 'utf8')
+    .trim()
+    .split('\n')
+    .map((line) => JSON.parse(line));
+
+test('a decision line names the model and the effort sent; an observed line the effort', async () => {
+  const { router, dataDir } = setup();
+  await router.route(body([user('design the auth flow')]), { sessionId: 's1', requestClass: 'main' });
+  const usage = { model: 'claude-opus-5-5', tokens: 1000, cacheReadTokens: 0, outputTokens: 1, ttl: '1h' };
+  router.recordResponse('s1', 'high', usage, 'xhigh');
+  const [decision, observed] = readLog(dataDir);
+  assert.deepEqual([decision.model, decision.effort], ['claude-opus-5-5', 'xhigh']);
+  assert.equal(observed.observed.effort, 'xhigh');
+});
+
+test('a decision for a model without effort logs effort null', async () => {
+  const { router, dataDir } = setup({ ROUTER_FORCE_TIER: 'micro' });
+  await router.route(body([user('rename x')]), { sessionId: 's1', requestClass: 'main' });
+  const [decision] = readLog(dataDir);
+  assert.deepEqual([decision.model, decision.effort], ['claude-haiku-4-5', null]);
+});
+
+test('a routing error logs a decision with reason error and no message text', () => {
+  const { router, dataDir } = setup();
+  const out = router.fallback(body([user('CANARY-PROMPT secret text')]), 's1', { requestClass: 'main' });
+  assert.equal(out.reason, 'error');
+  const [line] = readLog(dataDir);
+  assert.deepEqual([line.session, line.reason, line.tier, line.model], ['s1', 'error', 'low', 'claude-sonnet-5']);
+  assert.doesNotMatch(readFileSync(join(dataDir, 'decisions.jsonl'), 'utf8'), /CANARY/);
+});
+
+test('a failed upstream response logs a failed line', () => {
+  const { router, dataDir } = setup();
+  router.recordFailure('s1', { tier: 'high', effort: 'xhigh', body: { model: 'claude-opus-5-5' } }, 529);
+  const [line] = readLog(dataDir);
+  assert.equal(line.session, 's1');
+  assert.deepEqual(line.failed, { status: 529, tier: 'high', model: 'claude-opus-5-5', effort: 'xhigh' });
+});

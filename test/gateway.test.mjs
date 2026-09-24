@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { createServer, request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -394,6 +394,33 @@ test('side requests on a session neither clear nor set its tool wait', async (t)
   answer = SSE;
   await send('w', 'main');
   assert.equal(activity.waiting.has('w'), false);
+});
+
+test('a routed turn that fails upstream leaves a failed line and no prompt text in the log', async (t) => {
+  const { upstream, url } = await upstreamWith((_body, res) => {
+    res.writeHead(529, { 'content-type': 'application/json' });
+    res.end('{"type":"error","error":{"type":"overloaded_error"}}');
+  });
+  const router = plainRouter();
+  const gateway = createGateway({ router, upstream: url });
+  const port = await listen(gateway);
+  t.after(() => shutdown(gateway, upstream));
+  const res = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
+    method: 'POST',
+    headers: { 'x-claude-code-session-id': 'f', 'x-claude-code-request-class': 'main' },
+    body: JSON.stringify(body([user('CANARY-PROMPT fix it')])),
+  });
+  assert.equal(res.status, 529);
+  await res.text();
+  await sleep(20);
+  const text = readFileSync(join(router.dataDir, 'decisions.jsonl'), 'utf8');
+  const failed = text
+    .trim()
+    .split('\n')
+    .map((l) => JSON.parse(l))
+    .find((e) => e.failed);
+  assert.deepEqual(failed.failed, { status: 529, tier: 'low', model: 'claude-sonnet-5', effort: 'high' });
+  assert.doesNotMatch(text, /CANARY/);
 });
 
 test('the 1M context beta reaches only models with a 1M window', async (t) => {

@@ -355,8 +355,10 @@ stateDiagram-v2
 
 - `GET /router/status?session=<id>` gives the routes and the last turn of a
   session. The status line and `/router:status` read it.
-- `decisions.jsonl` has one line for each decision and each response. It has
-  no prompt text.
+- `decisions.jsonl` has one line for each decision (with the model and the
+  effort sent), each response, each failed routed turn (`failed`, with the
+  status) and each routing error (`reason: error`, without the message). It
+  has no prompt text.
 - `gateway.log` has the daemon events.
 
 The [user guide](user-guide.md#read-the-status-line) explains how to read

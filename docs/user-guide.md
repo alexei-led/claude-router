@@ -136,11 +136,13 @@ log has no prompt text.
 | Field          | Content                                                                            |
 | -------------- | ---------------------------------------------------------------------------------- |
 | `tier`         | The tier of the request.                                                           |
-| `reason`       | The rule that decided. Tool calls show `tool-continuation`.                        |
+| `model`, `effort` | The model id and the effort that the gateway sent. `effort` is `null` for a model without effort. |
+| `reason`       | The rule that decided. Tool calls show `tool-continuation`. `error`: routing failed and the default tier served. |
 | `advice`       | The Jev probabilities for each tier, and for "continues the task".                 |
 | `estimate`     | The numbers of a vote: confidence, bar, switching tax, cache state.                |
 | `shadow`       | The cost of the Jev choice against the current route. The policy does not use it. |
-| `observed`     | The usage of the response: model, context tokens, cache reads, output.             |
+| `observed`     | The usage of the response: model, effort, context tokens, cache reads, output.     |
+| `failed`       | Anthropic answered a routed turn with an error: status, tier, model, effort.       |
 | `historyBreak` | A compaction or a rewind. The votes and the cache estimates reset.                 |
 | `cacheReset`   | The context shrank by more than 20%. The cache estimates reset.                    |
 
@@ -150,6 +152,7 @@ Two useful queries:
 LOG=~/.claude/plugins/data/router-alexei-led-claude-router/decisions.jsonl
 jq -r 'select(.observed) | .observed.model' $LOG | sort | uniq -c    # requests by model
 jq -r 'select(.reason) | .reason' $LOG | sort | uniq -c | sort -rn   # decisions by reason
+jq -c 'select(.failed) | .failed' $LOG                              # failed turns
 ```
 
 `scripts/transcript-models.sh <transcript.jsonl>` shows the model of each
