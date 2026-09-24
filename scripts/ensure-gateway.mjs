@@ -8,7 +8,7 @@ import { mkdirSync, openSync } from 'node:fs';
 import { connect } from 'node:net';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cliArg, loadRuntime } from '../lib/runtime.mjs';
+import { cliArg, isRouterGateway, loadRuntime } from '../lib/runtime.mjs';
 import { isOlderVersion, ROUTER_VERSION, STATUS_PATH } from '../lib/status.mjs';
 import { rotate } from '../lib/store.mjs';
 
@@ -82,6 +82,10 @@ async function retire(running) {
     say(
       `gateway ${from} runs on port ${port}. Stop it once with \`pkill -f scripts/gateway.mjs\`; the next prompt starts ${ROUTER_VERSION}.`,
     );
+    return false;
+  }
+  if (!isRouterGateway(running.pid)) {
+    say(`port ${port} answers as gateway ${from}, but pid ${running.pid} is not a router gateway: left alone`);
     return false;
   }
   try {

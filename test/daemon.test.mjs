@@ -1,10 +1,10 @@
 // The daemon and the hook as processes, each on a free port of its own: never the live gateway's port.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { ROUTER_VERSION } from '../lib/status.mjs';
@@ -104,14 +104,17 @@ test('the daemon answers, a second one on the same port exits quietly, SIGTERM s
 test('ensure-gateway replaces an older gateway and leaves a current one alone', async () => {
   const port = await freePort();
   const { dir, env, config } = environment(port);
-  // An older gateway: reports an old version and its pid, and releases the port on SIGTERM.
-  const old = spawn(process.execPath, [
-    '-e',
-    `const server = require('node:http').createServer((req, res) =>
-       res.end(JSON.stringify({ version: '0.0.1', pid: process.pid })));
+  // An older gateway: runs as scripts/gateway.mjs, reports an old version and its pid, releases the port on SIGTERM.
+  const oldScript = join(dir, 'scripts', 'gateway.mjs');
+  mkdirSync(dirname(oldScript));
+  writeFileSync(
+    oldScript,
+    `import { createServer } from 'node:http';
+     const server = createServer((req, res) => res.end(JSON.stringify({ version: '0.0.1', pid: process.pid })));
      server.listen(${port}, '127.0.0.1');
      process.on('SIGTERM', () => { server.close(); server.closeAllConnections(); process.exit(0); });`,
-  ]);
+  );
+  const old = spawn(process.execPath, [oldScript]);
   const oldExited = new Promise((resolve) => old.on('exit', resolve));
   let current = null;
   try {
@@ -210,4 +213,27 @@ test('a router.json with an unknown key: the hook says so in one line, the daemo
   const daemon = await run('gateway.mjs', ['--config', badPath], env);
   assert.equal(daemon.code, 1);
   assert.match(daemon.stderr, /invalid configuration: .*bad\.json: routs is not a known key/);
+});
+
+// H3: whatever answers on the port reports a pid. The hook signals it only when that pid runs scripts/gateway.mjs.
+test('ensure-gateway does not signal a pid that is not a router gateway', async (t) => {
+  const port = await freePort();
+  const { env, config } = environment(port);
+  const victim = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)']);
+  const victimExited = new Promise((resolve) => victim.on('exit', () => resolve('exited')));
+  const squatter = spawn(process.execPath, [
+    '-e',
+    `require('node:http').createServer((req, res) =>
+       res.end(JSON.stringify({ version: '0.0.1', pid: ${victim.pid} }))).listen(${port}, '127.0.0.1');`,
+  ]);
+  t.after(() => {
+    victim.kill('SIGKILL');
+    squatter.kill('SIGKILL');
+  });
+  assert.ok(await until(async () => (await statusOf(port))?.version === '0.0.1'));
+  const hook = await run('ensure-gateway.mjs', config, env);
+  assert.equal(hook.code, 0);
+  assert.match(hook.stdout, new RegExp(`pid ${victim.pid} .*not a router gateway`));
+  const outcome = await Promise.race([victimExited, new Promise((r) => setTimeout(() => r('alive'), 300))]);
+  assert.equal(outcome, 'alive');
 });

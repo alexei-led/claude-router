@@ -4,7 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { loadRuntime, resolveConfigPath } from '../lib/runtime.mjs';
+import { isRouterGateway, loadRuntime, resolveConfigPath } from '../lib/runtime.mjs';
 
 function tmpHome() {
   return mkdtempSync(join(tmpdir(), 'router-home-'));
@@ -68,4 +68,22 @@ test('ROUTER_FORCE_TIER from the environment is not honored; only an explicit fo
   assert.equal(config.forcedTier, null);
   const forced = loadRuntime({ ROUTER_FORCE_TIER: 'high' }, { home, forceTier: 'high' });
   assert.equal(forced.config.forcedTier, 'high');
+});
+
+// H3: never `ps` or signal a pid that could mean a process group (0) or every process (-1).
+test('isRouterGateway accepts only a live pid whose command runs scripts/gateway.mjs', () => {
+  const calls = [];
+  const ps = (command) => (_file, args) => {
+    calls.push(args.at(-1));
+    if (command instanceof Error) throw command;
+    return command;
+  };
+  const gateway = ps('/usr/bin/node /x/plugins/router/scripts/gateway.mjs --config /y\n');
+  assert.equal(isRouterGateway(4242, gateway), true);
+  assert.equal(isRouterGateway(4242, ps('/usr/bin/node -e setInterval()\n')), false);
+  assert.equal(isRouterGateway(4242, ps(new Error('ps: no such process'))), false);
+  calls.length = 0;
+  for (const pid of [-1, 0, 1, 1.5, '4242', null, undefined, Number.NaN])
+    assert.equal(isRouterGateway(pid, gateway), false);
+  assert.deepEqual(calls, []);
 });
