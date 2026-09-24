@@ -1,6 +1,6 @@
 {
   "name": "@alexeiled/claude-router",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Claude Code plugin: auto-picks the right model and effort for each turn using Jev routing.",
   "license": "MIT",
   "author": "Alexei Ledenev",

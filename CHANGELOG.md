@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.1 (2026-09-24)
+
+### Fixed
+
+- A downgrade paid no attention to its own cost. The switching policy
+  checked confidence and vote count for a lower tier, never the price of
+  getting there: a candidate whose cache was cold next to a warm incumbent
+  could downgrade into a full cache write bigger than what the smaller
+  model saved. The downgrade bar now grows with the switching tax the same
+  way the upgrade bar does: `0.90 + 0.08 × tax / (tax + $0.50)`, up to
+  0.98. A downgrade to an already-warm candidate is unaffected.
+
 ## 0.7.0 (2026-09-24)
 
 ### Upgrade requirements
@@ -71,7 +83,7 @@
   asked, a tool continuation looked like a new turn, and a request that Claude
   Code resent after a 400 was decided again.
 - The first Haiku turn of a session failed with `400 role 'system' is not
-  supported on this model`, and a later one made Claude Code flatten the
+supported on this model`, and a later one made Claude Code flatten the
   history for the rest of the session: Opus then lost its features, and the
   router saw a shorter history and reset its votes. Sonnet answered the first
   turn with two 400s before Claude Code retried without the features.
