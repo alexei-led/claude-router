@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { loadConfig } from '../lib/config.mjs';
+import { switchingTaxUsd } from '../lib/cost.mjs';
 import { decide, fitTier, initialState, massAbove, massAtOrBelow } from '../lib/policy.mjs';
 import { advice, served, T0 } from './helpers.mjs';
 
@@ -10,12 +11,13 @@ const NOW = T0 + 10_000;
 function facts({
   lastRoute = null,
   tokens = 20_000,
+  output = 0,
   failure = null,
   servedBy = 'claude-sonnet-5',
   effort = null,
   extraModels = {},
 } = {}) {
-  const m = served(servedBy, { tokens, output: 0, at: T0, effort });
+  const m = served(servedBy, { tokens, output, at: T0, effort });
   return {
     lastRoute,
     lastRequest: m.lastRequest,
@@ -149,6 +151,63 @@ test('the downgrade bar rises when the candidate is colder than the incumbent', 
   assert.ok(cold.estimate.threshold > config.policy.downgradeMass);
   assert.ok(cold.estimate.taxUsd > 0);
 });
+
+// Warm Opus at xhigh, 100k of context and 4k of output. `input-only` is the bar before output savings counted.
+const opusWarm = { lastRoute: 'high', servedBy: 'claude-opus-5-5', effort: 'xhigh', tokens: 100_000, output: 4_000 };
+const sonnetWarm = served('claude-sonnet-5', { tokens: 100_000, output: 4_000, at: T0 }).models;
+const unpriced = (fields = {}) =>
+  loadConfig({
+    userFile: {
+      models: {
+        mini: {
+          id: 'mini-1',
+          input: 1,
+          cacheRead: 0.1,
+          contextWindow: 200_000,
+          billing: 'plan',
+          efforts: [],
+          ...fields,
+        },
+      },
+      routes: { micro: { model: 'mini' } },
+    },
+  });
+
+for (const { name, cfg = config, candidate, f = facts(opusWarm), want } of [
+  {
+    name: 'a warm candidate keeps the base bar',
+    candidate: 'low',
+    f: facts({ ...opusWarm, extraModels: sonnetWarm }),
+    want: 'base',
+  },
+  {
+    name: 'equal output prices keep the input-only bar',
+    cfg: loadConfig({ userFile: { models: { sonnet: { output: 20 } } } }),
+    candidate: 'low',
+    want: 'input-only',
+  },
+  { name: 'cheaper output lowers a cold bar', candidate: 'low', want: 'lower' },
+  { name: 'much cheaper output lowers a cold bar to the base', candidate: 'micro', want: 'base' },
+  { name: 'a missing output price keeps the input-only bar', cfg: unpriced(), candidate: 'micro', want: 'input-only' },
+  {
+    name: 'a zero output price keeps the input-only bar',
+    cfg: unpriced({ output: 0 }),
+    candidate: 'micro',
+    want: 'input-only',
+  },
+]) {
+  test(`downgrade bar: ${name}`, () => {
+    const p = cfg.policy;
+    const bar = (tax) => p.downgradeMass + p.downgradeSlope * (tax / (tax + p.downgradePivotUsd));
+    const inputOnly = bar(Math.max(0, switchingTaxUsd(cfg, candidate, 'high', f, NOW)));
+    const [d] = runTurns(f, [advice(candidate, { [candidate]: 1 })], initialState(), cfg);
+    const { threshold } = d.estimate;
+    assert.ok(threshold >= p.downgradeMass);
+    if (want === 'base') assert.equal(threshold, p.downgradeMass);
+    if (want === 'input-only') assert.equal(threshold, inputOnly);
+    if (want === 'lower') assert.ok(threshold > p.downgradeMass && threshold < inputOnly);
+  });
+}
 
 test('repeated failure escalates one tier and holds, once per signature', () => {
   const failing = facts({ failure: { signature: 'error: tests failed', index: 9 } });

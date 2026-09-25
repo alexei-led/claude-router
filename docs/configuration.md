@@ -118,7 +118,7 @@ A test makes sure that they agree.
 | Field                          | Meaning                                                                                                                                                                                                                                               |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `id`                           | The model id that the gateway sends to Anthropic.                                                                                                                                                                                                     |
-| `input`, `output`, `cacheRead` | List prices in USD per million tokens. `output` is optional. Only the `shadow` estimate uses it.                                                                                                                                                      |
+| `input`, `output`, `cacheRead` | List prices in USD per million tokens. `output` is optional. The `shadow` estimate and the downgrade tax use it.                                                                                                                                      |
 | `contextWindow`                | The window in tokens. A turn goes only to a model that holds the context at 80% fill.                                                                                                                                                                 |
 | `maxOutput`                    | Optional limit for `max_tokens`. Haiku 4.5 rejects more than 64K.                                                                                                                                                                                     |
 | `billing`                      | `plan` for the subscription limits. `credits` for models that bill usage credits.                                                                                                                                                                     |
@@ -133,20 +133,21 @@ from a probe against the real API. A test fails when they differ.
 
 The [switching policy](architecture.md#switching-policy) uses these values.
 
-| Key                   | Default | Meaning                                                                                |
-| --------------------- | ------- | -------------------------------------------------------------------------------------- |
-| `upgradeVotes`        | `2`     | Consecutive votes above the current tier before an upgrade.                            |
-| `upgradeBase`         | `0.75`  | The upgrade bar when a switch costs nothing.                                           |
-| `upgradeSlope`        | `0.15`  | How much a switching cost can raise the bar: `base + slope × tax / (tax + pivot)`.     |
-| `upgradePivotUsd`     | `0.5`   | The switching cost that adds half of the slope.                                        |
-| `jumpConfidence`      | `0.95`  | The confidence for a jump of two tiers without the vote delay.                         |
-| `downgradeVotes`      | `2`     | Consecutive votes for a lower tier before a downgrade.                                 |
-| `downgradeMass`       | `0.9`   | The downgrade bar when the candidate's cache is already warm.                          |
-| `downgradeSlope`      | `0.08`  | How much a cold candidate's cache write can raise the bar, same formula as upgrade.    |
-| `downgradePivotUsd`   | `0.5`   | The switching cost that adds half of the slope.                                        |
-| `continuationMass`    | `0.7`   | The Jev probability for "continues the task" that keeps the route.                     |
-| `escalationHoldTurns` | `2`     | Turns that the route stays up after an escalation.                                     |
-| `cashCapUsd`          | `2`     | The cold-write guard: the largest first cache write for a switch to a `credits` model. |
+| Key                     | Default | Meaning                                                                                               |
+| ----------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
+| `upgradeVotes`          | `2`     | Consecutive votes above the current tier before an upgrade.                                           |
+| `upgradeBase`           | `0.75`  | The upgrade bar when a switch costs nothing.                                                          |
+| `upgradeSlope`          | `0.15`  | How much a switching cost can raise the bar: `base + slope × tax / (tax + pivot)`.                    |
+| `upgradePivotUsd`       | `0.5`   | The switching cost that adds half of the slope.                                                       |
+| `jumpConfidence`        | `0.95`  | The confidence for a jump of two tiers without the vote delay.                                        |
+| `downgradeVotes`        | `2`     | Consecutive votes for a lower tier before a downgrade.                                                |
+| `downgradeMass`         | `0.9`   | The downgrade bar when the candidate's cache is already warm.                                         |
+| `downgradeSlope`        | `0.08`  | How much a cold candidate's cache write can raise the bar, same formula as upgrade.                   |
+| `downgradePivotUsd`     | `0.5`   | The switching cost that adds half of the slope.                                                       |
+| `downgradeHorizonTurns` | `5`     | The turns of output and read savings that a downgrade's tax nets. Input only without `output` prices. |
+| `continuationMass`      | `0.7`   | The Jev probability for "continues the task" that keeps the route.                                    |
+| `escalationHoldTurns`   | `2`     | Turns that the route stays up after an escalation.                                                    |
+| `cashCapUsd`            | `2`     | The cold-write guard: the largest first cache write for a switch to a `credits` model.                |
 
 ### cache, jev, context, log
 
