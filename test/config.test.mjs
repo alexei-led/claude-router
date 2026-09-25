@@ -91,6 +91,8 @@ for (const [name, userFile, message] of [
   ['a non-finite upgradeSlope', { policy: { upgradeSlope: 'steep' } }, /policy\.upgradeSlope/],
   ['a negative upgradeSlope', { policy: { upgradeSlope: -0.1 } }, /policy\.upgradeSlope/],
   ['a zero upgradePivotUsd', { policy: { upgradePivotUsd: 0 } }, /policy\.upgradePivotUsd/],
+  ['a non-finite downgradeSlope', { policy: { downgradeSlope: 'steep' } }, /policy\.downgradeSlope/],
+  ['a zero downgradePivotUsd', { policy: { downgradePivotUsd: 0 } }, /policy\.downgradePivotUsd/],
   ['an infinite cashCapUsd', parse('{"policy": {"cashCapUsd": 1e999}}'), /policy\.cashCapUsd/],
   ['an infinite jev timeout', parse('{"jev": {"timeoutMs": 1e999}}'), /jev\.timeoutMs/],
   ['an empty jev endpoint', { jev: { endpoint: '' } }, /jev\.endpoint/],
