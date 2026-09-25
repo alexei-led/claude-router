@@ -208,6 +208,16 @@ only when that tier is above the current route.
 - The downgrade bar grows the same way, from the other side: a candidate
   colder than the incumbent pays a cache write, not just a smaller model.
   `bar = 0.90 + 0.08 × tax / (tax + $0.50)`. It stays between 0.90 and 0.98.
+- The downgrade tax nets the savings of the next `H` turns
+  (`policy.downgradeHorizonTurns`, default 5):
+  `tax = max(0, next + (H − 1) × later)`. `next` is the cost difference of
+  the next turn, input and output. `later` is the difference of each later
+  turn, with both caches warm. Both come from the
+  [shadow estimate](#cache-and-cost-model). Example: warm Opus at `xhigh` to
+  a cold Sonnet, 104k of context, 4k of output, 1-hour TTL. The input tax is
+  $0.40 (bar 0.935); net of five turns it is $0.20 (bar 0.922).
+- When either model has no `output` price, or a zero one, the downgrade tax
+  is the input tax alone. A missing price is unknown, not free.
 - A prompt continues the task when the Jev continuation answer is 0.7 or
   more. A continuing prompt never votes for a downgrade.
 - Upgrades have no cooldown. Plan, then execute, then hard work again is a
@@ -260,8 +270,8 @@ tax        = max(0, input_cost(candidate) − input_cost(current))
   `test/fixtures/list-prices.json`, which names its source and date.
 - **Shadow estimate.** When the Jev choice differs from the current route, the
   log records the cost of the next turn, the cost of each later turn with
-  output, and the turns until a switch repays its cost. The policy does not
-  read it.
+  output, and the turns until a switch repays its cost. The downgrade tax
+  uses the same arithmetic. The upgrade tax counts input only.
 
 ## Modules
 
@@ -431,7 +441,7 @@ claude --plugin-dir . --model jev-router              # with ANTHROPIC_BASE_URL 
 - Without the hint headers, the gateway guesses side requests. A missed side
   request with a short history counts as a history break.
 - `x-claude-code-agent-type` goes to the log only.
-- The shadow estimate uses the last output size for both routes, but effort
-  changes how much a model writes.
+- The shadow estimate and the downgrade tax use the last output size for
+  both routes, but effort changes how much a model writes.
 
 A day of real usage is in [Evaluation](evaluation.md).

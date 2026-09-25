@@ -143,7 +143,7 @@ log has no prompt text.
 | `reason`       | The rule that decided. Tool calls show `tool-continuation`. `error`: routing failed and the default tier served. |
 | `advice`       | The Jev probabilities for each tier, and for "continues the task".                 |
 | `estimate`     | The numbers of a vote: confidence, bar, switching tax, cache state.                |
-| `shadow`       | The cost of the Jev choice against the current route. The policy does not use it. |
+| `shadow`       | The cost of the Jev choice against the current route. The downgrade tax uses the same arithmetic. |
 | `observed`     | The usage of the response: model, effort, context tokens, cache reads, output.     |
 | `failed`       | Anthropic answered a routed turn with an error: status, tier, model, effort.       |
 | `historyBreak` | A compaction or a rewind. The votes and the cache estimates reset.                 |

@@ -4,6 +4,7 @@ import { loadConfig } from '../lib/config.mjs';
 import {
   cacheState,
   coldWriteUsd,
+  downgradeTaxUsd,
   inputCostUsd,
   isWarm,
   nextContextTokens,
@@ -111,14 +112,69 @@ for (const { name, candidate, incumbent, facts, next, later, payback } of [
   });
 }
 
-test('shadow economics is null when a model has no output price', () => {
-  const custom = loadConfig({
+// `micro` served by a model priced like Haiku, with no output price unless `fields` sets one.
+const mini = (fields = {}) =>
+  loadConfig({
     userFile: {
       models: {
-        mini: { id: 'mini-1', input: 1, cacheRead: 0.1, contextWindow: 100_000, billing: 'plan', efforts: [] },
+        mini: {
+          id: 'mini-1',
+          input: 1,
+          cacheRead: 0.1,
+          contextWindow: 100_000,
+          billing: 'plan',
+          efforts: [],
+          ...fields,
+        },
       },
       routes: { micro: { model: 'mini' } },
     },
   });
-  assert.equal(shadowEconomics(custom, 'micro', 'low', warm(sonnetTurn), T0), null);
+
+test('shadow economics is null when a model has no output price', () => {
+  assert.equal(shadowEconomics(mini(), 'micro', 'low', warm(sonnetTurn), T0), null);
 });
+
+// Opus at xhigh is warm; the candidate's cold write at the 1h TTL is 2 × input × 104k.
+for (const { name, cfg = config, candidate, facts, turns = 5, tax } of [
+  { name: 'is zero for a warm candidate', candidate: 'low', facts: warm(opusTurn, sonnetTurn), tax: 0 },
+  {
+    name: 'is the input tax when output and read prices match',
+    cfg: loadConfig({ userFile: { models: { sonnet: { output: 20 } } } }),
+    candidate: 'low',
+    facts: warm(opusTurn),
+    tax: 0.416 - 0.0208,
+  },
+  {
+    name: 'nets cheaper output over the horizon',
+    candidate: 'low',
+    facts: warm(opusTurn),
+    tax: 0.416 - 0.0208 - 0.04 - 4 * 0.04,
+  },
+  {
+    name: 'of one turn nets the next turn only',
+    candidate: 'low',
+    facts: warm(opusTurn),
+    turns: 1,
+    tax: 0.416 - 0.0208 - 0.04,
+  },
+  { name: 'is never negative', candidate: 'micro', facts: warm(opusTurn), tax: 0 },
+  {
+    name: 'without an output price is the input tax',
+    cfg: mini(),
+    candidate: 'micro',
+    facts: warm(opusTurn),
+    tax: 0.208 - 0.0208,
+  },
+  {
+    name: 'with a zero output price is the input tax',
+    cfg: mini({ output: 0 }),
+    candidate: 'micro',
+    facts: warm(opusTurn),
+    tax: 0.208 - 0.0208,
+  },
+]) {
+  test(`downgrade tax ${name}`, () => {
+    near(downgradeTaxUsd(cfg, candidate, 'high', facts, T0 + 1_000, turns), tax);
+  });
+}
