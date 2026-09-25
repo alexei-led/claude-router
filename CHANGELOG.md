@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.7.2 (2026-09-25)
+
+### Fixed
+
+- `router.json` accepted a `policy.downgradePivotUsd` of 0 and a
+  `policy.downgradeSlope` that is not a number. A zero pivot made the
+  downgrade bar `NaN` whenever a switch cost nothing, and then no downgrade
+  ever passed. Both values now stop a new gateway from starting, as the
+  upgrade keys already did; `/router:status` names the field.
+
+### Changed
+
+- The downgrade bar counts what a cheaper model saves, not only its cache
+  write. The tax used to count the input of the next request alone. It now
+  nets the output and cache-read savings of the next
+  `policy.downgradeHorizonTurns` turns (default 5). From a warm Opus at
+  `xhigh` to a cold Sonnet, with 104k of context and 4k of output, the bar
+  drops from 0.935 to 0.922 (1-hour TTL). It never goes below 0.90. A model
+  without an `output` price keeps the input-only tax.
+
 ## 0.7.1 (2026-09-24)
 
 ### Fixed
