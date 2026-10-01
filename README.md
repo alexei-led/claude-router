@@ -54,9 +54,9 @@ flowchart LR
 
 A local gateway receives each request from Claude Code. It changes the model,
 the effort and the thinking setting. For Haiku, it also limits the output
-size. It does not change your prompt or your tools. Sonnet and Haiku do not
-accept all the request features that Claude Code uses for Opus, so the gateway
-adapts those parts of the history for them, as Claude Code itself does. Prompt
+size. It does not change your prompt or your tools. Haiku does not accept all
+the request features that Claude Code uses for Opus, so the gateway adapts
+those parts of the history for it, as Claude Code itself does. Prompt
 caching and a claude.ai login work as usual.
 
 ## How Jev selects a tier
@@ -76,12 +76,12 @@ flowchart LR
   class R out
 ```
 
-| Tier     | Model and effort          | Jev selects it for                                                    |
-| -------- | ------------------------- | --------------------------------------------------------------------- |
-| `micro`  | Haiku 4.5, no thinking    | Lookups, trivial edits, one-step mechanical work                      |
-| `low`    | Sonnet 5, your effort     | Clear, low-risk coding steps with one obvious approach                |
-| `medium` | Opus 5.5, `high` effort   | Features, bug fixes and refactors with interacting constraints        |
-| `high`   | Opus 5.5, `xhigh` effort  | Architecture, unclear bugs, security, work where correctness is vital |
+| Tier     | Model and effort           | Jev selects it for                                                    |
+| -------- | -------------------------- | --------------------------------------------------------------------- |
+| `micro`  | Haiku 4.5, no thinking     | Lookups, trivial edits, one-step mechanical work                      |
+| `low`    | Sonnet 5.5, your effort    | Clear, low-risk coding steps with one obvious approach                |
+| `medium` | Sonnet 5.5, `xhigh` effort | Features, bug fixes and refactors with interacting constraints        |
+| `high`   | Opus 5.5, `xhigh` effort   | Architecture, unclear bugs, security, work where correctness is vital |
 
 The router tells Jev to put correctness before cost, and not to judge by prompt
 length, language or single topic words. The router then keeps the choice

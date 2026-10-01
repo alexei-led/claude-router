@@ -11,7 +11,7 @@ import { Router } from '../lib/router.mjs';
 import { body, user } from './helpers.mjs';
 
 const SSE =
-  'event: message_start\ndata: {"type":"message_start","message":{"model":"claude-opus-5-5","usage":{"input_tokens":10,"cache_read_input_tokens":90,"output_tokens":1}}}\n\nevent: message_delta\ndata: {"type":"message_delta","usage":{"output_tokens":42}}\n\n';
+  'event: message_start\ndata: {"type":"message_start","message":{"model":"claude-sonnet-5-5","usage":{"input_tokens":10,"cache_read_input_tokens":90,"output_tokens":1}}}\n\nevent: message_delta\ndata: {"type":"message_delta","usage":{"output_tokens":42}}\n\n';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -88,8 +88,8 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('x-upstream'), 'yes');
   assert.equal(text, SSE);
-  assert.equal(seen[0].body.model, 'claude-opus-5-5');
-  assert.equal(seen[0].body.output_config.effort, 'high');
+  assert.equal(seen[0].body.model, 'claude-sonnet-5-5');
+  assert.equal(seen[0].body.output_config.effort, 'xhigh');
   assert.equal(seen[0].headers.authorization, 'Bearer secret');
   assert.equal(seen[0].headers['anthropic-beta'], 'oauth-2025-04-20');
   assert.equal(seen[0].headers['accept-encoding'], undefined);
@@ -98,7 +98,7 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
   const memory = router.memory('sess-1');
   assert.equal(memory.lastRoute, 'medium');
   // The cache is keyed by the model and the effort the gateway sent.
-  assert.equal(memory.models['claude-opus-5-5@high'].prefixTokens, 142);
+  assert.equal(memory.models['claude-sonnet-5-5@xhigh'].prefixTokens, 142);
 
   const passthrough = await fetch(`http://127.0.0.1:${port}/v1/messages`, {
     method: 'POST',
@@ -111,7 +111,7 @@ test('routed requests are rewritten, headers forwarded, responses piped verbatim
   const models = await (await fetch(`http://127.0.0.1:${port}/v1/models?limit=1000`)).json();
   assert.equal(models.data[0].id, 'jev-router');
   assert.equal(models.data[0].display_name, 'Jev Router (auto)');
-  assert.match(models.data[0].description, /claude-opus-5-5 \/ claude-sonnet-5 \/ claude-haiku-4-5/);
+  assert.match(models.data[0].description, /claude-opus-5-5 \/ claude-sonnet-5-5 \/ claude-haiku-4-5/);
 
   const status = await (await fetch(`http://127.0.0.1:${port}/router/status?session=sess-1`)).json();
   assert.equal(status.keySet, false);
@@ -174,7 +174,7 @@ test('auxiliary responses do not touch memory and a routing error falls back to 
   ).text();
   await new Promise((r) => setTimeout(r, 20));
   assert.equal(JSON.stringify(router.memory('sess-2')), before);
-  assert.equal(seen[1].model, 'claude-sonnet-5');
+  assert.equal(seen[1].model, 'claude-sonnet-5-5');
 
   router.route = async () => {
     throw new Error('boom');
@@ -186,7 +186,7 @@ test('auxiliary responses do not touch memory and a routing error falls back to 
       body: JSON.stringify(body([user('x')])),
     })
   ).text();
-  assert.equal(seen[2].model, 'claude-sonnet-5');
+  assert.equal(seen[2].model, 'claude-sonnet-5-5');
 });
 
 test('an upstream reset mid-stream reaches the client as an error, not a hang', async (t) => {
@@ -295,7 +295,7 @@ test('count_tokens gets the session model without a Jev call or a policy turn', 
     body: JSON.stringify({ model: 'router', messages: [user('how big is this')] }),
   });
   assert.equal(await res.text(), '{"input_tokens":12}');
-  assert.equal(seen[0].model, 'claude-sonnet-5');
+  assert.equal(seen[0].model, 'claude-sonnet-5-5');
   assert.equal(jevCalls, 0);
   assert.equal(router.memory('ct').state, null);
   assert.equal(router.memory('ct').lastRoute, null);
@@ -422,7 +422,7 @@ test('a routed turn that fails upstream leaves a failed line and no prompt text 
     .split('\n')
     .map((l) => JSON.parse(l))
     .find((e) => e.failed);
-  assert.deepEqual(failed.failed, { status: 529, tier: 'low', model: 'claude-sonnet-5', effort: 'high' });
+  assert.deepEqual(failed.failed, { status: 529, tier: 'low', model: 'claude-sonnet-5-5', effort: 'high' });
   assert.doesNotMatch(text, /CANARY/);
 });
 

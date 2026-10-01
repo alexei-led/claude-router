@@ -136,23 +136,23 @@ test('forced tier and missing key skip Jev', async () => {
 test('recorded usage feeds warmth and compaction detection', async () => {
   const { router } = setup();
   router.recordResponse('s2', 'low', {
-    model: 'claude-sonnet-5',
+    model: 'claude-sonnet-5-5',
     tokens: 50_000,
     cacheReadTokens: 49_000,
     outputTokens: 100,
     ttl: '1h',
   });
   const m = router.memory('s2');
-  assert.equal(m.models['claude-sonnet-5'].prefixTokens, 50_100);
+  assert.equal(m.models['claude-sonnet-5-5'].prefixTokens, 50_100);
   router.recordResponse('s2', 'low', {
-    model: 'claude-sonnet-5',
+    model: 'claude-sonnet-5-5',
     tokens: 10_000,
     cacheReadTokens: 0,
     outputTokens: 10,
     ttl: '1h',
   });
-  assert.deepEqual(Object.keys(router.memory('s2').models), ['claude-sonnet-5']);
-  assert.equal(router.memory('s2').models['claude-sonnet-5'].prefixTokens, 10_010);
+  assert.deepEqual(Object.keys(router.memory('s2').models), ['claude-sonnet-5-5']);
+  assert.equal(router.memory('s2').models['claude-sonnet-5-5'].prefixTokens, 10_010);
 });
 
 test('a context too large for the routed model moves the turn to a model that fits', async () => {
@@ -165,13 +165,13 @@ test('a context too large for the routed model moves the turn to a model that fi
   const large = await router.route(body([user('y')]), { sessionId: 'big', requestClass: 'main' });
   assert.equal(large.tier, 'low');
   assert.equal(large.reason, 'context-fit');
-  assert.equal(large.body.model, 'claude-sonnet-5');
+  assert.equal(large.body.model, 'claude-sonnet-5-5');
 });
 
 test('compaction is sized by the main context; other side requests are not', async () => {
   const { router } = setup({}, { gateway: { auxiliaryTier: 'micro' } });
   router.recordResponse('c', 'low', {
-    model: 'claude-sonnet-5',
+    model: 'claude-sonnet-5-5',
     tokens: 400_000,
     cacheReadTokens: 0,
     outputTokens: 0,
@@ -279,7 +279,7 @@ test('subagent and workflow requests are routed turns; auxiliary and compaction 
 test('the first request after a compaction drops the cached prefixes', async () => {
   const { router } = setup();
   router.recordResponse('s1', 'low', {
-    model: 'claude-sonnet-5',
+    model: 'claude-sonnet-5-5',
     tokens: 50_000,
     cacheReadTokens: 0,
     outputTokens: 1,
@@ -293,7 +293,7 @@ test('the first request after a compaction drops the cached prefixes', async () 
 // after a rewind, which can still leave most of the context: the first turn after it must not go to a small window.
 test('after a rewind, the last context size still keeps a turn off a window it would overflow', async () => {
   const { router } = setup({ forcedTier: 'micro' });
-  const usage = { model: 'claude-sonnet-5', tokens: 250_000, cacheReadTokens: 0, outputTokens: 1, ttl: '1h' };
+  const usage = { model: 'claude-sonnet-5-5', tokens: 250_000, cacheReadTokens: 0, outputTokens: 1, ttl: '1h' };
   const long = [user('a'), assistant('b'), user('c'), assistant('d'), user('e')];
   await router.route(body(long), { sessionId: 's1', requestClass: 'main' });
   router.recordResponse('s1', 'low', usage);
@@ -324,7 +324,7 @@ function votingRouter() {
   const router = new Router({ config, fetchFn, dataDir, now: () => 1_000_000 });
   const ask = (messages, hints = {}) =>
     router.route(body(messages), { sessionId: 's', requestClass: 'main', ...hints });
-  const usage = (tokens) => ({ model: 'claude-sonnet-5', tokens, cacheReadTokens: 0, outputTokens: 10, ttl: '1h' });
+  const usage = (tokens) => ({ model: 'claude-sonnet-5-5', tokens, cacheReadTokens: 0, outputTokens: 10, ttl: '1h' });
   const log = () => readFileSync(join(dataDir, 'decisions.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
   return { router, ask, usage, log };
 }
@@ -341,7 +341,7 @@ test('a shorter history (a rewind) drops the votes and the cached prefixes', asy
   const { router, ask, usage, log } = votingRouter();
   await ask(history);
   router.recordResponse('s', 'low', usage(50_000), 'high');
-  assert.ok(router.memory('s').models['claude-sonnet-5@high']);
+  assert.ok(router.memory('s').models['claude-sonnet-5-5@high']);
   const rewound = await ask([user('plan the lexer instead')]);
   assert.equal(rewound.reason, 'upgrade-pending');
   assert.equal(router.memory('s').state.votes.length, 1);
@@ -364,7 +364,7 @@ test('context editing shrinks the context but keeps the messages: only the cache
   await ask(history);
   router.recordResponse('s', 'low', usage(100_000), 'high');
   router.recordResponse('s', 'low', usage(10_000), 'high');
-  assert.equal(router.memory('s').models['claude-sonnet-5@high'].prefixTokens, 10_010);
+  assert.equal(router.memory('s').models['claude-sonnet-5-5@high'].prefixTokens, 10_010);
   assert.ok(log().some((e) => e.cacheReset === 'context-shrink'));
   assert.equal((await ask([...history, assistant('done'), user('next')])).reason, 'upgrade');
 });
@@ -377,8 +377,9 @@ test('a turn logs the shadow economics of following Jev and keeps its estimate f
   const turn = log()
     .filter((e) => e.shadow)
     .at(-1);
-  // Medium (Opus) costs more per turn than Sonnet: an upgrade never repays in dollars.
-  assert.ok(turn.shadow.laterTurnUsd > 0);
+  // Medium is Sonnet at xhigh: the same prices, so later turns cost the same and the cold write never repays.
+  assert.equal(turn.shadow.laterTurnUsd, 0);
+  assert.ok(turn.shadow.nextTurnUsd > 0);
   assert.equal(turn.shadow.paybackTurns, null);
   assert.equal(router.memory('s').lastReason, 'upgrade');
   assert.ok(router.memory('s').lastEstimate.upgradeMass >= 0.8);
@@ -413,7 +414,7 @@ test('a routing error logs a decision with reason error and no message text', ()
   const out = router.fallback(body([user('CANARY-PROMPT secret text')]), 's1', { requestClass: 'main' });
   assert.equal(out.reason, 'error');
   const [line] = readLog(dataDir);
-  assert.deepEqual([line.session, line.reason, line.tier, line.model], ['s1', 'error', 'low', 'claude-sonnet-5']);
+  assert.deepEqual([line.session, line.reason, line.tier, line.model], ['s1', 'error', 'low', 'claude-sonnet-5-5']);
   assert.doesNotMatch(readFileSync(join(dataDir, 'decisions.jsonl'), 'utf8'), /CANARY/);
 });
 
