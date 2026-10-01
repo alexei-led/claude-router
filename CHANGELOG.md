@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.8.0 (2026-10-01)
+
+### Changed
+
+- **Sonnet 5.5 replaces Sonnet 5.** The `sonnet` model is now
+  `claude-sonnet-5-5`, at the same prices. A live probe through Claude Code
+  2.1.286 shows it takes all five effort levels and all three request
+  features, so the gateway no longer adapts its history.
+- **`medium` runs on Sonnet 5.5 at `xhigh`**, not on Opus 5.5 at `high`.
+  `/router:medium` changes with it. `high` stays Opus 5.5 at `xhigh`. From
+  2026-09-23 to 2026-10-01, 15 of 16 escalations from Sonnet moved the
+  session onto Opus for good, at about $31.6 of cold cache writes; most were
+  triggered by environment or hook errors, not by the model. An escalation
+  from `low` now stays on Sonnet.
+
+### Upgrade
+
+- If your `router.json` sets `models.sonnet.id` to `claude-sonnet-5`, also
+  set `"features": ["mid-conversation-system"]`. The new default lists all
+  three features, and Sonnet 5 answers the other two with 400.
+- To keep the old `medium`, set
+  `"routes": { "medium": { "model": "opus", "effort": "high" } }` and change
+  `skills/medium/SKILL.md` to match.
+
 ## 0.7.2 (2026-09-25)
 
 ### Fixed
