@@ -1,5 +1,17 @@
-node_modules
-.env
-.claude/settings.local.json
+# Dependencies
+node_modules/
+
+# Build output (npm pack)
 *.tgz
+
+# Secrets
+.env
+
+# Local agent state
+.claude/settings.local.json
+.pi/
+.review/
+.revmux/
+
+# OS
 .DS_Store
