@@ -61,9 +61,9 @@ flowchart TB
 - Claude Code builds each request for the model that the alias behaves as
   (Opus). A model without one of its [request features](configuration.md#models)
   gets the request without it, the way Claude Code retries after a 400:
-  - no `mid-conversation-tool-changes` (Sonnet, Haiku): `tool_addition` and
+  - no `mid-conversation-tool-changes` (Haiku): `tool_addition` and
     `tool_removal` blocks go; their cache breakpoint moves to the block before;
-  - no `per-turn-control` (Sonnet, Haiku): the beta header and the
+  - no `per-turn-control` (Haiku): the beta header and the
     `output_config` on messages (the effort of each turn) go;
   - no `mid-conversation-system` (Haiku): each `system` message becomes a
     `<system-reminder>` text in the user message next to it.

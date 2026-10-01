@@ -18,7 +18,7 @@ to read what it does, and how to control it.
 
 1. Start Claude Code. `/model` shows `Jev Router (auto)` as the model.
 2. Send a prompt. If setup added the status line, it shows the route, for
-   example `jev-router ▸ sonnet-5 · high · same-tier`.
+   example `jev-router ▸ sonnet-5-5 · high · same-tier`.
 3. Run `/router:status`. It shows `Jev routing: active.`
 
 If a step fails, read [Troubleshooting](#troubleshooting).
@@ -101,7 +101,7 @@ Router v0.7.0, gateway: http://127.0.0.1:43170, alias `jev-router`.
 Jev routing: active.
 Default tier: low.
 …
-Last turn: low → claude-sonnet-5 at high, reason upgrade-pending, context 84210 tokens, cache reads 83904.
+Last turn: low → claude-sonnet-5-5 at high, reason upgrade-pending, context 84210 tokens, cache reads 83904.
 Why: Jev asked for a higher tier; the route stays until the votes and the mass are enough.
 Estimate: upgrade mass 0.78 against a bar of 0.84, switching tax $0.66 at list prices, 1 vote(s) in a row, cache: candidate unknown, current warm.
 ```

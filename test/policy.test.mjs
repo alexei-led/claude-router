@@ -13,7 +13,7 @@ function facts({
   tokens = 20_000,
   output = 0,
   failure = null,
-  servedBy = 'claude-sonnet-5',
+  servedBy = 'claude-sonnet-5-5',
   effort = null,
   extraModels = {},
 } = {}) {
@@ -87,7 +87,7 @@ test('the upgrade threshold rises with the switching tax', () => {
 test('a cold metered model above the cash cap routes to the strongest plan tier instead', () => {
   const [d] = runTurns(facts({ tokens: 300_000 }), [advice('high', { high: 0.97 })], initialState(), metered);
   assert.equal(d.reason, 'cash-gate');
-  assert.equal(d.tier, 'low');
+  assert.equal(d.tier, 'medium');
   assert.ok(d.estimate.coldUsd > metered.policy.cashCapUsd);
   assert.equal(d.estimate.cache, 'unknown');
 });
@@ -109,13 +109,13 @@ test('a warm metered model passes the cash gate even when a cold write would not
   assert.equal(guarded.reason, 'cash-gate');
 });
 
-// Regression: medium and high are one model at two efforts; the switch rewrites the messages cache.
+// Regression: low and medium are one model at two efforts; the switch rewrites the messages cache.
 test('an effort-only upgrade pays the switching tax of a new messages cache', () => {
-  const f = facts({ lastRoute: 'medium', servedBy: 'claude-opus-5-5', effort: 'high', tokens: 400_000 });
-  const votes = [advice('high', { high: 0.8, medium: 0.2 }), advice('high', { high: 0.8, medium: 0.2 })];
+  const f = facts({ lastRoute: 'low', tokens: 400_000 });
+  const votes = [advice('medium', { medium: 0.8, low: 0.2 }), advice('medium', { medium: 0.8, low: 0.2 })];
   const [, second] = runTurns(f, votes);
   assert.equal(second.reason, 'upgrade-pending');
-  assert.ok(second.estimate.taxUsd > 3);
+  assert.ok(second.estimate.taxUsd > 1.5);
   assert.deepEqual(second.estimate.cache, { candidate: 'unknown', incumbent: 'warm' });
 });
 
@@ -154,7 +154,7 @@ test('the downgrade bar rises when the candidate is colder than the incumbent', 
 
 // Warm Opus at xhigh, 100k of context and 4k of output. `input-only` is the bar before output savings counted.
 const opusWarm = { lastRoute: 'high', servedBy: 'claude-opus-5-5', effort: 'xhigh', tokens: 100_000, output: 4_000 };
-const sonnetWarm = served('claude-sonnet-5', { tokens: 100_000, output: 4_000, at: T0 }).models;
+const sonnetWarm = served('claude-sonnet-5-5', { tokens: 100_000, output: 4_000, at: T0 }).models;
 const unpriced = (fields = {}) =>
   loadConfig({
     userFile: {

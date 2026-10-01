@@ -23,7 +23,7 @@ for (const [alias, model] of Object.entries(DEFAULTS.models)) {
 // The failure of a838f7c: Opus cache reads entered at ten times the list price. Sonnet served the last turn and
 // Opus at xhigh is still warm from an earlier one, 400k of context; Jev votes twice for high at 0.8.
 function upgradeFromSonnet(config, mass) {
-  const sonnet = served('claude-sonnet-5', { tokens: 400_000, output: 0, at: T0 });
+  const sonnet = served('claude-sonnet-5-5', { tokens: 400_000, output: 0, at: T0 });
   const opus = served('claude-opus-5-5', { tokens: 400_000, output: 0, at: T0, effort: 'xhigh' });
   const facts = { lastRoute: 'low', lastRequest: sonnet.lastRequest, models: { ...sonnet.models, ...opus.models } };
   let state = initialState();

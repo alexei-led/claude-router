@@ -5,6 +5,10 @@ import { adaptBetas, clampEffort, rewriteRequest } from '../lib/rewrite.mjs';
 import { assistant, body, user } from './helpers.mjs';
 
 const config = loadConfig({});
+// Sonnet 5 as a user can still configure it: system messages, but no per-turn control and no tool changes.
+const sonnet5 = loadConfig({
+  userFile: { models: { sonnet: { id: 'claude-sonnet-5', features: ['mid-conversation-system'] } } },
+});
 
 // Shapes captured from Claude Code 2.1.281 sessions on 2026-09-24: hook output goes in a `system` message after the
 // prompt, and turn 1 adds the advisor tool with a `tool_addition` block that carries the cache breakpoint.
@@ -23,14 +27,15 @@ const conversation = () => [
   system('UserPromptSubmit hook output'),
 ];
 
-test('opus takes system messages and tool changes: the messages are untouched', () => {
+test('opus and sonnet 5.5 take system messages and tool changes: the messages are untouched', () => {
   const b = body(conversation());
   assert.equal(rewriteRequest(b, 'high', config).messages, b.messages);
+  assert.equal(rewriteRequest(b, 'low', config).messages, b.messages);
 });
 
-test('sonnet keeps system messages but not tool additions; the cache breakpoint moves to the block before', () => {
+test('sonnet 5 keeps system messages but not tool additions; the cache breakpoint moves to the block before', () => {
   const b = body(conversation());
-  const out = rewriteRequest(b, 'low', config).messages;
+  const out = rewriteRequest(b, 'low', sonnet5).messages;
   assert.deepEqual(
     out.map((m) => m.role),
     ['user', 'system', 'assistant', 'user', 'system'],
@@ -38,26 +43,26 @@ test('sonnet keeps system messages but not tool additions; the cache breakpoint 
   assert.deepEqual(out[1].content, [{ type: 'text', text: 'SessionStart hook output', cache_control: CACHE }]);
   assert.equal(b.messages[1].content.length, 2, 'the request body is not mutated');
   const removal = body([user('hi'), system('hook', [{ type: 'tool_removal', tool: { name: 'advisor' } }])]);
-  assert.deepEqual(rewriteRequest(removal, 'low', config).messages[1].content, [{ type: 'text', text: 'hook' }]);
+  assert.deepEqual(rewriteRequest(removal, 'low', sonnet5).messages[1].content, [{ type: 'text', text: 'hook' }]);
 });
 
 // Per-turn control is an `output_config` on the system message (live 400 on Sonnet 5, 2026-09-24:
 // "messages.1.output_config: Extra inputs are not permitted").
 test('per-turn output_config on a message goes for a model without per-turn control', () => {
   const turn = [user('hi'), { ...system('hook'), output_config: { effort: 'high' } }];
-  const sonnet = rewriteRequest(body(turn), 'low', config).messages;
+  const sonnet = rewriteRequest(body(turn), 'low', sonnet5).messages;
   assert.deepEqual(sonnet[1], system('hook'));
   assert.ok(!('output_config' in rewriteRequest(body(turn), 'micro', config).messages[0]));
   const onlyControl = [user('hi'), { role: 'system', content: [], output_config: { effort: 'high' } }];
   assert.deepEqual(
-    rewriteRequest(body(onlyControl), 'low', config).messages.map((m) => m.role),
+    rewriteRequest(body(onlyControl), 'low', sonnet5).messages.map((m) => m.role),
     ['user'],
     'a system message left empty is dropped',
   );
 });
 
 // Per-turn effort overrides the request's effort on a model with per-turn control, so a route with its own effort
-// sets it there too: otherwise `high` (Opus at xhigh) would run at the session's effort, like `medium`.
+// sets it there too: otherwise `high` (Opus at xhigh) would run at the session's effort, like `low`.
 test('a route with its own effort sets the per-turn effort of every message; a route without one keeps it', () => {
   const history = [
     user('a'),
@@ -71,16 +76,16 @@ test('a route with its own effort sets the per-turn effort of every message; a r
       .messages.filter((m) => m.output_config)
       .map((m) => m.output_config.effort);
   assert.deepEqual(turnEfforts('high'), ['xhigh', 'xhigh']);
-  assert.deepEqual(turnEfforts('medium'), ['high', 'high']);
+  assert.deepEqual(turnEfforts('medium'), ['xhigh', 'xhigh']);
   const asSent = loadConfig({ userFile: { routes: { low: { model: 'opus' } } } });
   assert.deepEqual(turnEfforts('low', asSent), ['medium', 'high']);
   assert.equal(history[1].output_config.effort, 'medium', 'the request body is not mutated');
 });
 
-test('a system message that held only a tool addition is dropped for sonnet', () => {
+test('a system message that held only a tool addition is dropped for sonnet 5', () => {
   const b = body([user('hi'), { role: 'system', content: [toolAddition(undefined)] }]);
   assert.deepEqual(
-    rewriteRequest(b, 'low', config).messages.map((m) => m.role),
+    rewriteRequest(b, 'low', sonnet5).messages.map((m) => m.role),
     ['user'],
   );
 });
@@ -132,8 +137,9 @@ test('betas the routed model does not support are dropped', () => {
   const sent =
     'oauth-2025-04-20,context-1m-2025-08-07,mid-conversation-system-2026-04-07,per-turn-control-2026-07-01,mid-conversation-tool-changes-2026-07-01';
   assert.equal(adaptBetas(sent, 'claude-opus-5-5', config), sent);
+  assert.equal(adaptBetas(sent, 'claude-sonnet-5-5', config), sent);
   assert.equal(
-    adaptBetas(sent, 'claude-sonnet-5', config),
+    adaptBetas(sent, 'claude-sonnet-5', sonnet5),
     'oauth-2025-04-20,context-1m-2025-08-07,mid-conversation-system-2026-04-07',
   );
   assert.equal(adaptBetas(sent, 'claude-haiku-4-5', config), 'oauth-2025-04-20');
@@ -152,7 +158,7 @@ test('high route sets the model and its effort, keeps everything else', () => {
 
 test('a route without effort keeps the client effort, clamped to the family', () => {
   const out = rewriteRequest(body([user('x')], { output_config: { effort: 'xhigh' } }), 'low', config);
-  assert.equal(out.model, 'claude-sonnet-5');
+  assert.equal(out.model, 'claude-sonnet-5-5');
   assert.equal(out.output_config.effort, 'xhigh');
 });
 

@@ -95,12 +95,12 @@ For example, to run `low` on Sonnet at `high` effort and give Jev more time:
 
 ### routes
 
-| Tier     | Default                                  |
-| -------- | ---------------------------------------- |
-| `high`   | `{ "model": "opus", "effort": "xhigh" }` |
-| `medium` | `{ "model": "opus", "effort": "high" }`  |
-| `low`    | `{ "model": "sonnet" }`                  |
-| `micro`  | `{ "model": "haiku" }`                   |
+| Tier     | Default                                    |
+| -------- | ------------------------------------------ |
+| `high`   | `{ "model": "opus", "effort": "xhigh" }`   |
+| `medium` | `{ "model": "sonnet", "effort": "xhigh" }` |
+| `low`    | `{ "model": "sonnet" }`                    |
+| `micro`  | `{ "model": "haiku" }`                     |
 
 `model` is a key of `models`. `effort` is `low`, `medium`, `high`, `xhigh` or
 `max`. Without `effort`, the gateway keeps the effort that Claude Code sent.
@@ -109,11 +109,11 @@ A test makes sure that they agree.
 
 ### models
 
-| Alias    | `id`               | `input` | `output` | `cacheRead` | `contextWindow` | `maxOutput` | `billing` | `efforts` | `features`                |
-| -------- | ------------------ | ------- | -------- | ----------- | --------------- | ----------- | --------- | --------- | ------------------------- |
-| `opus`   | `claude-opus-5-5`  | 4       | 20       | 0.2         | 1,000,000       | —           | `plan`    | all five  | all three                 |
-| `sonnet` | `claude-sonnet-5`  | 2       | 10       | 0.2         | 1,000,000       | —           | `plan`    | all five  | `mid-conversation-system` |
-| `haiku`  | `claude-haiku-4-5` | 1       | 5        | 0.1         | 200,000         | 64,000      | `plan`    | none      | none                      |
+| Alias    | `id`                | `input` | `output` | `cacheRead` | `contextWindow` | `maxOutput` | `billing` | `efforts` | `features` |
+| -------- | ------------------- | ------- | -------- | ----------- | --------------- | ----------- | --------- | --------- | ---------- |
+| `opus`   | `claude-opus-5-5`   | 4       | 20       | 0.2         | 1,000,000       | —           | `plan`    | all five  | all three  |
+| `sonnet` | `claude-sonnet-5-5` | 2       | 10       | 0.2         | 1,000,000       | —           | `plan`    | all five  | all three  |
+| `haiku`  | `claude-haiku-4-5`  | 1       | 5        | 0.1         | 200,000         | 64,000      | `plan`    | none      | none       |
 
 | Field                          | Meaning                                                                                                                                                                                                                                               |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

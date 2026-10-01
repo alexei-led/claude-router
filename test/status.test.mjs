@@ -18,8 +18,8 @@ test('the snapshot lists the routes and never carries the key', () => {
   assert.doesNotMatch(JSON.stringify(status), /secret-key/);
   assert.deepEqual(status.routes, [
     { tier: 'micro', model: 'claude-haiku-4-5', effort: 'none' },
-    { tier: 'low', model: 'claude-sonnet-5', effort: 'as sent' },
-    { tier: 'medium', model: 'claude-opus-5-5', effort: 'high' },
+    { tier: 'low', model: 'claude-sonnet-5-5', effort: 'as sent' },
+    { tier: 'medium', model: 'claude-sonnet-5-5', effort: 'xhigh' },
     { tier: 'high', model: 'claude-opus-5-5', effort: 'xhigh' },
   ]);
 });
@@ -37,7 +37,7 @@ for (const [name, status, expected] of [
       lastEffort: 'high',
       lastRequest: null,
     }),
-    'jev-router ▸ sonnet-5 · high · upgrade-pending',
+    'jev-router ▸ sonnet-5-5 · high · upgrade-pending',
   ],
   [
     'no observed model, no effort',
@@ -50,7 +50,7 @@ for (const [name, status, expected] of [
 
 test('the report shows the routes and the last turn', () => {
   const report = statusReport(statusSnapshot(config, lastTurn));
-  assert.match(report, /\| medium \| claude-opus-5-5 \| high \|/);
+  assert.match(report, /\| medium \| claude-sonnet-5-5 \| xhigh \|/);
   assert.match(report, /Jev routing: active/);
   assert.match(report, /Last turn: high → claude-opus-5-5 at xhigh, reason upgrade, context 120000 tokens/);
   assert.match(report, /Why: Jev voted above the current tier/);

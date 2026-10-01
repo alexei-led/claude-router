@@ -33,14 +33,14 @@ test('cache state tells a cache never seen from one that expired', () => {
 
 test('the cache key is the model and the effort the route sends', () => {
   assert.equal(routeCacheKey(config, 'high', null), 'claude-opus-5-5@xhigh');
-  assert.equal(routeCacheKey(config, 'medium', 'low'), 'claude-opus-5-5@high');
-  assert.equal(routeCacheKey(config, 'low', 'max'), 'claude-sonnet-5@max');
-  assert.equal(routeCacheKey(config, 'low', null), 'claude-sonnet-5');
+  assert.equal(routeCacheKey(config, 'medium', 'low'), 'claude-sonnet-5-5@xhigh');
+  assert.equal(routeCacheKey(config, 'low', 'max'), 'claude-sonnet-5-5@max');
+  assert.equal(routeCacheKey(config, 'low', null), 'claude-sonnet-5-5');
   assert.equal(routeCacheKey(config, 'micro', 'high'), 'claude-haiku-4-5');
 });
 
 test('a cold candidate pays the full write, a warm one reads its prefix', () => {
-  const facts = memory(served('claude-sonnet-5', { tokens: 100_000, output: 0, ttl: '1h', at: T0 }));
+  const facts = memory(served('claude-sonnet-5-5', { tokens: 100_000, output: 0, ttl: '1h', at: T0 }));
   const now = T0 + 1_000;
   assert.equal(nextContextTokens(facts), 100_000);
   near(inputCostUsd(config, 'low', 100_000, facts, now), 0.02);
@@ -50,19 +50,20 @@ test('a cold candidate pays the full write, a warm one reads its prefix', () => 
 
 test('switching tax is the difference of input costs and can be negative when the candidate is warm', () => {
   const opus = served('claude-opus-5-5', { tokens: 100_000, output: 0, ttl: '1h', at: T0, effort: 'xhigh' });
-  const sonnet = served('claude-sonnet-5', { tokens: 100_000, output: 0, ttl: '1h', at: T0 + 1_000 });
+  const sonnet = served('claude-sonnet-5-5', { tokens: 100_000, output: 0, ttl: '1h', at: T0 + 1_000 });
   const facts = memory({ ...sonnet, models: { ...opus.models, ...sonnet.models } });
   const now = T0 + 2_000;
-  // Warm Opus 5.5 reads at 0.20/M, warm Sonnet 5 also at 0.20/M: no switching tax.
+  // Warm Opus 5.5 reads at 0.20/M, warm Sonnet 5.5 also at 0.20/M: no switching tax.
   near(switchingTaxUsd(config, 'high', 'low', facts, now), 0);
-  const cold = memory(served('claude-sonnet-5', { tokens: 100_000, output: 0, ttl: '1h', at: T0 }));
+  const cold = memory(served('claude-sonnet-5-5', { tokens: 100_000, output: 0, ttl: '1h', at: T0 }));
   assert.ok(switchingTaxUsd(config, 'micro', 'low', cold, now) > 0);
 });
 
-// Regression: before 0.6.1 the cache was keyed by the model alone, so medium <-> high looked free.
+// Regression: before 0.6.1 the cache was keyed by the model alone, so an effort-only switch looked free.
+// Sonnet 5.5 served `low` at the sent effort; `medium` is Sonnet 5.5 at xhigh: a cold 1h write against a warm read.
 test('an effort change on the same model pays for a new messages cache', () => {
-  const facts = memory(served('claude-opus-5-5', { tokens: 100_000, output: 0, ttl: '1h', at: T0, effort: 'xhigh' }));
-  near(switchingTaxUsd(config, 'medium', 'high', facts, T0 + 1_000), 0.8 - 0.02);
+  const facts = memory(served('claude-sonnet-5-5', { tokens: 100_000, output: 0, ttl: '1h', at: T0 }));
+  near(switchingTaxUsd(config, 'medium', 'low', facts, T0 + 1_000), 0.4 - 0.02);
 });
 
 // Context 100k plus 4k of output; Opus at xhigh served the last turn.
@@ -72,7 +73,7 @@ const warm = (...entries) =>
     models: Object.assign({}, ...entries.map((e) => e.models)),
   });
 const opusTurn = served('claude-opus-5-5', { tokens: 100_000, output: 4_000, ttl: '1h', at: T0, effort: 'xhigh' });
-const sonnetTurn = served('claude-sonnet-5', { tokens: 100_000, output: 4_000, ttl: '1h', at: T0 });
+const sonnetTurn = served('claude-sonnet-5-5', { tokens: 100_000, output: 4_000, ttl: '1h', at: T0 });
 
 for (const { name, candidate, incumbent, facts, next, later, payback } of [
   {
