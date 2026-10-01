@@ -443,5 +443,10 @@ claude --plugin-dir . --model jev-router              # with ANTHROPIC_BASE_URL 
 - `x-claude-code-agent-type` goes to the log only.
 - The shadow estimate and the downgrade tax use the last output size for
   both routes, but effort changes how much a model writes.
+- Opus 5.5 and Sonnet 5.5 bind thinking blocks to the model and the
+  conversation. Anthropic answers a replay after a prefix change with 400 for
+  accounts created on or after 2026-08-31. A switch between the two, with
+  thinking blocks in the history, passed on one older account (2026-10-01);
+  no newer account was tested.
 
 A day of real usage is in [Evaluation](evaluation.md).
