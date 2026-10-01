@@ -427,7 +427,7 @@ To work on the code:
 
 ```sh
 npm install
-git config --local core.hooksPath scripts/git-hooks   # Biome, tests and Gitleaks before commit and push
+git config --local core.hooksPath scripts/git-hooks   # Biome, ShellCheck, tests and Gitleaks before commit and push
 npm test && npm run check                             # node:test, Biome
 claude --plugin-dir . --model jev-router              # with ANTHROPIC_BASE_URL and TYPESAFE_API_KEY
 ```
