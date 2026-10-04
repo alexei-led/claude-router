@@ -19,6 +19,7 @@ function harness(options = {}, preferences = new Map()) {
   let settings = {};
   let sessionId = 's1';
   let snapshot = new Map();
+  let messages = async () => [{ role: 'user', content: 'One edit.' }];
   let http = async () => {
     throw new Error('unexpected HTTP');
   };
@@ -67,7 +68,7 @@ function harness(options = {}, preferences = new Map()) {
       model: async () => model,
       id: async () => sessionId,
       surfaces: async () => ['terminal'],
-      messages: async () => [{ role: 'user', content: 'One edit.' }],
+      messages: (...args) => messages(...args),
       usage: async () => usage,
     },
     settings: { read: async () => settings },
@@ -136,6 +137,9 @@ function harness(options = {}, preferences = new Map()) {
     loop: () => state.get('loops:main')?.value,
     http: (fn) => {
       http = fn;
+    },
+    messages: (fn) => {
+      messages = fn;
     },
     event: async (name, input) => {
       snapshot = new Map();
@@ -484,4 +488,85 @@ test('project settings cannot redirect secure router configuration to another pr
   assert.equal(h.requests[0].model, step.model);
   assert.equal(h.requests[0].effort, step.effort);
   assert.equal(h.files.size, 0);
+});
+
+const substituted = {
+  usage: {
+    model: 'claude-sonnet-5-5',
+    input_tokens: 100,
+    cache_read_input_tokens: 800,
+    cache_creation_input_tokens: 200,
+    output_tokens: 10,
+  },
+};
+
+test('a billed substitute keeps the rest of the turn native and the next turn routes again', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step, substituted));
+  await drain(h.step({ ...step, index: 1, effort: 'low' }));
+  await h.event('turn.start', { turnId: 't2', text: 'Next edit.' });
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  await drain(h.step({ ...step, turnId: 't2', index: 1 }));
+  assert.deepEqual(
+    h.requests.map((r) => [r.turnId, r.index, r.model]),
+    [
+      ['t1', 0, 'claude-opus-5-5'],
+      ['t1', 1, 'claude-sonnet-5-5'],
+      ['t2', 0, 'claude-opus-5-5'],
+      ['t2', 1, 'claude-opus-5-5'],
+    ],
+  );
+});
+
+test('the engine echoing our routed model is not a fallback but a third model is', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step));
+  await drain(h.step({ ...step, index: 1, model: 'claude-opus-5-5' }));
+  await drain(h.step({ ...step, index: 2, model: 'claude-haiku-4-5' }));
+  assert.deepEqual(
+    h.requests.map((r) => r.model),
+    ['claude-opus-5-5', 'claude-opus-5-5', 'claude-haiku-4-5'],
+  );
+  assert.equal(h.view().reason, 'native-fallback');
+});
+
+test('an interrupt while the transcript is still loading never publishes choosing', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key' });
+  let release;
+  h.messages(() => new Promise((resolve) => (release = () => resolve([{ role: 'user', content: 'One edit.' }]))));
+  let calls = 0;
+  h.http(() => {
+    calls += 1;
+    return new Promise(() => {});
+  });
+  await start(h);
+  const pending = drain(h.step(step));
+  for (let i = 0; i < 100 && !release; i += 1) await Promise.resolve();
+  await h.event('turn.complete', { turnId: 't1' });
+  release();
+  await pending;
+  assert.equal(calls, 0);
+  assert.notEqual(h.view().phase, 'choosing');
+  assert.equal(h.requests[0].model, step.model);
+});
+
+test('clear after a manual /model choice on a non-baseline model starts Auto', async () => {
+  const h = harness();
+  await start(h);
+  h.model('claude-opus-5-5');
+  await h.event('command.run', { command: 'model', origin: { kind: 'user' } });
+  assert.equal(h.preferences.get('mode:s1'), 'manual');
+  await h.event('session.end', { reason: 'clear' });
+  h.clear('s2');
+  const pinned = await h.event('command.run', { command: 'router', args: 'pin micro' });
+  assert.match(pinned.text, /pinned for the next turn/);
+  await drain(h.step({ ...step, turnId: 't2', model: 'claude-opus-5-5' }));
+  assert.equal(h.view().mode, 'auto');
+  assert.equal(h.view().pendingPin, null);
+  assert.equal(h.preferences.get('mode:s2'), 'auto');
 });

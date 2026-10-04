@@ -1,28 +1,20 @@
 {
-  "claudeVersion": "2.1.289",
-  "profile": "ce peer-team with an isolated native candidate and synthetic loopback Jev service",
+  "scenario": "persistent-circuit",
+  "claudeVersion": "2.1.289 (Claude Code)",
+  "profile": "ce peer-team, Team credentials, isolated native plugin directory, synthetic Jev stub on loopback",
   "driver": "node experiments/mod-router/scripts/persistent-acceptance.mjs circuit",
-  "scope": "NativeJev through real native $.http.fetch and real wall-clock time in one persistent CLI process. The advice service is a deterministic fixture; no provider/model response is simulated or billed by this check.",
   "passed": true,
-  "failures": [
-    { "error": "malformed", "elapsedMs": 13, "failureCount": 1 },
-    { "error": "malformed", "elapsedMs": 2, "failureCount": 2 },
-    { "error": "malformed", "elapsedMs": 110, "failureCount": 3 }
-  ],
-  "pause": { "error": "paused", "elapsedMs": 0, "additionalHttpRequests": 0 },
-  "recovery": {
-    "observedAfterMs": 60076,
-    "transient503ThenSuccess": true,
-    "attemptElapsedMs": 117,
-    "choice": "medium",
-    "failureCount": 0,
-    "pausedUntil": 0
+  "checks": {
+    "failuresToPause": 3,
+    "pausedWithoutHttp": true,
+    "recoveredAfter503": true
   },
   "wire": {
-    "requestCount": 5,
-    "maxUnfinishedRequests": 1,
-    "openedConnections": 2,
-    "closedConnectionsBeforeStubShutdown": 2,
-    "finalOpenConnectionsBeforeStubShutdown": 0
+    "requests": 5,
+    "maxUnfinished": 1,
+    "unfinishedAtEnd": 0,
+    "connects": 2,
+    "closes": 2,
+    "secretsOnWire": false
   }
 }

@@ -46,15 +46,30 @@ export async function prepareNativeCandidate({ acceptance = false } = {}) {
   return directory;
 }
 
-export function nativeLaunchSettings() {
+const BASELINE_MODEL = 'claude-sonnet-5-5';
+const RESUME_FLAGS = new Set(['--resume', '-r', '--continue', '-c']);
+
+function hasFlag(argv, names) {
+  return argv.some(
+    (arg) => names.has(arg) || [...names].some((name) => name.startsWith('--') && arg.startsWith(`${name}=`)),
+  );
+}
+
+// A resumed or explicitly modelled launch keeps its own native model; only a fresh launch gets the default.
+export function nativeLaunchPlan(argv = []) {
+  const keepsModel = hasFlag(argv, RESUME_FLAGS) || hasFlag(argv, new Set(['--model']));
+  const env = {
+    ANTHROPIC_BASE_URL: 'https://api.anthropic.com',
+    CLAUDE_CODE_GATEWAY_HINT_HEADERS: '',
+    ...(keepsModel ? {} : { ANTHROPIC_MODEL: BASELINE_MODEL }),
+  };
   return {
-    model: 'claude-sonnet-5-5',
-    modelPicker: { options: [] },
-    env: {
-      ANTHROPIC_BASE_URL: 'https://api.anthropic.com',
-      ANTHROPIC_MODEL: 'claude-sonnet-5-5',
-      CLAUDE_CODE_GATEWAY_HINT_HEADERS: '',
+    args: keepsModel ? [] : ['--model', BASELINE_MODEL],
+    settings: {
+      ...(keepsModel ? {} : { model: BASELINE_MODEL }),
+      modelPicker: { options: [] },
+      env,
+      enabledPlugins: { 'router@alexei-led-claude-router': false },
     },
-    enabledPlugins: { 'router@alexei-led-claude-router': false },
   };
 }

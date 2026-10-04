@@ -11,6 +11,7 @@ import {
   observeResponse,
   prepareLoop,
   resetHistory,
+  SNAPSHOTS,
 } from '../lib/native-router.mjs';
 
 const VIEW = { plugin: 'router', key: 'view' };
@@ -216,6 +217,13 @@ function responseMetrics(view, response) {
   };
 }
 
+// The engine may echo our own routed model on a continuation; any third model is its fallback.
+function isNativeFallback(loop, model) {
+  if (loop.suspended) return true;
+  const known = [loop.engineModel, loop.decision?.model].filter(Boolean);
+  return known.length > 0 && !known.some((id) => id === model || SNAPSHOTS[id] === model);
+}
+
 async function* passMain($, e, next, loop, version, nativeModel, reason, config, runtime) {
   const ref = { ...LOOP, id: 'main' };
   const context = await contextOf($, loop);
@@ -250,6 +258,7 @@ export function register(on, options) {
   const prompts = new Map();
   const decisions = new Map();
   const controllers = new Set();
+  const turnControllers = new Map();
   const runtime = { view: null, controllers, modes: new Map() };
 
   on('session.start', async ($, e, next) => {
@@ -353,7 +362,7 @@ export function register(on, options) {
     if (view.phase === 'unavailable' || mode === 'manual') {
       return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'manual', cfg, runtime);
     }
-    if (loop.turnId === e.turnId && (loop.suspended || (loop.engineModel && loop.engineModel !== e.model))) {
+    if (loop.turnId === e.turnId && isNativeFallback(loop, e.model)) {
       return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'native-fallback', cfg, runtime);
     }
     const context = await contextOf($, loop, e.agentId);
@@ -368,10 +377,13 @@ export function register(on, options) {
           const cancel = () => controller.abort();
           next.signal.addEventListener('abort', cancel, { once: true });
           controllers.add(controller);
+          turnControllers.set(e.turnId, controller);
+          const live = async () => !controller.signal.aborted && (await $.session.id()) === sessionId;
           try {
             const pin = view.pendingPin;
             const apiKey = await apiKeyOf($, options);
             const messages = await $.session.messages({ as: 'api' });
+            if (!(await live())) return null;
             const facts = nativeFacts(cfg, loop, {
               messages,
               prompt: prompts.get(e.turnId),
@@ -437,6 +449,7 @@ export function register(on, options) {
           } finally {
             next.signal.removeEventListener('abort', cancel);
             controllers.delete(controller);
+            if (turnControllers.get(e.turnId) === controller) turnControllers.delete(e.turnId);
           }
         })();
         decisions.set(key, job);
@@ -489,14 +502,14 @@ export function register(on, options) {
   });
 
   on('turn.complete', async ($, e, next) => {
+    turnConfigs.delete(e.turnId);
+    turnControllers.get(e.turnId)?.abort();
     if (runtime.view?.activeTurnId === e.turnId && runtime.view.phase === 'choosing') {
       runtime.view = { ...runtime.view, activeTurnId: null };
-      for (const controller of controllers) controller.abort();
       const mode = await modeOf($, runtime);
       if (runtime.view.activeTurnId === null)
         await updateView($, runtime, { phase: mode === 'manual' ? 'manual' : 'ready', reason: 'interrupted' });
     }
-    turnConfigs.delete(e.turnId);
     prompts.delete(e.turnId);
     for (const key of decisions.keys()) if (key.includes(`:${e.turnId}:`)) decisions.delete(key);
     return next(e);

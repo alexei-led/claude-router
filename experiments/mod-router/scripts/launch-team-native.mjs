@@ -2,19 +2,19 @@ import { spawn } from 'node:child_process';
 import { rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { nativeLaunchSettings, prepareNativeCandidate } from './native-candidate.mjs';
+import { nativeLaunchPlan, prepareNativeCandidate } from './native-candidate.mjs';
 
 const directory = await prepareNativeCandidate();
+const plan = nativeLaunchPlan(process.argv.slice(2));
 const child = spawn(
   join(homedir(), '.claude/scripts/ce'),
   [
     'peer-team',
     '--plugin-dir',
     directory,
-    '--model',
-    'claude-sonnet-5-5',
+    ...plan.args,
     '--settings',
-    JSON.stringify(nativeLaunchSettings()),
+    JSON.stringify(plan.settings),
     ...process.argv.slice(2),
   ],
   { stdio: 'inherit' },

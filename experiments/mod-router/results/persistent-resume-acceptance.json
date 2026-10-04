@@ -1,0 +1,26 @@
+{
+  "scenario": "persistent-resume",
+  "claudeVersion": "2.1.289 (Claude Code)",
+  "profile": "ce peer-team, Team credentials, isolated native plugin directory, synthetic Jev stub on loopback",
+  "driver": "node experiments/mod-router/scripts/persistent-acceptance.mjs resume",
+  "passed": true,
+  "checks": {
+    "baselineModel": "claude-sonnet-5-5",
+    "resumeKeepsSessionId": true,
+    "resumeRestoredManualOnBaseline": true,
+    "resumeKeepsModel": true,
+    "forkNewSessionId": true,
+    "forkMode": "auto",
+    "explicitModel": "claude-opus-5-5",
+    "resumeKeepsExplicitModel": true,
+    "resumeExplicitMode": "manual"
+  },
+  "wire": {
+    "requests": 0,
+    "maxUnfinished": 0,
+    "unfinishedAtEnd": 0,
+    "connects": 0,
+    "closes": 0,
+    "secretsOnWire": false
+  }
+}
