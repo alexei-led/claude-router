@@ -5,7 +5,7 @@
   "driver": "node experiments/mod-router/scripts/persistent-acceptance.mjs clear",
   "passed": true,
   "checks": {
-    "adviceTimeoutMs": 1503,
+    "adviceTimeoutMs": 1508,
     "repeatedCall": "busy",
     "sessionIdChangedOnClear": true,
     "modeAfterClear": "auto",
