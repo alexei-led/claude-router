@@ -10,6 +10,6 @@
     }
   ],
   "actualModels": ["claude-sonnet-5-5"],
-  "status": "router: Jev Router — Auto\nNative model: claude-sonnet-5-5\nSelected: claude-sonnet-5-5\nObserved: claude-sonnet-5-5\nReason: downgrade-pending\nJev: ready\nContext: 8734 tokens (estimate)\nObserved cache: 2881 read, 5997 written tokens\nNo next-turn pin.\nAuto enables routing. Manual preserves Claude’s model. Pins serve one turn only.\nCache lifetime is an estimate. Claude’s cost ledger owns session totals.",
+  "status": "router: Jev Router — Auto\nNative model: claude-sonnet-5-5\nSelected: claude-sonnet-5-5\nObserved: claude-sonnet-5-5\nReason: downgrade-pending\nJev: ready\nContext: 8156 tokens (estimate)\nObserved cache: 2881 read, 5050 written tokens\nNo next-turn pin.\nAuto enables routing. Manual preserves Claude’s model. Pins serve one turn only.\nCache lifetime is an estimate. Claude’s cost ledger owns session totals.",
   "driver": "node experiments/mod-router/scripts/team-canary.mjs"
 }
