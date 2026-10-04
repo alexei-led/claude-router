@@ -1,0 +1,7 @@
+{
+  "scenario": "installed-team-router-unload",
+  "passed": true,
+  "model": "claude-sonnet-5-5",
+  "activeRouterCount": 0,
+  "response": "OK"
+}

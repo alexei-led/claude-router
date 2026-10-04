@@ -4,6 +4,7 @@
   "files": {
     "includes": [
       "hooks/**",
+      "lib/**",
       "scripts/**",
       "tests/**",
       "types/**",

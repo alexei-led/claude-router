@@ -1,8 +1,9 @@
+// Historical v0.8.0 reference for local acceptance probes; excluded from the published plugin.
 // Turn a request for the router alias into a request for a concrete model. `model`, `max_tokens`,
 // `output_config.effort`, `thinking` and thinking edits in `context_management` change. For a model without a
 // request feature that Claude Code uses (config FEATURES), the messages and the beta header lose that feature,
 // as Claude Code itself does when the model answers 400; system prompt and tools are never touched.
-import { EFFORTS } from './config.mjs';
+import { EFFORTS } from './legacy-config.mjs';
 
 const TOOL_CHANGE_BLOCKS = new Set(['tool_addition', 'tool_removal']);
 const LONG_CONTEXT_BETA = /^context-1m-/;

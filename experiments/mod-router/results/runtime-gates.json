@@ -1,38 +1,30 @@
 {
   "claudeVersion": "2.1.289",
   "profile": "ce team",
-  "checkedAt": "2026-10-04T10:24:00Z",
-  "directTransport": { "baseURL": "https://api.anthropic.com", "model": "claude-opus-5-5", "responseObserved": true },
+  "nativeVersion": "1.0.0",
+  "scope": "Main routing only; every subagent model choice preserved.",
   "http": {
-    "fallbackElapsedMs": [1518, 1505, 1505],
-    "hangSocketClosedAfterMs": [29996, 30003],
-    "reloadSocketClosedAfterMs": 11467,
-    "reloadClosedAtReplacement": true,
-    "bearerHeaderReachedLoopback": true
+    "record": "native-http-acceptance.json",
+    "samples": 20,
+    "p95FallbackMs": 1504,
+    "worstFallbackMs": 1505
   },
-  "process": { "timeoutRequestedMs": 1500, "observedElapsedMs": 1740 },
-  "lifecycle": { "sessionEndOnClear": true, "sessionIdChangesOnClear": true, "manualEnvironmentSurvivesClear": true },
+  "lifecycle": {
+    "records": [
+      "persistent-clear-acceptance.json",
+      "persistent-circuit-acceptance.json",
+      "persistent-reload-acceptance.json",
+      "persistent-replace-acceptance.json",
+      "persistent-unload-acceptance.json",
+      "persistent-resume-acceptance.json",
+      "native-interrupt-acceptance.json"
+    ],
+    "mode": "Clear/fork starts Auto; resume restores selected conversation mode; non-baseline startup model is Manual."
+  },
   "credentials": {
-    "probeKeyPresentAtInitialCheck": false,
-    "legacyGatewayKeyPresentAtInitialCheck": false,
     "nativeOptionKeyPresent": true,
-    "realJevVerified": true
-  },
-  "nativeCandidate": {
-    "validatedVersion": "2.1.289",
-    "realJevElapsedMs": 390,
-    "realJevChoice": "micro",
-    "realJevPolicyReason": "downgrade-pending",
-    "directOpusPinPassed": true,
-    "directHaikuPinPassed": true,
-    "manualSonnetMetricsUpdated": true,
-    "manualBaselineChoiceSurvivesClear": true,
-    "secureKeyButtonPromptHandoffPassed": true,
-    "focusedNodeTestsPassed": 40,
-    "nativeUiTestsPassed": 2,
-    "nativeUiSurfaces": ["terminal", "desktop"],
-    "strictNativeUiTypesPassed": true,
-    "subagents": "pass-through; definition model source is unavailable"
+    "realJevVerified": true,
+    "initialRealJevElapsedMs": 390
   },
   "compatibility": {
     "directToolSwitchModels": ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-4-5-20251001"],
@@ -41,14 +33,28 @@
     "largeSonnetInputTokens": 589399,
     "largeOpusInputTokens": 589481
   },
-  "pending": [
-    "HTTP guard across all resets",
-    "full 20-turn timing sample",
-    "remaining per-turn/output/tool-change compatibility",
-    "native fallback",
-    "manual model selection across resume/branch",
-    "inherited subagent scope decision",
-    "trace evaluation and Team canary/rollback",
-    "root packaging and release checks"
+  "otherRecords": [
+    "native-fallback-acceptance.json",
+    "deferred-tool-output-gate.json",
+    "trace-evaluation.json",
+    "team-canary.json",
+    "team-rollback.json"
+  ],
+  "checks": {
+    "nodeTests": 169,
+    "nativeUiTests": 2,
+    "nativeUiSurfaces": ["terminal", "desktop"],
+    "strictNativeUiTypes": true,
+    "teamLauncherTests": 52
+  },
+  "packaging": {
+    "nativeOnly": true,
+    "gatewayRuntimeRemoved": true,
+    "remotePublication": false
+  },
+  "limitations": [
+    "Mods early access; tested on 2.1.289 and current Team policy.",
+    "Native cache TTL split unavailable; no achieved savings inferred.",
+    "No attempt to reroute inherited or explicitly configured subagents."
   ]
 }

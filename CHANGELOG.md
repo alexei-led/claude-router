@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.0.0 (unreleased)
+
+### Changed
+
+- Model routing now runs as a Claude Code Mod. It changes only `model` and `effort` on the main conversation. Claude Code sends Anthropic requests and handles streaming, tools, credentials, and usage. Subagent model choices pass through unchanged.
+- Removed the gateway process, local proxy endpoint, gateway launcher hooks, status-line script, and gateway-only skills from the plugin package. The Mod needs no Node runtime service or router-specific Claude settings.
+- Added an integrated status band and `/router` pane. It shows response usage, route reasons, configured-price comparisons, controls, one-turn pins, secure Jev key setup, and three tuning controls.
+- Replaced gateway configuration with optional profile `router.json` settings. Added a backup-first migration command for v0.8 configuration files.
+- The UI reports Claude's native cost reading and labels model-price comparisons as estimates. It does not claim measured savings or keep a second cost ledger.
+
+### Migration
+
+- Run `node scripts/migrate-config.mjs /path/to/router.json` from the plugin directory for an existing v0.8 file. The command keeps an exact-byte `.v0.8.backup`. It converts supported route, model, cache, and policy settings.
+- Launch Claude Code with the full baseline model ID, for example `claude-sonnet-5-5`, then run `/router auto`. A `/model` choice enters Manual mode. `/router auto` resumes routing.
+- The Mod requires Claude Code 2.1.289 or newer. This version has not been published to npm or a marketplace.
+
 ## 0.8.0 (2026-10-01)
 
 ### Changed

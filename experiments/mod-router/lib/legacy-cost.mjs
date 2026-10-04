@@ -1,5 +1,6 @@
+// Historical v0.8.0 reference for local acceptance probes; excluded from the published plugin.
 // Cache-aware cost of the next request. Pure arithmetic over configured prices and the gateway's memory.
-import { clampEffort } from './rewrite.mjs';
+import { clampEffort } from './legacy-rewrite.mjs';
 
 // The prompt cache belongs to a model, and its messages part to the effort too: a top-level effort change rewrites
 // the messages cache. Sonnet at `high` and Sonnet at `xhigh` are two caches, not one.

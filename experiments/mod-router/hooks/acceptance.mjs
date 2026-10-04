@@ -25,6 +25,8 @@ export function registerAcceptance(on) {
         text: JSON.stringify({
           session: await $.session.id(),
           viewMode: state.value?.mode ?? null,
+          phase: state.value?.phase ?? null,
+          reason: state.value?.reason ?? null,
           health: classifier.snapshot(),
           pending: classifier.pending !== null,
           lifecycle,

@@ -1,12 +1,18 @@
 {
   "name": "alexei-led-claude-router",
-  "owner": { "name": "Alexei Ledenev", "url": "https://github.com/alexei-led" },
-  "description": "Model and effort routing for Claude Code",
+  "owner": {
+    "name": "Alexei Ledenev",
+    "url": "https://github.com/alexei-led"
+  },
+  "description": "Native model and effort routing for Claude Code",
   "plugins": [
     {
       "name": "router",
-      "description": "Auto-picks the right Claude model for each turn — small models for quick edits, mid-tier for code, frontier for hard problems. Uses Jev to classify each request.",
-      "source": { "source": "github", "repo": "alexei-led/claude-router" }
+      "description": "Jev routing for the main conversation, with native Mod controls and unchanged subagent choices.",
+      "source": {
+        "source": "github",
+        "repo": "alexei-led/claude-router"
+      }
     }
   ]
 }

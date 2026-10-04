@@ -1,202 +1,110 @@
 # User guide
 
-After the [install](../README.md#install), work in Claude Code as usual. The
-router selects the model and the effort for each turn. This guide shows how
-to read what it does, and how to control it.
+## Start a session
 
-- [Check the setup](#check-the-setup)
-- [A session, step by step](#a-session-step-by-step)
-- [Read the status line](#read-the-status-line)
-- [Read `/router:status`](#read-routerstatus)
-- [Pin a tier](#pin-a-tier)
-- [Read the decision log](#read-the-decision-log)
-- [Update](#update)
-- [Stop using the router](#stop-using-the-router)
-- [Troubleshooting](#troubleshooting)
-
-## Check the setup
-
-1. Start Claude Code. `/model` shows `Jev Router (auto)` as the model.
-2. Send a prompt. If setup added the status line, it shows the route, for
-   example `jev-router ▸ sonnet-5-5 · high · same-tier`.
-3. Run `/router:status`. It shows `Jev routing: active.`
-
-If a step fails, read [Troubleshooting](#troubleshooting).
-
-## A session, step by step
-
-An example of four turns. Each box is one prompt with its route and reason.
-
-```mermaid
-flowchart LR
-  T1["<b>1</b> · design a cache layer<br/>Opus · xhigh<br/><i>jump</i>"]
-  T2["<b>2</b> · yes, go on<br/>Opus · xhigh<br/><i>continuation</i>"]
-  T3["<b>3</b> · rename foo to bar<br/>Opus · xhigh<br/><i>downgrade-pending</i>"]
-  T4["<b>4</b> · fix the typo<br/>Sonnet<br/><i>downgrade</i>"]
-  T1 --> T2 --> T3 --> T4
-
-  classDef opus fill:#0d366b,stroke:#0d366b,color:#ffffff
-  classDef sonnet fill:#cde2fb,stroke:#2a78d6,color:#0b0b0b
-  class T1,T2,T3 opus
-  class T4 sonnet
-```
-
-1. A confident vote for hard work goes up two tiers at once.
-2. A prompt that continues the task keeps the route.
-3. One vote for a lower tier is not enough. The route stays.
-4. The second vote in a row moves the route down.
-
-The tool calls in a turn keep the route of the turn, so the cache stays warm.
-The [README](../README.md#how-jev-selects-a-tier) gives all the rules.
-
-## Read the status line
-
-```text
-jev-router ▸ opus-5-5 · xhigh · upgrade
-             │          │       └─ reason for the route
-             │          └─ effort
-             └─ model of the last turn
-```
-
-| Line                                             | Meaning                                             |
-| ------------------------------------------------ | --------------------------------------------------- |
-| `jev-router ▸ …`                                 | The route of the last turn in this session.         |
-| `jev-router: no turn yet`                        | This session has no routed turn.                    |
-| `router: gateway off, the next prompt starts it` | The gateway stopped after idle time, or it crashed. |
-
-The line changes after each message.
-
-**The route changed:**
-
-| Reason        | Meaning                                                                      |
-| ------------- | ---------------------------------------------------------------------------- |
-| `upgrade`     | Two votes in a row for a higher tier, with enough confidence.                |
-| `jump`        | One vote confident enough to go up two tiers.                                |
-| `downgrade`   | Two votes in a row for a lower tier, with enough confidence.                 |
-| `escalation`  | The same error came back after an edit. The route went up one tier.          |
-| `context-fit` | The selected model cannot hold the context. A larger window serves the turn. |
-| `cash-gate`   | The cold-write guard stopped a switch to a `credits` model.                  |
-
-**The route stayed:**
-
-| Reason              | Meaning                                                             |
-| ------------------- | ------------------------------------------------------------------- |
-| `same-tier`         | Jev agreed with the current tier.                                   |
-| `continuation`      | The prompt continues the task.                                      |
-| `upgrade-pending`   | One vote for a higher tier. The next vote decides.                  |
-| `downgrade-pending` | One vote for a lower tier. The next vote decides.                   |
-| `hold`              | The route stays up for two turns after an escalation.               |
-| `uncertain`         | Jev did not select a tier.                                          |
-| `no-advice`         | No Jev answer: no key, an error, a pause, or a prompt without text. |
-
-`forced` means that the gateway was started with `--force-tier`.
-
-## Read `/router:status`
-
-`/router:status` shows the gateway, the routes and the last turn. For a
-vote, it also shows the numbers:
-
-```text
-Router v0.7.0, gateway: http://127.0.0.1:43170, alias `jev-router`.
-Jev routing: active.
-Default tier: low.
-…
-Last turn: low → claude-sonnet-5-5 at high, reason upgrade-pending, context 84210 tokens, cache reads 83904.
-Why: Jev asked for a higher tier; the route stays until the votes and the mass are enough.
-Estimate: upgrade mass 0.78 against a bar of 0.84, switching tax $0.66 at list prices, 1 vote(s) in a row, cache: candidate unknown, current warm.
-```
-
-- **Upgrade mass** is the Jev confidence in a higher tier. It must reach the
-  bar.
-- **The bar** grows with the switching tax: the cost to write the context
-  into a cold cache. Here Opus has no warm cache.
-- **Cache** is `warm`, `expired` or `unknown`. `unknown` means no response
-  for that cache since the session started or the conversation got shorter.
-- **Dollars** are list prices. On a subscription plan, they show the relative
-  cost only.
-
-## Pin a tier
-
-To run one turn on a fixed tier, type the tier skill before the prompt:
-
-```text
-/router:high  redesign the auth flow
-/router:micro rename foo to bar in this file
-```
-
-The status line shows the reason `pinned`. Tool calls in that turn stay on the
-tier; the next prompt goes back to Jev.
-
-`/model <name>` also works, but it stops the routing for the rest of the
-session.
-
-## Read the decision log
-
-The gateway writes one JSON line for each routed request to
-`~/.claude/plugins/data/router-alexei-led-claude-router/decisions.jsonl`. The
-log has no prompt text.
-
-| Field          | Content                                                                            |
-| -------------- | ---------------------------------------------------------------------------------- |
-| `tier`         | The tier of the request.                                                           |
-| `model`, `effort` | The model id and the effort that the gateway sent. `effort` is `null` for a model without effort. |
-| `reason`       | The rule that decided. Tool calls show `tool-continuation`. `error`: routing failed and the default tier served. |
-| `advice`       | The Jev probabilities for each tier, and for "continues the task".                 |
-| `estimate`     | The numbers of a vote: confidence, bar, switching tax, cache state.                |
-| `shadow`       | The cost of the Jev choice against the current route. The downgrade tax uses the same arithmetic. |
-| `observed`     | The usage of the response: model, effort, context tokens, cache reads, output.     |
-| `failed`       | Anthropic answered a routed turn with an error: status, tier, model, effort.       |
-| `historyBreak` | A compaction or a rewind. The votes and the cache estimates reset.                 |
-| `cacheReset`   | The context shrank by more than 20%. The cache estimates reset.                    |
-
-Two useful queries:
+Load the plugin from a local checkout or extracted plugin directory. Start with the full baseline model so Auto mode has a known starting point:
 
 ```sh
-LOG=~/.claude/plugins/data/router-alexei-led-claude-router/decisions.jsonl
-jq -r 'select(.observed) | .observed.model' $LOG | sort | uniq -c    # requests by model
-jq -r 'select(.reason) | .reason' $LOG | sort | uniq -c | sort -rn   # decisions by reason
-jq -c 'select(.failed) | .failed' $LOG                              # failed turns
+claude --plugin-dir /path/to/claude-router --model claude-sonnet-5-5
 ```
 
-`scripts/transcript-models.sh <transcript.jsonl>` shows the model of each
-assistant message in a Claude Code transcript.
+In Claude Code:
 
-## Update
+1. Run `/plugin configure router`.
+2. Select the Jev API key option, enter the key, and save it.
+3. Run `/router auto`.
 
-1. Update the marketplace and the plugin:
+The key is stored as a sensitive plugin option. Do not paste it into a model conversation. The [configuration guide](configuration.md) covers optional settings and the old v0.8 migration.
 
-   ```sh
-   claude plugin marketplace update alexei-led-claude-router
-   claude plugin update router@alexei-led-claude-router
-   ```
+## Read the status band
 
-2. Restart Claude Code. The next prompt replaces the running gateway.
-3. Run `/router:setup` once. The status line command contains the plugin
-   version.
+The Mod adds a band above the prompt and a **Router** button. It reports whether routing is ready, choosing a route, in Manual mode, pinned, degraded, or unavailable. After a reply, it shows the actual model, effort, and reason.
 
-## Stop using the router
+| Status                                          | Meaning                                                                 |
+| ----------------------------------------------- | ----------------------------------------------------------------------- |
+| `Auto · ready`                                  | Auto mode is ready for a new turn.                                      |
+| `choosing for this turn…`                       | Jev advice and local policy are in progress.                            |
+| `key not set · keeping …`                       | No Jev key is available. The current model stays active.                |
+| `Jev timeout`, `Jev auth`, or `Jev unreachable` | Jev failed. The current model stays active.                             |
+| `Jev paused until …`                            | Three launched failures opened a 60-second breaker.                     |
+| `context unknown · keeping native model`        | The router could not verify that a smaller window has enough room.      |
+| `native fallback`                               | Claude Code substituted another available model for the selected route. |
+| `requires Claude Code 2.1.289 or newer`         | This version cannot run the router controls.                            |
 
-1. In `~/.claude/settings.json`, remove `model`, `env.ANTHROPIC_BASE_URL`,
-   `env.ENABLE_TOOL_SEARCH`, `env.CLAUDE_CODE_GATEWAY_HINT_HEADERS` and the
-   `jev-router[1m]` row of `modelPicker.options`.
-2. If setup changed your status line, restore the old command.
-3. Restart Claude Code.
-4. To remove the plugin, run
-   `claude plugin uninstall router@alexei-led-claude-router`.
+Tool continuations do not trigger another classification. Subagent choices remain unchanged.
 
-The gateway stops by itself after two hours without requests.
+## Open the router pane
+
+Run `/router` or select **Router** above the prompt. In a terminal without a UI surface, `/router` prints a short status instead. `/router status` always prints the short status.
+
+The pane groups information by purpose:
+
+| Pane section            | What it shows                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Model routing           | Auto or Manual, last actual reply, requested model, effort, route reason, and any next-turn pin.                               |
+| Usage                   | Claude-reported API cost, context bar, observed and estimated input, cache read/write, output, and a ten-response input trend. |
+| Jev and switch estimate | Jev status and last classification time, suggested tier, policy support, and estimated switch cost.                            |
+| Controls                | Auto, Manual, tier pins, and secure key configuration.                                                                         |
+| Tuning                  | Jev deadline, votes before downgrade, and payback horizon. Save applies changes to future turns.                               |
+
+### Understand usage and estimates
+
+- **API cost reported by Claude** comes from Claude Code's native usage API. If the account is on a plan, a configured list-price estimate is not the subscription cash charge.
+- **Context** compares the larger available context reading with the routed model's configured window. The router reserves 20% of that window. Values can be unknown when Claude does not provide the needed estimate.
+- **Cache read / written** and **Output** are observed response counters. The cache reuse bar uses cache-read tokens divided by that response's input counters.
+- **Input trend** shows up to ten observed main-conversation response sizes. It is a scale comparison, not a forecast.
+- **Cache read benefit** is a configured-price estimate for cached reads before write costs. It is not a measured saving.
+- **Next-turn difference** compares the candidate with the current model under five-minute and one-hour cache-write scenarios. A negative number means the candidate is estimated to cost less for that request.
+- **Conservative payback** estimates later turns to recover an initial difference under assumed future cache reads and the last observed output size. It does not guarantee savings.
+
+There is no router-side spend or savings ledger. The pane does not include Jev charges. Claude's native `/cost` is the source for its reported API cost.
+
+## Change routing
+
+| Command or action                        | Result                                                                      |
+| ---------------------------------------- | --------------------------------------------------------------------------- |
+| `/router auto`                           | Resume automatic routing.                                                   |
+| `/router off`                            | Enter Manual mode and preserve Claude's selected model.                     |
+| `/model <name>`                          | Select a model and enter Manual mode. Use `/router auto` to resume.         |
+| `/router pin <micro\|low\|medium\|high>` | Pin the next turn and its tool continuations. Auto must already be enabled. |
+| **Auto routing** button                  | Resume automatic routing.                                                   |
+| **Manual model** button                  | Preserve Claude's selected model.                                           |
+| A tier button in the pane                | Pin the next turn. Auto must already be enabled.                            |
+
+A pin does not change the next turn after the pinned turn finishes. A fresh session on the baseline model starts in Auto. A fresh session on another model starts in Manual. Resuming a saved session restores its saved Auto or Manual mode.
+
+## Tune future decisions
+
+Select the tuning values in the pane, then select **Save tuning**. The three controls are:
+
+- **Jev deadline:** 500, 1,000, 1,500, or 3,000 ms for the total advice attempt, including any retry.
+- **Votes before cheaper tier:** 1, 2, or 3 consecutive votes.
+- **Payback horizon:** 1, 3, 5, or 10 later turns used by the downgrade estimate.
+
+The current turn keeps the settings it started with. A saved tuning change applies to later turns. The pane preserves unrelated `router.json` keys and refuses to write through a symlink. For other supported settings, see [Configuration](configuration.md).
+
+## Move from v0.8 gateway setup
+
+The v1 plugin does not use the old local gateway. Before starting the native Mod, disable the v0.8 gateway plugin in the intended profile and remove its router-specific settings. Keep the plugin installed for rollback. The [migration checklist](configuration.md#convert-a-v08-configuration) covers the old alias, base URL, hint header, status line, and optional `router.json` conversion.
+
+Restart with the native plugin directory and a full baseline model, such as `claude-sonnet-5-5`. Keep only one router plugin enabled in a session. The Team launcher applies this profile cleanup per launch.
+
+## Update or stop
+
+For a local checkout, update the plugin files from your chosen source and restart Claude Code with the same `--plugin-dir`. The v1 plugin is not yet published to npm or a marketplace.
+
+To stop routing for a session, run `/router off`. To stop loading the Mod, restart Claude Code without `--plugin-dir`. You can remove the plugin directory. It contains no session ledger or gateway process.
 
 ## Troubleshooting
 
-| Symptom                                                           | Cause                                         | Fix                                                                                  |
-| ----------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------ |
-| "There's an issue with the selected model (jev-router[1m])"       | The session started before the restart.       | Restart Claude Code.                                                                 |
-| Claude Code rejects `jev-router`                                  | The session does not use the gateway.         | Run `/router:setup`, then restart Claude Code.                                       |
-| The status line shows `gateway off` after the next prompt         | The gateway cannot start, for example because `router.json` has an unknown key. | Run `/router:status` to see the error. Read `gateway.log` next to `decisions.jsonl`. |
-| Every turn has the reason `no-advice`                             | No Jev key, or Jev fails.                     | Run `/router:status`. Read the `router:` lines in `gateway.log`.                     |
-| The effort is not the effort that you set                         | The model does not accept that effort.        | The gateway uses the nearest lower level. Haiku has no effort and no thinking.       |
-| 429 or 529 errors                                                 | Anthropic rate limits or overload.            | Claude Code waits and tries again. The gateway sends these errors through unchanged. |
-| A `router.json` change has no effect                              | The gateway reads the configuration at start. | Run `pkill -f scripts/gateway.mjs`. The next prompt starts a new gateway.            |
+| Symptom                                 | Cause                                                                                       | Fix                                                                                                                                                                |
+| --------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Status says the Jev key is missing      | The plugin option is unset or unavailable to this process.                                  | Run `/plugin configure router`, save the option, and start a new turn.                                                                                             |
+| Route stays on the current model        | Jev timed out, failed, is paused, or network policy refused the request.                    | Read the status band and `/router status`. Network policy refusal is not bypassed.                                                                                 |
+| `/model` changed but routing stopped    | Choosing a model enters Manual mode.                                                        | Run `/router auto` to resume automatic routing.                                                                                                                    |
+| Router reports invalid configuration    | `router.json` is invalid, or project/local settings redirect the router profile.            | Inspect `router.json`, remove project/local `HOME` or `CLAUDE_CONFIG_DIR` overrides, or run the [migration command](configuration.md#convert-a-v08-configuration). |
+| Router says old settings need migration | `router.json` still contains v0.8 gateway keys.                                             | Run the [migration command](configuration.md#convert-a-v08-configuration).                                                                                         |
+| Router controls are unavailable         | Claude Code is older than 2.1.289, or a gateway alias or loopback base URL is still active. | Update Claude Code and remove the old gateway model/base URL from the launcher.                                                                                    |
+| Context reads as unknown                | The router lacks a reliable local estimate or current-history measurement.                  | Keep using the current model, or start a new history with a supported context estimate.                                                                            |
 
-To see if the gateway runs, open `http://127.0.0.1:43170/v1/models`. The list
-shows the alias.
+For the internal event flow and network deadline behavior, see [Architecture](architecture.md). For what the test traces do and do not show, see [Evaluation](evaluation.md).

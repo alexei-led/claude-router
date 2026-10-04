@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const modules = [
   'config',
-  'cost',
   'facts-pure',
   'jev-contract',
   'native-cost',
@@ -15,7 +14,6 @@ const modules = [
   'native-panel',
   'native-router',
   'policy',
-  'rewrite',
 ];
 
 export async function prepareNativeCandidate({ acceptance = false } = {}) {

@@ -277,13 +277,11 @@ export function register(on, options) {
       const base = await $.env.get('ANTHROPIC_BASE_URL');
       const version = await $.session.version().catch(() => null);
       const supported = supportedVersion(version?.version);
-      const baselineModel = config.models[config.routes[config.gateway.baselineTier].model].id;
+      const baselineModel = config.models[config.routes[config.baselineTier].model].id;
       const gateway =
-        model === config.gateway.alias ||
+        ['jev-router', 'jev-router[1m]'].includes(model) ||
         model === 'router' ||
-        Boolean(
-          base?.includes(`127.0.0.1:${config.gateway.port}`) || base?.includes(`localhost:${config.gateway.port}`),
-        );
+        Boolean(base?.includes('127.0.0.1:43170') || base?.includes('localhost:43170'));
       await updateView($, runtime, {
         nativeModel: model,
         mode: await modeOf($, runtime, model === baselineModel ? 'auto' : 'manual'),
@@ -293,8 +291,13 @@ export function register(on, options) {
         configPath: config.nativePath,
         tuning: tuningOf(config),
       });
-    } catch {
-      await updateView($, runtime, { phase: 'unavailable', error: 'invalid router configuration' });
+    } catch (error) {
+      await updateView($, runtime, {
+        phase: 'unavailable',
+        error: error.message?.startsWith('router.json uses gateway settings;')
+          ? 'router.json needs migration; run the plugin scripts/migrate-config.mjs with your router.json path'
+          : 'invalid router configuration',
+      });
     }
     return next(e);
   });

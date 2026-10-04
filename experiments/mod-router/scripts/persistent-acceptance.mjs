@@ -12,7 +12,7 @@ const scenario = process.argv[2] ?? 'clear';
 assert.ok(SCENARIOS.includes(scenario), `Use ${SCENARIOS.join(', ')}`);
 const OPUS = 'claude-opus-5-5';
 // Measured: the host leaves an abandoned loopback request open for about 30 s after a reload.
-const HOST_SOCKET_LIMIT_MS = 40_000;
+const HOST_SOCKET_LIMIT_MS = 31_000;
 const UNFINISHED_BOUND = 1;
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g;
 

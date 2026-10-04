@@ -54,13 +54,13 @@ test('unknown TTL keeps an optimistic incumbent scenario and a cold candidate up
   assert.equal(native.cacheState(facts.models['claude-sonnet-5-5@xhigh'], later, DEFAULTS.cache), 'unknown');
 });
 
-test('native cost seam leaves the default gateway policy unchanged', () => {
+test('the default policy accounts for bounded native switching costs', () => {
   const advice = { choice: 'micro', continuation: 0, probabilities: { micro: 0.92, low: 0, medium: 0.08, high: 0 } };
   const state = { ...initialState(), votes: [{ tier: 'micro', turn: 0 }] };
   const args = { config: DEFAULTS, facts, advice, state, baseline: 'medium', now };
   const original = decide(args);
   const bounded = decide({ ...args, costs: native });
-  assert.equal(original.tier, 'micro');
+  assert.deepEqual(original, bounded);
   assert.equal(bounded.tier, 'medium');
   assert.equal(bounded.reason, 'downgrade-pending');
   near(bounded.estimate.threshold, 0.9 + (0.08 * 0.1683) / 0.6683);
@@ -85,4 +85,22 @@ test('an all-credits policy with no plan fallback stays rather than returning an
   });
   assert.equal(result.tier, 'medium');
   assert.equal(result.reason, 'cash-gate');
+});
+
+test('effort clamping keeps supported levels and bounds unsupported levels', () => {
+  for (const [wanted, supported, expected] of [
+    ['xhigh', ['low', 'medium', 'high', 'max'], 'high'],
+    ['max', ['low', 'medium', 'high', 'max'], 'max'],
+    ['low', ['medium'], 'medium'],
+    [undefined, ['low'], null],
+    ['high', [], null],
+  ])
+    assert.equal(native.clampEffort(wanted, supported), expected);
+});
+
+test('context estimate uses both the previous output and the current measurement', () => {
+  assert.equal(native.nextContextTokens({ lastRequest: { tokens: 100, outputTokens: 30 }, contextTokens: 120 }), 130);
+  assert.equal(native.nextContextTokens({ lastRequest: { tokens: 100, outputTokens: 30 }, contextTokens: 160 }), 160);
+  assert.equal(native.nextContextTokens({ contextTokens: 42 }), 42);
+  assert.equal(native.nextContextTokens({}), 0);
 });

@@ -1,18 +1,22 @@
 {
   "name": "router",
   "displayName": "jev-router",
-  "version": "0.8.0",
-  "description": "Auto-picks the right Claude model for each turn — small models for quick edits, mid-tier for code, frontier for hard problems. Uses Jev to classify each request.",
-  "author": { "name": "Alexei Ledenev", "url": "https://github.com/alexei-led" },
+  "version": "1.0.0",
+  "description": "Native Jev model and effort routing for the main conversation. Preserves subagent model choices.",
+  "author": {
+    "name": "Alexei Ledenev",
+    "url": "https://github.com/alexei-led"
+  },
   "repository": "https://github.com/alexei-led/claude-router",
   "license": "MIT",
-  "keywords": ["router", "jev", "typesafe", "effort", "gateway"],
+  "keywords": ["router", "jev", "typesafe", "effort", "mods"],
   "userConfig": {
     "typesafe_api_key": {
       "type": "string",
       "title": "Jev API key (typesafe.ai)",
-      "description": "API key from typesafe.ai. Jev reads each prompt and picks the right model tier. Without a key every turn runs on Sonnet.",
+      "description": "Jev API key from typesafe.ai. Jev classifies prompt context; without a key the current model is kept.",
       "sensitive": true
     }
-  }
+  },
+  "types": "./types/index.d.ts"
 }

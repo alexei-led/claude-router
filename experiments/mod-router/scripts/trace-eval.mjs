@@ -6,9 +6,9 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadConfig, rank, TIERS } from '../../../lib/config.mjs';
-import * as legacyCosts from '../../../lib/cost.mjs';
 import * as nativeCosts from '../../../lib/native-cost.mjs';
 import { decide, fitTier, initialState } from '../../../lib/policy.mjs';
+import * as legacyCosts from '../lib/legacy-cost.mjs';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/;
 const CLASSES = ['main', 'subagent', 'workflow', 'auxiliary', 'compaction'];
@@ -248,7 +248,7 @@ function baseFacts(sim) {
 }
 
 function run(config, facts, advice, state, now, costs) {
-  const result = decide({ config, facts, advice, state, baseline: config.gateway.baselineTier, now, costs });
+  const result = decide({ config, facts, advice, state, baseline: config.baselineTier, now, costs });
   const tier = fitTier(config, result.tier, nativeCosts.nextContextTokens(facts));
   return {
     tier,
@@ -332,14 +332,14 @@ export function replaySession(rows, baseConfig) {
 
 function missingFacts(sim, config, facts) {
   if (!facts.lastRequest) return 'no-prior-observation';
-  const incumbent = TIERS.includes(facts.lastRoute) ? facts.lastRoute : config.gateway.baselineTier;
+  const incumbent = TIERS.includes(facts.lastRoute) ? facts.lastRoute : config.baselineTier;
   // A candidate the session never used has no cache state under any ID, so the configured ID is exact enough.
   if (!sim.ids[aliasOf(config, incumbent)]) return 'incumbent-model-id-unknown';
   return null;
 }
 
 function compare(sim, config, row, legacy, now) {
-  const incumbent = TIERS.includes(sim.lastRoute) ? sim.lastRoute : config.gateway.baselineTier;
+  const incumbent = TIERS.includes(sim.lastRoute) ? sim.lastRoute : config.baselineTier;
   const candidate = row.advice.choice;
   const arms = {};
   for (const bound of ['low', 'high']) {

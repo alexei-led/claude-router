@@ -1,73 +1,81 @@
-# Native Jev Router candidate
+# Native router: behavior and evidence
 
-The native candidate runs inside Claude Code 2.1.289. It changes model and effort per main-conversation turn, then leaves requests, streaming, tools and the cost ledger to Claude. The released root plugin still starts the gateway. Cutover is not complete.
+This guide describes the Mod shipped by this checkout. Claude Code 2.1.289 is the minimum tested version. The router changes `model` and `effort` on main-conversation steps. Claude Code handles the Anthropic request, credentials, stream, tool execution, and cost ledger. Subagent steps keep their original model and effort.
 
-## Controls
+## Turn behavior
 
-Run the isolated Team candidate with `node experiments/mod-router/scripts/launch-team-native.mjs`.
-It loads a temporary copy of the native Mod, overrides this launch to direct Anthropic transport,
-and disables the installed gateway plugin. It uses `ce peer-team` so the Team account is retained
-without changing the remembered launcher profile. Exit the candidate to remove its temporary files.
+At the first main step of a logical turn, the Mod reads recent message text and asks Jev for a tier. It applies local policy and saves the route. Tool continuations reuse that route. Before each continuation, context fit is checked again. A large tool result can move the step to a model with a larger window.
 
-| Action                                 | Effect                                                                                                                                           |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `/router` or the Router button         | Open the native details pane.                                                                                                                    |
-| `/router status`                       | Print a concise status without opening UI.                                                                                                       |
-| `/router auto`                         | Enable automatic routing.                                                                                                                        |
-| `/router off` or Manual model          | Preserve Claude’s selected model.                                                                                                                |
-| `/model …`                             | Enter Manual, including when selecting the baseline model. Use `/router auto` to resume routing.                                                 |
-| `/router pin micro\|low\|medium\|high` | Select a tier for the next turn and its tool continuations. The previous automatic incumbent resumes afterward. Auto must already be enabled.    |
-| Set Jev API key                        | Fill `/plugin configure router` into an empty prompt. Press Enter, select Jev API key, enter it and save. An existing prompt draft is preserved. |
+Jev receives the current prompt and at most six preceding user or assistant text messages. Each item is limited to 1,200 characters. It does not receive system messages, tool inputs, or tool results. Claude Code's Anthropic credentials never enter the Jev request.
 
-The key uses Claude’s sensitive plugin option storage. Never paste it into a model conversation. Missing credentials keep the current eligible model and show the degraded state.
+The default tiers are defined in [Configuration](configuration.md#built-in-defaults). Policy uses vote hysteresis, repeated tool errors, context fit, model availability, and switching-cost estimates. The [architecture](architecture.md#request-flow) explains the event boundary and failure handling.
 
-Manual is a process preference and survives `/clear` and plugin reload. Pins and unsaved tuning drafts lapse on a history reset. Reload retains router state. Resume/branch behavior is still part of the pending live matrix.
+## Controls and session modes
 
-## Reading the panel
+| Control              | Behavior                                                                |
+| -------------------- | ----------------------------------------------------------------------- |
+| `/router`            | Open the details pane. Without a UI surface, print short status.        |
+| `/router status`     | Print short status.                                                     |
+| `/router auto`       | Enable automatic routing.                                               |
+| `/router off`        | Enter Manual mode and preserve Claude's selected model.                 |
+| `/router pin <tier>` | Pin the next turn and tool continuations. Auto must already be enabled. |
+| `/router setup`      | Open Claude Code's secure plugin configuration for the Jev key.         |
+| `/model <name>`      | Select a model and enter Manual mode. `/router auto` resumes routing.   |
 
-| Reading                     | Meaning                                                                                                                                                                            |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Last reply / Selected       | Actual response model versus the requested model. Effort is the requested setting; actual effort is not reported by the engine.                                                    |
-| API cost reported by Claude | Claude’s native `/cost` ledger. Subscription list-price equivalents are not cash charges. Jev spend is not included.                                                               |
-| Context bar                 | Maximum of available observed input plus output and local input estimate, against the routed model’s configured window. The fit rule reserves 20%.                                 |
-| Cache reuse                 | Last response cache-read tokens divided by all input tokens. Read and written counters appear separately.                                                                          |
-| Input trend                 | The last ten observed main-conversation input sizes, scaled to their largest reading.                                                                                              |
-| Jev / Last classification   | Credential/provider status and elapsed time of the last attempted classification. Busy, paused and missing-key skips are not network measurements.                                 |
-| Next-turn difference        | Configured-price cache scenarios for the suggested tier versus the incumbent. Negative means cheaper; positive means added cost. It is not achieved savings.                       |
-| Conservative payback        | Later turns needed to recover the conservative initial difference, assuming the last observed output size and future cache reads. No projection means no justified payback figure. |
+Mode belongs to a Claude Code session. A new or forked session starts in Auto. Resume restores the saved mode for that session. Clear starts a new session in Auto. A pin applies to one logical turn, then the prior Auto incumbent resumes. A history reset clears pins and cache evidence.
 
-Unknown readings stay unknown. The pane does not maintain a second cost ledger or cumulative savings counter. Cache freshness uses the five-minute minimum with a 30-second margin. The response cannot prove one-hour TTL.
+## Router pane
+
+The status band stays compact above the prompt. The **Router** button opens a pane with model choice, actual response, reason, metrics, estimates, controls, and tuning.
+
+| Reading                      | Meaning and limits                                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Last reply / Selected        | Actual response model versus the model requested for that step. The engine does not report actual effort.                             |
+| API cost reported by Claude  | Claude Code's native usage value. A plan's list-price estimates are not subscription cash charges.                                    |
+| Context bar                  | Maximum available observed and local estimated context, compared with the routed model's window. The fit rule reserves 20%.           |
+| Observed / estimated input   | Claude's local context reading and the router's best current context estimate. `unknown` blocks a move to a smaller window.           |
+| Cache reuse                  | Last response's cache-read tokens divided by its reported input counters.                                                             |
+| Cache read / written; Output | Response usage counters. Cache warmth does not prove a particular TTL.                                                                |
+| Input trend                  | Up to ten observed main-conversation input sizes, scaled to the largest one.                                                          |
+| Jev / Last classification    | Classifier state and elapsed time. Missing-key, busy, and paused skips have no network latency reading.                               |
+| Next-turn difference         | Configured-price range for the suggested tier versus the incumbent on the next request. Negative means estimated lower cost.          |
+| Conservative payback         | Conditional later-turn estimate based on configured cache prices, future reads, and the last output size. It is not measured savings. |
+| Cache read benefit           | Estimated price difference for observed cache reads before cache writes. It is not net savings.                                       |
+
+There is no router-owned cost ledger or cumulative savings counter. Jev charges are not included. See [Evaluation](evaluation.md) for what the available trace can support.
 
 ## Tuning
 
-The pane edits three existing settings. Select **Save tuning** to validate and write them to the active profile’s `router.json`. It preserves unrelated configuration keys and refuses a symlink file. The current turn retains its original tuning. Changes apply to future turns.
+The pane exposes three controls. Draft changes do not affect the active turn. **Save tuning** validates and writes them to `router.json` for future turns, preserving unrelated keys.
 
-| Setting                        | Choices in the pane   | Effect                                                       |
-| ------------------------------ | --------------------- | ------------------------------------------------------------ |
-| `jev.timeoutMs`                | 500, 1000, 1500, 3000 | Total advice budget, including a possible retry.             |
-| `policy.downgradeVotes`        | 1, 2, 3               | Consecutive supported votes before a cheaper tier.           |
-| `policy.downgradeHorizonTurns` | 1, 3, 5, 10           | Turns used to evaluate switching cost against later savings. |
+| Control                   | Values in the pane          | Effect                                            |
+| ------------------------- | --------------------------- | ------------------------------------------------- |
+| Jev deadline              | 500, 1,000, 1,500, 3,000 ms | Total advice time, including any transient retry. |
+| Votes before cheaper tier | 1, 2, 3                     | Consecutive votes required for a downgrade.       |
+| Payback horizon           | 1, 3, 5, 10 turns           | Later turns included in downgrade economics.      |
 
-Other validated settings remain in `router.json`. `policy.cashCapUsd` caps an estimated cold cache write for credits models. It does not cap output or session spend. Default plan models do not turn it into a cash budget.
+The panel refuses to write through a symlink. Other supported configuration fields need an edit to the active profile's `router.json`.
 
-Claude versions below 2.1.289 pass through with an unavailable diagnostic. Auto and pin controls cannot bypass that gate. Project/local settings cannot redirect `HOME` or `CLAUDE_CONFIG_DIR` for router configuration. This prevents a project from selecting another profile’s classifier endpoint or tuning file.
+## Safety and failure states
 
-## Verified evidence and limits
+- Missing Jev key, a Jev failure, or a policy refusal keeps the current model. Network refusal is never bypassed with a helper process.
+- Three launched Jev failures open a 60-second pause. One in-flight request is allowed per active Mod instance. Pending host HTTP work blocks another request until it settles.
+- Unsupported Claude Code versions and detected gateway aliases/base URLs mark the router unavailable. A local gateway does not run as part of this Mod.
+- A context-window error makes that model ineligible until the next history reset. The Mod does not retry an Anthropic request after a stream begins.
+- Unknown context retains the current model. There is no characters-to-tokens fallback.
+- Unknown model substitutions receive no cache credit for the requested model.
+- Clear, rewind, branch, or committed compaction clears cache evidence and policy votes. Resume restores the selected session's mode, not its old cache evidence.
 
-- The native controller completed a direct Opus pin, Haiku pin and Manual Sonnet reply in Team. Manual metrics updated to the actual Sonnet reply.
-- Secure credential retrieval and native HTTP to real Jev succeeded in 390 ms. Jev suggested `micro`. The policy retained Sonnet on the pending downgrade vote.
-- Forty-two focused Node tests cover native transport, routing, costs, metrics and the reviewed state regressions. Two native-kit tests cover terminal/desktop trees at 48–60 columns and native button actions. Strict types pass against the local generated API declarations. A rendered live pane was inspected separately.
-- Direct prototype sessions accepted signed-thinking history and Read tool results across Sonnet, Opus and Haiku. Sonnet and Opus accepted histories above 589K input tokens. These probes do not replace the full controller acceptance matrix.
-- All subagents currently preserve Claude’s model selection. The API does not expose whether an existing definition selected its model or inherited it. Full gateway parity is therefore unproven.
-- The gateway release and launcher remain available. Full lifecycle/resource tests, remaining compatibility cases, trace evaluation, canary/rollback and native release packaging are pending. Follow the [execution plan](plans/2026-10-04-mod-router-plan.md).
+## Verified checks
 
-The persistent CLI `/clear` check passed: one hanging HTTP request remained guarded across the
-history reset, repeated advice calls returned `busy`, Manual remained set, and the socket closed
-after CLI exit. Run `node experiments/mod-router/scripts/persistent-acceptance.mjs` to reproduce
-it. This proves the NativeJev/host transport boundary and real router controls in that scenario;
-resume/fork, reload, interrupt/unload and native provider fallback remain separate gates.
+The Team canary loaded the isolated native plugin with a full Sonnet baseline, reached the real Jev endpoint, and kept Sonnet on a `downgrade-pending` result. This was a routing smoke test, not a measured-savings trial.
 
-The live circuit check also passed: three settled malformed responses paused advice for 60 seconds,
-the paused call made no HTTP request, and a real 503→success retry after expiry reset health.
-Run `node experiments/mod-router/scripts/persistent-acceptance.mjs circuit`; it takes at least
-60 seconds and uses a synthetic local advice service, not a billed model request.
+Recorded acceptance checks cover the local HTTP deadline and one-request admission, session clear/resume, circuit-breaker pause, reload, replacement, unload, engine fallback, and interrupt during Jev advice. The interrupt check closed the loopback socket within 4 ms and discarded late advice without changing the active route or UI. Results are stored under [`experiments/mod-router/results`](../experiments/mod-router/results/).
+
+The model probes accepted signed-thinking history and tool results across Sonnet, Opus, and Haiku. Sonnet and Opus accepted histories above 589K input tokens. Haiku deferred-tool use passed with a 128K output limit. These probes validate the tested path only. Claude Code and organization policy control other model and request combinations.
+
+The Team launcher loads the Mod from a Team-owned directory passed with `--plugin-dir`. Its disable switch is tested: when that directory is absent, `ce team` starts on native Sonnet with no router plugin. Rename the directory to a sibling `.disabled` name and restart to disable the router. Rename it back to re-enable the Mod. The destination name must be free.
+
+That switch disables routing. It does not restore the v0.8 gateway. Full gateway rollback requires the v0.8.0 source plus its old plugin and profile settings, as described in the [migration checklist](configuration.md#convert-a-v08-configuration).
+
+The package in this repository is a local v1.0 plugin. npm and marketplace publication have not happened. The v0.8.0 git version remains available as rollback source.
