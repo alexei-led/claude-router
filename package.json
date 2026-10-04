@@ -28,7 +28,7 @@
   },
   "scripts": {
     "test": "node --test --test-timeout=8000 test/*.test.mjs",
-    "check": "biome check .",
+    "check": "biome check lib scripts test hooks types .claude-plugin package.json package-lock.json biome.json experiments/mod-router",
     "validate": "claude plugin validate .",
     "format": "biome format --write .",
     "pack:dry": "npm pack --dry-run",

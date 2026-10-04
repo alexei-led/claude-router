@@ -1,0 +1,30 @@
+{
+  "claudeVersion": "2.1.289",
+  "profile": "ce peer-team, using Team credentials and an isolated native plugin directory",
+  "driver": "node experiments/mod-router/scripts/persistent-acceptance.mjs",
+  "scope": "Real headless /router off and /clear in one persistent native CLI process. The same NativeJev implementation is exercised by the acceptance command through native $.http.fetch; no model response or provider fallback is simulated by this test.",
+  "passed": true,
+  "adviceTimeoutMs": 1505,
+  "repeatedCall": { "error": "busy", "elapsedMs": 0 },
+  "afterClear": {
+    "sessionIdChanged": true,
+    "sessionEndReason": "clear",
+    "stateViewReset": true,
+    "manualEnvironmentPreserved": true,
+    "pendingRequestRetained": true,
+    "repeatedCallError": "busy",
+    "failureCount": 1
+  },
+  "wire": {
+    "requestCount": 1,
+    "maxOpenConnections": 1,
+    "closedConnectionsAfterCliExit": 1,
+    "finalOpenConnectionsBeforeStubShutdown": 0
+  },
+  "pending": [
+    "resume and fork mode semantics",
+    "reload, interruption and unload resource boundaries",
+    "60-second live circuit recovery",
+    "native provider fallback and remaining compatibility cases"
+  ]
+}

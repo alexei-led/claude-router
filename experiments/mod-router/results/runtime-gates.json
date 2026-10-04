@@ -1,0 +1,54 @@
+{
+  "claudeVersion": "2.1.289",
+  "profile": "ce team",
+  "checkedAt": "2026-10-04T10:24:00Z",
+  "directTransport": { "baseURL": "https://api.anthropic.com", "model": "claude-opus-5-5", "responseObserved": true },
+  "http": {
+    "fallbackElapsedMs": [1518, 1505, 1505],
+    "hangSocketClosedAfterMs": [29996, 30003],
+    "reloadSocketClosedAfterMs": 11467,
+    "reloadClosedAtReplacement": true,
+    "bearerHeaderReachedLoopback": true
+  },
+  "process": { "timeoutRequestedMs": 1500, "observedElapsedMs": 1740 },
+  "lifecycle": { "sessionEndOnClear": true, "sessionIdChangesOnClear": true, "manualEnvironmentSurvivesClear": true },
+  "credentials": {
+    "probeKeyPresentAtInitialCheck": false,
+    "legacyGatewayKeyPresentAtInitialCheck": false,
+    "nativeOptionKeyPresent": true,
+    "realJevVerified": true
+  },
+  "nativeCandidate": {
+    "validatedVersion": "2.1.289",
+    "realJevElapsedMs": 390,
+    "realJevChoice": "micro",
+    "realJevPolicyReason": "downgrade-pending",
+    "directOpusPinPassed": true,
+    "directHaikuPinPassed": true,
+    "manualSonnetMetricsUpdated": true,
+    "manualBaselineChoiceSurvivesClear": true,
+    "secureKeyButtonPromptHandoffPassed": true,
+    "focusedNodeTestsPassed": 40,
+    "nativeUiTestsPassed": 2,
+    "nativeUiSurfaces": ["terminal", "desktop"],
+    "strictNativeUiTypesPassed": true,
+    "subagents": "pass-through; definition model source is unavailable"
+  },
+  "compatibility": {
+    "directToolSwitchModels": ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-4-5-20251001"],
+    "successfulReadToolPerModel": 1,
+    "signedThinkingHistoryAccepted": true,
+    "largeSonnetInputTokens": 589399,
+    "largeOpusInputTokens": 589481
+  },
+  "pending": [
+    "HTTP guard across all resets",
+    "full 20-turn timing sample",
+    "remaining per-turn/output/tool-change compatibility",
+    "native fallback",
+    "manual model selection across resume/branch",
+    "inherited subagent scope decision",
+    "trace evaluation and Team canary/rollback",
+    "root packaging and release checks"
+  ]
+}

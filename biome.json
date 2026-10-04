@@ -1,7 +1,17 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
   "files": {
-    "includes": ["lib/**/*.mjs", "scripts/**/*.mjs", "test/**/*.mjs", "*.json", ".claude-plugin/*.json", "hooks/*.json"]
+    "includes": [
+      "lib/**/*.mjs",
+      "scripts/**/*.mjs",
+      "test/**/*.mjs",
+      "test/**/*.ts",
+      "types/**/*.ts",
+      "*.json",
+      ".claude-plugin/*.json",
+      "hooks/*.json",
+      "hooks/*.mjs"
+    ]
   },
   "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 120 },
   "javascript": { "formatter": { "quoteStyle": "single" } },

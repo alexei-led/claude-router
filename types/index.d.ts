@@ -1,0 +1,95 @@
+declare module 'claude-code' {
+  type RouterTier = 'micro' | 'low' | 'medium' | 'high';
+  type RouterCacheState = 'fresh' | 'unknown';
+  interface RouterComparison {
+    candidate: RouterTier;
+    incumbent: RouterTier;
+    minUsd: number;
+    maxUsd: number;
+    paybackTurns: number | null;
+    outputTokens: number;
+  }
+  interface RouterEstimate {
+    taxUsd?: number;
+    threshold?: number;
+    upgradeMass?: number;
+    downgradeMass?: number;
+    streak?: number;
+    coldUsd?: number;
+    cap?: number;
+    cache?: RouterCacheState | { candidate: RouterCacheState; incumbent: RouterCacheState };
+  }
+  interface RouterView {
+    phase: 'ready' | 'choosing' | 'routed' | 'manual' | 'unavailable';
+    mode: 'auto' | 'manual';
+    nativeModel: string;
+    activeTurnId?: string | null;
+    selectedModel?: string | null;
+    actualModel?: string | null;
+    tier?: RouterTier | null;
+    effort?: string | number | null;
+    reason?: string;
+    error?: string | null;
+    pendingPin?: RouterTier | null;
+    keySet?: boolean;
+    contextTokens?: number | null;
+    contextKnown?: boolean;
+    cacheRead?: number | null;
+    cacheWrite?: number | null;
+    inputTokens?: number | null;
+    outputTokens?: number | null;
+    health?: { failures: number; pausedUntil: number };
+    adviceMs?: number | null;
+    adviceChoice?: RouterTier | 'uncertain' | null;
+    estimate?: RouterEstimate | null;
+    comparison?: RouterComparison | null;
+    history?: number[];
+    configPath?: string | null;
+    tuning?: { timeoutMs: number; downgradeVotes: number; horizon: number } | null;
+    notice?: string | null;
+  }
+  interface RouterPolicyState {
+    turn: number;
+    votes: { tier: RouterTier; turn: number }[];
+    holdUntilTurn: number;
+    escalatedSignature: string | null;
+  }
+  interface RouterLoop {
+    lastRoute: RouterTier;
+    state: RouterPolicyState;
+    models: Record<string, { lastAt: number; prefixTokens: number }>;
+    resolutions: Record<string, string>;
+    lastRequest: {
+      model: string;
+      tokens: number;
+      outputTokens: number;
+      cacheReadTokens: number;
+      cacheWriteTokens: number;
+      at: number;
+    } | null;
+    lastMessageCount: number | null;
+    historyMeasured?: boolean;
+    generation: number;
+    turnId: string | null;
+    decision: {
+      tier: RouterTier | null;
+      reason: string;
+      state: RouterPolicyState;
+      model: string;
+      effort: string | number | null;
+      estimate?: RouterEstimate | null;
+      comparison?: RouterComparison | null;
+      pinned: boolean;
+      requestedPin: RouterTier | null;
+    } | null;
+    ineligible: string[];
+    engineModel?: string;
+    suspended?: boolean;
+  }
+  interface PluginState {
+    router: {
+      view: RouterView;
+      loops: StateFamily<RouterLoop>;
+    };
+  }
+}

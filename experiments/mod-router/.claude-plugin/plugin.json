@@ -1,0 +1,15 @@
+{
+  "name": "router-mod-probe",
+  "version": "0.0.1",
+  "author": { "name": "Alexei Ledenev" },
+  "description": "Opt-in probe of native model routing, usage and UI; not the production router.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "typesafe_api_key": {
+      "type": "string",
+      "title": "Jev test key",
+      "description": "Key used by the isolated runtime probe.",
+      "sensitive": true
+    }
+  }
+}

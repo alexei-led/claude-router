@@ -1,452 +1,93 @@
 # Architecture
 
-claude-router selects a model and an effort level for each Claude Code turn.
-A local gateway changes each request before it goes to Anthropic. TypeSafe Jev
-advises a tier, and a local policy makes the decision.
+The native candidate routes the main Claude Code conversation through Mods. Subagents retain Claude's own model selection. Jev advises a tier; a local policy chooses the model and effort. Claude builds and sends the Anthropic request.
 
-- [System context](#system-context)
-- [Tiers](#tiers)
-- [Request flow](#request-flow)
-- [Request classes](#request-classes)
-- [Switching policy](#switching-policy)
-- [Cache and cost model](#cache-and-cost-model)
-- [Modules](#modules)
-- [Gateway lifecycle](#gateway-lifecycle)
-- [Failure handling](#failure-handling)
-- [Security and privacy](#security-and-privacy)
-- [Observability](#observability)
-- [Release](#release)
-- [Known limits](#known-limits)
+The released 0.8 plugin still uses the gateway. Native packaging and the Team launcher switch are pending. The gateway is retained for rollback during this transition, rather than as a dependency of the native request path.
 
-## System context
-
-```mermaid
-flowchart TB
-  subgraph machine["Your machine"]
-    direction LR
-    CC["Claude Code<br/>model: jev-router"]
-    HOOK["Plugin hooks"]
-    UI["Status line<br/>/router:status"]
-    GW["Gateway<br/>127.0.0.1:43170"]
-    DATA[("Data directory<br/>sessions · decisions.jsonl")]
-  end
-  subgraph remote["Remote services"]
-    direction LR
-    API["api.anthropic.com"]
-    JEV["TypeSafe Jev"]
-  end
-
-  CC <-->|"Messages API"| GW
-  HOOK -.->|"start or replace"| GW
-  UI -.->|"GET /router/status"| GW
-  GW -->|"prompt and<br/>recent turns"| JEV
-  GW <-->|"changed request,<br/>unchanged response"| API
-  GW --> DATA
-
-  classDef ext fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
-  classDef core fill:#ecfdf5,stroke:#059669,color:#064e3b
-  classDef store fill:#fff7ed,stroke:#ea580c,color:#431407
-  class JEV,API ext
-  class GW core
-  class DATA store
-  style machine fill:#f8fafc,stroke:#94a3b8,color:#0f172a
-  style remote fill:#f8fafc,stroke:#94a3b8,color:#0f172a
-```
-
-- `/router:setup` points `ANTHROPIC_BASE_URL` at the gateway and sets the
-  model to `jev-router[1m]`. One gateway serves all sessions on the machine.
-- The gateway changes only requests for the alias. It sets `model`,
-  `output_config.effort` and `thinking`. For a small model, it also limits
-  `max_tokens` and removes the 1M context beta header and the thinking edits.
-- Claude Code builds each request for the model that the alias behaves as
-  (Opus). A model without one of its [request features](configuration.md#models)
-  gets the request without it, the way Claude Code retries after a 400:
-  - no `mid-conversation-tool-changes` (Haiku): `tool_addition` and
-    `tool_removal` blocks go; their cache breakpoint moves to the block before;
-  - no `per-turn-control` (Haiku): the beta header and the
-    `output_config` on messages (the effort of each turn) go;
-  - no `mid-conversation-system` (Haiku): each `system` message becomes a
-    `<system-reminder>` text in the user message next to it.
-    The same history adapts the same way on every turn, so the cached prefix
-    holds.
-- On a model with `per-turn-control`, the effort of each turn overrides the
-  request's effort. A route with its own effort (`medium`, `high`) therefore
-  sets it in every message's `output_config` too.
-- The gateway never changes `system` or `tools`, and never changes `messages`
-  for a model that takes all the features. Prompt caching and a claude.ai
-  login work as with a direct connection.
-- Responses go back unchanged. The gateway reads `usage` from them.
-
-**Why a gateway.** Only a gateway can route every turn. The tier skills are
-manual pins. Claude Code 2.1.x switches the model from their `model:`
-frontmatter for `sonnet` and `opus`, and that turn passes through. For `haiku`
-it sends the turn to the alias; the gateway reads the `/router:micro` command
-in the prompt and serves the turn on `micro`, reason `pinned`. After a pin, the
-next prompt is decided from the route before the pin.
-
-## Tiers
-
-Four tiers, from `micro` (Haiku) to `high` (Opus at `xhigh`), map to a model
-and an effort. The [README](../README.md#how-jev-selects-a-tier) shows the
-work that Jev selects each tier for. The [routes](configuration.md#routes)
-set the mapping.
-
-- `low` is the baseline.
-- `medium` and `high` use the same model at two efforts.
-- The gateway lowers an effort to a level that the model accepts. Haiku
-  accepts no effort, so it runs without thinking.
-
-## Request flow
-
-A new user turn:
+## Request path
 
 ```mermaid
 sequenceDiagram
-  autonumber
-  participant CC as Claude Code
-  participant GW as Gateway
-  participant R as Router
-  participant J as Jev
-  participant A as Anthropic
-
-  CC->>GW: POST /v1/messages (jev-router)
-  GW->>R: route(body, session, hints)
-  Note over R: facts from body and session memory
-  R->>J: prompt and last 6 turns
-  J-->>R: tier probabilities, continuation
-  Note over R: switching policy selects the tier
-  R-->>GW: body with model, effort, thinking
-  GW->>A: request
-  A-->>GW: response stream
-  GW-->>CC: same bytes
-  GW->>R: usage: tokens, cache reads, TTL
-  Note over R: session memory, decisions.jsonl
+    autonumber
+    actor Dev as Developer
+    participant Code as Claude Code
+    participant Mod as Router Mod
+    participant Jev
+    participant API as Anthropic
+    Dev->>Code: Prompt
+    Code->>Mod: turn.start and turn.step
+    alt Auto routing
+        Mod->>Jev: Bounded task and recent dialogue
+        Jev-->>Mod: Advice or timeout within 1500 ms
+    else Manual mode
+        Note over Code,Mod: Preserve the original model and effort
+    end
+    Mod-->>Code: Forward step with selected model and effort
+    Code->>API: Native authenticated request
+    API-->>Code: Response stream and usage
+    Code-->>Mod: Main step usage
+    Mod-->>Dev: Native status band and details pane
 ```
 
-A tool continuation and a resent request skip the Jev call. They keep the
-route of their turn.
+The Mod edits only `turn.step.model` and `effort`. It forwards chunks through `yield* next(request)` and returns the engine's result. It does not implement an Anthropic client, carry Anthropic credentials, or proxy the response.
 
-## Request classes
+Claude owns request construction, thinking signatures, tools, output limits, beta headers and the native cost ledger. Direct probes accepted Sonnet/Opus histories over 589K tokens, signed-thinking/tool history across Sonnet → Opus → Haiku, and deferred MCP tools on rewritten Haiku with a 128000-token output-limit setting.
 
-```mermaid
-flowchart TD
-  IN(["Request"]) --> ALIAS{"model is<br/>jev-router?"}
-  ALIAS -- no --> PASS["Pass through unchanged"]
-  ALIAS -- yes --> MSG{"POST<br/>/v1/messages?"}
-  MSG -- no --> LAST["Last route of the session"]
-  MSG -- yes --> SIDE{"Side request?"}
-  SIDE -- yes --> AUX["auxiliaryTier<br/>memory unchanged"]
-  SIDE -- no --> BRK{"History break?"}
-  BRK -- yes --> RESET["Reset cache estimates,<br/>votes and hold"]
-  BRK -- no --> TOOL
-  RESET --> TOOL{"tool_result or<br/>resent request?"}
-  TOOL -- yes --> KEEP["Route of the turn"]
-  TOOL -- no --> POL["Jev and switching policy"]
-  KEEP --> FIT["Fit the context window"]
-  POL --> FIT
-  FIT --> OUT(["Change and forward"])
+## Responsibilities
 
-  classDef stop fill:#f1f5f9,stroke:#64748b,color:#0f172a
-  classDef act fill:#ecfdf5,stroke:#059669,color:#064e3b
-  class PASS,LAST,AUX stop
-  class RESET,KEEP,POL,FIT act
-```
+| Component                                     | Owns                                                                             |
+| --------------------------------------------- | -------------------------------------------------------------------------------- |
+| [Native hooks](../hooks/native-router.mjs)    | Turn identity, commands, lifecycle, per-step rewriting and response observation. |
+| [Jev contract](../lib/jev-contract.mjs)       | Bounded task payload, answer validation and retry rules.                         |
+| [Native Jev](../lib/native-jev.mjs)           | Native HTTP, total deadline, one unfinished request and circuit breaker.         |
+| [Router controller](../lib/native-router.mjs) | Context fit, exact model identity, history epochs and one-turn pin behavior.     |
+| [Policy](../lib/policy.mjs)                   | Quality tiers, vote hysteresis, failure escalation and switching gates.          |
+| [Native costs](../lib/native-cost.mjs)        | Cache uncertainty scenarios and conservative switching estimates.                |
+| [Panel](../lib/native-panel.mjs)              | Model/reason, context/cache bars, native usage, controls and validated tuning.   |
+| Claude Code                                   | Transcript, tools, Anthropic transport, credentials and billed API usage.        |
 
-| Check           | How the gateway decides                                                                                                                                                      |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pass through    | Any other model: `/model`, subagents with their own model.                                                                                                                   |
-| Pin             | The current message starts with the `/router:<tier>` command block. That tier serves the turn and its tool calls, reason `pinned`. No Jev call.                              |
-| Not a turn      | `count_tokens` and other endpoints get the last route of the session.                                                                                                        |
-| Side request    | Header `x-claude-code-request-class` is `auxiliary` or `compaction`. Without the header: thinking disabled or an output format in the body.                                  |
-| History break   | Fewer messages than the last main request (a compaction or a rewind), or the header `x-claude-code-context-compacted`.                                                       |
-| Resent request  | Same last user message at the same position. Claude Code resends after a 429, a 529, a dropped stream, or a 400 that it answers by dropping a feature. No Jev call, no vote. |
-| System messages | Claude Code sends hook output and tool additions as `system` messages after the prompt. The turn is the last user or assistant message; Jev never receives `system` text.    |
-| Context fit     | The route moves to a model whose window holds the next context at 80% fill. Reason `context-fit`.                                                                            |
-| Session memory  | Key `x-claude-code-session-id`. A subagent adds its agent id: `<session>.<agent id>`. Its turns do not change the route of the main conversation.                            |
+No separate daemon or routing port is required. Node is a development/test tool, not a runtime helper for routing.
 
-## Switching policy
+## Decisions and context
 
-```mermaid
-flowchart TD
-  S(["New user turn"]) --> ERR{"Same error twice,<br/>edit between?"}
-  ERR -- yes --> ESC["escalation<br/>one tier up for 2 turns"]
-  ERR -- no --> HOLD{"Hold active?"}
-  HOLD -- yes --> R1["hold"]
-  HOLD -- no --> ADV{"Jev answered?"}
-  ADV -- no --> R2["no-advice"]
-  ADV -- yes --> CONT{"Continues<br/>the task?"}
-  CONT -- yes --> R3["continuation"]
-  CONT -- no --> DIR{"Jev choice vs<br/>current tier"}
-  DIR -- "same or uncertain" --> R4["same-tier<br/>uncertain"]
-  DIR -- higher --> GUARD{"Cold-write<br/>guard blocks?"}
-  GUARD -- yes --> CG["cash-gate<br/>strongest plan tier"]
-  GUARD -- no --> JMP{"2 tiers up,<br/>U ≥ 0.95?"}
-  JMP -- yes --> JUMP["jump"]
-  JMP -- no --> UPQ{"2 votes,<br/>U ≥ bar?"}
-  UPQ -- yes --> UP["upgrade"]
-  UPQ -- no --> R5["upgrade-pending"]
-  DIR -- lower --> DNQ{"2 votes,<br/>D ≥ bar?"}
-  DNQ -- yes --> DOWN["downgrade"]
-  DNQ -- no --> R6["downgrade-pending"]
+A logical turn receives one Jev classification. Its tool continuations reuse that choice and add no votes. Context fit is rechecked before every step, so a large tool result can require a larger model without another classification.
 
-  classDef stay fill:#f1f5f9,stroke:#64748b,color:#0f172a
-  classDef up fill:#fef3c7,stroke:#d97706,color:#451a03
-  classDef down fill:#e0f2fe,stroke:#0284c7,color:#082f49
-  class R1,R2,R3,R4,R5,R6 stay
-  class ESC,CG,JUMP,UP up
-  class DOWN down
-```
+Switching into a smaller context window requires both a main-response measurement from the current history epoch and Claude's local summary estimate. Use the maximum of observed input plus output and the estimate. The fit rule leaves a 20% reserve. Missing measurements retain the incumbent. There is no characters-to-tokens fallback.
 
-Each box is the `reason` that the log and the status line show. Grey boxes
-keep the current route. The cold-write guard serves the strongest plan tier
-only when that tier is above the current route.
+An explicit context-window stop latches that model unavailable until a history reset. Failed requests suspend rewriting for the remaining turn. Native engine fallback requests pass through. The Mod never repeats an Anthropic request itself.
 
-- `U` is the Jev probability mass above the current tier. `D` is the mass at
-  or below the candidate. The `uncertain` mass supports neither.
-- The upgrade bar grows with the switching tax:
-  `bar = 0.75 + 0.15 × tax / (tax + $0.50)`. It stays between 0.75 and 0.90.
-- The downgrade bar grows the same way, from the other side: a candidate
-  colder than the incumbent pays a cache write, not just a smaller model.
-  `bar = 0.90 + 0.08 × tax / (tax + $0.50)`. It stays between 0.90 and 0.98.
-- The downgrade tax nets the savings of the next `H` turns
-  (`policy.downgradeHorizonTurns`, default 5):
-  `tax = max(0, next + (H − 1) × later)`. `next` is the cost difference of
-  the next turn, input and output. `later` is the difference of each later
-  turn, with both caches warm. Both come from the
-  [shadow estimate](#cache-and-cost-model). Example: warm Opus at `xhigh` to
-  a cold Sonnet, 104k of context, 4k of output, 1-hour TTL. The input tax is
-  $0.40 (bar 0.935); net of five turns it is $0.20 (bar 0.922).
-- When either model has no `output` price, or a zero one, the downgrade tax
-  is the input tax alone. A missing price is unknown, not free.
-- A prompt continues the task when the Jev continuation answer is 0.7 or
-  more. A continuing prompt never votes for a downgrade.
-- Upgrades have no cooldown. Plan, then execute, then hard work again is a
-  valid sequence.
-- A failure signal is two `tool_result` errors with the same text and an edit
-  between them, in the last 40 messages. Each signal escalates once.
-- The thresholds are defaults in [configuration](configuration.md#policy).
+## State and controls
 
-## Cache and cost model
+`$.state` holds session-scoped decisions, cache observations and the reactive view. A version-checked write prevents an old response or classification from overwriting a newer history. A private view mirror merges writes because reads within one dispatch are frozen.
 
-The gateway keeps one cache record for each model and effort, for example
-`claude-opus-5-5@xhigh`. A change of effort replaces the cached messages, so
-`medium` and `high` are two caches.
+Clear, resume, branch and rewind invalidate cache evidence. Committed compaction clears the main history's evidence. Skipped/precomputed compaction does not. Hot reload retains valid state. Subagent steps bypass routing and never replace main metrics.
 
-```mermaid
-stateDiagram-v2
-  direction LR
-  [*] --> unknown
-  unknown --> warm: response recorded
-  warm --> expired: TTL minus 30 s passed
-  expired --> warm: response recorded
-  warm --> unknown: history break or context shrank
-  expired --> unknown: history break or context shrank
-```
+Manual mode preserves Claude's model and effort. `/model` and `/router off` enter Manual. Only `/router auto` enables routing. A one-turn pin serves the next turn and its continuations, then resumes the prior automatic incumbent. Pins cannot enable Auto or bypass readiness/context guards.
 
-The switching tax compares the input cost of the next request on the
-candidate and on the current route:
+A process environment value retains control mode across in-process history changes. `$.store` keeps only the conversation's mode preference for a fresh process. It holds no transcript, cross-session warmth or separate cost ledger. Pins and draft tuning remain ephemeral.
 
-```text
-input_cost = P_read × W + P_write × (N − W)
-tax        = max(0, input_cost(candidate) − input_cost(current))
-```
+See [controls and tuning](native-router.md). The Jev key is a sensitive plugin option. Advanced settings live in the active profile's `router.json`.
 
-| Symbol    | Source                                                                                                 |
-| --------- | ------------------------------------------------------------------------------------------------------ |
-| `N`       | Next context: tokens and output of the last response.                                                  |
-| `W`       | Warm prefix of the candidate cache. Zero when the cache is `expired` or `unknown`.                     |
-| `P_read`  | List price for cache reads.                                                                            |
-| `P_write` | Input list price × 1.25 (5-minute TTL) or × 2 (1-hour TTL). The TTL comes from `usage.cache_creation`. |
+## Native HTTP limits
 
-- **Upper bound.** An effort change counts the whole prefix as lost. On some
-  models, the tools and the system prompt stay in the cache.
-- **Context editing.** A context that shrinks by more than 20% with no fewer
-  messages resets the cache records only. The votes stay.
-- **Cold-write guard.** A model with `billing: "credits"` bills cash. When its
-  cache is not warm, `policy.cashCapUsd` limits the first cache write. It is
-  not a budget for the turn. No default model bills credits.
-- **Prices.** List prices in USD per million tokens. For plan models, the
-  dollars only give an order between models. A test pins the defaults to
-  `test/fixtures/list-prices.json`, which names its source and date.
-- **Shadow estimate.** When the Jev choice differs from the current route, the
-  log records the cost of the next turn, the cost of each later turn with
-  output, and the turns until a switch repays its cost. The downgrade tax
-  uses the same arithmetic. The upgrade tax counts input only.
+The advice budget is 1500 ms including a possible transient retry. A timeout does not retry. Retry-After is honored only within the remaining budget. Three launched failures pause Jev for 60 seconds. Busy skips do not count as failures.
 
-## Modules
+The pinned host has no per-request abort option for `$.http.fetch`. A timed-out request retains the admission slot until it settles. The host's observed wire timeout is about 30 seconds. Reload/unload cancels host work. A policy refusal degrades routing and is never bypassed with a subprocess.
 
-```mermaid
-flowchart TD
-  subgraph scripts["scripts/ · entry points"]
-    D["gateway.mjs<br/>daemon"]
-    E["ensure-gateway.mjs<br/>hook"]
-    SL["statusline.mjs<br/>status line"]
-    SC["status.mjs<br/>/router:status"]
-  end
-  subgraph lib["lib/"]
-    GW["gateway<br/>HTTP, relay"]
-    IDLE["idle"]
-    SSE["sse"]
-    RT["router<br/>orchestration"]
-    FA["facts"]
-    JEV["jev"]
-    POL["policy"]
-    COST["cost"]
-    RW["rewrite"]
-    STA["status"]
-    STORE[("store")]
-    RUN["runtime"]
-  end
+The twenty-process native test sample measured p95 fallback at 1504 ms and worst case at 1505 ms. A twenty-call burst produced one timeout, nineteen busy skips and one wire request. See [recorded acceptance results](../experiments/mod-router/results/native-http-acceptance.json) for scope and remaining lifecycle cases.
 
-  D -->|"creates, injects router"| GW
-  D --> RT & RUN & IDLE & STA & STORE
-  GW --> IDLE & SSE & STA
-  GW -.->|"side-request test"| RT
-  RT --> FA & JEV & POL & COST & RW & STORE
-  POL --> COST --> RW
-  STA --> RW
-  E --> RUN & STA & STORE
-  SL --> RUN & STA
-  SC --> RUN & STA
-  RUN --> STORE
+## Cache and money
 
-  classDef pure fill:#ecfdf5,stroke:#059669,color:#064e3b
-  classDef io fill:#fff7ed,stroke:#ea580c,color:#431407
-  class FA,POL,COST,RW,SSE pure
-  class STORE,GW,JEV io
-  style scripts fill:#f8fafc,stroke:#94a3b8,color:#0f172a
-  style lib fill:#f8fafc,stroke:#94a3b8,color:#0f172a
-```
+Cache keys use the exact response model and requested effective effort when the response matches that request. The known Haiku snapshot has an explicit mapping. Unknown substitutions do not receive credit for a requested model.
 
-Green modules are pure functions. Orange modules do I/O: `gateway` serves
-HTTP, `jev` calls Jev, and in `lib/` `store` is the only module that writes
-files. Outside `lib/`, the hook `ensure-gateway.mjs` also opens `gateway.log`
-for the daemon that it starts. The Jev transport and the router are injected,
-so tests run without a network. `gateway` imports one pure function from
-`router`, the side-request test, not the router itself. Modules that need
-settings or tier names import `config.mjs` (not drawn).
+Cached prefix is `cache_read + cache_creation`. Output belongs to next-context sizing, not the already-cached prefix. Freshness is a five-minute estimate with a 30-second margin. Native usage does not identify a one-hour TTL.
 
-| Module    | Responsibility                                                                                 |
-| --------- | ---------------------------------------------------------------------------------------------- |
-| `gateway` | HTTP server, loopback checks, relay with `pipeline()`, status endpoint.                        |
-| `router`  | One request: class, facts, advice, policy, rewrite, session memory, log.                       |
-| `facts`   | Prompt, recent turns, continuation, failure signal, resend key.                                |
-| `jev`     | One bounded Jev request with a Choice (tier) and a Noul (continuation).                        |
-| `policy`  | Switching policy, context fit, cold-write guard.                                               |
-| `cost`    | Cache key, warmth, input cost, switching tax, shadow estimate.                                 |
-| `rewrite` | Model, effort, thinking and output limit for each model family.                                |
-| `sse`     | `usage` from SSE and JSON responses.                                                           |
-| `idle`    | When the daemon can exit.                                                                      |
-| `status`  | Status snapshot, status line segment, `/router:status` report.                                 |
-| `store`   | Session memory, `decisions.jsonl`, rotation.                                                   |
-| `runtime` | Configuration path (anchored under `~/.claude`), data directory, flags, gateway process check. |
+Policy compares the candidate's worst supported cache-write scenario with the incumbent's best input scenario. The panel shows configured-price ranges and projected payback. It does not claim achieved savings. Claude's native `/cost` ledger owns total API cost. Jev spend is not included.
 
-## Gateway lifecycle
+## Deployment and transition
 
-```mermaid
-stateDiagram-v2
-  direction LR
-  [*] --> Running: hook starts it, detached
-  Running --> Draining: SIGTERM
-  Draining --> Stopped: streams done, max 10 min
-  Running --> Stopped: 2 h idle
-  Stopped --> Running: next prompt
-```
+The target setup is one native plugin, one secure Jev key and normal native model selection. Remove the gateway URL, alias picker and hint headers from Team's launch. Disable its legacy router hook. Keep the old 0.8 installation separately available for rollback until the canary passes.
 
-- The `SessionStart` and `UserPromptSubmit` hooks run `ensure-gateway.mjs`.
-  It starts a missing gateway and sends `SIGTERM` to an older version. It
-  never replaces a newer version.
-- On `SIGTERM`, the gateway releases the port at once. A new gateway can
-  start while the old one finishes its streams.
-- The idle exit waits for two hours without requests. It also waits while a
-  request is open or a turn waits for a tool result, for example a
-  permission prompt. A waiting turn stops counting after one day.
-- A second daemon on a busy port exits quietly.
+Team's plugin directory currently shares the personal cache. The canary must use a Team-owned local Mod path, so updating it does not replace the personal gateway installation.
 
-## Failure handling
-
-| Failure                        | Behavior                                                         |
-| ------------------------------ | ---------------------------------------------------------------- |
-| Anthropic 429, 529, 5xx        | Pass through with `Retry-After`. Claude Code owns retries.       |
-| Upstream reset during a stream | The client connection resets, and Claude Code retries at once.   |
-| Client leaves (Esc)            | The gateway stops the upstream request.                          |
-| Jev error or timeout           | One retry inside the 1.5 s budget. Then the current route stays. |
-| Three Jev failures in a row    | New turns skip Jev for one minute, then try once.                |
-| Routing error                  | The baseline tier serves. The alias never goes to Anthropic.     |
-| Disk error                     | Logged. The routing decision stays.                              |
-| Unexpected exception           | Logged. The daemon continues.                                    |
-
-## Security and privacy
-
-- The gateway listens on `127.0.0.1` only. It refuses a non-loopback `Host`
-  (DNS rebinding) and any request with an `Origin` header, also from a page on
-  another loopback port: Claude Code sends none.
-- Jev receives the prompt and the text of the six turns before it, up to
-  1,200 characters each. A longer text keeps about 600 characters from its
-  start and from its end. Tool results and system reminders are not sent.
-- The Jev key is in the macOS Keychain. The status endpoint shows only whether
-  a key is set.
-- `decisions.jsonl` has no prompt text.
-
-## Observability
-
-- `GET /router/status?session=<id>` gives the routes and the last turn of a
-  session. The status line and `/router:status` read it.
-- `decisions.jsonl` has one line for each decision (with the model and the
-  effort sent), each response, each failed routed turn (`failed`, with the
-  status) and each routing error (`reason: error`, without the message). It
-  has no prompt text.
-- `gateway.log` has the daemon events.
-
-The [user guide](user-guide.md#read-the-status-line) explains how to read
-them. The [data directory](configuration.md#data-directory) gives their
-retention.
-
-## Release
-
-```mermaid
-flowchart LR
-  TAG["Signed tag<br/>vX.Y.Z on main"] --> VER["Check signature,<br/>tag = package.json"]
-  VER --> TEST["Lint, tests,<br/>pack dry run"]
-  TEST --> NPM["npm publish<br/>with provenance"]
-  NPM --> GH["GitHub release<br/>named by the tag"]
-
-  classDef step fill:#eef2ff,stroke:#6366f1,color:#1e1b4b
-  class TAG,VER,TEST,NPM,GH step
-```
-
-- The repository root is the plugin and the npm package
-  `@alexeiled/claude-router`.
-- Claude Code installs the plugin from Git: the marketplace source is
-  `github`. An npm source fails with npm 12 (`EALLOWREMOTE`).
-- `claude plugin update` compares the version in `.claude-plugin/plugin.json`.
-  Each release changes it together with `package.json`.
-- `ci.yml` runs the checks and the tests for each push and pull request.
-
-To work on the code:
-
-```sh
-npm install
-git config --local core.hooksPath scripts/git-hooks   # Biome, ShellCheck, tests and Gitleaks before commit and push
-npm test && npm run check                             # node:test, Biome
-claude --plugin-dir . --model jev-router              # with ANTHROPIC_BASE_URL and TYPESAFE_API_KEY
-```
-
-## Known limits
-
-- The request body does not show the exit from plan mode.
-- The thresholds are start values. The `observed` and `shadow` lines in
-  `decisions.jsonl` are the input for tuning.
-- The gateway reads its configuration once. A change needs a restart.
-- Without the hint headers, the gateway guesses side requests. A missed side
-  request with a short history counts as a history break.
-- `x-claude-code-agent-type` goes to the log only.
-- The shadow estimate and the downgrade tax use the last output size for
-  both routes, but effort changes how much a model writes.
-- Opus 5.5 and Sonnet 5.5 bind thinking blocks to the model and the
-  conversation. Anthropic answers a replay after a prefix change with 400 for
-  accounts created on or after 2026-08-31. A switch between the two, with
-  thinking blocks in the history, passed on one older account (2026-10-01);
-  no newer account was tested.
-
-A day of real usage is in [Evaluation](evaluation.md).
+For the approved main-only scope, no verified feature requires the proxy. Remaining cutover work is lifecycle/resource validation, fresh/resumed sessions, native fallback/remaining request controls, trace evaluation, canary/rollback, root packaging and documentation cleanup. These gates validate the switch rather than justify a permanent proxy.

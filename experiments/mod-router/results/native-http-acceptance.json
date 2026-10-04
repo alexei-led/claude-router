@@ -1,0 +1,234 @@
+{
+  "claudeVersion": "2.1.289",
+  "profile": "ce team",
+  "scope": "NativeJev against synthetic loopback; each timeout sample is a fresh CLI process",
+  "timeout": {
+    "samplesMs": [
+      1503, 1503, 1503, 1504, 1504, 1505, 1504, 1502, 1503, 1502, 1503, 1503, 1502, 1503, 1503, 1502, 1502, 1503, 1503,
+      1502
+    ],
+    "p95Ms": 1504,
+    "maxMs": 1505
+  },
+  "burst": {
+    "scenario": "burst",
+    "results": [
+      {
+        "elapsedMs": 1502,
+        "error": "timeout",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 1,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      },
+      {
+        "elapsedMs": 0,
+        "error": "busy",
+        "choice": null
+      }
+    ],
+    "health": {
+      "failures": 1,
+      "pausedUntil": 0
+    },
+    "pending": true
+  },
+  "cases": [
+    {
+      "scenario": "retry",
+      "results": [
+        {
+          "elapsedMs": 107,
+          "error": null,
+          "choice": "medium"
+        }
+      ],
+      "health": {
+        "failures": 0,
+        "pausedUntil": 0
+      },
+      "pending": false
+    },
+    {
+      "scenario": "retry-after",
+      "results": [
+        {
+          "elapsedMs": 107,
+          "error": null,
+          "choice": "medium"
+        }
+      ],
+      "health": {
+        "failures": 0,
+        "pausedUntil": 0
+      },
+      "pending": false
+    },
+    {
+      "scenario": "retry-later",
+      "results": [
+        {
+          "elapsedMs": 3,
+          "error": "timeout",
+          "choice": null
+        }
+      ],
+      "health": {
+        "failures": 1,
+        "pausedUntil": 0
+      },
+      "pending": false
+    },
+    {
+      "scenario": "slow",
+      "results": [
+        {
+          "elapsedMs": 1503,
+          "error": "timeout",
+          "choice": null
+        }
+      ],
+      "health": {
+        "failures": 1,
+        "pausedUntil": 0
+      },
+      "pending": true
+    },
+    {
+      "scenario": "delay",
+      "results": [
+        {
+          "elapsedMs": 1502,
+          "error": "timeout",
+          "choice": null
+        }
+      ],
+      "health": {
+        "failures": 1,
+        "pausedUntil": 0
+      },
+      "pending": true
+    },
+    {
+      "scenario": "malformed",
+      "results": [
+        {
+          "elapsedMs": 4,
+          "error": "malformed",
+          "choice": null
+        }
+      ],
+      "health": {
+        "failures": 1,
+        "pausedUntil": 0
+      },
+      "pending": false
+    }
+  ],
+  "wire": {
+    "requestCountsExcludingInitialPilot": {
+      "/hang": 21,
+      "/retry": 2,
+      "/retry-after": 2,
+      "/retry-later": 1,
+      "/slow": 1,
+      "/delay": 1,
+      "/malformed": 1
+    },
+    "maxOpenConnections": 1,
+    "closedConnections": 27,
+    "maxSocketLifetimeMs": 3741,
+    "finalOpenConnections": 0
+  },
+  "pending": [
+    "persistent-session clear/resume/branch/reload/interrupt/unload resource matrix",
+    "60-second live breaker recovery"
+  ]
+}
