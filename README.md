@@ -52,7 +52,9 @@ claude plugin marketplace add alexei-led/claude-router
 claude plugin install router@alexei-led-claude-router
 ```
 
-Start Claude Code on the full baseline model, for example `claude --model claude-sonnet-5-5`. Then run `/plugin configure router`, save the Jev API key, and run `/router auto`.
+Start Claude Code on the full baseline model, for example `claude --model claude-sonnet-5-5`. Run `/plugin configure router` and save the Jev API key. A session on the baseline model starts in Auto; on another model it starts in Manual, and `/router auto` turns routing on.
+
+Claude Code updates the plugin at startup when auto-update is on for this marketplace. Otherwise run `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`.
 
 Upgrading from 0.8? Remove the gateway settings that 0.8 `/router:setup` wrote before the first 1.0 session, or requests go to a gateway that 1.0 no longer starts. Follow the [migration steps](docs/user-guide.md#move-from-v08-gateway-setup).
 
@@ -64,7 +66,7 @@ Start Claude Code with this directory as a local plugin and the full Sonnet base
 claude --plugin-dir "$PWD" --model claude-sonnet-5-5
 ```
 
-In Claude Code, run `/plugin configure router` and save your Jev API key in the sensitive plugin option. Then run `/router auto`. The Mod adds its status band and `/router` pane. No status-line setup or gateway environment variables are needed.
+In Claude Code, run `/plugin configure router` and save your Jev API key in the sensitive plugin option. The Mod adds its status band and `/router` pane. No status-line setup or gateway environment variables are needed.
 
 Run `/model` to select a model and enter Manual mode. Run `/router auto` to resume. For controls, metrics, tuning, and troubleshooting, see the [user guide](docs/user-guide.md).
 
