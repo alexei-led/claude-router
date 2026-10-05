@@ -113,7 +113,8 @@ v0.8.0 stays available as the signed git tag `v0.8.0` and as `@alexeiled/claude-
 
 1. Disable the v1 plugin: `claude plugin disable router@alexei-led-claude-router`.
 2. Check out the tag: `git clone --branch v0.8.0 https://github.com/alexei-led/claude-router ~/claude-router-0.8.0`.
-3. Start Claude Code with `--plugin-dir ~/claude-router-0.8.0` and run `/router:setup`. It writes the gateway settings again. Restart.
+3. If you converted `router.json`, restore the original: `mv ~/.claude/router.json.v0.8.backup ~/.claude/router.json`. v0.8.0 rejects the converted file.
+4. Start Claude Code with `--plugin-dir ~/claude-router-0.8.0` and run `/router:setup`. It writes the gateway settings again. Restart.
 
 Launch with that `--plugin-dir` each time. Do not enable v1 and v0.8 together.
 

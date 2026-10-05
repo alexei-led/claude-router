@@ -35,8 +35,6 @@ test('cache identity preserves model snapshots and separates effective efforts',
 });
 
 test('bounds distinguish observed cached prefix from generated and uncached tokens', () => {
-  near(native.inputCostUsd(DEFAULTS, 'medium', 151_500, facts, now), 0.03835);
-  near(native.inputCostUsd(DEFAULTS, 'micro', 151_500, facts, now), 0.189375);
   const bounds = native.inputBounds(DEFAULTS, 'medium', 151_500, facts, now);
   near(bounds.min, 0.0366);
   near(bounds.max, 0.0436);

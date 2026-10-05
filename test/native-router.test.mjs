@@ -246,6 +246,7 @@ test('rewind clears votes and warmth but retains the context floor', () => {
     state: { turn: 10, votes: [{ tier: 'high' }], holdUntilTurn: 12 },
   };
   for (const result of [prepareLoop(loop, 10), resetHistory(loop)]) {
+    assert.equal(result.turnId, loop.turnId);
     assert.deepEqual(result.models, {});
     assert.deepEqual(result.state.votes, []);
     assert.equal(result.lastRequest.tokens, 700_000);

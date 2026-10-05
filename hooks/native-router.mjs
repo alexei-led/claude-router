@@ -188,9 +188,8 @@ function supportedVersion(version) {
   return major > 2 || (major === 2 && (minor > 1 || (minor === 1 && patch >= 289)));
 }
 
-async function contextOf($, loop, agentId) {
+async function contextOf($, loop) {
   const previous = loop.lastRequest ? loop.lastRequest.tokens + loop.lastRequest.outputTokens : null;
-  if (agentId) return { tokens: previous, known: previous !== null };
   try {
     const usage = await $.session.usage({ breakdown: 'summary' });
     const estimate = usage.context.breakdown?.totalTokens;
@@ -313,7 +312,6 @@ export function register(on, options) {
   on('command.run', { command: 'model' }, async ($, e, next) => {
     const result = await next(e);
     if (e.origin.kind !== 'plugin') {
-      for (const controller of controllers) controller.abort();
       await changeMode($, runtime, 'manual');
       await updateView($, runtime, { nativeModel: await $.session.model(), reason: 'model selected manually' });
     }
@@ -332,7 +330,6 @@ export function register(on, options) {
   on('command.run', { command: 'router' }, async ($, e) => {
     const [action, tier] = e.args.trim().split(/\s+/);
     if (action === 'auto' || action === 'off') {
-      for (const controller of controllers) controller.abort();
       await changeMode($, runtime, action === 'auto' ? 'auto' : 'manual');
       return { text: action === 'auto' ? 'Auto routing enabled.' : 'Manual mode: Claude’s model is preserved.' };
     }
@@ -353,11 +350,11 @@ export function register(on, options) {
   });
 
   on('turn.step', async function* ($, e, next) {
+    if (e.agentId) return yield* next(e);
     const cfg = turnConfigs.get(e.turnId) ?? config;
     const sessionId = await $.session.id();
     const nativeModel = await $.session.model();
     const view = await readView($, runtime);
-    if (e.agentId) return yield* next(e);
     const mode = await modeOf($, runtime, view.mode);
     if (e.index === 0) {
       const saved = await rememberMode($, mode);
@@ -376,10 +373,10 @@ export function register(on, options) {
     if (loop.turnId === e.turnId && isNativeFallback(loop, e.model)) {
       return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'native-fallback', cfg, runtime);
     }
-    const context = await contextOf($, loop, e.agentId);
+    const context = await contextOf($, loop);
     const settings = await $.settings.read();
     const availableModels = settings.availableModels;
-    const key = `${sessionId}:${e.agentId ?? 'main'}:${e.turnId}:${loop.generation}`;
+    const key = `${sessionId}:${e.turnId}:${loop.generation}`;
     if (loop.turnId !== e.turnId) {
       let job = decisions.get(key);
       if (!job) {
@@ -438,7 +435,8 @@ export function register(on, options) {
             });
             selected.engineModel = e.model;
             const written = await $.state.set(ref, selected, { ifVersion: loopVersion });
-            if (!written.isSet) return null;
+            // Manual, /clear and turn completion abort the controller; one may land during the write.
+            if (!written.isSet || controller.signal.aborted) return null;
             await updateView($, runtime, {
               phase: 'routed',
               selectedModel: selected.decision.model,
@@ -528,11 +526,12 @@ export function register(on, options) {
 
   on('session.compact', async ($, e, next) => {
     const result = await next(e);
-    if (!result.skip && e.trigger !== 'precompute') {
-      const ref = { ...LOOP, id: e.agentId ?? 'main' };
+    // Only the main conversation is routed, so an agent compaction changes nothing here.
+    if (!result.skip && e.trigger !== 'precompute' && !e.agentId) {
+      const ref = { ...LOOP, id: 'main' };
       const loop = (await $.state.get(ref)).value;
       if (loop) await $.state.set(ref, resetHistory(loop));
-      if (!e.agentId) for (const controller of controllers) controller.abort();
+      for (const controller of controllers) controller.abort();
     }
     return result;
   });

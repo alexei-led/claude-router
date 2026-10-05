@@ -535,6 +535,22 @@ test('a billed substitute keeps the rest of the turn native and the next turn ro
   );
 });
 
+test('a compaction inside a turn keeps its pin and a native fallback for the remaining steps', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step));
+  await h.event('session.compact', { trigger: 'auto' });
+  await drain(h.step({ ...step, index: 1, messageCount: 0 }));
+  await drain(h.step({ ...step, index: 2, model: 'claude-haiku-4-5' }));
+  await h.event('session.compact', { trigger: 'auto' });
+  await drain(h.step({ ...step, index: 3, model: 'claude-haiku-4-5' }));
+  assert.deepEqual(
+    h.requests.map((r) => r.model),
+    ['claude-opus-5-5', 'claude-opus-5-5', 'claude-haiku-4-5', 'claude-haiku-4-5'],
+  );
+});
+
 test('the engine echoing our routed model is not a fallback but a third model is', async () => {
   const h = harness();
   await start(h);

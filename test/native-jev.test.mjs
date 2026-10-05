@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS } from '../lib/config.mjs';
-import { parseAnswers } from '../lib/jev-contract.mjs';
+import { parseAnswers, RETRY_DELAY_MS } from '../lib/jev-contract.mjs';
 import { NativeJev } from '../lib/native-jev.mjs';
 
 const answer = {
@@ -197,6 +197,23 @@ test('missing credentials and policy refusal do not retry or count as provider o
   assert.equal((await jev.ask(args)).error, 'policy');
   assert.equal(calls, 1);
   assert.equal(jev.snapshot().failures, 0);
+});
+
+test('a refused connection is a transport failure: it retries and counts toward the breaker', async () => {
+  const timing = clock();
+  const jev = new NativeJev({ now: timing.now });
+  let calls = 0;
+  const pending = jev.ask(
+    input(timing, async () => {
+      calls += 1;
+      throw new Error('connect ECONNREFUSED 127.0.0.1:443');
+    }),
+  );
+  await flush();
+  await timing.advance(RETRY_DELAY_MS);
+  assert.equal((await pending).error, 'unreachable');
+  assert.equal(calls, 2);
+  assert.equal(jev.snapshot().failures, 1);
 });
 
 test('malformed responses reveal no provider text and invalid probability shapes fail at the contract boundary', async () => {

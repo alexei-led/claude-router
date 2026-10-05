@@ -22,7 +22,7 @@ The default tiers are defined in [Configuration](configuration.md#built-in-defau
 | `/router setup`      | Open Claude Code's secure plugin configuration for the Jev key.         |
 | `/model <name>`      | Select a model and enter Manual mode. `/router auto` resumes routing.   |
 
-Mode belongs to a Claude Code session. A new or forked session starts in Auto. Resume restores the saved mode for that session. Clear starts a new session in Auto. A pin applies to one logical turn, then the prior Auto incumbent resumes. A history reset clears pins and cache evidence.
+Mode belongs to a Claude Code session. Clear starts a new session in Auto. Resume restores the saved mode for that session. A new or forked session has a new ID: it starts in Auto on the baseline model and in Manual on another model, as a fresh launch does. A pin applies to one logical turn, then the prior Auto incumbent resumes. A history reset clears votes and cache evidence; the current turn keeps its route, pin and any native fallback.
 
 ## Router pane
 
