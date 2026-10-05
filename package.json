@@ -1,6 +1,6 @@
 {
   "name": "@alexeiled/claude-router",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Native Claude Code Mod: Jev model and effort routing for the main conversation.",
   "license": "MIT",
   "author": "Alexei Ledenev",
