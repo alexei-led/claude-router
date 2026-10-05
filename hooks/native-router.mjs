@@ -1,7 +1,20 @@
-import { DEFAULTS, effectiveRoutes, loadConfig, TIERS, tuningOf, withRoutes, withTuning } from '../lib/config.mjs';
+import {
+  activeClassifier,
+  DEFAULTS,
+  effectiveRoutes,
+  loadConfig,
+  MIGRATION_HINT,
+  TIERS,
+  tuningOf,
+  withClassifier,
+  withClassifierTimeout,
+  withRoutes,
+  withTuning,
+} from '../lib/config.mjs';
 import { clip } from '../lib/facts-pure.mjs';
+import { resolveCredentials } from '../lib/jev-contract.mjs';
 import { renderBand, switchToast } from '../lib/native-band.mjs';
-import { GATEWAY_CLEANUP, GATEWAY_SETTINGS } from '../lib/native-display.mjs';
+import { classifierStatus, GATEWAY_CLEANUP, GATEWAY_SETTINGS, missingCredentials } from '../lib/native-display.mjs';
 import { NativeJev } from '../lib/native-jev.mjs';
 import { renderPanel, routeDraftOf } from '../lib/native-panel.mjs';
 import {
@@ -38,7 +51,7 @@ function initialView(model) {
     reason: 'ready',
     error: null,
     pendingPin: null,
-    keySet: false,
+    credentials: null,
     contextTokens: null,
     contextKnown: false,
     cacheRead: null,
@@ -57,6 +70,7 @@ function initialView(model) {
     tuning: null,
     tuningBase: null,
     routeDraft: null,
+    classifierUndo: null,
     tab: 'now',
     help: false,
     notice: null,
@@ -118,11 +132,49 @@ async function setPin($, runtime, tier) {
   return `${tier} pinned for the next turn and its tool continuations.`;
 }
 
-async function apiKeyOf($, options) {
-  return typeof options.typesafe_api_key === 'string' && options.typesafe_api_key.trim()
-    ? options.typesafe_api_key.trim()
-    : (await $.env.get('TYPESAFE_API_KEY')) || (await $.env.get('CLAUDE_PLUGIN_OPTION_TYPESAFE_API_KEY'));
+// The environment variables that stand in for a classifier option: its upper-case name, then the one Claude Code
+// exports for a plugin option. Spelled out because $.env.get takes literal names only. Cases: CLASSIFIER_OPTIONS.
+async function envSettingOf($, name) {
+  switch (name) {
+    case 'typesafe_api_key':
+      return (await $.env.get('TYPESAFE_API_KEY')) || (await $.env.get('CLAUDE_PLUGIN_OPTION_TYPESAFE_API_KEY'));
+    case 'cloudflare_api_token':
+      return (
+        (await $.env.get('CLOUDFLARE_API_TOKEN')) || (await $.env.get('CLAUDE_PLUGIN_OPTION_CLOUDFLARE_API_TOKEN'))
+      );
+    case 'cloudflare_account_id':
+      return (
+        (await $.env.get('CLOUDFLARE_ACCOUNT_ID')) || (await $.env.get('CLAUDE_PLUGIN_OPTION_CLOUDFLARE_ACCOUNT_ID'))
+      );
+    default:
+      return null;
+  }
 }
+
+// A plugin option, else its environment variables.
+async function settingOf($, options, name) {
+  const value = options[name];
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  return ((await envSettingOf($, name)) ?? '').trim() || null;
+}
+
+// The credentials error, or null, of every configured classifier: the pane lists them all.
+async function credentialsOf($, options, config) {
+  const lookup = (name) => settingOf($, options, name);
+  return Object.fromEntries(
+    await Promise.all(
+      Object.entries(config.classifiers).map(async ([id, entry]) => [
+        id,
+        (await resolveCredentials(entry, lookup)).missing,
+      ]),
+    ),
+  );
+}
+
+// Failures and a pause belong to the classifier that earned them.
+const healthOf = (client, id) => ({ ...client.snapshot(), classifier: id });
+// The last classification's readings, cleared when another classifier takes over so no label claims them.
+const CLEARED_READINGS = { adviceMs: null, adviceChoice: null, probabilities: null, estimate: null };
 
 // The host refuses $.command.run from a hook the turn is holding, so the secure key dialog opens from a timer.
 function openKeySettings($) {
@@ -147,14 +199,15 @@ async function saveConfig($, path, change) {
   }
 }
 
-function detailText(view) {
+function detailText(config, view) {
+  const missing = missingCredentials(view, config.classifier);
   return [
     `Router — ${view.mode === 'auto' ? 'Auto' : 'Manual'}`,
     `Native model: ${view.nativeModel}`,
     `Selected: ${view.selectedModel ?? 'not selected'}`,
     `Observed: ${view.actualModel ?? 'no response yet'}`,
     `Reason: ${view.reason}`,
-    `Jev: ${view.error ?? (view.keySet ? 'ready' : 'key not set')}`,
+    view.error || missing ? classifierStatus(config, view.error ?? missing) : `${activeClassifier(config).label} ready`,
     `Context: ${view.contextKnown ? `${view.contextTokens} tokens (estimate)` : 'unknown'}`,
     `Observed cache: ${view.cacheRead ?? 'unknown'} read, ${view.cacheWrite ?? 'unknown'} written tokens`,
     view.pendingPin ? `Next turn pin: ${view.pendingPin}` : 'No next-turn pin.',
@@ -255,7 +308,13 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, config,
 export function register(on, options) {
   let config = loadConfig();
   const turnConfigs = new Map();
-  const classifier = new NativeJev();
+  // One client per classifier, each with its own breaker and in-flight slot: a turn that started under one
+  // classifier finishes with it, and its answer, failures or pause never land on another.
+  const clients = new Map();
+  const clientOf = (id) => {
+    if (!clients.has(id)) clients.set(id, new NativeJev());
+    return clients.get(id);
+  };
   const prompts = new Map();
   const decisions = new Map();
   const controllers = new Set();
@@ -274,7 +333,8 @@ export function register(on, options) {
       config = await loadNativeConfig($);
       const existing = await readView($, runtime);
       runtime.view = existing;
-      classifier.restore(existing.health);
+      const sameClassifier = existing.health?.classifier === config.classifier;
+      clientOf(config.classifier).restore(sameClassifier ? existing.health : null);
       const base = await $.env.get('ANTHROPIC_BASE_URL');
       const version = await $.session.version().catch(() => null);
       const supported = supportedVersion(version?.version);
@@ -288,7 +348,9 @@ export function register(on, options) {
         mode: await modeOf($, runtime, model === baselineModel ? 'auto' : 'manual'),
         phase: gateway || !supported ? 'unavailable' : 'ready',
         error: !supported ? 'requires Claude Code 2.1.289 or newer' : gateway ? GATEWAY_SETTINGS : null,
-        keySet: Boolean(await apiKeyOf($, options)),
+        ...(sameClassifier ? {} : CLEARED_READINGS),
+        credentials: await credentialsOf($, options, config),
+        health: healthOf(clientOf(config.classifier), config.classifier),
         configPath: config.nativePath,
         tuning: null,
         tuningBase: null,
@@ -297,7 +359,7 @@ export function register(on, options) {
     } catch (error) {
       await updateView($, runtime, {
         phase: 'unavailable',
-        error: error.message?.startsWith('router.json uses gateway settings;')
+        error: error.message?.endsWith(MIGRATION_HINT)
           ? 'router.json needs migration; run the plugin scripts/migrate-config.mjs with your router.json path'
           : 'invalid router configuration',
       });
@@ -333,7 +395,7 @@ export function register(on, options) {
       return { text: TIERS.includes(tier) ? await setPin($, runtime, tier) : `Choose ${TIERS.join(', ')}.` };
     const storedView = await readView($, runtime);
     const view = { ...storedView, mode: await modeOf($, runtime, storedView.mode) };
-    if (!(await $.session.surfaces()).length) return { text: detailText(view) };
+    if (!(await $.session.surfaces()).length) return { text: detailText(config, view) };
     await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
     return {};
   });
@@ -384,7 +446,7 @@ export function register(on, options) {
           const live = async () => !controller.signal.aborted && (await $.session.id()) === sessionId;
           try {
             const pin = view.pendingPin;
-            const apiKey = await apiKeyOf($, options);
+            const credentials = await resolveCredentials(activeClassifier(cfg), (name) => settingOf($, options, name));
             const messages = await $.session.messages({ as: 'api' });
             if (!(await live())) return null;
             const facts = nativeFacts(cfg, loop, {
@@ -399,16 +461,17 @@ export function register(on, options) {
               activeTurnId: e.turnId,
               nativeModel,
               pendingPin: null,
-              keySet: Boolean(apiKey),
+              credentials: { ...runtime.view?.credentials, [cfg.classifier]: credentials.missing },
             });
             const adviceStarted = Date.now();
             const result = pin
               ? { advice: null, error: null }
-              : await classifier.ask({
+              : await clientOf(cfg.classifier).ask({
                   request: (url, init) => $.http.fetch(url, init),
                   sleep: (ms, args) => $.clock.sleep(ms, args),
                   config: cfg,
-                  apiKey,
+                  apiKey: credentials.apiKey,
+                  endpoint: credentials.endpoint,
                   prompt: facts.prompt,
                   turns: facts.turns,
                   signal: controller.signal,
@@ -434,7 +497,7 @@ export function register(on, options) {
             // Manual, /clear and turn completion abort the controller; one may land during the write.
             if (!written.isSet || controller.signal.aborted) return null;
             if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
-              $.ui.toast(switchToast(previous, selected.decision, selected.decision.estimate));
+              $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
             await updateView($, runtime, {
               phase: 'routed',
               selectedModel: selected.decision.model,
@@ -442,16 +505,24 @@ export function register(on, options) {
               tier: selected.decision.tier,
               effort: selected.decision.effort,
               reason: selected.decision.reason,
-              error: result.error,
-              health: classifier.snapshot(),
               contextTokens: context.tokens,
               contextKnown: context.known,
-              adviceMs:
-                pin || ['missing-key', 'busy', 'paused'].includes(result.error) ? null : Date.now() - adviceStarted,
-              adviceChoice: result.advice?.choice ?? null,
-              probabilities: result.advice?.probabilities ?? null,
-              estimate: selected.decision.estimate ?? null,
               comparison: selected.decision.comparison,
+              // A turn that started before a classifier switch routes on its own classifier's answer, but the
+              // pane now labels the new one: its readings stay off the view.
+              ...(cfg.classifier === config.classifier
+                ? {
+                    error: result.error,
+                    health: healthOf(clientOf(cfg.classifier), cfg.classifier),
+                    adviceMs:
+                      pin || ['missing-key', 'missing-account', 'busy', 'paused'].includes(result.error)
+                        ? null
+                        : Date.now() - adviceStarted,
+                    adviceChoice: result.advice?.choice ?? null,
+                    probabilities: result.advice?.probabilities ?? null,
+                    estimate: selected.decision.estimate ?? null,
+                  }
+                : {}),
             });
             return { loop: selected, version: written.version };
           } finally {
@@ -545,8 +616,8 @@ export function register(on, options) {
     runtime.view = {
       ...initialView(runtime.view?.nativeModel ?? ''),
       mode: 'auto',
-      keySet: runtime.view?.keySet ?? false,
-      health: classifier.snapshot(),
+      credentials: runtime.view?.credentials ?? null,
+      health: healthOf(clientOf(config.classifier), config.classifier),
       configPath: config.nativePath,
       phase: runtime.view?.phase === 'unavailable' ? 'unavailable' : 'ready',
       error: runtime.view?.phase === 'unavailable' ? runtime.view.error : null,
@@ -621,12 +692,36 @@ export function register(on, options) {
         notice: null,
       });
     };
+    // Every pane save adopts the file as written, which may name another classifier than before: a hand edit
+    // meanwhile, or a row press. Then the new classifier starts clean and the old one's readings leave the view;
+    // an unavailable reason stays.
+    const adopt = async (loaded) => {
+      const switched = loaded.classifier !== config.classifier;
+      config = loaded;
+      if (!switched) return {};
+      clientOf(config.classifier).restore(null);
+      const current = runtime.view ?? view;
+      return {
+        ...CLEARED_READINGS,
+        error: current.phase === 'unavailable' ? current.error : null,
+        credentials: await credentialsOf($, options, config),
+        health: healthOf(clientOf(config.classifier), config.classifier),
+      };
+    };
     const save = async (change, saved) => {
       const result = await saveConfig($, config.nativePath, change);
       if (result.error) return updateView($, runtime, { notice: result.error });
-      config = result.config;
-      return updateView($, runtime, saved(config));
+      const reset = await adopt(result.config);
+      return updateView($, runtime, { ...reset, ...saved(config) });
     };
+    // A classifier choice applies at once; `undo` is the one Undo returns to, null after an Undo.
+    const activateClassifier = (id, undo) =>
+      !id || id === config.classifier || !Object.hasOwn(config.classifiers, id)
+        ? undefined
+        : save(
+            (file) => withClassifier(file, id),
+            () => ({ classifierUndo: undo, notice: null }),
+          );
     return renderPanel(
       elements,
       config,
@@ -634,7 +729,7 @@ export function register(on, options) {
       usage,
       {
         mode: (mode) => changeMode($, runtime, mode),
-        tab: (tab) => updateView($, runtime, { tab, notice: null }),
+        tab: (tab) => updateView($, runtime, { tab, notice: null, classifierUndo: null }),
         help: () => updateView($, runtime, { help: !view.help }),
         pin: async (tier) => {
           await updateView($, runtime, { notice: await setPin($, runtime, tier) });
@@ -694,6 +789,15 @@ export function register(on, options) {
           );
         },
         resetTuning: () => updateView($, runtime, { tuning: null, tuningBase: null, notice: null }),
+        classifier: (id) => activateClassifier(id, config.classifier),
+        undoClassifier: () => activateClassifier((runtime.view ?? view).classifierUndo, null),
+        classifierTimeout: (timeoutMs) =>
+          save(
+            (file) => withClassifierTimeout(file, config.classifier, timeoutMs),
+            (saved) => ({
+              notice: `Saved. ${activeClassifier(saved).label} waits ${timeoutMs} ms from the next turn.`,
+            }),
+          ),
       },
       { modelOptions },
     );

@@ -20,7 +20,6 @@ declare module 'claude-code' {
     cache?: RouterCacheState | { candidate: RouterCacheState; incumbent: RouterCacheState };
   }
   interface RouterTuning {
-    timeoutMs: number;
     downgradeVotes: number;
     horizon: number;
     cashCapUsd: number;
@@ -41,14 +40,15 @@ declare module 'claude-code' {
     reason?: string;
     error?: string | null;
     pendingPin?: RouterTier | null;
-    keySet?: boolean;
+    // Per classifier id: what its credentials lack, or null when complete.
+    credentials?: Record<string, 'missing-key' | 'missing-account' | null> | null;
     contextTokens?: number | null;
     contextKnown?: boolean;
     cacheRead?: number | null;
     cacheWrite?: number | null;
     inputTokens?: number | null;
     outputTokens?: number | null;
-    health?: { failures: number; pausedUntil: number };
+    health?: { failures: number; pausedUntil: number; classifier?: string };
     adviceMs?: number | null;
     adviceChoice?: RouterTier | 'uncertain' | null;
     estimate?: RouterEstimate | null;
@@ -60,6 +60,8 @@ declare module 'claude-code' {
     tuning?: Partial<RouterTuning> | null;
     tuningBase?: RouterTuning | null;
     routeDraft?: (RouterRoutes & { base: RouterRoutes }) | null;
+    // The classifier Undo returns to after a switch in the pane.
+    classifierUndo?: string | null;
     tab?: 'now' | 'tiers' | 'tuning' | 'usage';
     help?: boolean;
     bandDetail?: boolean;

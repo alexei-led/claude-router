@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.2.0 (2026-10-05)
+
+### Added
+
+- Choose the classifier: Jev on typesafe.ai (the default), or Cloudflare's Clef and Clef Flash on Workers AI. Save the Cloudflare API token and account ID in `/plugin configure router`, then select the classifier's row on the Tuning tab. The choice is saved at once, with **Undo**. Only the active classifier is asked.
+- The Tuning tab opens with the classifier section: each classifier's service and credentials state, the missing setting by name (`no API token`) with **Set up**, the active classifier's deadline and health, the host that receives the prompt text, and what each classifier needs.
+- `router.json` can add a classifier for another service that speaks the same API. Its key and endpoint settings reuse the plugin's three options.
+- `scripts/probe-classifier.mjs` sends the router's real request to one classifier and prints the status, latency, and answer.
+
+### Changed
+
+- Classifier settings moved from `jev` to `classifiers.<id>`, and `classifier` names the active one. Each classifier has its own deadline (Jev 1,500 ms, Clef and Clef Flash 3,000 ms), failure count, and pause. A turn being classified when you switch finishes with its own classifier.
+- The band and pane name the active classifier and the missing setting: `⚠ Jev: no API key`, `⚠ Clef: no account ID`. On a narrow band the warning and **Set up** come first. **Set key** is now **Set up**.
+- A classifier endpoint must use `https`, or `http` on localhost.
+
+### Upgrade
+
+1. If your `router.json` has a `jev` section, run `node scripts/migrate-config.mjs ~/.claude/router.json` from the installed plugin directory after you update. Until then routing stays off and the band reads `Router unavailable`. The command keeps an exact-byte `router.json.v1.1.backup`. A file without `jev`, or no file at all, needs nothing.
+
 ## 1.1.1 (2026-10-05)
 
 ### Fixed

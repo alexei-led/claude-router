@@ -99,7 +99,7 @@ const base = {
   effort: 'xhigh',
   reason: 'jump',
   error: null,
-  keySet: true,
+  credentials: { jev: null, clef: 'missing-key', 'clef-flash': 'missing-key' },
   adviceMs: 347,
   probabilities: { micro: 0.02, low: 0.03, medium: 0.07, high: 0.88, uncertain: 0 },
   estimate: { threshold: 0.82, upgradeMass: 0.88, taxUsd: 0.476 },
@@ -151,7 +151,7 @@ const states = [
     false,
   ],
   [
-    'No classifier key: Router keeps the model and offers Set key',
+    'No classifier key: Router keeps the model and offers Set up',
     {
       ...base,
       tier: 'low',
@@ -160,7 +160,7 @@ const states = [
       effort: 'medium',
       reason: 'no-advice',
       error: 'missing-key',
-      keySet: false,
+      credentials: { jev: 'missing-key', clef: 'missing-key', 'clef-flash': 'missing-key' },
       estimate: null,
     },
     false,
@@ -195,8 +195,8 @@ writeFileSync(
 );
 
 // ---- pane tabs ----
-function pane(view, title, desc, file) {
-  const tree = renderPanel(elements, config, view, usage, actions, { modelOptions: Object.keys(config.models) });
+function pane(view, title, desc, file, paneConfig = config) {
+  const tree = renderPanel(elements, paneConfig, view, usage, actions, { modelOptions: Object.keys(config.models) });
   const lines = lay(tree, { hover: false }).filter((line, i, all) => i < all.length - 1 || width(line) > 0);
   const cols = Math.max(...lines.map(width), 70);
   const w = Math.ceil(cols * CW + 48);
@@ -224,4 +224,17 @@ pane(
   'Model and effort per tier with prices and windows, the baseline tier, how the policy prices each step up, and the router.json change Save routes will write.',
   'router-pane-tiers.svg',
 );
-console.log(`wrote router-band.svg, router-pane-now.svg and router-pane-tiers.svg to ${OUT}`);
+pane(
+  {
+    ...base,
+    tab: 'tuning',
+    adviceMs: null,
+    classifierUndo: 'clef',
+    credentials: { jev: 'missing-key', clef: null, 'clef-flash': null },
+  },
+  'Router pane, Tuning tab',
+  'The classifier rows with the active one marked, a missing Jev API key with Set up, Undo after a switch, the deadline, health, the receiving host and the credentials each classifier needs, then the policy controls.',
+  'router-pane-tuning.svg',
+  { ...config, classifier: 'clef-flash' },
+);
+console.log(`wrote router-band.svg and the Now, Tiers and Tuning pane pictures to ${OUT}`);

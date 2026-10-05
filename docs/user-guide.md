@@ -18,14 +18,17 @@ claude --model claude-sonnet-5-5
 In Claude Code:
 
 1. Run `/plugin configure router`.
-2. Select the Jev API key option, enter the key, and save it.
-3. Check the band above the prompt: `▂▄▆█ Auto · ready`. On another model the session starts in Manual; run `/router auto` to route.
+2. Enter the credentials of the classifier you use, and save them:
+   - **Jev** (the default): the Jev API key from typesafe.ai.
+   - **Clef** or **Clef Flash** on Cloudflare Workers AI: the Cloudflare API token and the Cloudflare account ID. One token covers both models.
+3. To use Clef or Clef Flash, open the pane's **Tuning** tab and select its row under **Classifier**. See [Choose the classifier](#choose-the-classifier).
+4. Check the band above the prompt: `▂▄▆█ Auto · ready`. On another model the session starts in Manual; run `/router auto` to route.
 
-The key is stored as a sensitive plugin option. Do not paste it into a model conversation. The [configuration guide](configuration.md) covers optional settings and the old v0.8 migration.
+Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers optional settings and migrations.
 
 ## Read the status band
 
-Router draws one line above the prompt. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures, then context and cache, then the reason. The tier and model always stay.
+Router draws one line above the prompt. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures, then context and cache, then the reason. The tier and model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
 
 ![Five band states: routed to high, two rows with the hover row, a pending pin, a missing classifier key, and Manual mode](router-band.svg)
 
@@ -34,7 +37,7 @@ Read the first line of the picture from left to right:
 - **Tier meter** `▂▄▆█`: one bar per tier, lit up to the current tier in its color, like signal strength.
 - **Tier and model**: the route for this turn. **fallback** means Claude Code answered with another model.
 - **Reason**: one or two words with a direction, such as `↑ jump`, `↓ downgrade`, `= fits`, or `… waiting to go down`.
-- **Classifier support**: what Jev gave the switch against the bar the policy required.
+- **Classifier support**: what the active classifier, such as Jev or Clef Flash, gave the switch against the bar the policy required.
 - **ctx** and **cache**: context use and cache reuse on the last reply. They turn yellow at 60% context and red at 80%.
 
 | Band shows                                  | Meaning                                                                               |
@@ -42,7 +45,8 @@ Read the first line of the picture from left to right:
 | `Auto · ready`                              | Auto mode is ready for a new turn.                                                    |
 | `choosing for this turn…`                   | The classifier and local policy are running. The spinner says `Choosing model`.       |
 | `⏵ next turn: high ✕`                       | A pin is set. **✕** cancels it.                                                       |
-| `⚠ Jev key not set · keeping model`         | No key is available. **Set key** opens the secure plugin dialog.                      |
+| `⚠ Jev: no API key · keeping model`         | The active classifier lacks a setting. **Set up** opens the secure plugin dialog.     |
+| `⚠ Clef: no account ID · keeping model`     | Clef has its API token but no Cloudflare account ID. **Set up** opens the dialog.     |
 | `⚠ Jev timed out · keeping model`           | The classifier failed: timed out, unreachable, rejected the key, or paused.           |
 | `○ Router off · keeping …`                  | Manual mode. **Auto** resumes routing. The footer also shows `router off`.            |
 | `✕ Router unavailable`                      | Nothing routes: an old Claude Code or leftover v0.8 settings. **Fix** opens the pane. |
@@ -66,12 +70,12 @@ The **Now** tab answers "what runs next turn, and why". The ladder lists the tie
 
 The **Tiers** tab edits the routes. In the picture, `medium` was changed to Sonnet 5.5 at `xhigh`: the tier shows **●**, the switch-cost lines now price `medium → high` as a model change, and the diff lists the one `router.json` line that **Save routes** will write. [Edit tiers](#edit-tiers) explains the controls.
 
-| Tab        | What it shows                                                                                                                           |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 Now      | The current tier, model, and reason; Jev's support for each tier with a **pin** button; the last 30 replies by tier; context and cache. |
-| 2 Tiers    | The model and effort for each tier, the baseline tier, the cache cost of each step up, and the `router.json` change to save.            |
-| 3 Tuning   | Jev deadline, downgrade votes, payback horizon, credits cap, the Jev key, and the `router.json` path.                                   |
-| 4 Usage    | Claude-reported cost, context and cache detail, input per reply, quota, and configured-price estimates.                                 |
+| Tab      | What it shows                                                                                                                                      |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Now    | The current tier, model, and reason; the classifier's support for each tier with a **pin** button; the last 30 replies by tier; context and cache. |
+| 2 Tiers  | The model and effort for each tier, the baseline tier, the cache cost of each step up, and the `router.json` change to save.                       |
+| 3 Tuning | The classifier with its deadline, health, and keys; downgrade votes, payback horizon, and credits cap; the `router.json` path.                     |
+| 4 Usage  | Claude-reported cost, context and cache detail, input per reply, quota, and configured-price estimates.                                            |
 
 **Auto** and **Manual: keep /model** stay at the top of every tab. **?** shows what the estimates leave out.
 
@@ -80,14 +84,14 @@ The **Tiers** tab edits the routes. In the picture, `medium` was changed to Sonn
 - **Cost** comes from Claude Code's native usage API. If the account is on a plan, a configured list-price estimate is not the subscription cash charge.
 - **Context** compares the larger available context reading with the routed model's configured window. The router reserves 20% of that window. Values can be unknown when Claude does not provide the needed estimate.
 - **Cache** reuse is cache-read tokens divided by the last response's input counters.
-- **Jev support** is the probability Jev gave each tier on the last classified turn. The line under it compares the support for a switch with the bar the policy required, and shows the estimated switch tax.
+- **Classifier support**, such as **Jev support**, is the probability the classifier gave each tier on the last classified turn. The line under it compares the support for a switch with the bar the policy required, and shows the estimated switch tax.
 - **Replies** colors each of the last 30 main-conversation replies by the tier that served it. A dot marks a reply the router did not choose, such as one in Manual mode.
 - **Input per reply** scales the last 30 input sizes from the lowest to the highest reading. It is a scale comparison, not a forecast.
 - **Cache read benefit** is a configured-price estimate for cached reads before write costs. It is not a measured saving.
 - **Next-turn difference** compares the candidate with the current model under five-minute and one-hour cache-write scenarios. A negative number means the candidate is estimated to cost less for that request.
 - **Payback** estimates later turns to recover an initial difference under assumed future cache reads and the last observed output size. It does not guarantee savings.
 
-There is no router-side spend or savings ledger. The pane does not include Jev charges. Claude's native `/cost` is the source for its reported API cost.
+There is no router-side spend or savings ledger. The pane does not include classifier charges. Claude's native `/cost` is the source for its reported API cost.
 
 ## Change routing
 
@@ -115,14 +119,37 @@ A new model ID needs an entry in `router.json` `models` with its price, context 
 
 ## Tune future decisions
 
-On the **Tuning** tab, pick the values, then select **Save tuning**:
+On the **Tuning** tab, under **Policy**, pick the values, then select **Save tuning**:
 
-- **Jev deadline:** 500, 1,000, 1,500, or 3,000 ms for the total advice attempt, including any retry.
 - **Votes to go down:** 1, 2, or 3 consecutive votes before a cheaper tier.
 - **Payback horizon:** 1, 3, 5, or 10 later turns used by the downgrade estimate.
 - **Credits cap:** $0.50, $1, $2, or $5 for an estimated cold cache write on a `credits` model.
 
-The current turn keeps the settings it started with. A save preserves unrelated `router.json` keys and refuses to write through a symlink. When validation fails, the pane names the setting and leaves the file unchanged. **Set Jev key** or **Edit key** opens Claude Code's secure plugin configuration.
+The current turn keeps the settings it started with. A save preserves unrelated `router.json` keys and refuses to write through a symlink. When validation fails, the pane names the setting and leaves the file unchanged.
+
+## Choose the classifier
+
+Router asks one classifier per turn. Three are built in:
+
+| Classifier | Service                    | Credentials                                    | Deadline |
+| ---------- | -------------------------- | ---------------------------------------------- | -------: |
+| Jev        | typesafe.ai                | Jev API key                                    | 1,500 ms |
+| Clef       | Cloudflare Workers AI, 27B | Cloudflare API token and Cloudflare account ID | 3,000 ms |
+| Clef Flash | Cloudflare Workers AI, 9B  | Cloudflare API token and Cloudflare account ID | 3,000 ms |
+
+![The Tuning tab: classifier rows with the active one marked, a missing Jev API key with Set up, Undo after a switch, the deadline, health, the receiving host, the credentials each classifier needs, and the policy controls](router-pane-tuning.svg)
+
+You can save credentials for all of them; only the active one is asked. The **Classifier** section at the top of the **Tuning** tab has one row per classifier: `◉` marks the active one, followed by its service and whether its credentials are complete. A row that lacks one names it, such as `○ no API token`, and has its own **Set up** button.
+
+Select a row to switch. The choice is written to `router.json` at once and applies from the next turn. A line under the rows names the previous classifier with an **Undo** button; it goes when you leave the tab. A turn that is already being classified finishes with the classifier it started with. The new classifier starts with a clean failure count.
+
+- **Deadline:** 500, 1,000, 1,500, or 3,000 ms for the active classifier's total advice attempt, including any retry. Each classifier keeps its own deadline, saved at once.
+- **Health** shows recent failures or a pause. **Sends** names the service that receives prompt text.
+- **Credentials** lists what each classifier needs, such as `Jev: API key · Clef, Clef Flash: API token, account ID`. **Edit** opens Claude Code's secure plugin configuration, where you enter them.
+
+**Sends** names the service that receives the prompt and recent dialogue. With Clef or Clef Flash that is Cloudflare, not typesafe.ai. Give the Cloudflare token Workers AI permissions only.
+
+The routing policy thresholds were tuned against Jev's probabilities. Clef's probabilities have not been compared with Jev's, so the same prompt can switch tiers at a different point. Watch **Classifier support** for a few sessions before you rely on a new classifier.
 
 ## Move from v0.8 gateway setup
 
@@ -143,15 +170,16 @@ To stop routing for a session, run `/router off`. To stop loading the Mod, run `
 
 ## Troubleshooting
 
-| Symptom                                   | Cause                                                                            | Fix                                                                                                                                                                |
-| ----------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Status says the Jev key is missing        | The plugin option is unset or unavailable to this process.                       | Select **Set Jev key** in the pane, or run `/plugin configure router`. Save the option and start a new turn.                                                       |
-| Route stays on the current model          | Jev timed out, failed, is paused, or network policy refused the request.         | Read the status band and the pane header. Network policy refusal is not bypassed.                                                                                  |
-| `/model` changed but routing stopped      | Choosing a model enters Manual mode.                                             | Run `/router auto` to resume automatic routing.                                                                                                                    |
-| Router reports invalid configuration      | `router.json` is invalid, or project/local settings redirect the router profile. | Inspect `router.json`, remove project/local `HOME` or `CLAUDE_CONFIG_DIR` overrides, or run the [migration command](configuration.md#convert-a-v08-configuration). |
-| Router says old settings need migration   | `router.json` still contains v0.8 gateway keys.                                  | Run the [migration command](configuration.md#convert-a-v08-configuration).                                                                                         |
-| Band reads `v0.8 gateway settings remain` | The `jev-router[1m]` model or the `127.0.0.1:43170` base URL is still set.       | Run `/router`: it lists the keys. Remove them as in the [migration checklist](configuration.md#convert-a-v08-configuration) and restart.                           |
-| Router controls are unavailable           | Claude Code is older than 2.1.289.                                               | Update Claude Code.                                                                                                                                                |
-| Context reads as unknown                  | The router lacks a reliable local estimate or current-history measurement.       | Keep using the current model, or start a new history with a supported context estimate.                                                                            |
+| Symptom                                    | Cause                                                                            | Fix                                                                                                                                                                |
+| ------------------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Status says `no API key` or `no API token` | The active classifier's plugin option is unset or unavailable to this process.   | Select **Set up** in the pane, or run `/plugin configure router`. Save the option and start a new turn.                                                            |
+| Status says `no account ID`                | Clef or Clef Flash is active without the Cloudflare account ID.                  | Run `/plugin configure router` and save the Cloudflare account ID.                                                                                                 |
+| Route stays on the current model           | The classifier timed out, failed, is paused, or network policy refused it.       | Read the status band and the pane header. Network policy refusal is not bypassed.                                                                                  |
+| `/model` changed but routing stopped       | Choosing a model enters Manual mode.                                             | Run `/router auto` to resume automatic routing.                                                                                                                    |
+| Router reports invalid configuration       | `router.json` is invalid, or project/local settings redirect the router profile. | Inspect `router.json`, remove project/local `HOME` or `CLAUDE_CONFIG_DIR` overrides, or run the [migration command](configuration.md#convert-an-older-routerjson). |
+| Router says old settings need migration    | `router.json` still contains v0.8 gateway keys or the 1.1 `jev` section.         | Run the [migration command](configuration.md#convert-an-older-routerjson).                                                                                         |
+| Band reads `v0.8 gateway settings remain`  | The `jev-router[1m]` model or the `127.0.0.1:43170` base URL is still set.       | Run `/router`: it lists the keys. Remove them as in the [migration checklist](configuration.md#convert-a-v08-configuration) and restart.                           |
+| Router controls are unavailable            | Claude Code is older than 2.1.289.                                               | Update Claude Code.                                                                                                                                                |
+| Context reads as unknown                   | The router lacks a reliable local estimate or current-history measurement.       | Keep using the current model, or start a new history with a supported context estimate.                                                                            |
 
 For the internal event flow and network deadline behavior, see [Architecture](architecture.md). For what the test traces do and do not show, see [Evaluation](evaluation.md).

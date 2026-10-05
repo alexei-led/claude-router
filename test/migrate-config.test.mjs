@@ -41,7 +41,9 @@ test('migration preserves custom routes, prices and policy without mutating the 
     migrated.models.custom,
     Object.fromEntries(Object.entries(old.models.custom).filter(([key]) => !['features', 'maxOutput'].includes(key))),
   );
-  for (const key of ['policy', 'cache', 'jev', 'context']) assert.deepEqual(migrated[key], old[key]);
+  for (const key of ['policy', 'cache', 'context']) assert.deepEqual(migrated[key], old[key]);
+  assert.equal(migrated.jev, undefined);
+  assert.deepEqual(migrated.classifiers, { jev: old.jev });
   assert.equal(loadConfig({ userFile: migrated }).routes.micro.model, 'custom');
   assert.deepEqual(migrateConfig(migrated), migrated);
 });
@@ -58,6 +60,9 @@ test('migration rejects conflicts, unknown keys and unsafe object keys', () => {
     { ...old, policy: { cashCapUsd: -1 } },
     JSON.parse('{"gateway":{"__proto__":{}}}'),
     JSON.parse('{"models":{"__proto__":{}}}'),
+    { jev: { url: 'https://x' } },
+    { jev: 'fast' },
+    JSON.parse('{"jev":{"__proto__":{}}}'),
   ])
     assert.throws(() => migrateConfig(file));
 });
@@ -76,4 +81,25 @@ test('file conversion backs up exact bytes and never overwrites an existing back
   await assert.rejects(migrateFile(path), { code: 'EEXIST' });
   assert.equal(await readFile(path, 'utf8'), original);
   assert.equal(await readFile(backup, 'utf8'), original);
+});
+
+test('a 1.1 file moves its jev section to classifiers.jev and is backed up beside a 0.8 backup', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'router-migration-'));
+  t.after(() => rm(directory, { recursive: true }));
+  const path = join(directory, 'router.json');
+  const v11 = { routes: { low: { model: 'opus' } }, jev: { timeoutMs: 900, model: 'jev-1.14.0' } };
+  const original = JSON.stringify(v11);
+  await writeFile(path, original);
+  await writeFile(`${path}.v0.8.backup`, 'an earlier migration');
+  const backup = await migrateFile(path);
+  assert.equal(backup, `${path}.v1.1.backup`);
+  assert.equal(await readFile(backup, 'utf8'), original);
+  const migrated = JSON.parse(await readFile(path, 'utf8'));
+  assert.deepEqual(migrated, { routes: v11.routes, classifiers: { jev: v11.jev } });
+  const config = loadConfig({ userFile: migrated });
+  assert.equal(config.classifier, 'jev');
+  assert.equal(config.classifiers.jev.timeoutMs, 900);
+  assert.equal(config.classifiers.jev.model, 'jev-1.14.0');
+  assert.equal(await migrateFile(path), null);
+  assert.deepEqual(migrateConfig({ jev: {} }), {});
 });

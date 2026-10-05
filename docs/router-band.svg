@@ -91,21 +91,21 @@
 <text x="624.6" y="224" fill="#d0d0d0" xml:space="preserve"> · cache </text>
 <text x="694.8" y="224" fill="#87d787" xml:space="preserve">100%</text>
 <text x="741.6" y="224" fill="#d0d0d0" xml:space="preserve">Router</text>
-<text class="cap" x="20" y="263">No classifier key: Router keeps the model and offers Set key</text>
+<text class="cap" x="20" y="263">No classifier key: Router keeps the model and offers Set up</text>
 <rect x="12" y="271" width="897.6" height="29" rx="5" fill="#232323"/>
-<text x="24.0" y="289" fill="#5f9fe0" xml:space="preserve">▂</text>
-<text x="31.8" y="289" fill="#5f9fe0" xml:space="preserve">▄</text>
-<text x="39.6" y="289" fill="#7c7c7c" xml:space="preserve">▆</text>
-<text x="47.4" y="289" fill="#7c7c7c" xml:space="preserve">█</text>
-<text x="55.2" y="289" fill="#5f9fe0" font-weight="700" xml:space="preserve"> low </text>
-<text x="94.2" y="289" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 · medium</text>
-<text x="242.4" y="289" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="281.4" y="289" fill="#d7af5f" xml:space="preserve">⚠ Jev key not set</text>
-<text x="414.0" y="289" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="453.0" y="289" fill="#d7af5f" xml:space="preserve">keeping model</text>
-<text x="554.4" y="289" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="593.4" y="289" fill="#d0d0d0" xml:space="preserve">[ Set key ]</text>
-<text x="694.8" y="289" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text x="24.0" y="289" fill="#d7af5f" xml:space="preserve">⚠ Jev: no API key</text>
+<text x="156.6" y="289" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="195.6" y="289" fill="#d0d0d0" xml:space="preserve">[ Set up ]</text>
+<text x="273.6" y="289" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="312.6" y="289" fill="#5f9fe0" xml:space="preserve">▂</text>
+<text x="320.4" y="289" fill="#5f9fe0" xml:space="preserve">▄</text>
+<text x="328.2" y="289" fill="#7c7c7c" xml:space="preserve">▆</text>
+<text x="336.0" y="289" fill="#7c7c7c" xml:space="preserve">█</text>
+<text x="343.8" y="289" fill="#5f9fe0" font-weight="700" xml:space="preserve"> low </text>
+<text x="382.8" y="289" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 · medium</text>
+<text x="531.0" y="289" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="570.0" y="289" fill="#d7af5f" xml:space="preserve">keeping model</text>
+<text x="687.0" y="289" fill="#d0d0d0" xml:space="preserve">Router</text>
 <text class="cap" x="20" y="328">Manual: /model chose the model; Auto resumes routing</text>
 <rect x="12" y="336" width="897.6" height="29" rx="5" fill="#232323"/>
 <text x="24.0" y="354" fill="#7c7c7c" xml:space="preserve">○ </text>
