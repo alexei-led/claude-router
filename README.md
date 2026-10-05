@@ -3,9 +3,13 @@
 [![CI](https://github.com/alexei-led/claude-router/actions/workflows/ci.yml/badge.svg)](https://github.com/alexei-led/claude-router/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**A Claude Code Mod that asks Jev to choose a model and effort for each main-conversation turn.**
+**A Claude Code Mod that chooses a model and effort for each main-conversation turn, advised by a prompt classifier (Jev).**
 
 The Mod changes only the model and effort in Claude Code's turn hook. Claude Code sends the request, streams the reply, runs tools, and reports usage. The router does not proxy Anthropic traffic or start a local server. Subagent model choices pass through unchanged.
+
+![The Router band above the Claude Code prompt in five states](docs/router-band.svg)
+
+The band above the prompt shows the tier, model, and reason for each turn. `/router` opens a pane to pin a tier, edit the model and effort of each tier, and tune the policy. See the [user guide](docs/user-guide.md#read-the-status-band).
 
 The router needs Claude Code 2.1.289 or newer. Current savings are not measured. The panel shows Claude's reported usage and configured-price scenarios, not a savings total. See the [evaluation](docs/evaluation.md).
 
@@ -38,7 +42,7 @@ Jev classifies a new logical turn once. Tool continuations keep that choice. A l
 | -------- | ------------- | ------------------------ |
 | `micro`  | Haiku 4.5     | No effort setting        |
 | `low`    | Sonnet 5.5    | Keeps the session effort |
-| `medium` | Sonnet 5.5    | `xhigh`                  |
+| `medium` | Opus 5.5      | `medium`                 |
 | `high`   | Opus 5.5      | `xhigh`                  |
 
 These are routing defaults. They do not claim equal model quality.
@@ -68,7 +72,7 @@ claude --plugin-dir "$PWD" --model claude-sonnet-5-5
 
 In Claude Code, run `/plugin configure router` and save your Jev API key in the sensitive plugin option. The Mod adds its status band and `/router` pane. No status-line setup or gateway environment variables are needed.
 
-Run `/model` to select a model and enter Manual mode. Run `/router auto` to resume. For controls, metrics, tuning, and troubleshooting, see the [user guide](docs/user-guide.md).
+Run `/router` to open the pane: route status, per-tier controls, tuning, and usage. Run `/model` to select a model and enter Manual mode, and `/router auto` to resume. For controls, metrics, tuning, and troubleshooting, see the [user guide](docs/user-guide.md).
 
 ## Documentation
 
