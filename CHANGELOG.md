@@ -13,11 +13,11 @@
 ### Migration
 
 - The plugin ID stays `router@alexei-led-claude-router`. Marketplace installs with auto-update receive 1.0.0 at the next start; `claude plugin update router@alexei-led-claude-router` updates now. Keep the plugin enabled.
-- Before the first 1.0.0 session, remove what 0.8 `/router:setup` wrote to `settings.json`: `model: "jev-router[1m]"`, the `jev-router[1m]` row in `modelPicker.options`, `env.ANTHROPIC_BASE_URL` set to `http://127.0.0.1:43170`, `env.CLAUDE_CODE_GATEWAY_HINT_HEADERS`, `env.ENABLE_TOOL_SEARCH` if setup added it, and a `statusLine` that runs the router's `scripts/statusline.mjs`. Until then, requests go to a gateway that 1.0.0 no longer starts, and the band reads `gateway still configured`.
+- Before the first 1.0.0 session, remove what 0.8 `/router:setup` wrote to `settings.json`: `model: "jev-router[1m]"`, the `jev-router[1m]` row in `modelPicker.options`, `env.ANTHROPIC_BASE_URL` set to `http://127.0.0.1:43170`, `env.CLAUDE_CODE_GATEWAY_HINT_HEADERS`, `env.ENABLE_TOOL_SEARCH` if setup added it, and a `statusLine` that runs the router's `scripts/statusline.mjs`. Until then, requests go to a gateway that 1.0.0 no longer starts, and the band reads `v0.8 gateway settings remain`.
 - Run `node scripts/migrate-config.mjs /path/to/router.json` from the plugin directory for an existing 0.8 `router.json`. It keeps an exact-byte `.v0.8.backup` and converts supported route, model, cache and policy settings.
 - Start Claude Code on the full baseline model, for example `claude-sonnet-5-5`. A `/model` choice enters Manual mode; `/router auto` resumes routing. Manual mode follows the session: `/clear` starts Auto, `/resume` restores the resumed session's mode.
 - The Mod requires Claude Code 2.1.289 or newer.
-- Roll back by disabling the 1.0.0 plugin and loading the signed `v0.8.0` tag with `--plugin-dir`, then running its `/router:setup`. See the [user guide](docs/user-guide.md#roll-back-to-v080).
+- Roll back by disabling the 1.0.0 plugin and loading the signed `v0.8.0` tag with `--plugin-dir`, then running its `/router:setup`. See the [user guide](https://github.com/alexei-led/claude-router/blob/main/docs/user-guide.md#roll-back-to-v080).
 
 ## 0.8.0 (2026-10-01)
 

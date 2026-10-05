@@ -479,6 +479,20 @@ test('an unsupported Claude version leaves the native request unchanged', async 
   assert.equal(h.requests[0].effort, step.effort);
 });
 
+test('leftover v0.8 gateway settings pass requests through and name the keys to remove', async () => {
+  const h = harness();
+  h.env.set('ANTHROPIC_BASE_URL', 'http://127.0.0.1:43170');
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step));
+  assert.equal(h.view().phase, 'unavailable');
+  assert.match(h.view().error, /v0\.8 gateway settings remain/);
+  assert.equal(h.requests[0].model, step.model);
+  const status = await h.event('command.run', { command: 'router', args: 'status' });
+  assert.match(status.text, /ANTHROPIC_BASE_URL/);
+  assert.match(status.text, /jev-router\[1m\]/);
+});
+
 test('project settings cannot redirect secure router configuration to another profile', async () => {
   const h = harness({ typesafe_api_key: 'synthetic-key' });
   h.settings({ env: { CLAUDE_CONFIG_DIR: '/fixture/untrusted' } });

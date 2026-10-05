@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULTS } from '../lib/config.mjs';
+import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import {
   chooseRoute,
   continueRoute,
@@ -68,6 +68,30 @@ test('switch comparison needs observed usage and preserves savings and added-cos
   assert.ok(comparison.maxUsd > 0);
   assert.equal(comparison.outputTokens, 1500);
   assert.equal(comparison.paybackTurns, 12);
+});
+
+test('a model without an output price still gets a finite input-only comparison', () => {
+  const tiny = {
+    id: 'claude-haiku-4-5',
+    input: 1,
+    cacheRead: 0.1,
+    contextWindow: 200_000,
+    billing: 'plan',
+    efforts: [],
+  };
+  const config = loadConfig({ userFile: { models: { tiny }, routes: { micro: { model: 'tiny' } } } });
+  const initial = emptyLoop(config, model);
+  const observed = observeResponse(config, initial, {
+    usage: usage({ input_tokens: 2000, cache_read_input_tokens: 140_000, cache_creation_input_tokens: 8000 }),
+    requestedModel: model,
+    effort: 'medium',
+    stopReason: 'end_turn',
+    now,
+  });
+  const facts = nativeFacts(config, observed, { ...context, contextTokens: 151_500 });
+  const { comparison } = chooseRoute(config, observed, input(observed, { facts })).decision;
+  assert.ok(Number.isFinite(comparison.minUsd) && Number.isFinite(comparison.maxUsd));
+  assert.equal(comparison.paybackTurns, null);
 });
 
 test('native facts use engine turn ids and bounded prompt rather than tool output', () => {

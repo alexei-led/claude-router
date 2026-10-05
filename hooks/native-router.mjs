@@ -18,6 +18,7 @@ const VIEW = { plugin: 'router', key: 'view' };
 const LOOP = { plugin: 'router', key: 'loops' };
 const PANE = 'jev-router';
 const MODE_PREFIX = 'mode:';
+const GATEWAY_SETTINGS = 'v0.8 gateway settings remain · see /router status';
 
 function initialView(model) {
   return {
@@ -157,6 +158,13 @@ function detailText(view) {
     view.pendingPin ? `Next turn pin: ${view.pendingPin}` : 'No next-turn pin.',
     'Auto enables routing. Manual preserves Claude’s model. Pins serve one turn only.',
     'Cache lifetime is an estimate. Claude’s cost ledger owns session totals.',
+    ...(view.error === GATEWAY_SETTINGS
+      ? [
+          'Remove from settings.json, then restart: model jev-router[1m], its modelPicker row,',
+          'env.ANTHROPIC_BASE_URL for 127.0.0.1:43170, env.CLAUDE_CODE_GATEWAY_HINT_HEADERS,',
+          'and a statusLine that runs the router scripts/statusline.mjs.',
+        ]
+      : []),
   ].join('\n');
 }
 
@@ -286,7 +294,7 @@ export function register(on, options) {
         nativeModel: model,
         mode: await modeOf($, runtime, model === baselineModel ? 'auto' : 'manual'),
         phase: gateway || !supported ? 'unavailable' : 'ready',
-        error: !supported ? 'requires Claude Code 2.1.289 or newer' : gateway ? 'gateway still configured' : null,
+        error: !supported ? 'requires Claude Code 2.1.289 or newer' : gateway ? GATEWAY_SETTINGS : null,
         keySet: Boolean(await apiKeyOf($, options)),
         configPath: config.nativePath,
         tuning: tuningOf(config),

@@ -99,7 +99,7 @@ The v1 plugin has the same plugin ID, `router@alexei-led-claude-router`, but it 
 3. Convert `router.json` if you created one.
 4. Restart Claude Code with a full baseline model, such as `claude-sonnet-5-5`.
 
-Keep the plugin enabled: in v1 it is the Mod. The Jev key option keeps its saved value. If the band reads `gateway still configured`, step 2 is incomplete.
+Keep the plugin enabled: in v1 it is the Mod. The Jev key option keeps its saved value. If the band reads `v0.8 gateway settings remain`, step 2 is incomplete.
 
 ## Update or stop
 
