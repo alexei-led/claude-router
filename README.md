@@ -74,6 +74,12 @@ In Claude Code, run `/plugin configure router` and save your Jev API key in the 
 
 Run `/router` to open the pane: route status, per-tier controls, tuning, and usage. Run `/model` to select a model and enter Manual mode, and `/router auto` to resume. For controls, metrics, tuning, and troubleshooting, see the [user guide](docs/user-guide.md).
 
+Before a push, run the same checks as CI. `npm run validate` and `npm run test:plugin` need the `claude` CLI: they load the Mod in the Claude Code engine, which refuses some faults that lint and unit tests miss.
+
+```sh
+npm run check && npm test && npm run validate && npm run test:plugin
+```
+
 ## Documentation
 
 - [User guide](docs/user-guide.md): install, use the controls, read the panel, and troubleshoot.

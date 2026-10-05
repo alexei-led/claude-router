@@ -31,6 +31,7 @@
     "test": "node --test --test-timeout=8000 test/*.test.mjs",
     "check": "biome check lib scripts test hooks types .claude-plugin package.json package-lock.json biome.json experiments/mod-router",
     "validate": "claude plugin validate .claude-plugin/plugin.json && claude plugin validate .claude-plugin/marketplace.json",
+    "test:plugin": "bash scripts/plugin-test.sh",
     "format": "biome format --write .",
     "docs:images": "node scripts/render-doc-images.mjs",
     "pack:dry": "npm pack --dry-run",

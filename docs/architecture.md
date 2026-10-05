@@ -44,7 +44,8 @@ Claude Code builds each request for the model the Mod selects, so no request rew
 | [Router controller](../lib/native-router.mjs) | Context fit, model identity, cache observations, and one-turn pins.              |
 | [Policy](../lib/policy.mjs)                   | Tier votes, escalation, and switching gates.                                     |
 | [Native costs](../lib/native-cost.mjs)        | Cache uncertainty bounds and switching estimates.                                |
-| [Native panel](../lib/native-panel.mjs)       | Route status, usage metrics, controls, and validated tuning.                     |
+| [Native panel](../lib/native-panel.mjs)       | Tabbed pane: route status, tier pins, the route editor, tuning, and usage.       |
+| [Router band](../lib/native-band.mjs)         | Status band segments fitted to the band's width, and route-change toasts.        |
 | Claude Code                                   | API requests, tools, authentication, stream output, and usage ledger.            |
 
 Node.js is not part of routing. It is used for development and the optional v0.8 configuration migration.

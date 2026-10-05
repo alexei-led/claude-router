@@ -9,6 +9,10 @@ permissions:
   contents: write
   id-token: write
 
+env:
+  CLAUDE_CODE_VERSION: 2.1.289
+  DISABLE_AUTOUPDATER: 1
+
 concurrency:
   group: release-${{ github.ref_name }}
   cancel-in-progress: false
@@ -120,6 +124,14 @@ jobs:
         run: npm test
       - name: Package dry run
         run: npm run pack:dry
+      # The engine loads the hooks module the way a session does and refuses what lint and unit tests miss,
+      # such as a binding that shadows the hook's `next`. The version is the oldest one the router supports.
+      - name: Install Claude Code
+        run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+      - name: Validate plugin and marketplace
+        run: npm run validate
+      - name: Mod tests in the Claude Code engine
+        run: npm run test:plugin
       - name: Check npm package version
         id: npm
         env:

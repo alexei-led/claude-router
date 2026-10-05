@@ -9,6 +9,10 @@ zero=0000000000000000000000000000000000000000
   echo "pre-push: node_modules/.bin/biome missing; run 'npm ci'" >&2
   exit 1
 }
+command -v claude >/dev/null || {
+  echo "pre-push: claude missing; install Claude Code" >&2
+  exit 1
+}
 command -v gitleaks >/dev/null || {
   echo "pre-push: gitleaks missing; run 'brew install gitleaks'" >&2
   exit 1
@@ -29,6 +33,8 @@ done
 npm run check
 npm test
 npm run pack:dry
+npm run validate
+npm run test:plugin
 for range in "${ranges[@]}"; do
   gitleaks git --redact --no-banner --log-opts="$range"
 done
