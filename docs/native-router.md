@@ -57,14 +57,14 @@ The Tiers tab edits each tier's model alias and effort and the baseline tier. Th
 | Payback horizon  | 1, 3, 5, 10 turns           | Later turns included in downgrade economics.                                             |
 | Credits cap      | $0.50, $1, $2, $5           | Largest estimated cold write on a `credits` model.                                       |
 
-The classifier section lists every configured classifier as a row with its service host and whether its key and endpoint settings are complete. Selecting a row writes `classifier` to `router.json` at once, or removes it for the default, through the same validation; it cancels advice in flight and resets the failure count. **Undo** returns to the previous classifier until you leave the tab. The deadline saves at once too, and a built-in classifier's default deadline is written as no override. **Sends** names the host that receives prompt text.
+The classifier section lists every configured classifier as a row with its service host and whether its key and endpoint settings are complete. Selecting a row writes `classifier` to `router.json` at once, or removes it for the default, through the same validation, and resets the new classifier's failure count. A turn already being classified finishes with its own classifier; its readings stay off the pane. **Undo** returns to the previous classifier until you leave the tab. The deadline saves at once too, and a built-in classifier's default deadline is written as no override. **Sends** names the host that receives prompt text.
 
 The pane refuses to write through a symlink. A failed validation names the setting and leaves the file unchanged. New model aliases and the other supported fields need an edit to the active profile's `router.json`.
 
 ## Safety and failure states
 
 - A missing key or account ID, a classifier failure, or a policy refusal keeps the current model. Network refusal is never bypassed with a helper process.
-- Three launched classifier failures open a 60-second pause for that classifier. One in-flight request is allowed per active Mod instance. Pending host HTTP work blocks another request until it settles.
+- Three launched classifier failures open a 60-second pause for that classifier. One in-flight request is allowed per classifier in each active Mod instance. Pending host HTTP work blocks another request until it settles.
 - A `router.json` with v0.8 gateway keys or the 1.1 `jev` section marks the router unavailable until the [migration command](configuration.md#convert-an-older-routerjson) converts it.
 - Unsupported Claude Code versions and leftover v0.8 gateway settings (the `jev-router` model or the `127.0.0.1:43170` base URL) mark the router unavailable. `/router` lists the settings to remove. A local gateway does not run as part of this Mod.
 - A context-window error makes that model ineligible until the next history reset. The Mod does not retry an Anthropic request after a stream begins.

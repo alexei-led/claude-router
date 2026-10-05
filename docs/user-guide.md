@@ -28,7 +28,7 @@ Keys are stored as sensitive plugin options. Do not paste them into a model conv
 
 ## Read the status band
 
-Router draws one line above the prompt. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures, then context and cache, then the reason. The tier and model always stay.
+Router draws one line above the prompt. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures, then context and cache, then the reason. The tier and model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
 
 ![Five band states: routed to high, two rows with the hover row, a pending pin, a missing classifier key, and Manual mode](router-band.svg)
 
@@ -141,7 +141,7 @@ Router asks one classifier per turn. Three are built in:
 
 You can save credentials for all of them; only the active one is asked. The **Classifier** section at the top of the **Tuning** tab has one row per classifier: `◉` marks the active one, followed by its service and whether its credentials are complete. A row that lacks one names it, such as `○ no API token`, and has its own **Set up** button.
 
-Select a row to switch. The choice is written to `router.json` at once and applies from the next turn. A line under the rows names the previous classifier with an **Undo** button; it goes when you leave the tab. A switch cancels advice still in flight and starts the new classifier with a clean failure count.
+Select a row to switch. The choice is written to `router.json` at once and applies from the next turn. A line under the rows names the previous classifier with an **Undo** button; it goes when you leave the tab. A turn that is already being classified finishes with the classifier it started with. The new classifier starts with a clean failure count.
 
 - **Deadline:** 500, 1,000, 1,500, or 3,000 ms for the active classifier's total advice attempt, including any retry. Each classifier keeps its own deadline, saved at once.
 - **Health** shows recent failures or a pause. **Sends** names the service that receives prompt text.

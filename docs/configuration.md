@@ -84,7 +84,7 @@ You can add an entry for another service that speaks the same API. Its `keyOptio
 
 The active classifier receives the current prompt and recent dialogue, as described in the [architecture](architecture.md#request-flow). Give a Cloudflare token Workers AI permissions only. The routing policy thresholds were tuned against Jev; another classifier's probabilities can place the same prompt differently.
 
-To check a classifier outside Claude Code, run `node scripts/probe-classifier.mjs [classifier]` from a checkout. It reads `router.json` and the environment variables above (or `./.env`), sends the router's real request, and prints the status, latency, and parsed answer. It never prints the key or the full endpoint.
+To check a classifier outside Claude Code, run `node scripts/probe-classifier.mjs [classifier]` from a checkout. It reads `router.json` and the upper-case variables `TYPESAFE_API_KEY`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID` from the environment or `./.env`; it does not read plugin options or the `CLAUDE_PLUGIN_OPTION_*` names. It sends the router's real request, and prints the status, latency, and parsed answer. It never prints the key or the full endpoint.
 
 ## Optional `router.json`
 

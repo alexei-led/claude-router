@@ -172,7 +172,7 @@ async function credentialsOf($, options, config) {
 }
 
 // Failures and a pause belong to the classifier that earned them.
-const healthOf = (classifier, config) => ({ ...classifier.snapshot(), classifier: config.classifier });
+const healthOf = (client, id) => ({ ...client.snapshot(), classifier: id });
 // The last classification's readings, cleared when another classifier takes over so no label claims them.
 const CLEARED_READINGS = { adviceMs: null, adviceChoice: null, probabilities: null, estimate: null };
 
@@ -308,7 +308,13 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, config,
 export function register(on, options) {
   let config = loadConfig();
   const turnConfigs = new Map();
-  const classifier = new NativeJev();
+  // One client per classifier, each with its own breaker and in-flight slot: a turn that started under one
+  // classifier finishes with it, and its answer, failures or pause never land on another.
+  const clients = new Map();
+  const clientOf = (id) => {
+    if (!clients.has(id)) clients.set(id, new NativeJev());
+    return clients.get(id);
+  };
   const prompts = new Map();
   const decisions = new Map();
   const controllers = new Set();
@@ -328,7 +334,7 @@ export function register(on, options) {
       const existing = await readView($, runtime);
       runtime.view = existing;
       const sameClassifier = existing.health?.classifier === config.classifier;
-      classifier.restore(sameClassifier ? existing.health : null);
+      clientOf(config.classifier).restore(sameClassifier ? existing.health : null);
       const base = await $.env.get('ANTHROPIC_BASE_URL');
       const version = await $.session.version().catch(() => null);
       const supported = supportedVersion(version?.version);
@@ -344,7 +350,7 @@ export function register(on, options) {
         error: !supported ? 'requires Claude Code 2.1.289 or newer' : gateway ? GATEWAY_SETTINGS : null,
         ...(sameClassifier ? {} : CLEARED_READINGS),
         credentials: await credentialsOf($, options, config),
-        health: healthOf(classifier, config),
+        health: healthOf(clientOf(config.classifier), config.classifier),
         configPath: config.nativePath,
         tuning: null,
         tuningBase: null,
@@ -460,7 +466,7 @@ export function register(on, options) {
             const adviceStarted = Date.now();
             const result = pin
               ? { advice: null, error: null }
-              : await classifier.ask({
+              : await clientOf(cfg.classifier).ask({
                   request: (url, init) => $.http.fetch(url, init),
                   sleep: (ms, args) => $.clock.sleep(ms, args),
                   config: cfg,
@@ -499,18 +505,24 @@ export function register(on, options) {
               tier: selected.decision.tier,
               effort: selected.decision.effort,
               reason: selected.decision.reason,
-              error: result.error,
-              health: healthOf(classifier, cfg),
               contextTokens: context.tokens,
               contextKnown: context.known,
-              adviceMs:
-                pin || ['missing-key', 'missing-account', 'busy', 'paused'].includes(result.error)
-                  ? null
-                  : Date.now() - adviceStarted,
-              adviceChoice: result.advice?.choice ?? null,
-              probabilities: result.advice?.probabilities ?? null,
-              estimate: selected.decision.estimate ?? null,
               comparison: selected.decision.comparison,
+              // A turn that started before a classifier switch routes on its own classifier's answer, but the
+              // pane now labels the new one: its readings stay off the view.
+              ...(cfg.classifier === config.classifier
+                ? {
+                    error: result.error,
+                    health: healthOf(clientOf(cfg.classifier), cfg.classifier),
+                    adviceMs:
+                      pin || ['missing-key', 'missing-account', 'busy', 'paused'].includes(result.error)
+                        ? null
+                        : Date.now() - adviceStarted,
+                    adviceChoice: result.advice?.choice ?? null,
+                    probabilities: result.advice?.probabilities ?? null,
+                    estimate: selected.decision.estimate ?? null,
+                  }
+                : {}),
             });
             return { loop: selected, version: written.version };
           } finally {
@@ -605,7 +617,7 @@ export function register(on, options) {
       ...initialView(runtime.view?.nativeModel ?? ''),
       mode: 'auto',
       credentials: runtime.view?.credentials ?? null,
-      health: healthOf(classifier, config),
+      health: healthOf(clientOf(config.classifier), config.classifier),
       configPath: config.nativePath,
       phase: runtime.view?.phase === 'unavailable' ? 'unavailable' : 'ready',
       error: runtime.view?.phase === 'unavailable' ? runtime.view.error : null,
@@ -680,31 +692,36 @@ export function register(on, options) {
         notice: null,
       });
     };
+    // Every pane save adopts the file as written, which may name another classifier than before: a hand edit
+    // meanwhile, or a row press. Then the new classifier starts clean and the old one's readings leave the view;
+    // an unavailable reason stays.
+    const adopt = async (loaded) => {
+      const switched = loaded.classifier !== config.classifier;
+      config = loaded;
+      if (!switched) return {};
+      clientOf(config.classifier).restore(null);
+      const current = runtime.view ?? view;
+      return {
+        ...CLEARED_READINGS,
+        error: current.phase === 'unavailable' ? current.error : null,
+        credentials: await credentialsOf($, options, config),
+        health: healthOf(clientOf(config.classifier), config.classifier),
+      };
+    };
     const save = async (change, saved) => {
       const result = await saveConfig($, config.nativePath, change);
       if (result.error) return updateView($, runtime, { notice: result.error });
-      config = result.config;
-      return updateView($, runtime, saved(config));
+      const reset = await adopt(result.config);
+      return updateView($, runtime, { ...reset, ...saved(config) });
     };
     // A classifier choice applies at once; `undo` is the one Undo returns to, null after an Undo.
-    const activateClassifier = async (id, undo) => {
-      if (!id || id === config.classifier || !Object.hasOwn(config.classifiers, id)) return;
-      const result = await saveConfig($, config.nativePath, (file) => withClassifier(file, id));
-      if (result.error) return updateView($, runtime, { notice: result.error });
-      config = result.config;
-      // Advice still in flight belongs to the previous classifier: cancel it, as Manual does, so its answer
-      // cannot count against the new one.
-      for (const controller of controllers) controller.abort();
-      classifier.restore(null);
-      return updateView($, runtime, {
-        classifierUndo: undo,
-        ...CLEARED_READINGS,
-        error: null,
-        credentials: await credentialsOf($, options, config),
-        health: healthOf(classifier, config),
-        notice: null,
-      });
-    };
+    const activateClassifier = (id, undo) =>
+      !id || id === config.classifier || !Object.hasOwn(config.classifiers, id)
+        ? undefined
+        : save(
+            (file) => withClassifier(file, id),
+            () => ({ classifierUndo: undo, notice: null }),
+          );
     return renderPanel(
       elements,
       config,

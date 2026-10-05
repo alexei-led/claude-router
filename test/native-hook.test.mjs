@@ -805,7 +805,7 @@ test('the band offers Auto in Manual mode and a key button without a key', async
   await start(h);
   await drain(h.step(step));
   let view = await band(h);
-  assert.match(view.line, /⚠ Jev: no API key {2}· {2}keeping model/);
+  assert.match(view.line, /⚠ Jev: no API key .*Sonnet 5\.5.* {2}· {2}keeping model/);
   await view.controls.find((node) => node.key === 'band-key').onPress();
   assert.equal(h.commandCalls(), 1);
   await h.event('command.run', { command: 'router', args: 'off' });
@@ -914,9 +914,9 @@ test('a narrow band never exceeds its width: optional parts drop, then the route
   await drain(h.step(step));
   const widthOf = (line) => [...line].length;
   for (const [columns, expected] of [
-    [120, /⚠ Jev: no API key {2}· {2}keeping model/],
+    [120, /⚠ Jev: no API key .*Sonnet 5\.5.* {2}· {2}keeping model/],
     [60, /⚠ Jev: no API key/],
-    [30, /…/],
+    [30, /⚠ Jev: no API key/],
   ]) {
     const { tree } = await band(h, { bodyColumns: columns });
     const row = tree.props.children[1].props.children[0];
@@ -1035,7 +1035,7 @@ test('a missing account warns in the band and the pane and offers the key dialog
   await drain(h.step(step));
   assert.equal(h.view().error, 'missing-account');
   const view = await band(h);
-  assert.match(view.line, /⚠ Clef: no account ID {2}· {2}keeping model/);
+  assert.match(view.line, /⚠ Clef: no account ID .*Sonnet 5\.5.* {2}· {2}keeping model/);
   await view.controls.find((node) => node.key === 'band-key').onPress();
   assert.equal(h.commandCalls(), 1);
   assert.ok(texts(await h.render()).includes('Clef: no account ID'));
@@ -1147,8 +1147,10 @@ test('a 1.1 router.json makes routing unavailable and points to the migration sc
   assert.match(h.view().error, /migrate-config\.mjs/);
 });
 
-test('a classifier switch during advice cancels it, so the old answer touches neither health nor status', async () => {
+test('a turn classified when the switch lands keeps its route, and its answer touches neither health nor status', async () => {
   const h = harness({ typesafe_api_key: 'synthetic-key', ...CLOUDFLARE_KEYS });
+  // The policy's route (Opus) differs from the engine's model (Sonnet), so a pass-through would show.
+  h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } } }));
   let release;
   h.http(
     () =>
@@ -1157,6 +1159,7 @@ test('a classifier switch during advice cancels it, so the old answer touches ne
       }),
   );
   await start(h);
+  await h.event('command.run', { command: 'router', args: 'auto' });
   const turn = drain(h.step(step));
   for (let i = 0; i < 20 && !release; i += 1) await new Promise((resolve) => setImmediate(resolve));
   assert.ok(release, 'the Jev request is in flight');
@@ -1164,8 +1167,39 @@ test('a classifier switch during advice cancels it, so the old answer touches ne
   await press(h, 'classifier-clef-flash');
   release({ ok: false, status: 401, text: '', headers: {} });
   await turn;
+  assert.equal(h.requests[0].model, 'claude-opus-5-5', 'the policy route, not the engine model');
+  assert.notEqual(h.view().reason, 'manual');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)).classifier, 'clef-flash');
   assert.deepEqual(h.view().health, { failures: 0, pausedUntil: 0, classifier: 'clef-flash' });
-  assert.notEqual(h.view().error, 'auth');
+  assert.equal(h.view().error, null);
+});
+
+test('a pane save that adopts a hand-edited classifier starts it clean', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key', ...CLOUDFLARE_KEYS });
+  h.http(async () => ({ ok: false, status: 401, text: '', headers: {} }));
+  await start(h);
+  await drain(h.step(step));
+  assert.equal(h.view().health.failures, 1);
+  h.files.set(CONFIG, JSON.stringify({ classifier: 'clef' }));
+  await press(h, 'tab-tuning');
+  await press(h, 'horizon', '10');
+  await press(h, 'save-tuning');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifier: 'clef', policy: { downgradeHorizonTurns: 10 } });
+  assert.deepEqual(h.view().health, { failures: 0, pausedUntil: 0, classifier: 'clef' });
+  assert.equal(h.view().error, null);
+  assert.equal(h.view().adviceMs, null);
+});
+
+test('a classifier switch while routing is unavailable keeps the unavailable reason', async () => {
+  const h = harness();
+  h.version('2.1.200');
+  await start(h);
+  const reason = h.view().error;
+  assert.equal(h.view().phase, 'unavailable');
+  await press(h, 'tab-tuning');
+  await press(h, 'classifier-clef');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifier: 'clef' });
+  assert.equal(h.view().error, reason);
 });
 
 test('a classifier switch that cannot write leaves the classifier and router.json unchanged', async () => {
