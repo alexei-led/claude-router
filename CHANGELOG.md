@@ -17,7 +17,6 @@
 - Run `node scripts/migrate-config.mjs /path/to/router.json` from the plugin directory for an existing 0.8 `router.json`. It keeps an exact-byte `.v0.8.backup` and converts supported route, model, cache and policy settings.
 - Start Claude Code on the full baseline model, for example `claude-sonnet-5-5`. A `/model` choice enters Manual mode; `/router auto` resumes routing. Manual mode follows the session: `/clear` starts Auto, `/resume` restores the resumed session's mode.
 - The Mod requires Claude Code 2.1.289 or newer.
-- Roll back by disabling the 1.0.0 plugin, restoring `router.json.v0.8.backup` if you converted the file, and loading the signed `v0.8.0` tag with `--plugin-dir`, then running its `/router:setup`. See the [user guide](https://github.com/alexei-led/claude-router/blob/main/docs/user-guide.md#roll-back-to-v080).
 
 ## 0.8.0 (2026-10-01)
 

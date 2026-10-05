@@ -15,7 +15,6 @@ See the [architecture](../../docs/architecture.md), [configuration](../../docs/c
 | Deferred MCP tools and large requested output setting on Haiku     | [Deferred tool/output gate](results/deferred-tool-output-gate.json): direct and rewritten requests succeeded     |
 | Request shape per routed model (loopback stub)                     | [Compat acceptance](results/native-compat-acceptance.json): engine builds each model's request; names only       |
 | Billed pin chain Opus → Haiku → Sonnet with Read on every turn     | [Live compat](results/native-live-compat-acceptance.json): five turns, each with a tool call, none rejected      |
-| Marketplace install and rollback to v0.8.0                         | [Rollback rehearsal](results/rollback-rehearsal.json): packed 1.0.0 installs; v0.8.0 tag starts its gateway      |
 | Installed Team package and authenticated Jev                       | [Team canary](results/team-canary.json): one router, version 1.0.0, native Sonnet response                       |
 | Historical decision replay                                         | [Trace evaluation](results/trace-evaluation.json): coverage and uncertainty bounds, not measured savings         |
 

@@ -1,6 +1,6 @@
 # Native router: behavior and evidence
 
-This guide describes the Mod shipped by this checkout. Claude Code 2.1.289 is the minimum tested version. The router changes `model` and `effort` on main-conversation steps. Claude Code handles the Anthropic request, credentials, stream, tool execution, and cost ledger. Subagent steps keep their original model and effort.
+This guide describes the Mod shipped in the plugin. Claude Code 2.1.289 is the minimum tested version. The router changes `model` and `effort` on main-conversation steps. Claude Code handles the Anthropic request, credentials, stream, tool execution, and cost ledger. Subagent steps keep their original model and effort.
 
 ## Turn behavior
 
@@ -60,7 +60,7 @@ The panel refuses to write through a symlink. Other supported configuration fiel
 
 - Missing Jev key, a Jev failure, or a policy refusal keeps the current model. Network refusal is never bypassed with a helper process.
 - Three launched Jev failures open a 60-second pause. One in-flight request is allowed per active Mod instance. Pending host HTTP work blocks another request until it settles.
-- Unsupported Claude Code versions and detected gateway aliases/base URLs mark the router unavailable. A local gateway does not run as part of this Mod.
+- Unsupported Claude Code versions and leftover v0.8 gateway settings (the `jev-router` model or the `127.0.0.1:43170` base URL) mark the router unavailable. `/router status` lists the settings to remove. A local gateway does not run as part of this Mod.
 - A context-window error makes that model ineligible until the next history reset. The Mod does not retry an Anthropic request after a stream begins.
 - Unknown context retains the current model. There is no characters-to-tokens fallback.
 - Unknown model substitutions receive no cache credit for the requested model.
@@ -68,12 +68,10 @@ The panel refuses to write through a symlink. Other supported configuration fiel
 
 ## Verified checks
 
-The Team canary loaded the isolated native plugin with a full Sonnet baseline, reached the real Jev endpoint, and kept Sonnet on a `downgrade-pending` result. This was a routing smoke test, not a measured-savings trial.
+The Team canary loaded the published 1.0.0 package with a full Sonnet baseline, reached the real Jev endpoint, and kept Sonnet on a `downgrade-pending` result. This was a routing smoke test, not a measured-savings trial.
 
 Recorded acceptance checks cover the local HTTP deadline and one-request admission, session clear/resume, circuit-breaker pause, reload, replacement, unload, engine fallback, and interrupt during Jev advice. The interrupt check closed the loopback socket within 4 ms and discarded late advice without changing the active route or UI. Results are stored under [`experiments/mod-router/results`](../experiments/mod-router/results/).
 
-The model probes accepted signed-thinking history and tool results across Sonnet, Opus, and Haiku. Sonnet and Opus accepted histories above 589K input tokens. Haiku deferred-tool use passed with a 128K output limit. These probes validate the tested path only. Claude Code and organization policy control other model and request combinations.
+A billed chain of pinned turns moved across Opus, Haiku, and Sonnet with a tool call on every turn, and no request was rejected. Claude Code builds each model's request itself; Haiku receives its own thinking mode and a 32K output cap. Sonnet and Opus accepted histories above 589K input tokens. These probes validate the tested path only. Claude Code and organization policy control other model and request combinations.
 
-The Team launcher loads the Mod from a Team-owned directory passed with `--plugin-dir`. Its disable switch is tested: when that directory is absent, `ce team` starts on native Sonnet with no router plugin. Rename the directory to a sibling `.disabled` name and restart to disable the router. Rename it back to re-enable the Mod. The destination name must be free.
-
-That switch disables routing. It does not restore the v0.8 gateway. The [user guide](user-guide.md#roll-back-to-v080) gives the v0.8.0 rollback. A rehearsal loaded the v0.8.0 tag with `--plugin-dir` after disabling v1, and started its gateway from that checkout on an isolated port.
+To stop routing in a session, run `/router off`. To stop loading the Mod, run `claude plugin disable router@alexei-led-claude-router` and restart.

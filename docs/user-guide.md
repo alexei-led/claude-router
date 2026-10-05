@@ -19,7 +19,7 @@ In Claude Code:
 
 1. Run `/plugin configure router`.
 2. Select the Jev API key option, enter the key, and save it.
-3. Run `/router auto`.
+3. Check the band above the prompt: `Auto · ready`. On another model the session starts in Manual; run `/router auto` to route.
 
 The key is stored as a sensitive plugin option. Do not paste it into a model conversation. The [configuration guide](configuration.md) covers optional settings and the old v0.8 migration.
 
@@ -37,6 +37,7 @@ The Mod adds a band above the prompt and a **Router** button. It reports whether
 | `context unknown · keeping native model`        | The router could not verify that a smaller window has enough room.      |
 | `native fallback`                               | Claude Code substituted another available model for the selected route. |
 | `requires Claude Code 2.1.289 or newer`         | This version cannot run the router controls.                            |
+| `v0.8 gateway settings remain`                  | Settings from the 0.8 gateway setup are still active. Nothing routes.   |
 
 Tool continuations do not trigger another classification. Subagent choices remain unchanged.
 
@@ -78,7 +79,7 @@ There is no router-side spend or savings ledger. The pane does not include Jev c
 | **Manual model** button                  | Preserve Claude's selected model.                                           |
 | A tier button in the pane                | Pin the next turn. Auto must already be enabled.                            |
 
-A pin does not change the next turn after the pinned turn finishes. A fresh session on the baseline model starts in Auto. A fresh session on another model starts in Manual. Resuming a saved session restores its saved Auto or Manual mode.
+A pin does not change the next turn after the pinned turn finishes. A fresh session on the baseline model starts in Auto. A fresh session on another model starts in Manual. `/clear` starts the new session in Auto. Resuming a saved session restores its saved Auto or Manual mode.
 
 ## Tune future decisions
 
@@ -92,7 +93,7 @@ The current turn keeps the settings it started with. A saved tuning change appli
 
 ## Move from v0.8 gateway setup
 
-The v1 plugin has the same plugin ID, `router@alexei-led-claude-router`, but it does not start the v0.8 local gateway. Marketplace installs with auto-update receive v1 at the next start. Before the first v1 session:
+The v1 plugin has the same plugin ID, `router@alexei-led-claude-router`, but it does not start the v0.8 local gateway. With auto-update on, Claude Code installs v1 at the next start. Before the first v1 session:
 
 1. Update the plugin: `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`.
 2. Remove the settings that v0.8 `/router:setup` wrote. The [migration checklist](configuration.md#convert-a-v08-configuration) lists them: the `jev-router[1m]` model and picker row, the loopback `ANTHROPIC_BASE_URL`, the hint header, and the router status line.
@@ -103,31 +104,21 @@ Keep the plugin enabled: in v1 it is the Mod. The Jev key option keeps its saved
 
 ## Update or stop
 
-Marketplace installs update with `claude plugin update router@alexei-led-claude-router`. For a local checkout, update the files and restart Claude Code with the same `--plugin-dir`.
+Claude Code updates a marketplace install at startup when auto-update is on for the marketplace. To update now, run `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`, and restart. For a local checkout, update the files and restart Claude Code with the same `--plugin-dir`.
 
 To stop routing for a session, run `/router off`. To stop loading the Mod, run `claude plugin disable router@alexei-led-claude-router`, or restart without `--plugin-dir` for a checkout. The Mod keeps no session ledger and starts no process.
 
-## Roll back to v0.8.0
-
-v0.8.0 stays available as the signed git tag `v0.8.0` and as `@alexeiled/claude-router@0.8.0` on npm.
-
-1. Disable the v1 plugin: `claude plugin disable router@alexei-led-claude-router`.
-2. Check out the tag: `git clone --branch v0.8.0 https://github.com/alexei-led/claude-router ~/claude-router-0.8.0`.
-3. If you converted `router.json`, restore the original: `mv ~/.claude/router.json.v0.8.backup ~/.claude/router.json`. v0.8.0 rejects the converted file.
-4. Start Claude Code with `--plugin-dir ~/claude-router-0.8.0` and run `/router:setup`. It writes the gateway settings again. Restart.
-
-Launch with that `--plugin-dir` each time. Do not enable v1 and v0.8 together.
-
 ## Troubleshooting
 
-| Symptom                                 | Cause                                                                                       | Fix                                                                                                                                                                |
-| --------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Status says the Jev key is missing      | The plugin option is unset or unavailable to this process.                                  | Run `/plugin configure router`, save the option, and start a new turn.                                                                                             |
-| Route stays on the current model        | Jev timed out, failed, is paused, or network policy refused the request.                    | Read the status band and `/router status`. Network policy refusal is not bypassed.                                                                                 |
-| `/model` changed but routing stopped    | Choosing a model enters Manual mode.                                                        | Run `/router auto` to resume automatic routing.                                                                                                                    |
-| Router reports invalid configuration    | `router.json` is invalid, or project/local settings redirect the router profile.            | Inspect `router.json`, remove project/local `HOME` or `CLAUDE_CONFIG_DIR` overrides, or run the [migration command](configuration.md#convert-a-v08-configuration). |
-| Router says old settings need migration | `router.json` still contains v0.8 gateway keys.                                             | Run the [migration command](configuration.md#convert-a-v08-configuration).                                                                                         |
-| Router controls are unavailable         | Claude Code is older than 2.1.289, or a gateway alias or loopback base URL is still active. | Update Claude Code and remove the old gateway model/base URL from the launcher.                                                                                    |
-| Context reads as unknown                | The router lacks a reliable local estimate or current-history measurement.                  | Keep using the current model, or start a new history with a supported context estimate.                                                                            |
+| Symptom                                   | Cause                                                                            | Fix                                                                                                                                                                |
+| ----------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Status says the Jev key is missing        | The plugin option is unset or unavailable to this process.                       | Run `/plugin configure router`, save the option, and start a new turn.                                                                                             |
+| Route stays on the current model          | Jev timed out, failed, is paused, or network policy refused the request.         | Read the status band and `/router status`. Network policy refusal is not bypassed.                                                                                 |
+| `/model` changed but routing stopped      | Choosing a model enters Manual mode.                                             | Run `/router auto` to resume automatic routing.                                                                                                                    |
+| Router reports invalid configuration      | `router.json` is invalid, or project/local settings redirect the router profile. | Inspect `router.json`, remove project/local `HOME` or `CLAUDE_CONFIG_DIR` overrides, or run the [migration command](configuration.md#convert-a-v08-configuration). |
+| Router says old settings need migration   | `router.json` still contains v0.8 gateway keys.                                  | Run the [migration command](configuration.md#convert-a-v08-configuration).                                                                                         |
+| Band reads `v0.8 gateway settings remain` | The `jev-router[1m]` model or the `127.0.0.1:43170` base URL is still set.       | Run `/router status`: it lists the keys. Remove them as in the [migration checklist](configuration.md#convert-a-v08-configuration) and restart.                    |
+| Router controls are unavailable           | Claude Code is older than 2.1.289.                                               | Update Claude Code.                                                                                                                                                |
+| Context reads as unknown                  | The router lacks a reliable local estimate or current-history measurement.       | Keep using the current model, or start a new history with a supported context estimate.                                                                            |
 
 For the internal event flow and network deadline behavior, see [Architecture](architecture.md). For what the test traces do and do not show, see [Evaluation](evaluation.md).

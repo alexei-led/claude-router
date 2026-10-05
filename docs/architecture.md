@@ -32,7 +32,7 @@ The Mod does not construct an Anthropic request or proxy its response. Claude Co
 
 Jev receives only the current prompt and up to six recent user or assistant text messages. Each text is capped at 1,200 characters. System messages, tool inputs, and tool results are not included. The Jev key is a sensitive plugin option. The Mod does not receive Claude's Anthropic credentials.
 
-Direct Claude Code 2.1.289 probes accepted signed-thinking history and tool results across Sonnet, Opus, and Haiku switches. Sonnet and Opus accepted histories above 589K input tokens. Deferred MCP tools worked on rewritten Haiku with a 128K output limit. These checks cover tested requests. They do not prove every Claude Code feature combination.
+Claude Code builds each request for the model the Mod selects, so no request rewriting is needed: Haiku gets its own thinking mode and a 32K output cap. On Claude Code 2.1.289, a billed chain of pinned turns (Opus, Haiku, Sonnet at `xhigh`, Sonnet, Haiku) used a tool on every turn over the previous models' history, and no request was rejected. Sonnet and Opus accepted histories above 589K input tokens. These checks cover tested requests. They do not prove every Claude Code feature combination.
 
 ## Responsibilities
 
@@ -61,7 +61,7 @@ An explicit context-window failure marks that model ineligible until the next hi
 
 `$.state` stores route decisions, response observations, and UI state for the active session. Version-checked writes reject stale turn results. A private in-memory view merges state writes during one dispatch because state reads are frozen for that dispatch.
 
-Clear, branch, rewind, and committed compaction clear cache evidence and votes. A fresh session on the configured baseline starts in Auto. A fresh session on another model starts in Manual. Resume restores the selected session's saved mode. Hot reload retains valid `$.state`. Running `/model` enters Manual, including an explicit choice of the baseline. `/router auto` resumes routing. `/router off` also enters Manual. Pins apply to the next turn and its tool continuations. The prior Auto route resumes afterward.
+Clear, branch, rewind, and committed compaction clear cache evidence and votes. A turn in progress keeps its route, pin, and any engine fallback. `/clear` starts the new session in Auto. A fresh session on the configured baseline starts in Auto. A fresh session on another model starts in Manual. Resume restores the selected session's saved mode. Hot reload retains valid `$.state`. Running `/model` enters Manual, including an explicit choice of the baseline. `/router auto` resumes routing. `/router off` also enters Manual. Pins apply to the next turn and its tool continuations. The prior Auto route resumes afterward.
 
 Subagent events pass directly to Claude Code. They do not create Jev requests or change main-conversation metrics. This is the selected scope because Mods do not expose whether a subagent model was explicit or inherited.
 
@@ -83,6 +83,6 @@ The switching policy prices the candidate at a conservative cache-write bound an
 
 ## Deployment
 
-Load the plugin directory with Claude Code's `--plugin-dir` option. The Team launcher uses an isolated `~/.claude-team/mods/router` directory, so updating the Mod does not replace another profile's plugin cache. The Team canary passed with the native plugin, a full Sonnet baseline, and a real Jev classification.
+Install the plugin from the `alexei-led/claude-router` marketplace, or load a checkout with `--plugin-dir`. Load only one copy of the router in a session. The plugin ships the Mod, its pure `lib/` modules, type declarations, and the v0.8 configuration migration script. It starts no process and opens no port.
 
-The v0.8.0 git version remains available as the rollback source. Native routing does not require the proxy. Use the [configuration guide](configuration.md) for optional settings and migration, and the [native guide](native-router.md) for panel and control behavior.
+Use the [configuration guide](configuration.md) for optional settings and migration, and the [native guide](native-router.md) for panel and control behavior.
