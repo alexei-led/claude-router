@@ -13,6 +13,9 @@ See the [architecture](../../docs/architecture.md), [configuration](../../docs/c
 | Interrupt during the main controller's Jev wait                    | [Interrupt acceptance](results/native-interrupt-acceptance.json): late advice discarded; socket closed in 4 ms   |
 | Native engine fallback                                             | [Fallback acceptance](results/native-fallback-acceptance.json): subsequent tool step kept the fallback           |
 | Deferred MCP tools and large requested output setting on Haiku     | [Deferred tool/output gate](results/deferred-tool-output-gate.json): direct and rewritten requests succeeded     |
+| Request shape per routed model (loopback stub)                     | [Compat acceptance](results/native-compat-acceptance.json): engine builds each model's request; names only       |
+| Billed pin chain Opus → Haiku → Sonnet with Read on every turn     | [Live compat](results/native-live-compat-acceptance.json): five turns, each with a tool call, none rejected      |
+| Marketplace install and rollback to v0.8.0                         | [Rollback rehearsal](results/rollback-rehearsal.json): packed 1.0.0 installs; v0.8.0 tag starts its gateway      |
 | Installed Team package and authenticated Jev                       | [Team canary](results/team-canary.json): one router, version 1.0.0, native Sonnet response                       |
 | Historical decision replay                                         | [Trace evaluation](results/trace-evaluation.json): coverage and uncertainty bounds, not measured savings         |
 
@@ -28,6 +31,9 @@ node experiments/mod-router/scripts/interrupt-acceptance.mjs
 node experiments/mod-router/scripts/persistent-acceptance.mjs resume
 node experiments/mod-router/scripts/persistent-acceptance.mjs unload
 node experiments/mod-router/scripts/team-canary.mjs
+node experiments/mod-router/scripts/fallback-acceptance.mjs
+node experiments/mod-router/scripts/compat-acceptance.mjs
+node experiments/mod-router/scripts/live-compat-acceptance.mjs
 ```
 
 The candidate launcher builds a temporary plugin and disables the installed gateway for that launch. Persistent drivers use `ce peer-team` and synthetic loopback Jev credentials. The canary uses the installed Team package and real provider requests. Circuit expiry takes at least 60 seconds. Drivers remove temporary plugins and close their child processes.

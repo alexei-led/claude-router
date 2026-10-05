@@ -76,6 +76,4 @@ The model probes accepted signed-thinking history and tool results across Sonnet
 
 The Team launcher loads the Mod from a Team-owned directory passed with `--plugin-dir`. Its disable switch is tested: when that directory is absent, `ce team` starts on native Sonnet with no router plugin. Rename the directory to a sibling `.disabled` name and restart to disable the router. Rename it back to re-enable the Mod. The destination name must be free.
 
-That switch disables routing. It does not restore the v0.8 gateway. Full gateway rollback requires the v0.8.0 source plus its old plugin and profile settings, as described in the [migration checklist](configuration.md#convert-a-v08-configuration).
-
-The package in this repository is a local v1.0 plugin. npm and marketplace publication have not happened. The v0.8.0 git version remains available as rollback source.
+That switch disables routing. It does not restore the v0.8 gateway. The [user guide](user-guide.md#roll-back-to-v080) gives the v0.8.0 rollback. A rehearsal loaded the v0.8.0 tag with `--plugin-dir` after disabling v1, and started its gateway from that checkout on an isolated port.

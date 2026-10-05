@@ -2,10 +2,17 @@
 
 ## Start a session
 
-Load the plugin from a local checkout or extracted plugin directory. Start with the full baseline model so Auto mode has a known starting point:
+Install the plugin from its marketplace, or load a checkout with `--plugin-dir /path/to/claude-router`:
 
 ```sh
-claude --plugin-dir /path/to/claude-router --model claude-sonnet-5-5
+claude plugin marketplace add alexei-led/claude-router
+claude plugin install router@alexei-led-claude-router
+```
+
+Start with the full baseline model so Auto mode has a known starting point:
+
+```sh
+claude --model claude-sonnet-5-5
 ```
 
 In Claude Code:
@@ -85,15 +92,30 @@ The current turn keeps the settings it started with. A saved tuning change appli
 
 ## Move from v0.8 gateway setup
 
-The v1 plugin does not use the old local gateway. Before starting the native Mod, disable the v0.8 gateway plugin in the intended profile and remove its router-specific settings. Keep the plugin installed for rollback. The [migration checklist](configuration.md#convert-a-v08-configuration) covers the old alias, base URL, hint header, status line, and optional `router.json` conversion.
+The v1 plugin has the same plugin ID, `router@alexei-led-claude-router`, but it does not start the v0.8 local gateway. Marketplace installs with auto-update receive v1 at the next start. Before the first v1 session:
 
-Restart with the native plugin directory and a full baseline model, such as `claude-sonnet-5-5`. Keep only one router plugin enabled in a session. The Team launcher applies this profile cleanup per launch.
+1. Update the plugin: `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`.
+2. Remove the settings that v0.8 `/router:setup` wrote. The [migration checklist](configuration.md#convert-a-v08-configuration) lists them: the `jev-router[1m]` model and picker row, the loopback `ANTHROPIC_BASE_URL`, the hint header, and the router status line.
+3. Convert `router.json` if you created one.
+4. Restart Claude Code with a full baseline model, such as `claude-sonnet-5-5`.
+
+Keep the plugin enabled: in v1 it is the Mod. The Jev key option keeps its saved value. If the band reads `gateway still configured`, step 2 is incomplete.
 
 ## Update or stop
 
-For a local checkout, update the plugin files from your chosen source and restart Claude Code with the same `--plugin-dir`. The v1 plugin is not yet published to npm or a marketplace.
+Marketplace installs update with `claude plugin update router@alexei-led-claude-router`. For a local checkout, update the files and restart Claude Code with the same `--plugin-dir`.
 
-To stop routing for a session, run `/router off`. To stop loading the Mod, restart Claude Code without `--plugin-dir`. You can remove the plugin directory. It contains no session ledger or gateway process.
+To stop routing for a session, run `/router off`. To stop loading the Mod, run `claude plugin disable router@alexei-led-claude-router`, or restart without `--plugin-dir` for a checkout. The Mod keeps no session ledger and starts no process.
+
+## Roll back to v0.8.0
+
+v0.8.0 stays available as the signed git tag `v0.8.0` and as `@alexeiled/claude-router@0.8.0` on npm.
+
+1. Disable the v1 plugin: `claude plugin disable router@alexei-led-claude-router`.
+2. Check out the tag: `git clone --branch v0.8.0 https://github.com/alexei-led/claude-router ~/claude-router-0.8.0`.
+3. Start Claude Code with `--plugin-dir ~/claude-router-0.8.0` and run `/router:setup`. It writes the gateway settings again. Restart.
+
+Launch with that `--plugin-dir` each time. Do not enable v1 and v0.8 together.
 
 ## Troubleshooting
 

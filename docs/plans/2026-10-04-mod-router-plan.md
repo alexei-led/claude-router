@@ -12,16 +12,16 @@ Architecture and operations are maintained in [architecture](../architecture.md)
 
 ## Completion evidence
 
-| Area                     | Evidence                                                                                                                        |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| Routing and cache policy | Exact model identity, effort separation, unknown TTL, context guards, pins, Manual mode and subagent pass-through regressions   |
-| HTTP                     | Twenty samples: p95 1504 ms, worst 1505 ms; bounded retries and one unfinished request                                          |
-| Lifecycle                | Persistent clear, circuit, reload, replacement, unload and resume/fork; main-turn SDK interrupt discards late advice            |
-| Compatibility            | Direct tool/thinking model switches; Sonnet/Opus input over 589K; deferred ToolSearch and Haiku output setting; native fallback |
-| Evaluation               | Sanitized historical trace replay with prefix bounds and coverage limitations; no measured savings claim                        |
-| Package                  | Native hooks only; no daemon, gateway or runtime subprocess; manifests and packed contents validated                            |
-| Team                     | Separate local plugin, direct Anthropic launch, old gateway disabled; fresh/resumed model controls preserved                    |
-| UI                       | Native terminal/desktop kit and strict types; status, bars, metrics, secure-key handoff and tuning                              |
+| Area                     | Evidence                                                                                                                                |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Routing and cache policy | Exact model identity, effort separation, unknown TTL, context guards, pins, Manual mode and subagent pass-through regressions           |
+| HTTP                     | Twenty samples: p95 1504 ms, worst 1505 ms; bounded retries and one unfinished request                                                  |
+| Lifecycle                | Persistent clear, circuit, reload, replacement, unload and resume/fork; main-turn SDK interrupt discards late advice                    |
+| Compatibility            | Billed pin chain Opus → Haiku → Sonnet with tools; Sonnet/Opus input over 589K; deferred ToolSearch and Haiku output; native fallback   |
+| Evaluation               | Sanitized historical trace replay with prefix bounds and coverage limitations; no measured savings claim                                |
+| Package                  | Native hooks only; no daemon, gateway or runtime subprocess; manifests and packed contents validated                                    |
+| Team                     | Separate local plugin, direct Anthropic launch, old gateway disabled; fresh/resumed model controls preserved; v0.8.0 rollback rehearsed |
+| UI                       | Native terminal/desktop kit and strict types; status, bars, metrics, secure-key handoff and tuning                                      |
 
 Reproducible drivers and results are indexed in [experiments](../../experiments/mod-router/README.md).
 
@@ -31,4 +31,4 @@ The pinned API cannot identify whether a subagent inherited its model or chose i
 
 Native usage has no 5m/1h split. Switching estimates use conservative cost scenarios. Session usage comes from Claude's native ledger. Jev charges are not included.
 
-Mods are early access, with a minimum tested Claude Code version of 2.1.289. Future host changes require compatibility validation. Remote npm/GitHub publication is separate from the installed local package.
+Mods are early access, with a minimum tested Claude Code version of 2.1.289. Future host changes require compatibility validation.

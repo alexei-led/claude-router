@@ -82,6 +82,24 @@ jobs:
               return;
             }
 
+            // The reviewed CHANGELOG section is the release notes: `## <version> (<date>)` up to the next `## `.
+            // Checked here, before npm publication, so a missing section cannot leave a release half done.
+            const changelog = fs.readFileSync("CHANGELOG.md", "utf8");
+            const heading = new RegExp(`^## ${pkg.version.replaceAll(".", "\\.")} \\(\\d{4}-\\d{2}-\\d{2}\\)$`, "m");
+            const start = changelog.search(heading);
+            if (start === -1) {
+              core.setFailed(`CHANGELOG.md has no dated section for ${pkg.version}.`);
+              return;
+            }
+            const section = changelog.slice(start).split("\n").slice(1);
+            const end = section.findIndex((line) => line.startsWith("## "));
+            const notes = (end === -1 ? section : section.slice(0, end)).join("\n").trim();
+            if (!notes) {
+              core.setFailed(`CHANGELOG.md section for ${pkg.version} is empty.`);
+              return;
+            }
+
+            core.setOutput("notes", notes);
             core.setOutput("name", pkg.name);
             core.setOutput("version", pkg.version);
             core.setOutput("tag", tag);
@@ -145,14 +163,19 @@ jobs:
           RELEASE_NAME: ${{ steps.metadata.outputs.release_name }}
           RELEASE_TAG: ${{ steps.metadata.outputs.tag }}
           PRERELEASE: ${{ steps.metadata.outputs.prerelease }}
+          RELEASE_NOTES: ${{ steps.metadata.outputs.notes }}
         with:
           script: |
             const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
             const tag = process.env.RELEASE_TAG;
+            const version = process.env.PACKAGE_VERSION;
+            const notes = process.env.RELEASE_NOTES;
             const body = [
+              notes,
+              "",
               "## Package",
               `- Name: \`${process.env.PACKAGE_NAME}\``,
-              `- Version: \`${process.env.PACKAGE_VERSION}\``,
+              `- Version: \`${version}\``,
               `- Tag: \`${tag}\``,
               `- Commit: \`${process.env.GITHUB_SHA}\``,
             ].join("\n");
@@ -178,7 +201,6 @@ jobs:
               target_commitish: process.env.GITHUB_SHA,
               name: process.env.RELEASE_NAME,
               body,
-              generate_release_notes: true,
               prerelease: process.env.PRERELEASE === "true",
               make_latest: process.env.PRERELEASE === "true" ? "false" : "true",
             });

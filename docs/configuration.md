@@ -84,9 +84,9 @@ Native cache freshness is unknown after 270 seconds or after a history reset. Cl
 
 ## Convert a v0.8 configuration
 
-The `router.json` converter changes only that file. It does not disable the v0.8 plugin or remove Claude Code gateway settings. Complete both steps before the first native session.
+The `router.json` converter changes only that file. It does not remove Claude Code gateway settings. Remove them before the first native session.
 
-First, disable the old gateway plugin in the profile that enabled it. Keep it installed so v0.8 remains available for rollback. For a user-scope install, set `CLAUDE_CONFIG_DIR` to the intended profile directory before running:
+A marketplace install keeps the plugin ID `router@alexei-led-claude-router`: update it and keep it enabled. If you load v1 from a checkout with `--plugin-dir` instead, disable the marketplace v0.8 install so only one router loads. Set `CLAUDE_CONFIG_DIR` to the intended profile directory first:
 
 ```sh
 CLAUDE_CONFIG_DIR=/path/to/profile claude plugin disable router@alexei-led-claude-router --scope user
@@ -94,7 +94,7 @@ CLAUDE_CONFIG_DIR=/path/to/profile claude plugin disable router@alexei-led-claud
 
 Then inspect that profile's `settings.json`. Remove the old `jev-router[1m]` model-picker row and any `model` or `env.ANTHROPIC_MODEL` value set to that alias. Remove `env.ANTHROPIC_BASE_URL` when it points to the router's loopback port. Clear `env.CLAUDE_CODE_GATEWAY_HINT_HEADERS`. Restore or remove a router-specific `statusLine` that points to the deleted script. Remove `env.ENABLE_TOOL_SEARCH` only if the old router setup added it and you do not need it for another reason. Preserve unrelated settings. Set the normal full baseline model, for example `claude-sonnet-5-5`.
 
-No conversion is needed if you never created `router.json`. For an existing file, run the migration command from a v1 plugin checkout:
+No conversion is needed if you never created `router.json`. For an existing file, run the migration command from the v1 plugin directory, a checkout or the installed plugin cache:
 
 ```sh
 node scripts/migrate-config.mjs ~/.claude/router.json

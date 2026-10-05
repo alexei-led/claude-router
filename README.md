@@ -43,6 +43,19 @@ Jev classifies a new logical turn once. Tool continuations keep that choice. A l
 
 These are routing defaults. They do not claim equal model quality.
 
+## Install
+
+You need Claude Code 2.1.289 or newer and a Jev API key from [typesafe.ai](https://typesafe.ai).
+
+```sh
+claude plugin marketplace add alexei-led/claude-router
+claude plugin install router@alexei-led-claude-router
+```
+
+Start Claude Code on the full baseline model, for example `claude --model claude-sonnet-5-5`. Then run `/plugin configure router`, save the Jev API key, and run `/router auto`.
+
+Upgrading from 0.8? Remove the gateway settings that 0.8 `/router:setup` wrote before the first 1.0 session, or requests go to a gateway that 1.0 no longer starts. Follow the [migration steps](docs/user-guide.md#move-from-v08-gateway-setup).
+
 ## Run from a checkout
 
 Start Claude Code with this directory as a local plugin and the full Sonnet baseline model:

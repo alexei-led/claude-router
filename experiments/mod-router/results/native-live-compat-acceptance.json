@@ -1,0 +1,44 @@
+{
+  "scenario": "native-live-compatibility",
+  "claudeVersion": "2.1.289 (Claude Code)",
+  "driver": "node experiments/mod-router/scripts/live-compat-acceptance.mjs",
+  "scope": "Real Team API through ce peer-team with the native Mod candidate. Each turn pins a tier and calls Read, so each model continues the previous models’ thinking and tool history. No content is recorded.",
+  "passed": true,
+  "turns": [
+    {
+      "tier": "high",
+      "ok": true,
+      "models": ["claude-opus-5-5"],
+      "toolUses": 1,
+      "thinking": false
+    },
+    {
+      "tier": "micro",
+      "ok": true,
+      "models": ["claude-haiku-4-5-20251001"],
+      "toolUses": 1,
+      "thinking": true
+    },
+    {
+      "tier": "medium",
+      "ok": true,
+      "models": ["claude-sonnet-5-5"],
+      "toolUses": 1,
+      "thinking": false
+    },
+    {
+      "tier": "low",
+      "ok": true,
+      "models": ["claude-sonnet-5-5"],
+      "toolUses": 1,
+      "thinking": false
+    },
+    {
+      "tier": "micro",
+      "ok": true,
+      "models": ["claude-haiku-4-5-20251001"],
+      "toolUses": 1,
+      "thinking": true
+    }
+  ]
+}
