@@ -151,7 +151,7 @@ Then inspect that profile's `settings.json`. Remove the old `jev-router[1m]` mod
 No conversion is needed if you never created `router.json`. For an existing file, run the migration command that ships with the installed plugin:
 
 ```sh
-node ~/.claude/plugins/cache/alexei-led-claude-router/router/1.0.0/scripts/migrate-config.mjs ~/.claude/router.json
+node ~/.claude/plugins/cache/alexei-led-claude-router/router/1.2.0/scripts/migrate-config.mjs ~/.claude/router.json
 ```
 
 Use the installed version in the path. From a checkout, run `node scripts/migrate-config.mjs ~/.claude/router.json`.
