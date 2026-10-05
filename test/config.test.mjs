@@ -170,7 +170,7 @@ test('a pane save keeps router.json edits made on disk after the session loaded 
   };
   const onDisk = { routes: { high: { model: 'sonnet' } }, baselineTier: 'medium' };
   assert.deepEqual(withRoutes(onDisk, draft, base), {
-    routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet', effort: 'xhigh' } },
+    routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet' } },
     baselineTier: 'medium',
   });
   const saved = tuningOf(base);

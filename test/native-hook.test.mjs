@@ -801,7 +801,7 @@ test('the band offers Auto in Manual mode and a key button without a key', async
   await start(h);
   await drain(h.step(step));
   let view = await band(h);
-  assert.match(view.line, /⚠ Jev key not set · keeping model/);
+  assert.match(view.line, /⚠ Jev key not set {2}· {2}keeping model/);
   await view.controls.find((node) => node.key === 'band-key').onPress();
   assert.equal(h.commandCalls(), 1);
   await h.event('command.run', { command: 'router', args: 'off' });
@@ -902,4 +902,25 @@ test('a tuning save writes only the changed value and keeps edits made on disk',
     jev: { timeoutMs: 900 },
     policy: { downgradeHorizonTurns: 10 },
   });
+});
+
+test('a narrow band never exceeds its width: optional parts drop, then the route is cut', async () => {
+  const h = harness();
+  await start(h);
+  await drain(h.step(step));
+  const widthOf = (line) => [...line].length;
+  for (const [columns, expected] of [
+    [120, /⚠ Jev key not set {2}· {2}keeping model/],
+    [60, /⚠ Jev key not set/],
+    [30, /…/],
+  ]) {
+    const { tree } = await band(h, { bodyColumns: columns });
+    const row = tree.props.children[1].props.children[0];
+    const line = texts(row).join('');
+    const buttons = controls(row)
+      .map((node) => (node.plain ? node.label : `[ ${node.label} ]`))
+      .join('');
+    assert.match(line, expected, `at ${columns}`);
+    assert.ok(widthOf(line) + widthOf(buttons) <= columns, `${columns}: ${line}${buttons}`);
+  }
 });
