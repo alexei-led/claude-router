@@ -43,9 +43,18 @@ declare module 'claude-code' {
     adviceChoice?: RouterTier | 'uncertain' | null;
     estimate?: RouterEstimate | null;
     comparison?: RouterComparison | null;
+    probabilities?: Partial<Record<RouterTier | 'uncertain', number>> | null;
     history?: number[];
+    tiers?: (RouterTier | null)[];
     configPath?: string | null;
-    tuning?: { timeoutMs: number; downgradeVotes: number; horizon: number } | null;
+    tuning?: { timeoutMs: number; downgradeVotes: number; horizon: number; cashCapUsd?: number } | null;
+    routeDraft?: {
+      routes: Record<RouterTier, { model: string; effort?: string | null }>;
+      baselineTier: RouterTier;
+    } | null;
+    tab?: 'now' | 'tiers' | 'tuning' | 'usage';
+    help?: boolean;
+    bandDetail?: boolean;
     notice?: string | null;
   }
   interface RouterPolicyState {

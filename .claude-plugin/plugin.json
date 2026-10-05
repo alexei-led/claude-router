@@ -1,8 +1,8 @@
 {
   "name": "router",
-  "displayName": "jev-router",
+  "displayName": "Router",
   "version": "1.0.0",
-  "description": "Native Jev model and effort routing for the main conversation. Preserves subagent model choices.",
+  "description": "Model and effort routing for the main conversation, advised by a prompt classifier (Jev). Preserves subagent model choices.",
   "author": {
     "name": "Alexei Ledenev",
     "url": "https://github.com/alexei-led"

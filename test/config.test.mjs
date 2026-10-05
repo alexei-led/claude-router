@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DEFAULTS, loadConfig } from '../lib/config.mjs';
+import { DEFAULTS, loadConfig, withRoutes } from '../lib/config.mjs';
 
 test('defaults load without a user file and resolve no key', () => {
   const config = loadConfig({ env: {} });
@@ -119,4 +119,45 @@ test('the documented example and a new model alias pass', () => {
   });
   assert.equal(config.routes.micro.model, 'mine');
   assert.equal(config.cache.ttlMs['1h'], DEFAULTS.cache.ttlMs['1h']);
+});
+
+test('a null route effort keeps the session effort and overrides a default effort', () => {
+  const config = loadConfig({ userFile: { routes: { high: { model: 'opus', effort: null } } } });
+  assert.equal(config.routes.high.effort, null);
+});
+
+test('withRoutes writes only the routes and baseline that differ from the defaults', () => {
+  const defaults = { routes: structuredClone(DEFAULTS.routes), baselineTier: DEFAULTS.baselineTier };
+  const edit = (tier, route) => ({ ...defaults, routes: { ...defaults.routes, [tier]: route } });
+  for (const [name, file, draft, expected] of [
+    [
+      'defaults remove overrides',
+      { routes: { low: { model: 'opus' } }, jev: { timeoutMs: 900 } },
+      defaults,
+      { jev: { timeoutMs: 900 } },
+    ],
+    [
+      'changed model and effort',
+      {},
+      edit('medium', { model: 'sonnet', effort: 'xhigh' }),
+      { routes: { medium: { model: 'sonnet', effort: 'xhigh' } } },
+    ],
+    [
+      'session effort over a default effort',
+      {},
+      edit('high', { model: 'opus', effort: null }),
+      { routes: { high: { model: 'opus', effort: null } } },
+    ],
+    [
+      'no effort where the default has none',
+      {},
+      edit('low', { model: 'opus', effort: null }),
+      { routes: { low: { model: 'opus' } } },
+    ],
+    ['baseline', { baselineTier: 'micro' }, { ...defaults, baselineTier: 'medium' }, { baselineTier: 'medium' }],
+  ]) {
+    const written = withRoutes(file, draft);
+    assert.deepEqual(written, expected, name);
+    loadConfig({ userFile: written });
+  }
 });

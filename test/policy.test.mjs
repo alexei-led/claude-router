@@ -87,7 +87,7 @@ test('the upgrade threshold rises with the switching tax', () => {
 test('a cold metered model above the cash cap routes to the strongest plan tier instead', () => {
   const [d] = runTurns(facts({ tokens: 300_000 }), [advice('high', { high: 0.97 })], initialState(), metered);
   assert.equal(d.reason, 'cash-gate');
-  assert.equal(d.tier, 'medium');
+  assert.equal(d.tier, 'low');
   assert.ok(d.estimate.coldUsd > metered.policy.cashCapUsd);
   assert.equal(d.estimate.cache, 'unknown');
 });

@@ -1,12 +1,14 @@
-import { loadConfig, TIERS } from '../lib/config.mjs';
+import { DEFAULTS, loadConfig, TIERS, withRoutes } from '../lib/config.mjs';
 import { clip } from '../lib/facts-pure.mjs';
-import { REASONS } from '../lib/native-display.mjs';
+import { renderBand, switchToast } from '../lib/native-band.mjs';
+import { GATEWAY_CLEANUP, GATEWAY_SETTINGS } from '../lib/native-display.mjs';
 import { NativeJev } from '../lib/native-jev.mjs';
-import { renderPanel } from '../lib/native-panel.mjs';
+import { renderPanel, routeDraftOf, tuningOf } from '../lib/native-panel.mjs';
 import {
   chooseRoute,
   continueRoute,
   emptyLoop,
+  isModelAllowed,
   nativeFacts,
   observeResponse,
   prepareLoop,
@@ -17,8 +19,11 @@ import {
 const VIEW = { plugin: 'router', key: 'view' };
 const LOOP = { plugin: 'router', key: 'loops' };
 const PANE = 'jev-router';
+const PANE_TITLE = 'Router';
+const BAND_DETAIL = 'band:detail';
 const MODE_PREFIX = 'mode:';
-const GATEWAY_SETTINGS = 'v0.8 gateway settings remain · see /router status';
+// Replies kept for the pane's trend and tier strip.
+const HISTORY = 30;
 
 function initialView(model) {
   return {
@@ -45,9 +50,14 @@ function initialView(model) {
     adviceChoice: null,
     estimate: null,
     comparison: null,
+    probabilities: null,
     history: [],
+    tiers: [],
     configPath: null,
     tuning: null,
+    routeDraft: null,
+    tab: 'now',
+    help: false,
     notice: null,
   };
 }
@@ -113,41 +123,32 @@ async function apiKeyOf($, options) {
     : (await $.env.get('TYPESAFE_API_KEY')) || (await $.env.get('CLAUDE_PLUGIN_OPTION_TYPESAFE_API_KEY'));
 }
 
-async function configureKey($) {
-  return $.command.run({ command: 'plugin', args: `configure ${$.plugin.name}` });
+// The host refuses $.command.run from a hook the turn is holding, so the secure key dialog opens from a timer.
+function openKeySettings($) {
+  $.clock.after(0, () => $.command.run({ command: 'plugin', args: `configure ${$.plugin.name}` }).catch(() => {}));
 }
 
-function modelLabel(id) {
-  if (!id) return 'native model';
-  return id.replace(/^claude-/, '').replace(/-([0-9])-([0-9])/, ' $1.$2');
-}
-
-function bandText(view) {
-  if (view.phase === 'unavailable') return `Jev Router · ${view.error}`;
-  if (view.mode === 'manual') return `Jev Router · Manual · ${modelLabel(view.nativeModel)}`;
-  if (view.pendingPin) return `Jev Router · ${view.pendingPin} pinned for next turn`;
-  if (view.phase === 'ready') return 'Jev Router · Auto · ready';
-  if (view.phase === 'choosing') return 'Jev Router · choosing for this turn…';
-  if (view.error === 'missing-key')
-    return `Jev Router · key not set · keeping ${modelLabel(view.actualModel ?? view.nativeModel)}`;
-  if (view.error === 'paused')
-    return `Jev Router · Jev paused until ${new Date(view.health.pausedUntil).toLocaleTimeString()}`;
-  if (view.error) return `Jev Router · Jev ${view.error} · keeping ${modelLabel(view.actualModel ?? view.nativeModel)}`;
-  if (view.reason === 'context-unknown') return 'Jev Router · context unknown · keeping native model';
-  if (
-    view.actualModel &&
-    view.selectedModel &&
-    view.actualModel !== view.selectedModel &&
-    !view.actualModel.startsWith(`${view.selectedModel}-`)
-  ) {
-    return `Jev Router · ${modelLabel(view.selectedModel)} → ${modelLabel(view.actualModel)} · native fallback`;
+// Writes router.json through `change(previousFile)` once the result validates. Returns the new config or an error
+// line for the pane; a failure leaves the file untouched.
+async function saveConfig($, path, change) {
+  try {
+    if ((await $.fs.exists(path)) && (await $.fs.stat(path)).isLink)
+      return { error: 'Not saved: router.json is a symlink. Edit its maintained source instead.' };
+    const previous = (await $.fs.exists(path)) ? JSON.parse(await $.fs.read(path)) : {};
+    const file = change(previous);
+    const checked = loadConfig({ userFile: file });
+    await $.fs.write(path, `${JSON.stringify(file, null, 2)}\n`);
+    return { config: { ...checked, nativePath: path } };
+  } catch (error) {
+    // A JSON parse message quotes the file; the loadConfig messages name the setting only.
+    const reason = error instanceof SyntaxError ? 'router.json is not valid JSON' : error.message;
+    return { error: `Not saved: ${reason}. router.json is unchanged.` };
   }
-  return `Jev Router · ${view.actualModel ? 'last reply' : 'selected'} ${modelLabel(view.actualModel ?? view.selectedModel ?? view.nativeModel)}${view.effort ? ` · ${view.effort}` : ''} · ${REASONS[view.reason] ?? view.reason}`;
 }
 
 function detailText(view) {
   return [
-    `Jev Router — ${view.mode === 'auto' ? 'Auto' : 'Manual'}`,
+    `Router — ${view.mode === 'auto' ? 'Auto' : 'Manual'}`,
     `Native model: ${view.nativeModel}`,
     `Selected: ${view.selectedModel ?? 'not selected'}`,
     `Observed: ${view.actualModel ?? 'no response yet'}`,
@@ -158,13 +159,7 @@ function detailText(view) {
     view.pendingPin ? `Next turn pin: ${view.pendingPin}` : 'No next-turn pin.',
     'Auto enables routing. Manual preserves Claude’s model. Pins serve one turn only.',
     'Cache lifetime is an estimate. Claude’s cost ledger owns session totals.',
-    ...(view.error === GATEWAY_SETTINGS
-      ? [
-          'Remove from settings.json, then restart: model jev-router[1m], its modelPicker row,',
-          'env.ANTHROPIC_BASE_URL for 127.0.0.1:43170, env.CLAUDE_CODE_GATEWAY_HINT_HEADERS,',
-          'and a statusLine that runs the router scripts/statusline.mjs.',
-        ]
-      : []),
+    ...(view.error === GATEWAY_SETTINGS ? GATEWAY_CLEANUP : []),
   ].join('\n');
 }
 
@@ -201,15 +196,7 @@ async function contextOf($, loop) {
   }
 }
 
-function tuningOf(config) {
-  return {
-    timeoutMs: config.jev.timeoutMs,
-    downgradeVotes: config.policy.downgradeVotes,
-    horizon: config.policy.downgradeHorizonTurns,
-  };
-}
-
-function responseMetrics(view, response) {
+function responseMetrics(view, response, tier) {
   const usage = response.usage;
   const counters = usage ? [usage.input_tokens, usage.cache_read_input_tokens, usage.cache_creation_input_tokens] : [];
   const inputTokens =
@@ -220,7 +207,13 @@ function responseMetrics(view, response) {
     cacheWrite: usage?.cache_creation_input_tokens ?? null,
     inputTokens,
     outputTokens: usage?.output_tokens ?? null,
-    history: Number.isFinite(inputTokens) ? [...(view?.history ?? []), inputTokens].slice(-10) : (view?.history ?? []),
+    // Appended together so the Usage trend can color each reading by its tier.
+    ...(Number.isFinite(inputTokens)
+      ? {
+          history: [...(view?.history ?? []), inputTokens].slice(-HISTORY),
+          tiers: [...(view?.tiers ?? []), tier ?? null].slice(-HISTORY),
+        }
+      : {}),
   };
 }
 
@@ -253,7 +246,7 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, config,
       now: Date.now(),
     });
     const written = await $.state.set(ref, observed, { ifVersion: version });
-    if (written.isSet) await updateView($, runtime, responseMetrics(runtime.view, response));
+    if (written.isSet) await updateView($, runtime, responseMetrics(runtime.view, response, null));
   }
   return response;
 }
@@ -271,8 +264,8 @@ export function register(on, options) {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'router',
-      description: 'Jev routing, next-turn pins and model controls.',
-      argumentHint: '[auto|off|pin <tier>|status|setup]',
+      description: 'Open the Router pane, or switch routing: auto, off, pin <tier>.',
+      argumentHint: '[auto|off|pin <tier>]',
       immediate: true,
     });
     const model = await $.session.model();
@@ -297,6 +290,7 @@ export function register(on, options) {
         keySet: Boolean(await apiKeyOf($, options)),
         configPath: config.nativePath,
         tuning: tuningOf(config),
+        bandDetail: (await $.store.get(BAND_DETAIL).catch(() => false)) === true,
       });
     } catch (error) {
       await updateView($, runtime, {
@@ -335,11 +329,10 @@ export function register(on, options) {
     }
     if (action === 'pin')
       return { text: TIERS.includes(tier) ? await setPin($, runtime, tier) : `Choose ${TIERS.join(', ')}.` };
-    if (action === 'setup') return configureKey($);
     const storedView = await readView($, runtime);
     const view = { ...storedView, mode: await modeOf($, runtime, storedView.mode) };
-    if (action === 'status' || !(await $.session.surfaces()).length) return { text: detailText(view) };
-    await $.ui.open({ id: PANE, title: 'Jev Router', focus: true, closeOnEscape: true });
+    if (!(await $.session.surfaces()).length) return { text: detailText(view) };
+    await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
     return {};
   });
 
@@ -424,6 +417,7 @@ export function register(on, options) {
               (await modeOf($, runtime)) !== 'auto'
             )
               return null;
+            const previous = loop.decision;
             const selected = chooseRoute(cfg, loop, {
               facts,
               advice: result.advice,
@@ -437,6 +431,8 @@ export function register(on, options) {
             const written = await $.state.set(ref, selected, { ifVersion: loopVersion });
             // Manual, /clear and turn completion abort the controller; one may land during the write.
             if (!written.isSet || controller.signal.aborted) return null;
+            if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
+              $.ui.toast(switchToast(previous, selected.decision, selected.decision.estimate));
             await updateView($, runtime, {
               phase: 'routed',
               selectedModel: selected.decision.model,
@@ -451,6 +447,7 @@ export function register(on, options) {
               adviceMs:
                 pin || ['missing-key', 'busy', 'paused'].includes(result.error) ? null : Date.now() - adviceStarted,
               adviceChoice: result.advice?.choice ?? null,
+              probabilities: result.advice?.probabilities ?? null,
               estimate: selected.decision.estimate ?? null,
               comparison: selected.decision.comparison,
             });
@@ -505,7 +502,7 @@ export function register(on, options) {
       });
       if (response.stopReason === null) observed.suspended = true;
       const written = await $.state.set(ref, observed, { ifVersion: loopVersion });
-      if (written.isSet) await updateView($, runtime, responseMetrics(runtime.view, response));
+      if (written.isSet) await updateView($, runtime, responseMetrics(runtime.view, response, loop.decision.tier));
     }
     return response;
   });
@@ -554,82 +551,148 @@ export function register(on, options) {
     return next(e);
   });
 
+  // While the classifier runs, the turn's spinner says so; the engine's own word returns once the route is set.
+  on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
+    if (e.props.message !== null) return next(e);
+    const view = await readView($, runtime);
+    return view.phase === 'choosing' ? next({ ...e, props: { ...e.props, message: 'Choosing model' } }) : next(e);
+  });
+
+  // Paused or broken routing stays visible in the prompt footer even when the band is collapsed.
+  on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
+    const view = await readView($, runtime);
+    const label =
+      view.phase === 'unavailable'
+        ? 'router unavailable'
+        : (await modeOf($, runtime, view.mode)) === 'manual'
+          ? 'router off'
+          : null;
+    return label ? next({ ...e, props: { ...e.props, modes: [...e.props.modes, label] } }) : next(e);
+  });
+
   on('ui.render', { component: ['AbovePrompt', 'Pane'] }, async ($, e, next) => {
     if (e.component === 'Pane' && e.requestId !== PANE) return next(e);
     const storedView = await readView($, runtime);
     const view = { ...storedView, mode: await modeOf($, runtime, storedView.mode) };
     const elements = $.ui.resolve(e);
-    const { Box, Text, Button } = elements;
-    if (e.component === 'AbovePrompt')
+    const { Box } = elements;
+    const usage = await $.session.usage().catch(() => null);
+    const openPane = () => $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
+    if (e.component === 'AbovePrompt') {
+      if (e.props.hasSurvey) return next(e);
       return Box({
         flexDirection: 'column',
         children: [
           await next(e),
-          Box({
-            children: [
-              Text({ color: view.error ? 'yellow' : 'cyan', children: bandText(view) }),
-              Text({ children: '  ' }),
-              Button({
-                key: 'details',
-                label: 'Router',
-                plain: true,
-                onPress: () => $.ui.open({ id: PANE, title: 'Jev Router', focus: true, closeOnEscape: true }),
-              }),
-            ],
-          }),
+          renderBand(
+            elements,
+            config,
+            view,
+            usage,
+            { columns: e.props.bodyColumns, agentId: e.props.view?.agentId },
+            {
+              open: openPane,
+              mode: (mode) => changeMode($, runtime, mode),
+              pin: async (tier) => $.ui.toast(await setPin($, runtime, tier)),
+              unpin: () => updateView($, runtime, { pendingPin: null }),
+              key: () => openKeySettings($),
+              toggleDetail: async () => {
+                const bandDetail = !view.bandDetail;
+                await $.store.set(BAND_DETAIL, bandDetail).catch(() => {});
+                await updateView($, runtime, { bandDetail });
+              },
+            },
+          ),
         ],
       });
-    const usage = await $.session.usage().catch(() => null);
-    return renderPanel(elements, config, view, usage, {
-      mode: (mode) => changeMode($, runtime, mode),
-      pin: async (tier) => {
-        $.ui.log(await setPin($, runtime, tier));
-      },
-      key: async () => {
-        const command = `/plugin configure ${$.plugin.name}`;
-        const draft = await $.prompt.read();
-        await updateView($, runtime, {
-          notice: `Run ${command} to edit the secure key. Your existing prompt is preserved.`,
-        });
-        await $.ui.close({ id: PANE });
-        if (!draft.text) {
-          const filled = await $.prompt.fill({ text: command });
-          $.ui.log(
-            filled.isFilled
-              ? 'Press Enter to open secure Jev key configuration.'
-              : `Run ${command} to configure the secure key.`,
+    }
+    const settings = await $.settings.read().catch(() => ({}));
+    const modelOptions = Object.keys(config.models).filter((alias) =>
+      isModelAllowed(config.models[alias].id, settings.availableModels, view.nativeModel),
+    );
+    const editRoute = (tier, change) => {
+      const draft = routeDraftOf(config, runtime.view ?? view);
+      return updateView($, runtime, {
+        routeDraft: { ...draft, routes: { ...draft.routes, [tier]: change(draft.routes[tier]) } },
+        notice: null,
+      });
+    };
+    const save = async (change, saved) => {
+      const result = await saveConfig($, config.nativePath, change);
+      if (result.error) return updateView($, runtime, { notice: result.error });
+      config = result.config;
+      return updateView($, runtime, saved(config));
+    };
+    return renderPanel(
+      elements,
+      config,
+      view,
+      usage,
+      {
+        mode: (mode) => changeMode($, runtime, mode),
+        tab: (tab) => updateView($, runtime, { tab, notice: null }),
+        help: () => updateView($, runtime, { help: !view.help }),
+        pin: async (tier) => {
+          await updateView($, runtime, { notice: await setPin($, runtime, tier) });
+        },
+        unpin: () => updateView($, runtime, { pendingPin: null, notice: null }),
+        key: async () => {
+          openKeySettings($);
+          await $.ui.close({ id: PANE });
+        },
+        copyPath: async (press) => {
+          await $.ui.copy({ text: config.nativePath, surface: press?.surface });
+          await updateView($, runtime, { notice: 'Path copied.' });
+        },
+        close: () => $.ui.close({ id: PANE }),
+        routeModel: (tier, alias) =>
+          editRoute(tier, (route) => ({
+            model: alias,
+            effort: config.models[alias]?.efforts.includes(route.effort) ? route.effort : null,
+          })),
+        routeEffort: (tier, effort) => editRoute(tier, (route) => ({ model: route.model, effort })),
+        baseline: async (tier) => {
+          const draft = routeDraftOf(config, runtime.view ?? view);
+          await updateView($, runtime, { routeDraft: { ...draft, baselineTier: tier }, notice: null });
+        },
+        saveRoutes: async () => {
+          const draft = (runtime.view ?? view).routeDraft;
+          if (!draft) return updateView($, runtime, { notice: 'No route changes to save.' });
+          return save(
+            (file) => withRoutes(file, draft),
+            () => ({ routeDraft: null, notice: 'Saved routes. They apply from the next turn.' }),
           );
-        } else $.ui.log(`Run ${command} after finishing your current draft.`);
+        },
+        discardRoutes: () => updateView($, runtime, { routeDraft: null, notice: null }),
+        resetRoutes: () =>
+          updateView($, runtime, {
+            routeDraft: structuredClone({ routes: DEFAULTS.routes, baselineTier: DEFAULTS.baselineTier }),
+            notice: 'Defaults loaded. Save routes to remove your overrides from router.json.',
+          }),
+        tune: (key, value) =>
+          updateView($, runtime, {
+            tuning: { ...tuningOf(config), ...(runtime.view ?? view).tuning, [key]: value },
+            notice: null,
+          }),
+        saveTuning: async () => {
+          const draft = { ...tuningOf(config), ...(runtime.view ?? view).tuning };
+          return save(
+            (file) => ({
+              ...file,
+              jev: { ...file.jev, timeoutMs: draft.timeoutMs },
+              policy: {
+                ...file.policy,
+                downgradeVotes: draft.downgradeVotes,
+                downgradeHorizonTurns: draft.horizon,
+                cashCapUsd: draft.cashCapUsd,
+              },
+            }),
+            (saved) => ({ tuning: tuningOf(saved), notice: 'Saved. New tuning applies to future turns.' }),
+          );
+        },
+        resetTuning: () => updateView($, runtime, { tuning: tuningOf(config), notice: null }),
       },
-      close: () => $.ui.close({ id: PANE }),
-      tune: async (key, value) => {
-        await updateView($, runtime, {
-          tuning: { ...tuningOf(config), ...runtime.view?.tuning, [key]: value },
-          notice: 'Draft — select Save tuning to apply.',
-        });
-      },
-      save: async () => {
-        try {
-          const draft = runtime.view.tuning;
-          const path = config.nativePath;
-          if ((await $.fs.exists(path)) && (await $.fs.stat(path)).isLink) {
-            await updateView($, runtime, { notice: 'Config is a symlink. Edit its maintained source instead.' });
-            return;
-          }
-          const previous = (await $.fs.exists(path)) ? JSON.parse(await $.fs.read(path)) : {};
-          const file = {
-            ...previous,
-            jev: { ...previous.jev, timeoutMs: draft.timeoutMs },
-            policy: { ...previous.policy, downgradeVotes: draft.downgradeVotes, downgradeHorizonTurns: draft.horizon },
-          };
-          const checked = loadConfig({ userFile: file });
-          await $.fs.write(path, `${JSON.stringify(file, null, 2)}\n`);
-          config = { ...checked, nativePath: path };
-          await updateView($, runtime, { notice: 'Saved. New tuning applies to future turns.' });
-        } catch {
-          await updateView($, runtime, { notice: 'Could not save valid tuning. Existing configuration is unchanged.' });
-        }
-      },
-    });
+      { modelOptions },
+    );
   });
 }

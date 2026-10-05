@@ -11,6 +11,8 @@ const facts = {
   lastRequest: { tokens: 150_000, outputTokens: 1500 },
   models: { 'claude-sonnet-5-5@xhigh': { prefixTokens: 148_000, lastAt: now } },
 };
+// The cost figures below were computed with a Sonnet `medium` route, so pin it instead of the changing default.
+const SONNET_MEDIUM = loadConfig({ userFile: { routes: { medium: { model: 'sonnet', effort: 'xhigh' } } } });
 const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-10, `${actual} != ${expected}`);
 
 test('native cache evidence is only a five-minute fresh estimate, never an inferred hour', () => {
@@ -29,33 +31,34 @@ test('native cache evidence is only a five-minute fresh estimate, never an infer
 test('cache identity preserves model snapshots and separates effective efforts', () => {
   const config = loadConfig({ userFile: { models: { haiku: { id: 'claude-haiku-4-5-20251001' } } } });
   assert.equal(native.routeCacheKey(config, 'micro', 'xhigh'), 'claude-haiku-4-5-20251001');
-  assert.equal(native.routeCacheKey(config, 'medium', 'low'), 'claude-sonnet-5-5@xhigh');
+  assert.equal(native.routeCacheKey(config, 'medium', 'low'), 'claude-opus-5-5@medium');
+  assert.equal(native.routeCacheKey(SONNET_MEDIUM, 'medium', 'low'), 'claude-sonnet-5-5@xhigh');
   assert.equal(native.routeCacheKey(config, 'low', 'medium'), 'claude-sonnet-5-5@medium');
   assert.equal(native.routeCacheKey(config, 'low', 2000), 'claude-sonnet-5-5@2000');
 });
 
 test('bounds distinguish observed cached prefix from generated and uncached tokens', () => {
-  const bounds = native.inputBounds(DEFAULTS, 'medium', 151_500, facts, now);
+  const bounds = native.inputBounds(SONNET_MEDIUM, 'medium', 151_500, facts, now);
   near(bounds.min, 0.0366);
   near(bounds.max, 0.0436);
-  near(native.coldWriteUsd(DEFAULTS, 'haiku', 151_500), 0.303);
+  near(native.coldWriteUsd(SONNET_MEDIUM, 'haiku', 151_500), 0.303);
 });
 
 test('unknown TTL keeps an optimistic incumbent scenario and a cold candidate upper cost', () => {
   const later = now + 600_000;
-  near(native.switchingTaxUsd(DEFAULTS, 'micro', 'medium', facts, later), 0.2664);
-  near(native.downgradeTaxUsd(DEFAULTS, 'micro', 'medium', facts, later, 5), 0.1683);
-  const estimate = native.shadowEconomics(DEFAULTS, 'micro', 'medium', facts, later);
+  near(native.switchingTaxUsd(SONNET_MEDIUM, 'micro', 'medium', facts, later), 0.2664);
+  near(native.downgradeTaxUsd(SONNET_MEDIUM, 'micro', 'medium', facts, later, 5), 0.1683);
+  const estimate = native.shadowEconomics(SONNET_MEDIUM, 'micro', 'medium', facts, later);
   near(estimate.nextTurnUsd, 0.2589);
   near(estimate.laterTurnUsd, -0.02265);
   assert.equal(estimate.paybackTurns, 12);
-  assert.equal(native.cacheState(facts.models['claude-sonnet-5-5@xhigh'], later, DEFAULTS.cache), 'unknown');
+  assert.equal(native.cacheState(facts.models['claude-sonnet-5-5@xhigh'], later, SONNET_MEDIUM.cache), 'unknown');
 });
 
 test('the default policy accounts for bounded native switching costs', () => {
   const advice = { choice: 'micro', continuation: 0, probabilities: { micro: 0.92, low: 0, medium: 0.08, high: 0 } };
   const state = { ...initialState(), votes: [{ tier: 'micro', turn: 0 }] };
-  const args = { config: DEFAULTS, facts, advice, state, baseline: 'medium', now };
+  const args = { config: SONNET_MEDIUM, facts, advice, state, baseline: 'medium', now };
   const original = decide(args);
   const bounded = decide({ ...args, costs: native });
   assert.deepEqual(original, bounded);
