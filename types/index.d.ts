@@ -19,6 +19,16 @@ declare module 'claude-code' {
     cap?: number;
     cache?: RouterCacheState | { candidate: RouterCacheState; incumbent: RouterCacheState };
   }
+  interface RouterTuning {
+    timeoutMs: number;
+    downgradeVotes: number;
+    horizon: number;
+    cashCapUsd: number;
+  }
+  interface RouterRoutes {
+    routes: Record<RouterTier, { model: string; effort?: string | null }>;
+    baselineTier: RouterTier;
+  }
   interface RouterView {
     phase: 'ready' | 'choosing' | 'routed' | 'manual' | 'unavailable';
     mode: 'auto' | 'manual';
@@ -47,11 +57,9 @@ declare module 'claude-code' {
     history?: number[];
     tiers?: (RouterTier | null)[];
     configPath?: string | null;
-    tuning?: { timeoutMs: number; downgradeVotes: number; horizon: number; cashCapUsd?: number } | null;
-    routeDraft?: {
-      routes: Record<RouterTier, { model: string; effort?: string | null }>;
-      baselineTier: RouterTier;
-    } | null;
+    tuning?: Partial<RouterTuning> | null;
+    tuningBase?: RouterTuning | null;
+    routeDraft?: (RouterRoutes & { base: RouterRoutes }) | null;
     tab?: 'now' | 'tiers' | 'tuning' | 'usage';
     help?: boolean;
     bandDetail?: boolean;

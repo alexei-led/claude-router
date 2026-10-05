@@ -1,4 +1,4 @@
-import { DEFAULTS, loadConfig, TIERS, tuningOf, withRoutes, withTuning } from '../lib/config.mjs';
+import { DEFAULTS, effectiveRoutes, loadConfig, TIERS, tuningOf, withRoutes, withTuning } from '../lib/config.mjs';
 import { clip } from '../lib/facts-pure.mjs';
 import { renderBand, switchToast } from '../lib/native-band.mjs';
 import { GATEWAY_CLEANUP, GATEWAY_SETTINGS } from '../lib/native-display.mjs';
@@ -55,6 +55,7 @@ function initialView(model) {
     tiers: [],
     configPath: null,
     tuning: null,
+    tuningBase: null,
     routeDraft: null,
     tab: 'now',
     help: false,
@@ -289,7 +290,8 @@ export function register(on, options) {
         error: !supported ? 'requires Claude Code 2.1.289 or newer' : gateway ? GATEWAY_SETTINGS : null,
         keySet: Boolean(await apiKeyOf($, options)),
         configPath: config.nativePath,
-        tuning: tuningOf(config),
+        tuning: null,
+        tuningBase: null,
         bandDetail: (await $.store.get(BAND_DETAIL).catch(() => false)) === true,
       });
     } catch (error) {
@@ -546,7 +548,6 @@ export function register(on, options) {
       keySet: runtime.view?.keySet ?? false,
       health: classifier.snapshot(),
       configPath: config.nativePath,
-      tuning: tuningOf(config),
       phase: runtime.view?.phase === 'unavailable' ? 'unavailable' : 'ready',
       error: runtime.view?.phase === 'unavailable' ? runtime.view.error : null,
     };
@@ -614,8 +615,9 @@ export function register(on, options) {
     );
     const editRoute = (tier, change) => {
       const draft = routeDraftOf(config, runtime.view ?? view);
+      const current = effectiveRoutes(draft, config).routes[tier];
       return updateView($, runtime, {
-        routeDraft: { ...draft, routes: { ...draft.routes, [tier]: change(draft.routes[tier]) } },
+        routeDraft: { ...draft, routes: { ...draft.routes, [tier]: change(current) } },
         notice: null,
       });
     };
@@ -661,32 +663,37 @@ export function register(on, options) {
           const draft = (runtime.view ?? view).routeDraft;
           if (!draft) return updateView($, runtime, { notice: 'No route changes to save.' });
           return save(
-            (file) => withRoutes(file, draft, config),
+            (file) => withRoutes(file, draft),
             () => ({ routeDraft: null, notice: 'Saved routes. They apply from the next turn.' }),
           );
         },
         discardRoutes: () => updateView($, runtime, { routeDraft: null, notice: null }),
         resetRoutes: () =>
           updateView($, runtime, {
-            routeDraft: structuredClone({ routes: DEFAULTS.routes, baselineTier: DEFAULTS.baselineTier }),
+            routeDraft: {
+              ...structuredClone({ routes: DEFAULTS.routes, baselineTier: DEFAULTS.baselineTier }),
+              base: routeDraftOf(config, {}).base,
+            },
             notice: 'Defaults loaded. Save routes to remove your overrides from router.json.',
           }),
         tune: (key, value) =>
           updateView($, runtime, {
-            tuning: { ...tuningOf(config), ...(runtime.view ?? view).tuning, [key]: value },
+            tuning: { ...(runtime.view ?? view).tuning, [key]: value },
+            tuningBase: (runtime.view ?? view).tuningBase ?? tuningOf(config),
             notice: null,
           }),
         saveTuning: async () => {
-          const saved = tuningOf(config);
-          const draft = { ...saved, ...(runtime.view ?? view).tuning };
-          if (Object.keys(saved).every((key) => draft[key] === saved[key]))
+          const current = runtime.view ?? view;
+          const base = current.tuningBase ?? tuningOf(config);
+          const draft = { ...base, ...current.tuning };
+          if (Object.keys(base).every((key) => draft[key] === base[key]))
             return updateView($, runtime, { notice: 'No tuning changes to save.' });
           return save(
-            (file) => withTuning(file, draft, saved),
-            (updated) => ({ tuning: tuningOf(updated), notice: 'Saved. New tuning applies to future turns.' }),
+            (file) => withTuning(file, draft, base),
+            () => ({ tuning: null, tuningBase: null, notice: 'Saved. New tuning applies to future turns.' }),
           );
         },
-        resetTuning: () => updateView($, runtime, { tuning: tuningOf(config), notice: null }),
+        resetTuning: () => updateView($, runtime, { tuning: null, tuningBase: null, notice: null }),
       },
       { modelOptions },
     );

@@ -156,7 +156,8 @@ test('withRoutes writes only the routes and baseline that differ from the defaul
     ],
     ['baseline', { baselineTier: 'micro' }, { ...defaults, baselineTier: 'medium' }, { baselineTier: 'medium' }],
   ]) {
-    const written = withRoutes(file, draft, loadConfig({ userFile: file }));
+    const loaded = loadConfig({ userFile: file });
+    const written = withRoutes(file, { ...draft, base: { routes: loaded.routes, baselineTier: loaded.baselineTier } });
     assert.deepEqual(written, expected, name);
     loadConfig({ userFile: written });
   }
@@ -167,9 +168,10 @@ test('a pane save keeps router.json edits made on disk after the session loaded 
   const draft = {
     routes: { ...structuredClone(DEFAULTS.routes), micro: { model: 'sonnet', effort: null } },
     baselineTier: DEFAULTS.baselineTier,
+    base: { routes: base.routes, baselineTier: base.baselineTier },
   };
   const onDisk = { routes: { high: { model: 'sonnet' } }, baselineTier: 'medium' };
-  assert.deepEqual(withRoutes(onDisk, draft, base), {
+  assert.deepEqual(withRoutes(onDisk, draft), {
     routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet' } },
     baselineTier: 'medium',
   });

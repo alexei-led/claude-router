@@ -217,6 +217,7 @@ pane(
     routeDraft: {
       routes: { ...config.routes, medium: { model: 'sonnet', effort: 'xhigh' } },
       baselineTier: 'low',
+      base: { routes: config.routes, baselineTier: 'low' },
     },
   },
   'Router pane, Tiers tab',

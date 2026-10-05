@@ -427,7 +427,9 @@ test('clear discards unsaved tuning and preserves active configuration', async (
   await h.event('session.end', { reason: 'clear' });
   h.clear();
   await drain(h.step({ ...step, turnId: 't2' }));
-  assert.equal(h.view().tuning.timeoutMs, 1500);
+  assert.equal(h.view().tuning, null);
+  await press(h, 'tab-tuning');
+  assert.equal(controls(await h.render()).find((node) => node.key === 'timeoutMs').value, '1500');
 });
 
 test('the key button opens the secure plugin dialog and leaves a prompt draft alone', async () => {
@@ -923,4 +925,31 @@ test('a narrow band never exceeds its width: optional parts drop, then the route
     assert.match(line, expected, `at ${columns}`);
     assert.ok(widthOf(line) + widthOf(buttons) <= columns, `${columns}: ${line}${buttons}`);
   }
+});
+
+test('a draft on one tab survives a save on the other tab after an on-disk edit', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-tiers');
+  await press(h, 'route-model-micro', 'sonnet');
+  await press(h, 'tab-tuning');
+  await press(h, 'horizon', '10');
+  h.files.set(CONFIG, JSON.stringify({ routes: { high: { model: 'sonnet' } }, jev: { timeoutMs: 900 } }));
+  await press(h, 'save-tuning');
+  await press(h, 'tab-tiers');
+  await press(h, 'save-routes');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
+    routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet' } },
+    jev: { timeoutMs: 900 },
+    policy: { downgradeHorizonTurns: 10 },
+  });
+  await press(h, 'tab-tuning');
+  await press(h, 'downgradeVotes', '3');
+  h.files.set(CONFIG, JSON.stringify({ jev: { timeoutMs: 3000 } }));
+  await press(h, 'tab-tiers');
+  await press(h, 'route-model-micro', 'haiku');
+  await press(h, 'save-routes');
+  await press(h, 'tab-tuning');
+  await press(h, 'save-tuning');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { jev: { timeoutMs: 3000 }, policy: { downgradeVotes: 3 } });
 });
