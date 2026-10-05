@@ -11,7 +11,9 @@ node_modules/
 .claude/settings.local.json
 .pi/
 .review/
-.revmux/
+# revmux keeps its review archive here; the project profile is versioned.
+.revmux/*
+!.revmux/profile.md
 
 # OS
 .DS_Store
