@@ -8,6 +8,7 @@ const modules = [
   'config',
   'facts-pure',
   'jev-contract',
+  'native-band',
   'native-cost',
   'native-display',
   'native-jev',
@@ -22,7 +23,7 @@ export async function prepareNativeCandidate({ acceptance = false } = {}) {
   await mkdir(join(directory, 'hooks'));
   await mkdir(join(directory, 'lib'));
   const manifest = JSON.parse(await readFile(join(root, '.claude-plugin/plugin.json'), 'utf8'));
-  manifest.description = 'Isolated native Jev Router candidate; gateway hooks are disabled for this launch.';
+  manifest.description = 'Isolated native Router candidate; gateway hooks are disabled for this launch.';
   manifest.types = './types/index.d.ts';
   await writeFile(join(directory, '.claude-plugin/plugin.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   await writeFile(

@@ -157,8 +157,8 @@ try {
         assert.equal(again.error, 'timeout', 'the replaced module may ask again');
         checks.askAfterReplace = again.error;
       } else {
-        const status = await session.raw('/router status');
-        assert.ok(!/Jev Router — /.test(status.result ?? ''), 'router controls must be gone after unload');
+        const status = await session.raw('/router');
+        assert.ok(!/Router — /.test(status.result ?? ''), 'router controls must be gone after unload');
         checks.routerControlsGone = true;
       }
       await until('host closes the orphaned request', () => unfinished() === 0, HOST_SOCKET_LIMIT_MS);

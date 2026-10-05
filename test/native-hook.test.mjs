@@ -11,6 +11,7 @@ function harness(options = {}, preferences = new Map()) {
   ]);
   const requests = [];
   const files = new Map();
+  const links = new Set();
   let model = 'claude-sonnet-5-5';
   let usage = { context: { tokens: 8000, breakdown: { totalTokens: 9000 } } };
   let draft = '';
@@ -49,7 +50,7 @@ function harness(options = {}, preferences = new Map()) {
     fs: {
       exists: async (path) => files.has(path),
       read: async (path) => files.get(path),
-      stat: async () => ({ isLink: false }),
+      stat: async (path) => ({ isLink: links.has(path) }),
       write: async (path, text) => files.set(path, text),
     },
     command: {
@@ -124,6 +125,7 @@ function harness(options = {}, preferences = new Map()) {
     env,
     requests,
     files,
+    links,
     preferences,
     usage: (value) => {
       usage = value;
@@ -862,4 +864,42 @@ test('the footer labels paused routing', async () => {
   assert.deepEqual((await h.component('SessionMode', { modes: ['focus'] })).props.modes, ['focus']);
   await h.event('command.run', { command: 'router', args: 'off' });
   assert.deepEqual((await h.component('SessionMode', { modes: ['focus'] })).props.modes, ['focus', 'router off']);
+});
+
+test('a substituted reply is not counted as the requested tier', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step, substituted));
+  assert.deepEqual(h.view().tiers, [null]);
+});
+
+test('the pane refuses to save through a symlinked router.json', async () => {
+  const h = harness();
+  await start(h);
+  h.files.set(CONFIG, '{}');
+  h.links.add(CONFIG);
+  await press(h, 'tab-tiers');
+  await press(h, 'route-model-medium', 'sonnet');
+  await press(h, 'save-routes');
+  assert.match(h.view().notice, /symlink/);
+  assert.equal(h.files.get(CONFIG), '{}');
+  await press(h, 'tab-tuning');
+  await press(h, 'horizon', '10');
+  await press(h, 'save-tuning');
+  assert.match(h.view().notice, /symlink/);
+  assert.equal(h.files.get(CONFIG), '{}');
+});
+
+test('a tuning save writes only the changed value and keeps edits made on disk', async () => {
+  const h = harness();
+  await start(h);
+  h.files.set(CONFIG, JSON.stringify({ jev: { timeoutMs: 900 } }));
+  await press(h, 'tab-tuning');
+  await press(h, 'horizon', '10');
+  await press(h, 'save-tuning');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
+    jev: { timeoutMs: 900 },
+    policy: { downgradeHorizonTurns: 10 },
+  });
 });

@@ -16,7 +16,7 @@ const EXPECTED = {
 const directory = await prepareNativeCandidate();
 const session = launchSession(directory, ['--allowedTools', 'Read'], {}, { tools: 'Read' });
 try {
-  await session.command('/router status');
+  await session.command('/router');
   const turns = [];
   for (const tier of PINS) {
     await session.command(`/router pin ${tier}`);

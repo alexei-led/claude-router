@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DEFAULTS, loadConfig, withRoutes } from '../lib/config.mjs';
+import { DEFAULTS, loadConfig, tuningOf, withRoutes, withTuning } from '../lib/config.mjs';
 
 test('defaults load without a user file and resolve no key', () => {
   const config = loadConfig({ env: {} });
@@ -156,8 +156,26 @@ test('withRoutes writes only the routes and baseline that differ from the defaul
     ],
     ['baseline', { baselineTier: 'micro' }, { ...defaults, baselineTier: 'medium' }, { baselineTier: 'medium' }],
   ]) {
-    const written = withRoutes(file, draft);
+    const written = withRoutes(file, draft, loadConfig({ userFile: file }));
     assert.deepEqual(written, expected, name);
     loadConfig({ userFile: written });
   }
+});
+
+test('a pane save keeps router.json edits made on disk after the session loaded it', () => {
+  const base = loadConfig({});
+  const draft = {
+    routes: { ...structuredClone(DEFAULTS.routes), micro: { model: 'sonnet', effort: null } },
+    baselineTier: DEFAULTS.baselineTier,
+  };
+  const onDisk = { routes: { high: { model: 'sonnet' } }, baselineTier: 'medium' };
+  assert.deepEqual(withRoutes(onDisk, draft, base), {
+    routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet', effort: 'xhigh' } },
+    baselineTier: 'medium',
+  });
+  const saved = tuningOf(base);
+  assert.deepEqual(
+    withTuning({ jev: { timeoutMs: 900 }, policy: { downgradeVotes: 3 } }, { ...saved, horizon: 10 }, saved),
+    { jev: { timeoutMs: 900 }, policy: { downgradeVotes: 3, downgradeHorizonTurns: 10 } },
+  );
 });

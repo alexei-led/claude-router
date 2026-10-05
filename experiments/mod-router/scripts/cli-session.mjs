@@ -119,8 +119,9 @@ export function launchSession(directory, argv = [], env = {}, { tools = '' } = {
     return result;
   }
   async function inspect() {
-    const status = await command('/router status');
-    const mode = /Jev Router — (Auto|Manual)\b/.exec(status)?.[1];
+    // A headless session has no UI surface, so /router prints its status instead of opening the pane.
+    const status = await command('/router');
+    const mode = /Router — (Auto|Manual)\b/.exec(status)?.[1];
     assert.ok(mode, 'Native router status unavailable');
     return { ...(await command('/router-accept inspect')), mode: mode.toLowerCase() };
   }

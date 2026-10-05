@@ -48,7 +48,7 @@ Read the first line of the picture from left to right:
 | `✕ Router unavailable`                      | Nothing routes: an old Claude Code or leftover v0.8 settings. **Fix** opens the pane. |
 | `○ Router · subagents keep their own model` | You are viewing a subagent's transcript, which Router does not route.                 |
 
-Hover over the band for a second row: pin a tier for the next turn, switch to Manual, or show two rows. The two-row band adds a strip of recent replies colored by tier, the switch count, the switch tax, and the cache saving. Router remembers that choice across sessions. When Router changes the model between turns, a toast shows the old and new model and the reason. A pin does not raise one.
+Hover over the band for a second row: pin a tier for the next turn, switch to Manual, or show two rows. The two-row band adds a strip of recent replies colored by tier, the switch count, the switch tax, and the cache saving. Router remembers that choice across sessions. When Router changes the model between turns, a toast shows the old and new model and the reason. A pin does not raise one, and neither does a change of effort alone.
 
 The band steps aside while a survey needs the space.
 

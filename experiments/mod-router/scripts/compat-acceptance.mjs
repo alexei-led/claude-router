@@ -17,7 +17,7 @@ const session = launchSession(
   { tools: 'Read' },
 );
 try {
-  await session.command('/router status');
+  await session.command('/router');
   for (const tier of PINS) {
     await session.command(`/router pin ${tier}`);
     const turn = await session.raw('Read package.json, then reply OK.');

@@ -1,19 +1,19 @@
-import { DEFAULTS, loadConfig, TIERS, withRoutes } from '../lib/config.mjs';
+import { DEFAULTS, loadConfig, TIERS, tuningOf, withRoutes, withTuning } from '../lib/config.mjs';
 import { clip } from '../lib/facts-pure.mjs';
 import { renderBand, switchToast } from '../lib/native-band.mjs';
 import { GATEWAY_CLEANUP, GATEWAY_SETTINGS } from '../lib/native-display.mjs';
 import { NativeJev } from '../lib/native-jev.mjs';
-import { renderPanel, routeDraftOf, tuningOf } from '../lib/native-panel.mjs';
+import { renderPanel, routeDraftOf } from '../lib/native-panel.mjs';
 import {
   chooseRoute,
   continueRoute,
   emptyLoop,
   isModelAllowed,
+  isSameModel,
   nativeFacts,
   observeResponse,
   prepareLoop,
   resetHistory,
-  SNAPSHOTS,
 } from '../lib/native-router.mjs';
 
 const VIEW = { plugin: 'router', key: 'view' };
@@ -221,7 +221,7 @@ function responseMetrics(view, response, tier) {
 function isNativeFallback(loop, model) {
   if (loop.suspended) return true;
   const known = [loop.engineModel, loop.decision?.model].filter(Boolean);
-  return known.length > 0 && !known.some((id) => id === model || SNAPSHOTS[id] === model);
+  return known.length > 0 && !known.some((id) => isSameModel(id, model));
 }
 
 async function* passMain($, e, next, loop, version, nativeModel, reason, config, runtime) {
@@ -502,7 +502,9 @@ export function register(on, options) {
       });
       if (response.stopReason === null) observed.suspended = true;
       const written = await $.state.set(ref, observed, { ifVersion: loopVersion });
-      if (written.isSet) await updateView($, runtime, responseMetrics(runtime.view, response, loop.decision.tier));
+      // A substituted reply is not the tier's: the strip and trend must not count it as one.
+      const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
+      if (written.isSet) await updateView($, runtime, responseMetrics(runtime.view, response, tier));
     }
     return response;
   });
@@ -659,7 +661,7 @@ export function register(on, options) {
           const draft = (runtime.view ?? view).routeDraft;
           if (!draft) return updateView($, runtime, { notice: 'No route changes to save.' });
           return save(
-            (file) => withRoutes(file, draft),
+            (file) => withRoutes(file, draft, config),
             () => ({ routeDraft: null, notice: 'Saved routes. They apply from the next turn.' }),
           );
         },
@@ -675,19 +677,13 @@ export function register(on, options) {
             notice: null,
           }),
         saveTuning: async () => {
-          const draft = { ...tuningOf(config), ...(runtime.view ?? view).tuning };
+          const saved = tuningOf(config);
+          const draft = { ...saved, ...(runtime.view ?? view).tuning };
+          if (Object.keys(saved).every((key) => draft[key] === saved[key]))
+            return updateView($, runtime, { notice: 'No tuning changes to save.' });
           return save(
-            (file) => ({
-              ...file,
-              jev: { ...file.jev, timeoutMs: draft.timeoutMs },
-              policy: {
-                ...file.policy,
-                downgradeVotes: draft.downgradeVotes,
-                downgradeHorizonTurns: draft.horizon,
-                cashCapUsd: draft.cashCapUsd,
-              },
-            }),
-            (saved) => ({ tuning: tuningOf(saved), notice: 'Saved. New tuning applies to future turns.' }),
+            (file) => withTuning(file, draft, saved),
+            (updated) => ({ tuning: tuningOf(updated), notice: 'Saved. New tuning applies to future turns.' }),
           );
         },
         resetTuning: () => updateView($, runtime, { tuning: tuningOf(config), notice: null }),

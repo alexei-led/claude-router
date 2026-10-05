@@ -85,7 +85,9 @@ test('the upgrade threshold rises with the switching tax', () => {
 });
 
 test('a cold metered model above the cash cap routes to the strongest plan tier instead', () => {
-  const [d] = runTurns(facts({ tokens: 300_000 }), [advice('high', { high: 0.97 })], initialState(), metered);
+  // From micro, so the strongest plan tier (low; medium and high are Opus, metered here) is a real switch.
+  const f = facts({ lastRoute: 'micro', tokens: 300_000, servedBy: 'claude-haiku-4-5-20251001' });
+  const [d] = runTurns(f, [advice('high', { high: 0.97 })], initialState(), metered);
   assert.equal(d.reason, 'cash-gate');
   assert.equal(d.tier, 'low');
   assert.ok(d.estimate.coldUsd > metered.policy.cashCapUsd);
@@ -109,11 +111,12 @@ test('a warm metered model passes the cash gate even when a cold write would not
   assert.equal(guarded.reason, 'cash-gate');
 });
 
-// Regression: low and medium are one model at two efforts; the switch rewrites the messages cache.
+// Regression: with low and medium as one model at two efforts, the switch rewrites the messages cache.
 test('an effort-only upgrade pays the switching tax of a new messages cache', () => {
+  const sonnetMedium = loadConfig({ userFile: { routes: { medium: { model: 'sonnet', effort: 'xhigh' } } } });
   const f = facts({ lastRoute: 'low', tokens: 400_000 });
   const votes = [advice('medium', { medium: 0.8, low: 0.2 }), advice('medium', { medium: 0.8, low: 0.2 })];
-  const [, second] = runTurns(f, votes);
+  const [, second] = runTurns(f, votes, initialState(), sonnetMedium);
   assert.equal(second.reason, 'upgrade-pending');
   assert.ok(second.estimate.taxUsd > 1.5);
   assert.deepEqual(second.estimate.cache, { candidate: 'unknown', incumbent: 'fresh' });
