@@ -94,6 +94,23 @@ test('a cold metered model above the cash cap routes to the strongest plan tier 
   assert.equal(d.estimate.cache, 'unknown');
 });
 
+test('a downgrade to a cold metered model above the cash cap stays on the incumbent', () => {
+  const sonnetMetered = loadConfig({ userFile: { models: { sonnet: { billing: 'credits', input: 10 } } } });
+  const f = facts({ lastRoute: 'high', tokens: 300_000, servedBy: 'claude-opus-5-5', effort: 'xhigh' });
+  const votes = [advice('low', { low: 0.99 }), advice('low', { low: 0.99 })];
+  const [, second] = runTurns(f, votes, initialState(), sonnetMetered);
+  assert.equal(second.reason, 'cash-gate');
+  assert.equal(second.tier, 'high');
+  assert.ok(second.estimate.coldUsd > sonnetMetered.policy.cashCapUsd);
+});
+
+test('an escalation to a cold metered model above the cash cap stays on the strongest plan tier', () => {
+  const f = facts({ lastRoute: 'low', tokens: 300_000, failure: { signature: 'sig' } });
+  const [d] = runTurns(f, [null], initialState(), metered);
+  assert.equal(d.reason, 'cash-gate');
+  assert.equal(d.tier, 'low');
+});
+
 test('a warm metered model passes the cash gate even when a cold write would not', () => {
   // 300k at $10/M with the 5m write multiplier: $3.75 cold, above the $2 cap. The warm cache of high's effort passes.
   const warm = served('claude-opus-5-5', { tokens: 300_000, ttl: '5m', at: T0, effort: 'xhigh' }).models;

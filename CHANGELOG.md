@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1 (2026-10-05)
+
+### Fixed
+
+- The credits cap now also guards downgrades and failure escalations. It checked only upgrades, so a downgrade or an escalation could start with a cold cache write above `policy.cashCapUsd` on a `credits` model. A blocked switch now stays on the current tier, or moves to the strongest `plan` tier above it. Default routes use `plan` models and are not affected.
+
 ## 1.1.0 (2026-10-05)
 
 ### Added
