@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.1.0 (2026-10-05)
+
+### Added
+
+- The status band is redrawn as **Router**: a tier meter, the route, a one-word reason, classifier support, and context and cache, fitted to the band's width. It offers **Auto**, **Set key**, and pin cancel in place. Hover reveals tier pins, Manual, and an optional second row with recent replies by tier.
+- A model change between turns raises a toast; a pin or an effort-only change does not. The spinner says `Choosing model` while the classifier runs. The prompt footer shows `router off` in Manual mode.
+- The router pane has four tabs: Now, Tiers, Tuning, and Usage. Now shows the classifier's support for each tier next to its pin button, and the last 30 replies colored by tier.
+- The Tiers tab edits each tier's model and effort and the baseline tier. It shows the `router.json` diff and how the policy prices each step up before you save. A route can set `"effort": null` to keep the session effort.
+- The Tuning tab adds the credits cap.
+- The user guide and README show the band and pane, drawn from the render code with `npm run docs:images`.
+
+### Changed
+
+- The `medium` tier defaults to Opus 5.5 at `medium` effort (was Sonnet 5.5 at `xhigh`), for a speed and cost balance. A `routes.medium` entry in `router.json` still overrides it.
+- The plugin is named Router. Jev is named only where it explains a reading or a failure, so other classifiers can follow. The plugin ID is unchanged.
+- `/router` takes `auto`, `off`, or `pin <tier>`. `status` and `setup` are removed: without a UI surface, `/router` prints the status, and **Set key** in the band or pane opens the secure key dialog.
+- A failed save in the pane names the invalid setting instead of a generic error.
+
+### Fixed
+
+- `/router setup` failed with "no command.run hook answered it". Claude Code refuses `$.command.run` inside a `command.run` hook, so the key dialog now opens from a timer.
+- The input trend scales from the lowest to the highest reading. Before, similar large readings drew as one solid bar.
+- The band yields to surveys and no longer shows the main conversation's tier in a subagent transcript.
+- Leftover v0.8 gateway settings are listed in the pane, not only in text status.
+
 ## 1.0.0 (2026-10-05)
 
 ### Changed

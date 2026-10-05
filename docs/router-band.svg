@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 922 379" role="img" aria-labelledby="title desc">
+  <title id="title">The Router band above the Claude Code prompt</title>
+  <desc id="desc">Five band states drawn by the router code: routed to high, two rows with the hover row, a pending pin, a missing classifier key, and Manual mode.</desc>
+  <style>
+    text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; }
+    .cap { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; fill: #9a988f; }
+  </style>
+  <rect width="922" height="379" rx="8" fill="#1c1c1c"/>
+<text class="cap" x="20" y="30">Auto: routed to the high tier on a clear jump</text>
+<rect x="12" y="38" width="897.6" height="29" rx="5" fill="#232323"/>
+<text x="24.0" y="56" fill="#e0708a" xml:space="preserve">▂</text>
+<text x="31.8" y="56" fill="#e0708a" xml:space="preserve">▄</text>
+<text x="39.6" y="56" fill="#e0708a" xml:space="preserve">▆</text>
+<text x="47.4" y="56" fill="#e0708a" xml:space="preserve">█</text>
+<text x="55.2" y="56" fill="#e0708a" font-weight="700" xml:space="preserve"> high </text>
+<text x="102.0" y="56" fill="#d0d0d0" xml:space="preserve">Opus 5.5 · xhigh</text>
+<text x="226.8" y="56" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="265.8" y="56" fill="#7c7c7c" xml:space="preserve">↑ jump</text>
+<text x="312.6" y="56" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="351.6" y="56" fill="#7c7c7c" xml:space="preserve">Jev 88% ≥ 82%</text>
+<text x="453.0" y="56" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="492.0" y="56" fill="#d0d0d0" xml:space="preserve">ctx </text>
+<text x="523.2" y="56" fill="#87d787" xml:space="preserve">40%</text>
+<text x="546.6" y="56" fill="#d0d0d0" xml:space="preserve"> · cache </text>
+<text x="616.8" y="56" fill="#87d787" xml:space="preserve">100%</text>
+<text x="663.6" y="56" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text class="cap" x="20" y="95">Two rows, with the hover row shown: recent replies by tier, pins, Manual</text>
+<rect x="12" y="103" width="897.6" height="67" rx="5" fill="#232323"/>
+<text x="24.0" y="121" fill="#e0708a" xml:space="preserve">▂</text>
+<text x="31.8" y="121" fill="#e0708a" xml:space="preserve">▄</text>
+<text x="39.6" y="121" fill="#e0708a" xml:space="preserve">▆</text>
+<text x="47.4" y="121" fill="#e0708a" xml:space="preserve">█</text>
+<text x="55.2" y="121" fill="#e0708a" font-weight="700" xml:space="preserve"> high </text>
+<text x="102.0" y="121" fill="#d0d0d0" xml:space="preserve">Opus 5.5 · xhigh</text>
+<text x="226.8" y="121" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="265.8" y="121" fill="#7c7c7c" xml:space="preserve">↑ jump</text>
+<text x="312.6" y="121" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="351.6" y="121" fill="#7c7c7c" xml:space="preserve">Jev 88% ≥ 82%</text>
+<text x="453.0" y="121" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="492.0" y="121" fill="#d0d0d0" xml:space="preserve">ctx </text>
+<text x="523.2" y="121" fill="#87d787" xml:space="preserve">40%</text>
+<text x="546.6" y="121" fill="#d0d0d0" xml:space="preserve"> · cache </text>
+<text x="616.8" y="121" fill="#87d787" xml:space="preserve">100%</text>
+<text x="663.6" y="121" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text x="24.0" y="140" fill="#7c7c7c" xml:space="preserve">replies </text>
+<text x="86.4" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
+<text x="94.2" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
+<text x="102.0" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
+<text x="109.8" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
+<text x="117.6" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
+<text x="125.4" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
+<text x="133.2" y="140" fill="#d7af5f" xml:space="preserve">█</text>
+<text x="141.0" y="140" fill="#d7af5f" xml:space="preserve">█</text>
+<text x="148.8" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
+<text x="156.6" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
+<text x="164.4" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
+<text x="172.2" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
+<text x="180.0" y="140" fill="#e0708a" xml:space="preserve">█</text>
+<text x="187.8" y="140" fill="#e0708a" xml:space="preserve">█</text>
+<text x="195.6" y="140" fill="#e0708a" xml:space="preserve">█</text>
+<text x="203.4" y="140" fill="#e0708a" xml:space="preserve">█</text>
+<text x="211.2" y="140" fill="#e0708a" xml:space="preserve">█</text>
+<text x="219.0" y="140" fill="#e0708a" xml:space="preserve">█</text>
+<text x="226.8" y="140" fill="#e0708a" xml:space="preserve">█</text>
+<text x="234.6" y="140" fill="#e0708a" xml:space="preserve">█</text>
+<text x="242.4" y="140" fill="#7c7c7c" xml:space="preserve">  3 switches · tax ≈ $0.48 · cache saved ≈ $1.52</text>
+<text x="24.0" y="159" fill="#7c7c7c" xml:space="preserve">pin next turn </text>
+<text x="133.2" y="159" fill="#d0d0d0" xml:space="preserve">[ micro ]</text>
+<text x="211.2" y="159" fill="#d0d0d0" xml:space="preserve">[ low ]</text>
+<text x="273.6" y="159" fill="#d0d0d0" xml:space="preserve">[ medium ]</text>
+<text x="359.4" y="159" fill="#d0d0d0" xml:space="preserve">[ high ]</text>
+<text x="445.2" y="159" fill="#d0d0d0" xml:space="preserve">[ Manual ]</text>
+<text x="531.0" y="159" fill="#d0d0d0" xml:space="preserve">[ 1 row ]</text>
+<text class="cap" x="20" y="198">A pin waits for the next turn; ✕ cancels it</text>
+<rect x="12" y="206" width="897.6" height="29" rx="5" fill="#232323"/>
+<text x="24.0" y="224" fill="#5f9fe0" xml:space="preserve">▂</text>
+<text x="31.8" y="224" fill="#5f9fe0" xml:space="preserve">▄</text>
+<text x="39.6" y="224" fill="#7c7c7c" xml:space="preserve">▆</text>
+<text x="47.4" y="224" fill="#7c7c7c" xml:space="preserve">█</text>
+<text x="55.2" y="224" fill="#5f9fe0" font-weight="700" xml:space="preserve"> low </text>
+<text x="94.2" y="224" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 · medium</text>
+<text x="242.4" y="224" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="281.4" y="224" fill="#d7af5f" xml:space="preserve">⏵ next turn: </text>
+<text x="382.8" y="224" fill="#d7af5f" font-weight="700" xml:space="preserve">medium</text>
+<text x="437.4" y="224" fill="#d0d0d0" xml:space="preserve">✕</text>
+<text x="445.2" y="224" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="484.2" y="224" fill="#7c7c7c" xml:space="preserve">= fits</text>
+<text x="531.0" y="224" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="570.0" y="224" fill="#d0d0d0" xml:space="preserve">ctx </text>
+<text x="601.2" y="224" fill="#87d787" xml:space="preserve">40%</text>
+<text x="624.6" y="224" fill="#d0d0d0" xml:space="preserve"> · cache </text>
+<text x="694.8" y="224" fill="#87d787" xml:space="preserve">100%</text>
+<text x="741.6" y="224" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text class="cap" x="20" y="263">No classifier key: Router keeps the model and offers Set key</text>
+<rect x="12" y="271" width="897.6" height="29" rx="5" fill="#232323"/>
+<text x="24.0" y="289" fill="#5f9fe0" xml:space="preserve">▂</text>
+<text x="31.8" y="289" fill="#5f9fe0" xml:space="preserve">▄</text>
+<text x="39.6" y="289" fill="#7c7c7c" xml:space="preserve">▆</text>
+<text x="47.4" y="289" fill="#7c7c7c" xml:space="preserve">█</text>
+<text x="55.2" y="289" fill="#5f9fe0" font-weight="700" xml:space="preserve"> low </text>
+<text x="94.2" y="289" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 · medium</text>
+<text x="242.4" y="289" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="281.4" y="289" fill="#d7af5f" xml:space="preserve">⚠ Jev key not set</text>
+<text x="414.0" y="289" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="453.0" y="289" fill="#d7af5f" xml:space="preserve">keeping model</text>
+<text x="554.4" y="289" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="593.4" y="289" fill="#d0d0d0" xml:space="preserve">[ Set key ]</text>
+<text x="694.8" y="289" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text class="cap" x="20" y="328">Manual: /model chose the model; Auto resumes routing</text>
+<rect x="12" y="336" width="897.6" height="29" rx="5" fill="#232323"/>
+<text x="24.0" y="354" fill="#7c7c7c" xml:space="preserve">○ </text>
+<text x="39.6" y="354" fill="#d0d0d0" xml:space="preserve">Router </text>
+<text x="94.2" y="354" fill="#d7af5f" xml:space="preserve">off</text>
+<text x="117.6" y="354" fill="#d0d0d0" xml:space="preserve"> · keeping Sonnet 5.5</text>
+<text x="281.4" y="354" fill="#7c7c7c" xml:space="preserve"> (/model)</text>
+<text x="351.6" y="354" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="390.6" y="354" fill="#d0d0d0" xml:space="preserve">[ Auto ]</text>
+<text x="468.6" y="354" fill="#d0d0d0" xml:space="preserve">Router</text>
+</svg>

@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "router",
-      "description": "Jev routing for the main conversation, with native Mod controls and unchanged subagent choices.",
+      "description": "Model and effort routing for the main conversation, advised by a prompt classifier, with native Mod controls and unchanged subagent choices.",
       "source": {
         "source": "github",
         "repo": "alexei-led/claude-router"

@@ -20,10 +20,10 @@ const session = launchSession(
   { tools: 'Read' },
 );
 try {
-  await session.command('/router status');
+  await session.command('/router');
   await session.command('/router pin high');
   const turn = await session.raw('Read package.json, then reply OK.');
-  const status = await session.command('/router status');
+  const status = await session.command('/router');
   assert.equal(await session.finish(), 0);
   const sequence = stub.wire.filter((event) => event.event === 'messages');
   const models = sequence.map((event) => event.model);

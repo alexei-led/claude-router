@@ -11,10 +11,14 @@ function harness(options = {}, preferences = new Map()) {
   ]);
   const requests = [];
   const files = new Map();
+  const links = new Set();
   let model = 'claude-sonnet-5-5';
   let usage = { context: { tokens: 8000, breakdown: { totalTokens: 9000 } } };
   let draft = '';
   let commandCalls = 0;
+  let surfaces = ['terminal'];
+  const copied = [];
+  const toasts = [];
   let version = '2.1.289';
   let settings = {};
   let sessionId = 's1';
@@ -46,7 +50,7 @@ function harness(options = {}, preferences = new Map()) {
     fs: {
       exists: async (path) => files.has(path),
       read: async (path) => files.get(path),
-      stat: async () => ({ isLink: false }),
+      stat: async (path) => ({ isLink: links.has(path) }),
       write: async (path, text) => files.set(path, text),
     },
     command: {
@@ -67,12 +71,16 @@ function harness(options = {}, preferences = new Map()) {
       version: async () => ({ version }),
       model: async () => model,
       id: async () => sessionId,
-      surfaces: async () => ['terminal'],
+      surfaces: async () => surfaces,
       messages: (...args) => messages(...args),
       usage: async () => usage,
     },
     settings: { read: async () => settings },
     clock: {
+      after: (_ms, fn) => {
+        fn();
+        return { cancel: () => {} };
+      },
       sleep: (_ms, { signal }) =>
         new Promise((_resolve, reject) => {
           signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
@@ -81,6 +89,8 @@ function harness(options = {}, preferences = new Map()) {
     http: { fetch: (...args) => http(...args) },
     ui: {
       log: () => {},
+      copy: async (args) => copied.push(args),
+      toast: (text) => toasts.push(text),
       open: async () => ({}),
       close: async () => {},
       resolve: () => {
@@ -115,6 +125,7 @@ function harness(options = {}, preferences = new Map()) {
     env,
     requests,
     files,
+    links,
     preferences,
     usage: (value) => {
       usage = value;
@@ -127,6 +138,11 @@ function harness(options = {}, preferences = new Map()) {
       return draft;
     },
     commandCalls: () => commandCalls,
+    copied,
+    toasts,
+    surfaces: (value) => {
+      surfaces = value;
+    },
     version: (value) => {
       version = value;
     },
@@ -152,6 +168,11 @@ function harness(options = {}, preferences = new Map()) {
         { component: 'Pane', requestId: 'jev-router' },
         async () => null,
       );
+    },
+    // Draws one component with these props; `next` echoes its input, so a rewrite shows in the result.
+    component: async (component, props = {}) => {
+      snapshot = new Map();
+      return handler('ui.render', { component })($, { component, requestId: component, props }, async (input) => input);
     },
     step: (input, response = {}) => {
       snapshot = new Map();
@@ -324,6 +345,22 @@ test('subagents preserve their resolved model and never replace main metrics', a
   }
 });
 
+async function press(h, key, ...args) {
+  const control = controls(await h.render()).find((node) => node.key === key);
+  assert.ok(control, `no control ${key}`);
+  return control.onPress ? control.onPress(...args) : control.onSelect(...args);
+}
+
+function texts(tree) {
+  const out = [];
+  (function walk(node) {
+    if (!node) return;
+    if (node.type === 'Text' && typeof node.props.children === 'string') out.push(node.props.children);
+    if (Array.isArray(node.props?.children)) node.props.children.forEach(walk);
+  })(tree);
+  return out;
+}
+
 function controls(tree) {
   const nodes = [];
   function walk(node) {
@@ -384,31 +421,36 @@ test('Manual requests refresh main metrics without rewriting models or effort', 
 test('clear discards unsaved tuning and preserves active configuration', async () => {
   const h = harness();
   await start(h);
-  const ui = controls(await h.render());
-  await ui.find((node) => node.key === 'timeoutMs').onSelect('3000');
+  await press(h, 'tab-tuning');
+  await press(h, 'timeoutMs', '3000');
   assert.equal(h.view().tuning.timeoutMs, 3000);
   await h.event('session.end', { reason: 'clear' });
   h.clear();
   await drain(h.step({ ...step, turnId: 't2' }));
-  assert.equal(h.view().tuning.timeoutMs, 1500);
+  assert.equal(h.view().tuning, null);
+  await press(h, 'tab-tuning');
+  assert.equal(controls(await h.render()).find((node) => node.key === 'timeoutMs').value, '1500');
 });
 
-test('key configuration hands off to Enter and never overwrites a prompt draft', async () => {
+test('the key button opens the secure plugin dialog and leaves a prompt draft alone', async () => {
   const h = harness();
   await start(h);
   h.draft('unfinished task');
-  await controls(await h.render())
-    .find((node) => node.key === 'key')
-    .onPress();
+  await press(h, 'key');
+  assert.equal(h.commandCalls(), 1);
   assert.equal(h.draft(), 'unfinished task');
-  assert.equal(h.commandCalls(), 0);
-  assert.match(h.view().notice, /\/plugin configure router/);
-  h.draft('');
-  await controls(await h.render())
-    .find((node) => node.key === 'key')
-    .onPress();
-  assert.equal(h.draft(), '/plugin configure router');
-  assert.equal(h.commandCalls(), 0);
+});
+
+test('the key button is on the Tuning tab once a key is set', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key' });
+  await start(h);
+  assert.equal(
+    controls(await h.render()).find((node) => node.key === 'key'),
+    undefined,
+  );
+  await press(h, 'tab-tuning');
+  await press(h, 'key');
+  assert.equal(h.commandCalls(), 1);
 });
 
 test('saved tuning cannot change a classification already in progress', async () => {
@@ -424,9 +466,9 @@ test('saved tuning cannot change a classification already in progress', async ()
   const pending = drain(h.step(step));
   for (let i = 0; i < 100 && !resolve; i += 1) await Promise.resolve();
   assert.ok(resolve);
-  const ui = controls(await h.render());
-  await ui.find((node) => node.key === 'downgradeVotes').onSelect('1');
-  await ui.find((node) => node.key === 'save-tuning').onPress();
+  await press(h, 'tab-tuning');
+  await press(h, 'downgradeVotes', '1');
+  await press(h, 'save-tuning');
   resolve({
     status: 200,
     ok: true,
@@ -445,6 +487,9 @@ test('saved tuning cannot change a classification already in progress', async ()
   });
   await pending;
   assert.equal(h.requests[0].model, step.model);
+  assert.equal(h.view().probabilities.micro, 0.999);
+  await press(h, 'tab-now');
+  assert.ok(texts(await h.render()).some((line) => /100%/.test(line)));
 });
 
 test('turn completion removes an interrupted choosing indicator', async () => {
@@ -488,9 +533,12 @@ test('leftover v0.8 gateway settings pass requests through and name the keys to 
   assert.equal(h.view().phase, 'unavailable');
   assert.match(h.view().error, /v0\.8 gateway settings remain/);
   assert.equal(h.requests[0].model, step.model);
-  const status = await h.event('command.run', { command: 'router', args: 'status' });
+  h.surfaces([]);
+  const status = await h.event('command.run', { command: 'router', args: '' });
   assert.match(status.text, /ANTHROPIC_BASE_URL/);
   assert.match(status.text, /jev-router\[1m\]/);
+  h.surfaces(['terminal']);
+  assert.ok(texts(await h.render()).some((line) => /ANTHROPIC_BASE_URL/.test(line)));
 });
 
 test('project settings cannot redirect secure router configuration to another profile', async () => {
@@ -599,4 +647,309 @@ test('clear after a manual /model choice on a non-baseline model starts Auto', a
   assert.equal(h.view().mode, 'auto');
   assert.equal(h.view().pendingPin, null);
   assert.equal(h.preferences.get('mode:s2'), 'auto');
+});
+
+const CONFIG = '/fixture/team/router.json';
+
+test('a saved route edit writes router.json and routes the next turn', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-tiers');
+  await press(h, 'route-model-medium', 'sonnet');
+  await press(h, 'route-effort-medium', 'xhigh');
+  assert.ok(texts(await h.render()).some((line) => /\+ routes\.medium\s+Sonnet 5\.5 · xhigh/.test(line)));
+  await press(h, 'save-routes');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { routes: { medium: { model: 'sonnet', effort: 'xhigh' } } });
+  assert.equal(h.view().routeDraft, null);
+  assert.match(h.view().notice, /apply from the next turn/);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await h.event('command.run', { command: 'router', args: 'pin medium' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-sonnet-5-5', 'xhigh']);
+});
+
+test('session effort on a tier sends the effort Claude Code asked for', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-tiers');
+  await press(h, 'route-effort-high', 'session');
+  await press(h, 'save-routes');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)).routes.high, { model: 'opus', effort: null });
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step({ ...step, turnId: 't2', effort: 'low' }));
+  assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-opus-5-5', 'low']);
+});
+
+test('reset to defaults removes saved route overrides and keeps other settings', async () => {
+  const h = harness();
+  h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } }, jev: { timeoutMs: 900 } }));
+  await start(h);
+  await press(h, 'tab-tiers');
+  await press(h, 'reset-routes');
+  await press(h, 'save-routes');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { jev: { timeoutMs: 900 } });
+});
+
+test('a model without effort levels has no effort control and drops the chosen effort', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-tiers');
+  assert.equal(
+    controls(await h.render()).find((node) => node.key === 'route-effort-micro'),
+    undefined,
+  );
+  await press(h, 'route-model-high', 'haiku');
+  assert.deepEqual(h.view().routeDraft.routes.high, { model: 'haiku', effort: null });
+  assert.equal(
+    controls(await h.render()).find((node) => node.key === 'route-effort-high'),
+    undefined,
+  );
+});
+
+test('model choices follow the availableModels allowlist', async () => {
+  const h = harness();
+  h.settings({ availableModels: ['sonnet'] });
+  await start(h);
+  await press(h, 'tab-tiers');
+  const select = controls(await h.render()).find((node) => node.key === 'route-model-low');
+  assert.deepEqual(
+    select.options.map((option) => option.value),
+    ['sonnet'],
+  );
+});
+
+test('a save that fails validation names the setting and leaves router.json unchanged', async () => {
+  for (const [content, reason] of [
+    [JSON.stringify({ policy: { cashCapUsd: -1 } }), /policy\.cashCapUsd must be a non-negative number/],
+    ['{ "routes": ', /router\.json is not valid JSON/],
+  ]) {
+    const h = harness();
+    await start(h);
+    h.files.set(CONFIG, content);
+    await press(h, 'tab-tiers');
+    await press(h, 'route-model-medium', 'sonnet');
+    await press(h, 'save-routes');
+    assert.match(h.view().notice, reason);
+    assert.match(h.view().notice, /unchanged/);
+    assert.equal(h.files.get(CONFIG), content);
+    assert.ok(h.view().routeDraft);
+  }
+});
+
+test('replies record the tier that served them and the strip counts switches', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step));
+  await h.event('command.run', { command: 'router', args: 'off' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.deepEqual(h.view().tiers, ['high', null]);
+  assert.equal(h.view().history.length, 2);
+  await drain(h.step({ ...step, turnId: 't3' }, { usage: null }));
+  assert.equal(h.view().tiers.length, h.view().history.length);
+  assert.ok(texts(await h.render()).some((line) => /0 switches/.test(line)));
+});
+
+test('the router command opens the pane, switches modes and pins, with no setup or status forms', async () => {
+  const h = harness();
+  await start(h);
+  assert.deepEqual(await h.event('command.run', { command: 'router', args: '' }), {});
+  assert.match((await h.event('command.run', { command: 'router', args: 'off' })).text, /Manual/);
+  assert.match((await h.event('command.run', { command: 'router', args: 'auto' })).text, /Auto/);
+  assert.equal(h.commandCalls(), 0);
+  assert.deepEqual(await h.event('command.run', { command: 'router', args: 'setup' }), {});
+  assert.equal(h.commandCalls(), 0);
+});
+
+const BAND = { hasSurvey: false, isWorking: false, maxRows: 8, bodyColumns: 120, view: {} };
+const band = async (h, props = {}) => {
+  const tree = await h.component('AbovePrompt', { ...BAND, ...props });
+  return { tree, line: texts(tree).join(''), controls: controls(tree) };
+};
+
+test('the band shows the tier meter, route, reason and context after a routed reply', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step));
+  const { line, controls: buttons } = await band(h);
+  assert.match(line, /▂▄▆█ high Opus 5\.5 · xhigh/);
+  assert.match(line, /⏵ pinned/);
+  assert.match(line, /ctx \d+% · cache \d+%/);
+  assert.ok(buttons.some((node) => node.key === 'details'));
+  assert.doesNotMatch(line, /Jev Router/);
+});
+
+test('a narrow band drops context and reason before the route', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step));
+  const { line } = await band(h, { bodyColumns: 40 });
+  assert.match(line, /high Opus 5\.5 · xhigh/);
+  assert.doesNotMatch(line, /ctx|pinned/);
+});
+
+test('the band yields to a survey and says subagents keep their model', async () => {
+  const h = harness();
+  await start(h);
+  assert.equal((await band(h, { hasSurvey: true })).tree.component, 'AbovePrompt');
+  assert.match((await band(h, { view: { agentId: 'a1' } })).line, /subagents keep their own model/);
+});
+
+test('the band offers Auto in Manual mode and a key button without a key', async () => {
+  const h = harness();
+  await start(h);
+  await drain(h.step(step));
+  let view = await band(h);
+  assert.match(view.line, /⚠ Jev key not set {2}· {2}keeping model/);
+  await view.controls.find((node) => node.key === 'band-key').onPress();
+  assert.equal(h.commandCalls(), 1);
+  await h.event('command.run', { command: 'router', args: 'off' });
+  view = await band(h);
+  assert.match(view.line, /Router off · keeping Sonnet 5\.5/);
+  await view.controls.find((node) => node.key === 'band-auto').onPress();
+  assert.equal(h.view().mode, 'auto');
+});
+
+test('the band hover row pins, unpins and switches to two rows', async () => {
+  const preferences = new Map();
+  const h = harness({}, preferences);
+  await start(h);
+  await (await band(h)).controls.find((node) => node.key === 'band-pin-medium').onPress();
+  assert.equal(h.view().pendingPin, 'medium');
+  assert.match(h.toasts.at(-1), /medium pinned/);
+  await (await band(h)).controls.find((node) => node.key === 'band-unpin').onPress();
+  assert.equal(h.view().pendingPin, null);
+  await (await band(h)).controls.find((node) => node.key === 'band-detail').onPress();
+  assert.equal(preferences.get('band:detail'), true);
+  await h.event('command.run', { command: 'router', args: 'pin low' });
+  await drain(h.step(step));
+  assert.match((await band(h)).line, /replies █/);
+});
+
+test('a route change raises one toast with the old and new model; a pin does not', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step));
+  assert.equal(h.toasts.length, 0);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.equal(h.toasts.length, 1);
+  assert.match(h.toasts[0], /^Opus 5\.5 · xhigh → Sonnet 5\.5 .*— /);
+});
+
+test('the spinner says Choosing model only while the classifier runs', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key' });
+  let calls = 0;
+  h.http(() => {
+    calls += 1;
+    return new Promise(() => {});
+  });
+  await start(h);
+  const spinner = { word: 'Baking', message: null, suffix: '…', mode: 'requesting' };
+  assert.equal((await h.component('Spinner', spinner)).props.message, null);
+  drain(h.step(step));
+  for (let i = 0; i < 100 && !calls; i += 1) await Promise.resolve();
+  assert.equal((await h.component('Spinner', spinner)).props.message, 'Choosing model');
+  assert.equal(
+    (await h.component('Spinner', { ...spinner, message: 'Waiting for permission' })).props.message,
+    'Waiting for permission',
+  );
+});
+
+test('the footer labels paused routing', async () => {
+  const h = harness();
+  await start(h);
+  assert.deepEqual((await h.component('SessionMode', { modes: ['focus'] })).props.modes, ['focus']);
+  await h.event('command.run', { command: 'router', args: 'off' });
+  assert.deepEqual((await h.component('SessionMode', { modes: ['focus'] })).props.modes, ['focus', 'router off']);
+});
+
+test('a substituted reply is not counted as the requested tier', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step, substituted));
+  assert.deepEqual(h.view().tiers, [null]);
+});
+
+test('the pane refuses to save through a symlinked router.json', async () => {
+  const h = harness();
+  await start(h);
+  h.files.set(CONFIG, '{}');
+  h.links.add(CONFIG);
+  await press(h, 'tab-tiers');
+  await press(h, 'route-model-medium', 'sonnet');
+  await press(h, 'save-routes');
+  assert.match(h.view().notice, /symlink/);
+  assert.equal(h.files.get(CONFIG), '{}');
+  await press(h, 'tab-tuning');
+  await press(h, 'horizon', '10');
+  await press(h, 'save-tuning');
+  assert.match(h.view().notice, /symlink/);
+  assert.equal(h.files.get(CONFIG), '{}');
+});
+
+test('a tuning save writes only the changed value and keeps edits made on disk', async () => {
+  const h = harness();
+  await start(h);
+  h.files.set(CONFIG, JSON.stringify({ jev: { timeoutMs: 900 } }));
+  await press(h, 'tab-tuning');
+  await press(h, 'horizon', '10');
+  await press(h, 'save-tuning');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
+    jev: { timeoutMs: 900 },
+    policy: { downgradeHorizonTurns: 10 },
+  });
+});
+
+test('a narrow band never exceeds its width: optional parts drop, then the route is cut', async () => {
+  const h = harness();
+  await start(h);
+  await drain(h.step(step));
+  const widthOf = (line) => [...line].length;
+  for (const [columns, expected] of [
+    [120, /⚠ Jev key not set {2}· {2}keeping model/],
+    [60, /⚠ Jev key not set/],
+    [30, /…/],
+  ]) {
+    const { tree } = await band(h, { bodyColumns: columns });
+    const row = tree.props.children[1].props.children[0];
+    const line = texts(row).join('');
+    const buttons = controls(row)
+      .map((node) => (node.plain ? node.label : `[ ${node.label} ]`))
+      .join('');
+    assert.match(line, expected, `at ${columns}`);
+    assert.ok(widthOf(line) + widthOf(buttons) <= columns, `${columns}: ${line}${buttons}`);
+  }
+});
+
+test('a draft on one tab survives a save on the other tab after an on-disk edit', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-tiers');
+  await press(h, 'route-model-micro', 'sonnet');
+  await press(h, 'tab-tuning');
+  await press(h, 'horizon', '10');
+  h.files.set(CONFIG, JSON.stringify({ routes: { high: { model: 'sonnet' } }, jev: { timeoutMs: 900 } }));
+  await press(h, 'save-tuning');
+  await press(h, 'tab-tiers');
+  await press(h, 'save-routes');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
+    routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet' } },
+    jev: { timeoutMs: 900 },
+    policy: { downgradeHorizonTurns: 10 },
+  });
+  await press(h, 'tab-tuning');
+  await press(h, 'downgradeVotes', '3');
+  h.files.set(CONFIG, JSON.stringify({ jev: { timeoutMs: 3000 } }));
+  await press(h, 'tab-tiers');
+  await press(h, 'route-model-micro', 'haiku');
+  await press(h, 'save-routes');
+  await press(h, 'tab-tuning');
+  await press(h, 'save-tuning');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { jev: { timeoutMs: 3000 }, policy: { downgradeVotes: 3 } });
 });

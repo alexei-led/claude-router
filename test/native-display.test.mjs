@@ -42,6 +42,7 @@ test('unreported ledgers and model pricing produce no fake savings', () => {
 
 test('the tiny trend chart handles empty, zero and changing observed data', () => {
   assert.equal(sparkline([]), 'no history yet');
-  assert.equal(sparkline([0, 0]), '▁▁');
-  assert.equal(sparkline([1, 4, 8]), '▂▅█');
+  assert.equal(sparkline([0, 0]), '▄▄');
+  assert.equal(sparkline([1, 4, 8]), '▁▄█');
+  assert.equal(sparkline([396_000, 400_000, 402_000]), '▁▆█');
 });

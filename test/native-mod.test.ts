@@ -31,7 +31,8 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
     contextKnown: true,
     cacheRead: 120_000,
     cacheWrite: 25_000,
-    history: [100_000, 150_000],
+    history: [100_000, 150_000, 120_000],
+    tiers: ['low', 'micro', 'low'],
     adviceMs: 390,
     comparison: {
       incumbent: 'low',
@@ -55,7 +56,7 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
       requestId: 'jev-router',
       viewport: { columns: 60, rows: 32 },
       props: {
-        title: 'Jev Router',
+        title: 'Router',
         isFocused: true,
         bodyColumns: 60,
         placement: 'dock',
@@ -63,11 +64,25 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
         view: {},
       },
     });
-    expect(await pane.find({ type: 'Text', text: /API cost reported by Claude: \$0.250/ })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /Context.*75%.*200.0K/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /Cache reuse.*80%/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /Next-turn difference: −\$0.020 to \+\$0.030/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /Cache.*80%/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /2 switches/ })).toBeDefined();
+    await pane.press({ key: 'tab-usage' });
+    await pane.redraw();
+    expect(await pane.find({ type: 'Text', text: /Cost.*\$0.250/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /Next-turn difference\s+−\$0.020 to \+\$0.030/ })).toBeDefined();
+    await pane.press({ key: 'help' });
+    await pane.redraw();
     expect(await pane.find({ type: 'Text', text: /Routing savings are not measured/ })).toBeDefined();
+    await pane.press({ key: 'help' });
+    await pane.redraw();
+    expect(await pane.find({ type: 'Text', text: /Routing savings are not measured/ })).toBeUndefined();
+    await pane.press({ key: 'tab-tiers' });
+    await pane.redraw();
+    expect(await pane.find({ key: 'route-model-medium' })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /same model, new effort/ })).toBeDefined();
+    await pane.press({ key: 'tab-now' });
+    await pane.redraw();
     await pane.press({ key: 'manual' });
     expect(view.mode).toBe('manual');
     await pane.press({ key: 'auto' });
@@ -94,7 +109,7 @@ test('unknown readings remain unknown and the band preserves other Mods', async 
       requestId: 'jev-router',
       viewport: { columns: 48, rows: 24 },
       props: {
-        title: 'Jev Router',
+        title: 'Router',
         isFocused: true,
         bodyColumns: 48,
         placement: 'dock',
@@ -102,8 +117,8 @@ test('unknown readings remain unknown and the band preserves other Mods', async 
         view: {},
       },
     });
-    expect(await pane.find({ type: 'Text', text: /API cost reported by Claude: not reported/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /Cache reuse.*unknown/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /Cost.*not reported/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /Cache.*unknown/ })).toBeDefined();
     await pane.unmount();
     const band = await $.ui.mount({
       plugin: 'router',
@@ -122,6 +137,7 @@ test('unknown readings remain unknown and the band preserves other Mods', async 
     });
     expect(await band.find({ type: 'Text', text: 'other mod' })).toBeDefined();
     expect(await band.find({ key: 'details' })).toBeDefined();
+    expect(await band.find({ key: 'band-detail' })).toBeDefined();
     await band.unmount();
   }
 });

@@ -6,8 +6,8 @@ The router works with its built-in defaults. Configure a Jev key to enable advic
 
 | Item                               | Where it lives                                  | How to change it                                                               |
 | ---------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------ |
-| Jev API key                        | Sensitive plugin option `typesafe_api_key`      | Run `/plugin configure router`, or use **Set Jev API key** in the router pane. |
-| Router settings                    | `router.json` in the active Claude Code profile | Edit the file directly, or use the pane's tuning controls.                     |
+| Jev API key                        | Sensitive plugin option `typesafe_api_key`      | Run `/plugin configure router`, or use **Set Jev key** in the router pane.     |
+| Router settings                    | `router.json` in the active Claude Code profile | Edit the file directly, or use the pane's Tiers and Tuning tabs.               |
 | Anthropic credentials and API cost | Claude Code                                     | The Mod leaves these to Claude Code.                                           |
 
 The active profile directory is `CLAUDE_CONFIG_DIR` when set. Otherwise it is `~/.claude`. The Mod does not need an Anthropic proxy URL, model alias, hint header, daemon, or custom status line.
@@ -24,7 +24,7 @@ The default baseline is tier `low`. Each route refers to an alias in `models`.
 | -------- | ----------- | ------------------- | ------------------------------------ |
 | `micro`  | `haiku`     | `claude-haiku-4-5`  | None                                 |
 | `low`    | `sonnet`    | `claude-sonnet-5-5` | Keeps the effort sent by Claude Code |
-| `medium` | `sonnet`    | `claude-sonnet-5-5` | `xhigh`                              |
+| `medium` | `opus`      | `claude-opus-5-5`   | `medium`                             |
 | `high`   | `opus`      | `claude-opus-5-5`   | `xhigh`                              |
 
 Default model settings:
@@ -35,7 +35,7 @@ Default model settings:
 | `sonnet` | 2 / 10 / 0.2                                        | 1,000,000      | `plan`  | `low`, `medium`, `high`, `xhigh`, `max` |
 | `haiku`  | 1 / 5 / 0.1                                         | 200,000        | `plan`  | none                                    |
 
-Prices are configured list-price inputs for estimates. They are not a subscription bill or a claim of savings. Haiku receives no effort field. A route without an effort keeps the session effort, clamped to what the model supports.
+Prices are configured list-price inputs for estimates. They are not a subscription bill or a claim of savings. Haiku receives no effort field. A route without an effort keeps the session effort, clamped to what the model supports. To make a tier whose default names an effort keep the session effort instead, set `"effort": null`, for example `"routes": { "high": { "model": "opus", "effort": null } }`.
 
 ## Optional `router.json`
 
@@ -53,7 +53,7 @@ The Mod validates the whole file. Unknown keys and invalid values make routing u
 | Section          | Supported fields                                                                     | Defaults                                                        |
 | ---------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
 | `baselineTier`   | `micro`, `low`, `medium`, `high`                                                     | `low`                                                           |
-| `routes.<tier>`  | `model`, optional `effort`                                                           | As in the route table above                                     |
+| `routes.<tier>`  | `model`, optional `effort` (a level, or `null` for the session effort)               | As in the route table above                                     |
 | `models.<alias>` | `id`, `input`, optional `output`, `cacheRead`, `contextWindow`, `billing`, `efforts` | Three defaults above                                            |
 | `cache`          | `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms        |
 | `policy`         | Fields below                                                                         | Values below                                                    |
@@ -78,7 +78,7 @@ Policy defaults:
 | `escalationHoldTurns`   |     `2` | Turns held after a repeated tool error escalates the route.                                        |
 | `cashCapUsd`            |     `2` | Maximum estimated cold cache write for a `credits` model. It does not cap output or session spend. |
 
-The pane exposes only three tuning controls: Jev deadline, downgrade vote count, and downgrade horizon. Select **Save tuning** to preserve other keys and apply the change to future turns. The pane refuses to write through a symlink. Other supported settings require a direct edit.
+The pane writes a subset of these settings. The **Tiers** tab sets `routes` and `baselineTier`: it writes only tiers that differ from the defaults and removes the rest. The **Tuning** tab sets `jev.timeoutMs`, `policy.downgradeVotes`, `policy.downgradeHorizonTurns`, and `policy.cashCapUsd`. Each save validates the whole file, keeps other keys, and applies from the next turn. A failed check names the setting and leaves the file unchanged. The pane refuses to write through a symlink. Model aliases and the other settings require a direct edit.
 
 Native cache freshness is unknown after 270 seconds or after a history reset. Claude usage does not report the cache TTL. The policy evaluates price bounds for five-minute and one-hour writes, but the one-hour case is not observed fact. See the [architecture](architecture.md#cache-and-cost) for the estimate rules.
 

@@ -1,20 +1,21 @@
 import assert from 'node:assert/strict';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { launchSession } from './cli-session.mjs';
 
 const session = launchSession(join(homedir(), '.claude-team/mods/router'));
 try {
-  const before = await session.command('/router status');
-  assert.match(before, /Jev Router — Auto/);
+  const before = await session.command('/router');
+  assert.match(before, /Router — Auto/);
   const turn = await session.raw('Reply with the single word OK.');
   assert.equal(turn.is_error, false);
-  const status = await session.command('/router status');
+  const status = await session.command('/router');
   const init = session.events.find((event) => event.type === 'system' && event.subtype === 'init');
   const routers = init.plugins.filter((plugin) => plugin.name.includes('router'));
   assert.equal(routers.length, 1);
-  assert.equal(routers[0].version, '1.0.0');
+  const { version } = JSON.parse(await readFile(new URL('../../../package.json', import.meta.url), 'utf8'));
+  assert.equal(routers[0].version, version);
   const actualModels = [
     ...new Set(
       session.events

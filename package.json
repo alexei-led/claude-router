@@ -1,6 +1,6 @@
 {
   "name": "@alexeiled/claude-router",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Native Claude Code Mod: Jev model and effort routing for the main conversation.",
   "license": "MIT",
   "author": "Alexei Ledenev",
@@ -32,6 +32,7 @@
     "check": "biome check lib scripts test hooks types .claude-plugin package.json package-lock.json biome.json experiments/mod-router",
     "validate": "claude plugin validate .claude-plugin/plugin.json && claude plugin validate .claude-plugin/marketplace.json",
     "format": "biome format --write .",
+    "docs:images": "node scripts/render-doc-images.mjs",
     "pack:dry": "npm pack --dry-run",
     "prepublishOnly": "npm run check && npm test"
   },

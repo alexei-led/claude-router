@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { DEFAULTS, loadConfig } from '../lib/config.mjs';
+import { DEFAULTS, loadConfig, tuningOf, withRoutes, withTuning } from '../lib/config.mjs';
 
 test('defaults load without a user file and resolve no key', () => {
   const config = loadConfig({ env: {} });
@@ -119,4 +119,65 @@ test('the documented example and a new model alias pass', () => {
   });
   assert.equal(config.routes.micro.model, 'mine');
   assert.equal(config.cache.ttlMs['1h'], DEFAULTS.cache.ttlMs['1h']);
+});
+
+test('a null route effort keeps the session effort and overrides a default effort', () => {
+  const config = loadConfig({ userFile: { routes: { high: { model: 'opus', effort: null } } } });
+  assert.equal(config.routes.high.effort, null);
+});
+
+test('withRoutes writes only the routes and baseline that differ from the defaults', () => {
+  const defaults = { routes: structuredClone(DEFAULTS.routes), baselineTier: DEFAULTS.baselineTier };
+  const edit = (tier, route) => ({ ...defaults, routes: { ...defaults.routes, [tier]: route } });
+  for (const [name, file, draft, expected] of [
+    [
+      'defaults remove overrides',
+      { routes: { low: { model: 'opus' } }, jev: { timeoutMs: 900 } },
+      defaults,
+      { jev: { timeoutMs: 900 } },
+    ],
+    [
+      'changed model and effort',
+      {},
+      edit('medium', { model: 'sonnet', effort: 'xhigh' }),
+      { routes: { medium: { model: 'sonnet', effort: 'xhigh' } } },
+    ],
+    [
+      'session effort over a default effort',
+      {},
+      edit('high', { model: 'opus', effort: null }),
+      { routes: { high: { model: 'opus', effort: null } } },
+    ],
+    [
+      'no effort where the default has none',
+      {},
+      edit('low', { model: 'opus', effort: null }),
+      { routes: { low: { model: 'opus' } } },
+    ],
+    ['baseline', { baselineTier: 'micro' }, { ...defaults, baselineTier: 'medium' }, { baselineTier: 'medium' }],
+  ]) {
+    const loaded = loadConfig({ userFile: file });
+    const written = withRoutes(file, { ...draft, base: { routes: loaded.routes, baselineTier: loaded.baselineTier } });
+    assert.deepEqual(written, expected, name);
+    loadConfig({ userFile: written });
+  }
+});
+
+test('a pane save keeps router.json edits made on disk after the session loaded it', () => {
+  const base = loadConfig({});
+  const draft = {
+    routes: { ...structuredClone(DEFAULTS.routes), micro: { model: 'sonnet', effort: null } },
+    baselineTier: DEFAULTS.baselineTier,
+    base: { routes: base.routes, baselineTier: base.baselineTier },
+  };
+  const onDisk = { routes: { high: { model: 'sonnet' } }, baselineTier: 'medium' };
+  assert.deepEqual(withRoutes(onDisk, draft), {
+    routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet' } },
+    baselineTier: 'medium',
+  });
+  const saved = tuningOf(base);
+  assert.deepEqual(
+    withTuning({ jev: { timeoutMs: 900 }, policy: { downgradeVotes: 3 } }, { ...saved, horizon: 10 }, saved),
+    { jev: { timeoutMs: 900 }, policy: { downgradeVotes: 3, downgradeHorizonTurns: 10 } },
+  );
 });
