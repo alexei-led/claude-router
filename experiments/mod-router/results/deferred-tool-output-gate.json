@@ -1,0 +1,26 @@
+{
+  "claudeVersion": "2.1.289",
+  "profile": "ce team",
+  "fixture": "No-credential local MCP verification tool",
+  "requestedMaxOutputTokens": 128000,
+  "forcedDeferredTool": true,
+  "direct": {
+    "name": "direct",
+    "exit": 0,
+    "success": true,
+    "result": "ROUTER_DEFERRED_4C2A",
+    "models": ["claude-haiku-4-5-20251001"],
+    "toolUses": ["ToolSearch", "mcp__router_probe__verification_marker"],
+    "errors": []
+  },
+  "rewritten": {
+    "name": "rewritten",
+    "exit": 0,
+    "success": true,
+    "result": "ROUTER_DEFERRED_4C2A",
+    "models": ["claude-haiku-4-5-20251001"],
+    "toolUses": ["ToolSearch", "mcp__router_probe__verification_marker"],
+    "errors": []
+  },
+  "scope": "Prototype turn.step rewrites only main model/effort; baseline Opus rewritten to Haiku"
+}

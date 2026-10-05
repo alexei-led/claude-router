@@ -1,0 +1,60 @@
+{
+  "claudeVersion": "2.1.289",
+  "profile": "ce team",
+  "nativeVersion": "1.0.0",
+  "scope": "Main routing only; every subagent model choice preserved.",
+  "http": {
+    "record": "native-http-acceptance.json",
+    "samples": 20,
+    "p95FallbackMs": 1504,
+    "worstFallbackMs": 1505
+  },
+  "lifecycle": {
+    "records": [
+      "persistent-clear-acceptance.json",
+      "persistent-circuit-acceptance.json",
+      "persistent-reload-acceptance.json",
+      "persistent-replace-acceptance.json",
+      "persistent-unload-acceptance.json",
+      "persistent-resume-acceptance.json",
+      "native-interrupt-acceptance.json"
+    ],
+    "mode": "Clear/fork starts Auto; resume restores selected conversation mode; non-baseline startup model is Manual."
+  },
+  "credentials": {
+    "nativeOptionKeyPresent": true,
+    "realJevVerified": true,
+    "initialRealJevElapsedMs": 390
+  },
+  "compatibility": {
+    "directToolSwitchModels": ["claude-sonnet-5-5", "claude-opus-5-5", "claude-haiku-4-5-20251001"],
+    "successfulReadToolPerModel": 1,
+    "signedThinkingHistoryAccepted": true,
+    "largeSonnetInputTokens": 589399,
+    "largeOpusInputTokens": 589481
+  },
+  "otherRecords": [
+    "native-fallback-acceptance.json",
+    "deferred-tool-output-gate.json",
+    "trace-evaluation.json",
+    "team-canary.json",
+    "team-rollback.json"
+  ],
+  "checks": {
+    "nodeTests": 169,
+    "nativeUiTests": 2,
+    "nativeUiSurfaces": ["terminal", "desktop"],
+    "strictNativeUiTypes": true,
+    "teamLauncherTests": 52
+  },
+  "packaging": {
+    "nativeOnly": true,
+    "gatewayRuntimeRemoved": true,
+    "remotePublication": false
+  },
+  "limitations": [
+    "Mods early access; tested on 2.1.289 and current Team policy.",
+    "Native cache TTL split unavailable; no achieved savings inferred.",
+    "No attempt to reroute inherited or explicitly configured subagents."
+  ]
+}

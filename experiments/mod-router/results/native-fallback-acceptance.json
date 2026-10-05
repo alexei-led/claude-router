@@ -1,0 +1,13 @@
+{
+  "scenario": "native-fallback",
+  "claudeVersion": "2.1.289 (Claude Code)",
+  "driver": "node experiments/mod-router/scripts/fallback-acceptance.mjs",
+  "passed": true,
+  "scope": "Real Claude Code engine with --fallback-model against a loopback Messages stub that refuses the routed model with 529. The stub is a test double; no Anthropic model is called.",
+  "routedModel": "claude-opus-5-5",
+  "fallbackModel": "claude-haiku-4-5",
+  "requestModels": ["claude-opus-5-5", "claude-opus-5-5", "claude-opus-5-5", "claude-haiku-4-5", "claude-haiku-4-5"],
+  "servedAfterFallback": ["claude-haiku-4-5", "claude-haiku-4-5"],
+  "statusMentionsFallback": true,
+  "note": "On 2.1.289 the engine carries the fallback model into the continuation's turn.step model, so the controller from before the fallback fix also passed this run. Unit regressions in test/native-hook.test.mjs cover a billed substitute with an unchanged step model and the engine echoing the routed model."
+}

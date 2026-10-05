@@ -1,0 +1,23 @@
+{
+  "scenario": "persistent-clear",
+  "claudeVersion": "2.1.289 (Claude Code)",
+  "profile": "ce peer-team, Team credentials, isolated native plugin directory, synthetic Jev stub on loopback",
+  "driver": "node experiments/mod-router/scripts/persistent-acceptance.mjs clear",
+  "passed": true,
+  "checks": {
+    "adviceTimeoutMs": 1508,
+    "repeatedCall": "busy",
+    "sessionIdChangedOnClear": true,
+    "modeAfterClear": "auto",
+    "callAfterClear": "busy",
+    "requestsOnWire": 1
+  },
+  "wire": {
+    "requests": 1,
+    "maxUnfinished": 1,
+    "unfinishedAtEnd": 0,
+    "connects": 1,
+    "closes": 1,
+    "secretsOnWire": false
+  }
+}

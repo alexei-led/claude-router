@@ -1,0 +1,20 @@
+{
+  "scenario": "persistent-reload",
+  "claudeVersion": "2.1.289 (Claude Code)",
+  "profile": "ce peer-team, Team credentials, isolated native plugin directory, synthetic Jev stub on loopback",
+  "driver": "node experiments/mod-router/scripts/persistent-acceptance.mjs reload",
+  "passed": true,
+  "checks": {
+    "reloadOutput": "Reloaded: 31 plugins · 94 skills · 17 agents · 25 hooks · 3 plugin LSP servers",
+    "askAfterReload": "busy",
+    "orphanClosedMsAfterReload": 28509
+  },
+  "wire": {
+    "requests": 1,
+    "maxUnfinished": 1,
+    "unfinishedAtEnd": 0,
+    "connects": 1,
+    "closes": 1,
+    "secretsOnWire": false
+  }
+}

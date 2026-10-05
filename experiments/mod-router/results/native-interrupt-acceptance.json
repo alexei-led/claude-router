@@ -1,0 +1,11 @@
+{
+  "scenario": "main-turn-interrupt",
+  "passed": true,
+  "driver": "node experiments/mod-router/scripts/interrupt-acceptance.mjs",
+  "scope": "Real ce peer-team main-turn controller, SDK interrupt, synthetic delayed Jev on loopback.",
+  "interruptedResult": "error_during_execution",
+  "choosingCleared": true,
+  "lateAdviceDidNotChangeView": true,
+  "socketClosedMs": 4,
+  "wireRequests": 1
+}

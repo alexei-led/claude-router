@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { loadConfig } from '../lib/config.mjs';
-import { switchingTaxUsd } from '../lib/cost.mjs';
+import { switchingTaxUsd } from '../lib/native-cost.mjs';
 import { decide, fitTier, initialState, massAbove, massAtOrBelow } from '../lib/policy.mjs';
 import { advice, served, T0 } from './helpers.mjs';
 
@@ -116,7 +116,7 @@ test('an effort-only upgrade pays the switching tax of a new messages cache', ()
   const [, second] = runTurns(f, votes);
   assert.equal(second.reason, 'upgrade-pending');
   assert.ok(second.estimate.taxUsd > 1.5);
-  assert.deepEqual(second.estimate.cache, { candidate: 'unknown', incumbent: 'warm' });
+  assert.deepEqual(second.estimate.cache, { candidate: 'unknown', incumbent: 'fresh' });
 });
 
 test('downgrade needs mass and two consecutive votes', () => {

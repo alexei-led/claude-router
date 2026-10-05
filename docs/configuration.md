@@ -1,203 +1,107 @@
 # Configuration
 
-## Where the settings are
+The router works with its built-in defaults. Configure a Jev key to enable advice. Change `router.json` only when you need to change routes, model prices, cache assumptions, or policy.
 
-| Setting              | Location                                                  | Written by                              |
-| -------------------- | --------------------------------------------------------- | --------------------------------------- |
-| Jev API key          | macOS Keychain, plugin option `typesafe_api_key`          | Claude Code, when you enable the plugin |
-| Claude Code settings | `~/.claude/settings.json`                                 | `/router:setup`                         |
-| Router configuration | `~/.claude/router.json`                                   | You                                     |
-| Data and logs        | `~/.claude/plugins/data/router-alexei-led-claude-router/` | The gateway                             |
+## Key and profile settings
 
-- The hooks give the key to the gateway as `TYPESAFE_API_KEY`. The key is
-  never in a file.
-- The gateway that the hooks start reads `~/.claude/router.json`, or the file
-  that `ROUTER_CONFIG` names when it is under `~/.claude/`. A project can set
-  environment variables for the plugin hooks, so the hooks take your home
-  directory from your OS user account, not from `$HOME`, and ignore
-  `ROUTER_CONFIG` for a path outside `~/.claude/`. So a cloned repository
-  cannot choose the router configuration (and with it the port, the routes or
-  the Jev endpoint) through `router.json`, `ROUTER_CONFIG` or `$HOME`. The
-  gateway still inherits the other environment variables of the session that
-  started it.
-- The gateway reads `router.json` at start. After a change, run
-  `pkill -f scripts/gateway.mjs`. The next prompt starts a new gateway.
+| Item                               | Where it lives                                  | How to change it                                                               |
+| ---------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------ |
+| Jev API key                        | Sensitive plugin option `typesafe_api_key`      | Run `/plugin configure router`, or use **Set Jev API key** in the router pane. |
+| Router settings                    | `router.json` in the active Claude Code profile | Edit the file directly, or use the pane's tuning controls.                     |
+| Anthropic credentials and API cost | Claude Code                                     | The Mod leaves these to Claude Code.                                           |
 
-## Claude Code settings
+The active profile directory is `CLAUDE_CONFIG_DIR` when set. Otherwise it is `~/.claude`. The Mod does not need an Anthropic proxy URL, model alias, hint header, daemon, or custom status line.
 
-`/router:setup` writes these keys to `~/.claude/settings.json`:
+The Mod reads the key from the sensitive plugin option. It also accepts `TYPESAFE_API_KEY` from the process environment. Without a key, it keeps Claude's current model and reports degraded routing.
 
-```json
-{
-  "model": "jev-router[1m]",
-  "env": {
-    "ANTHROPIC_BASE_URL": "http://127.0.0.1:43170",
-    "ENABLE_TOOL_SEARCH": "true",
-    "CLAUDE_CODE_GATEWAY_HINT_HEADERS": "1"
-  },
-  "modelPicker": {
-    "options": [
-      {
-        "model": "jev-router[1m]",
-        "label": "Jev Router (auto)",
-        "description": "Auto-selects the model and effort for each turn",
-        "behavesAs": "claude-opus-5-5"
-      }
-    ]
-  }
-}
-```
+Project and local settings cannot set `HOME` or `CLAUDE_CONFIG_DIR` for this Mod. Those overrides make the router unavailable for the session, so a project cannot redirect the router to another profile's key or configuration.
 
-| Key                                    | Why                                                                                                                            |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `model`                                | The `[1m]` suffix tells Claude Code that the window is 1M tokens. Claude Code removes the suffix before the request.           |
-| `env.ANTHROPIC_BASE_URL`               | Sends the traffic of Claude Code to the gateway.                                                                               |
-| `env.ENABLE_TOOL_SEARCH`               | Keeps MCP tool schemas deferred. Without it, each request carries all schemas: about 50K tokens with the claude.ai connectors. |
-| `env.CLAUDE_CODE_GATEWAY_HINT_HEADERS` | Claude Code sends the [class of each request](architecture.md#request-classes).                                                |
-| `modelPicker` row                      | Adds `Jev Router (auto)` to `/model`. `behavesAs` names a known model. Without it, Claude Code rejects the alias.              |
-| `statusLine` (optional)                | Runs your status line command, then adds the route of the last turn.                                                           |
+## Built-in defaults
 
-Setup writes the file once, as its last step. Restart Claude Code after it.
-Until the restart, the session shows "There's an issue with the selected
-model (jev-router[1m])".
+The default baseline is tier `low`. Each route refers to an alias in `models`.
 
-## Router configuration
+| Tier     | Model alias | Model ID            | Effort                               |
+| -------- | ----------- | ------------------- | ------------------------------------ |
+| `micro`  | `haiku`     | `claude-haiku-4-5`  | None                                 |
+| `low`    | `sonnet`    | `claude-sonnet-5-5` | Keeps the effort sent by Claude Code |
+| `medium` | `sonnet`    | `claude-sonnet-5-5` | `xhigh`                              |
+| `high`   | `opus`      | `claude-opus-5-5`   | `xhigh`                              |
 
-Each key in `~/.claude/router.json` is optional. A key replaces the default
-at the same path, and objects merge.
+Default model settings:
 
-The file is strict. Text that is not valid JSON, an unknown key (a typo such
-as `routs`), a value of the wrong type, or a number out of range stops a new
-gateway from starting. The error names the file and the field, never the
-value. A gateway that already runs keeps serving. When no gateway runs, every
-request fails to connect until you fix the file. The SessionStart hook prints
-the error; the prompt hook is quiet. `/router:status` also shows it: it reads
-the file and starts nothing.
+| Alias    | Input / output / cache read, USD per million tokens | Context window | Billing | Effort levels                           |
+| -------- | --------------------------------------------------- | -------------- | ------- | --------------------------------------- |
+| `opus`   | 4 / 20 / 0.2                                        | 1,000,000      | `plan`  | `low`, `medium`, `high`, `xhigh`, `max` |
+| `sonnet` | 2 / 10 / 0.2                                        | 1,000,000      | `plan`  | `low`, `medium`, `high`, `xhigh`, `max` |
+| `haiku`  | 1 / 5 / 0.1                                         | 200,000        | `plan`  | none                                    |
 
-For example, to run `low` on Sonnet at `high` effort and give Jev more time:
+Prices are configured list-price inputs for estimates. They are not a subscription bill or a claim of savings. Haiku receives no effort field. A route without an effort keeps the session effort, clamped to what the model supports.
+
+## Optional `router.json`
+
+Start with the setting you need and leave the rest at defaults. For example, require three votes before moving to a cheaper tier and allow Jev up to two seconds:
 
 ```json
 {
-  "routes": { "low": { "model": "sonnet", "effort": "high" } },
-  "jev": { "timeoutMs": 2500 }
+  "jev": { "timeoutMs": 2000 },
+  "policy": { "downgradeVotes": 3 }
 }
 ```
 
-### gateway
+The Mod validates the whole file. Unknown keys and invalid values make routing unavailable with a general configuration error. Retired gateway keys trigger a migration instruction. The migration command reports an invalid setting path and does not print its value.
 
-| Key              | Default      | Meaning                                                                   |
-| ---------------- | ------------ | ------------------------------------------------------------------------- |
-| `port`           | `43170`      | The loopback port of the gateway.                                         |
-| `alias`          | `jev-router` | The model name that Claude Code sends.                                    |
-| `baselineTier`   | `low`        | The tier when nothing else decides: a new session, or no Jev answer.      |
-| `auxiliaryTier`  | `low`        | The tier for side requests, for example session titles.                   |
-| `idleShutdownMs` | `7200000`    | The gateway exits after this time without requests. `0` keeps it running. |
+| Section          | Supported fields                                                                     | Defaults                                                        |
+| ---------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `baselineTier`   | `micro`, `low`, `medium`, `high`                                                     | `low`                                                           |
+| `routes.<tier>`  | `model`, optional `effort`                                                           | As in the route table above                                     |
+| `models.<alias>` | `id`, `input`, optional `output`, `cacheRead`, `contextWindow`, `billing`, `efforts` | Three defaults above                                            |
+| `cache`          | `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms        |
+| `policy`         | Fields below                                                                         | Values below                                                    |
+| `jev`            | `endpoint`, `model`, `timeoutMs`                                                     | `https://api.typesafe.ai/v1/systemone`, `jev-1.13.0`, `1500` ms |
+| `context`        | `recentTurns`, `maxTextChars`                                                        | `6`, `1200`                                                     |
 
-### routes
+Policy defaults:
 
-| Tier     | Default                                    |
-| -------- | ------------------------------------------ |
-| `high`   | `{ "model": "opus", "effort": "xhigh" }`   |
-| `medium` | `{ "model": "sonnet", "effort": "xhigh" }` |
-| `low`    | `{ "model": "sonnet" }`                    |
-| `micro`  | `{ "model": "haiku" }`                     |
+| Field                   | Default | Meaning                                                                                            |
+| ----------------------- | ------: | -------------------------------------------------------------------------------------------------- |
+| `upgradeVotes`          |     `2` | Consecutive supporting votes before an upgrade.                                                    |
+| `upgradeBase`           |  `0.75` | Minimum probability mass required for an upgrade.                                                  |
+| `upgradeSlope`          |  `0.15` | Maximum increase to the upgrade bar from estimated switching cost.                                 |
+| `upgradePivotUsd`       |   `0.5` | Cost scale used by the upgrade bar. Must be positive.                                              |
+| `jumpConfidence`        |  `0.95` | Support for a two-tier jump without waiting for votes.                                             |
+| `downgradeVotes`        |     `2` | Consecutive supporting votes before a downgrade.                                                   |
+| `downgradeMass`         |   `0.9` | Minimum probability mass required for a downgrade.                                                 |
+| `downgradeSlope`        |  `0.08` | Maximum increase to the downgrade bar from estimated switching cost.                               |
+| `downgradePivotUsd`     |   `0.5` | Cost scale used by the downgrade bar. Must be positive.                                            |
+| `downgradeHorizonTurns` |     `5` | Later turns included in a downgrade payback estimate.                                              |
+| `continuationMass`      |   `0.7` | Advice probability that keeps the current route for a continuation.                                |
+| `escalationHoldTurns`   |     `2` | Turns held after a repeated tool error escalates the route.                                        |
+| `cashCapUsd`            |     `2` | Maximum estimated cold cache write for a `credits` model. It does not cap output or session spend. |
 
-`model` is a key of `models`. `effort` is `low`, `medium`, `high`, `xhigh` or
-`max`. Without `effort`, the gateway keeps the effort that Claude Code sent.
-If you change a route, also change the frontmatter of `skills/<tier>/SKILL.md`.
-A test makes sure that they agree.
+The pane exposes only three tuning controls: Jev deadline, downgrade vote count, and downgrade horizon. Select **Save tuning** to preserve other keys and apply the change to future turns. The pane refuses to write through a symlink. Other supported settings require a direct edit.
 
-### models
+Native cache freshness is unknown after 270 seconds or after a history reset. Claude usage does not report the cache TTL. The policy evaluates price bounds for five-minute and one-hour writes, but the one-hour case is not observed fact. See the [architecture](architecture.md#cache-and-cost) for the estimate rules.
 
-| Alias    | `id`                | `input` | `output` | `cacheRead` | `contextWindow` | `maxOutput` | `billing` | `efforts` | `features` |
-| -------- | ------------------- | ------- | -------- | ----------- | --------------- | ----------- | --------- | --------- | ---------- |
-| `opus`   | `claude-opus-5-5`   | 4       | 20       | 0.2         | 1,000,000       | —           | `plan`    | all five  | all three  |
-| `sonnet` | `claude-sonnet-5-5` | 2       | 10       | 0.2         | 1,000,000       | —           | `plan`    | all five  | all three  |
-| `haiku`  | `claude-haiku-4-5`  | 1       | 5        | 0.1         | 200,000         | 64,000      | `plan`    | none      | none       |
+## Convert a v0.8 configuration
 
-| Field                          | Meaning                                                                                                                                                                                                                                               |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                           | The model id that the gateway sends to Anthropic.                                                                                                                                                                                                     |
-| `input`, `output`, `cacheRead` | List prices in USD per million tokens. `output` is optional. The `shadow` estimate and the downgrade tax use it.                                                                                                                                      |
-| `contextWindow`                | The window in tokens. A turn goes only to a model that holds the context at 80% fill.                                                                                                                                                                 |
-| `maxOutput`                    | Optional limit for `max_tokens`. Haiku 4.5 rejects more than 64K.                                                                                                                                                                                     |
-| `billing`                      | `plan` for the subscription limits. `credits` for models that bill usage credits.                                                                                                                                                                     |
-| `efforts`                      | The effort levels that the model accepts. An empty list removes effort and thinking.                                                                                                                                                                  |
-| `features`                     | The request features of Claude Code that the model accepts: `mid-conversation-system`, `per-turn-control`, `mid-conversation-tool-changes`. The gateway removes the others ([architecture](architecture.md#system-context)). Without the field: none. |
+The `router.json` converter changes only that file. It does not remove Claude Code gateway settings. Remove them before the first native session.
 
-The default prices match `test/fixtures/list-prices.json`, which names its
-source and date. The default `efforts` match `test/fixtures/effort-support.json`,
-from a probe against the real API. A test fails when they differ.
-
-### policy
-
-The [switching policy](architecture.md#switching-policy) uses these values.
-
-| Key                     | Default | Meaning                                                                                               |
-| ----------------------- | ------- | ----------------------------------------------------------------------------------------------------- |
-| `upgradeVotes`          | `2`     | Consecutive votes above the current tier before an upgrade.                                           |
-| `upgradeBase`           | `0.75`  | The upgrade bar when a switch costs nothing.                                                          |
-| `upgradeSlope`          | `0.15`  | How much a switching cost can raise the bar: `base + slope × tax / (tax + pivot)`.                    |
-| `upgradePivotUsd`       | `0.5`   | The switching cost that adds half of the slope.                                                       |
-| `jumpConfidence`        | `0.95`  | The confidence for a jump of two tiers without the vote delay.                                        |
-| `downgradeVotes`        | `2`     | Consecutive votes for a lower tier before a downgrade.                                                |
-| `downgradeMass`         | `0.9`   | The downgrade bar when the candidate's cache is already warm.                                         |
-| `downgradeSlope`        | `0.08`  | How much a cold candidate's cache write can raise the bar, same formula as upgrade.                   |
-| `downgradePivotUsd`     | `0.5`   | The switching cost that adds half of the slope.                                                       |
-| `downgradeHorizonTurns` | `5`     | The turns of output and read savings that a downgrade's tax nets. Input only without `output` prices. |
-| `continuationMass`      | `0.7`   | The Jev probability for "continues the task" that keeps the route.                                    |
-| `escalationHoldTurns`   | `2`     | Turns that the route stays up after an escalation.                                                    |
-| `cashCapUsd`            | `2`     | The cold-write guard: the largest first cache write for a switch to a `credits` model.                |
-
-### cache, jev, context, log
-
-| Key                     | Default                                | Meaning                                                                                                 |
-| ----------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `cache.writeMultiplier` | `{ "5m": 1.25, "1h": 2 }`              | The price of a cache write, as a multiple of `input`.                                                   |
-| `cache.ttlMs`           | `{ "5m": 300000, "1h": 3600000 }`      | The lifetime of each cache TTL.                                                                         |
-| `cache.warmMarginMs`    | `30000`                                | A cache counts as cold this long before it expires.                                                     |
-| `jev.endpoint`          | `https://api.typesafe.ai/v1/systemone` | The Jev API.                                                                                            |
-| `jev.model`             | `jev-1.13.0`                           | The Jev model.                                                                                          |
-| `jev.timeoutMs`         | `1500`                                 | The total time for one Jev answer, one retry included.                                                  |
-| `context.recentTurns`   | `6`                                    | The number of recent turns that Jev receives.                                                           |
-| `context.maxTextChars`  | `1200`                                 | The characters of the prompt and of each turn that Jev receives. A longer text keeps its start and end. |
-| `log`                   | `true`                                 | Write `decisions.jsonl`.                                                                                |
-
-## Environment variables
-
-| Variable             | Effect                                                                                                       |
-| -------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `TYPESAFE_API_KEY`   | The Jev key. The hooks set it from the plugin option.                                                        |
-| `ROUTER_CONFIG`      | Another path for the router configuration, under `~/.claude/` only. Another path is ignored, with a warning. |
-| `CLAUDE_PLUGIN_DATA` | The data directory. Claude Code sets it for the plugin hooks.                                                |
-
-## Command-line flags
-
-A project cannot change these: they are part of the command, not of the
-environment.
-
-| Flag                  | Script                                            | Effect                                                                   |
-| --------------------- | ------------------------------------------------- | ------------------------------------------------------------------------ |
-| `--config <path>`     | `gateway.mjs`, `ensure-gateway.mjs`, `status.mjs` | The router configuration, at any path.                                   |
-| `--force-tier <tier>` | `gateway.mjs`                                     | `micro`, `low`, `medium` or `high`. Skips Jev and the policy. For tests. |
-
-The flags are for a gateway that you start by hand. The hooks and the status
-line do not pass them. To use another file with the hooks, keep it under
-`~/.claude/` and set `ROUTER_CONFIG`.
-
-To force a tier, stop the gateway and start it by hand with the data directory
-of the plugin, so the log stays in its place:
+A marketplace install keeps the plugin ID `router@alexei-led-claude-router`: update it and keep it enabled. If you load v1 from a checkout with `--plugin-dir` instead, disable the marketplace v0.8 install so only one router loads. Set `CLAUDE_CONFIG_DIR` to the intended profile directory first:
 
 ```sh
-pkill -f scripts/gateway.mjs
-CLAUDE_PLUGIN_DATA=~/.claude/plugins/data/router-alexei-led-claude-router \
-  node <plugin>/scripts/gateway.mjs --force-tier high
+CLAUDE_CONFIG_DIR=/path/to/profile claude plugin disable router@alexei-led-claude-router --scope user
 ```
 
-## Data directory
+Then inspect that profile's `settings.json`. Remove the old `jev-router[1m]` model-picker row and any `model` or `env.ANTHROPIC_MODEL` value set to that alias. Remove `env.ANTHROPIC_BASE_URL` when it points to the router's loopback port. Clear `env.CLAUDE_CODE_GATEWAY_HINT_HEADERS`. Restore or remove a router-specific `statusLine` that points to the deleted script. Remove `env.ENABLE_TOOL_SEARCH` only if the old router setup added it and you do not need it for another reason. Preserve unrelated settings. Set the normal full baseline model, for example `claude-sonnet-5-5`.
 
-| File              | Content                                       | Retention                                    |
-| ----------------- | --------------------------------------------- | -------------------------------------------- |
-| `decisions.jsonl` | One line for each decision and each response. | Moves to `.1` above 20 MB.                   |
-| `gateway.log`     | Gateway events with timestamps.               | Moves to `.1` above 20 MB, at gateway start. |
-| `sessions/`       | The routing memory of each session.           | Removed after 30 days without use.           |
+No conversion is needed if you never created `router.json`. For an existing file, run the migration command from the v1 plugin directory, a checkout or the installed plugin cache:
+
+```sh
+node scripts/migrate-config.mjs ~/.claude/router.json
+```
+
+Pass the file under your active profile instead when `CLAUDE_CONFIG_DIR` points elsewhere. The command validates the converted configuration before writing it and creates an exact-byte `router.json.v0.8.backup`. It refuses to overwrite an existing backup. Route, model-price, cache, and policy overrides remain in the converted file.
+
+The converter removes old gateway and logging settings, request-feature fields, and model output caps. It moves `gateway.baselineTier` to top-level `baselineTier`. It stops without writing when it finds an unsupported old field or invalid setting.
+
+Node.js 22 or later is needed only for this migration command and project development. Claude Code runs the Mod. Node is not a routing service.

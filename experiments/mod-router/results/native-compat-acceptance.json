@@ -1,0 +1,91 @@
+{
+  "scenario": "native-request-compatibility",
+  "claudeVersion": "2.1.289 (Claude Code)",
+  "driver": "node experiments/mod-router/scripts/compat-acceptance.mjs",
+  "scope": "Real Claude Code engine routed by the native Mod through pins, against a loopback Messages stub. For each main request the stub applies the 0.8.0 gateway rewrite rules and records which request parts they would still change. Names only; no content is recorded.",
+  "pins": ["high", "micro", "medium", "low", "micro"],
+  "requests": [
+    {
+      "model": "claude-opus-5-5",
+      "effort": "xhigh",
+      "maxTokens": 128000,
+      "thinking": "adaptive",
+      "afterTool": false,
+      "gatewayWouldChange": []
+    },
+    {
+      "model": "claude-opus-5-5",
+      "effort": "xhigh",
+      "maxTokens": 128000,
+      "thinking": "adaptive",
+      "afterTool": true,
+      "gatewayWouldChange": []
+    },
+    {
+      "model": "claude-haiku-4-5",
+      "effort": null,
+      "maxTokens": 32000,
+      "thinking": "enabled",
+      "afterTool": false,
+      "gatewayWouldChange": ["thinking", "context_management"]
+    },
+    {
+      "model": "claude-haiku-4-5",
+      "effort": null,
+      "maxTokens": 32000,
+      "thinking": "enabled",
+      "afterTool": true,
+      "gatewayWouldChange": ["thinking", "context_management"]
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "effort": "xhigh",
+      "maxTokens": 128000,
+      "thinking": "adaptive",
+      "afterTool": false,
+      "gatewayWouldChange": []
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "effort": "xhigh",
+      "maxTokens": 128000,
+      "thinking": "adaptive",
+      "afterTool": true,
+      "gatewayWouldChange": []
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "effort": "medium",
+      "maxTokens": 128000,
+      "thinking": "adaptive",
+      "afterTool": false,
+      "gatewayWouldChange": ["messages", "output_config"]
+    },
+    {
+      "model": "claude-sonnet-5-5",
+      "effort": "medium",
+      "maxTokens": 128000,
+      "thinking": "adaptive",
+      "afterTool": true,
+      "gatewayWouldChange": ["messages", "output_config"]
+    },
+    {
+      "model": "claude-haiku-4-5",
+      "effort": null,
+      "maxTokens": 32000,
+      "thinking": "enabled",
+      "afterTool": false,
+      "gatewayWouldChange": ["thinking", "context_management"]
+    },
+    {
+      "model": "claude-haiku-4-5",
+      "effort": null,
+      "maxTokens": 32000,
+      "thinking": "enabled",
+      "afterTool": true,
+      "gatewayWouldChange": ["thinking", "context_management"]
+    }
+  ],
+  "legacyRewriteDifferences": ["thinking", "context_management", "messages", "output_config"],
+  "interpretation": "Differences from historical gateway rules are not API incompatibilities. Real API probes separately validate thinking, tools and output behavior."
+}

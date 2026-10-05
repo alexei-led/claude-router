@@ -1,0 +1,21 @@
+{
+  "scenario": "persistent-replace",
+  "claudeVersion": "2.1.289 (Claude Code)",
+  "profile": "ce peer-team, Team credentials, isolated native plugin directory, synthetic Jev stub on loopback",
+  "driver": "node experiments/mod-router/scripts/persistent-acceptance.mjs replace",
+  "passed": true,
+  "checks": {
+    "reloadOutput": "Reloaded: 31 plugins · 94 skills · 17 agents · 25 hooks · 3 plugin LSP servers",
+    "replacedModuleRequestClosedMs": 1570,
+    "askAfterReplace": "timeout",
+    "orphanClosedMsAfterReload": 31598
+  },
+  "wire": {
+    "requests": 2,
+    "maxUnfinished": 1,
+    "unfinishedAtEnd": 0,
+    "connects": 2,
+    "closes": 2,
+    "secretsOnWire": false
+  }
+}

@@ -1,7 +1,7 @@
 {
   "name": "@alexeiled/claude-router",
-  "version": "0.8.0",
-  "description": "Claude Code plugin: auto-picks the right model and effort for each turn using Jev routing.",
+  "version": "1.0.0",
+  "description": "Native Claude Code Mod: Jev model and effort routing for the main conversation.",
   "license": "MIT",
   "author": "Alexei Ledenev",
   "repository": {
@@ -17,19 +17,20 @@
     ".claude-plugin/plugin.json",
     "hooks",
     "lib",
-    "scripts",
-    "skills",
-    "docs",
+    "scripts/migrate-config.mjs",
+    "docs/*.md",
+    "docs/*.svg",
     "README.md",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "types"
   ],
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
     "test": "node --test --test-timeout=8000 test/*.test.mjs",
-    "check": "biome check .",
-    "validate": "claude plugin validate .",
+    "check": "biome check lib scripts test hooks types .claude-plugin package.json package-lock.json biome.json experiments/mod-router",
+    "validate": "claude plugin validate .claude-plugin/plugin.json && claude plugin validate .claude-plugin/marketplace.json",
     "format": "biome format --write .",
     "pack:dry": "npm pack --dry-run",
     "prepublishOnly": "npm run check && npm test"

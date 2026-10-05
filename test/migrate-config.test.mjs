@@ -1,0 +1,79 @@
+import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test from 'node:test';
+import { loadConfig } from '../lib/config.mjs';
+import { migrateConfig, migrateFile } from '../scripts/migrate-config.mjs';
+
+const old = {
+  gateway: { port: 5000, alias: 'private', baselineTier: 'medium', auxiliaryTier: 'micro', idleShutdownMs: 0 },
+  routes: { micro: { model: 'custom' } },
+  models: {
+    custom: {
+      id: 'my-model',
+      input: 3,
+      output: 7,
+      cacheRead: 0.15,
+      contextWindow: 500000,
+      billing: 'credits',
+      efforts: ['high'],
+      features: [],
+      maxOutput: 64000,
+    },
+  },
+  policy: { cashCapUsd: 4, downgradeVotes: 3 },
+  cache: { warmMarginMs: 10000 },
+  jev: { timeoutMs: 2000 },
+  context: { recentTurns: 8 },
+  log: false,
+};
+
+test('migration preserves custom routes, prices and policy without mutating the old config', () => {
+  const before = structuredClone(old);
+  const migrated = migrateConfig(old);
+  assert.deepEqual(old, before);
+  assert.equal(migrated.baselineTier, 'medium');
+  assert.equal(migrated.gateway, undefined);
+  assert.equal(migrated.log, undefined);
+  assert.deepEqual(migrated.routes, old.routes);
+  assert.deepEqual(
+    migrated.models.custom,
+    Object.fromEntries(Object.entries(old.models.custom).filter(([key]) => !['features', 'maxOutput'].includes(key))),
+  );
+  for (const key of ['policy', 'cache', 'jev', 'context']) assert.deepEqual(migrated[key], old[key]);
+  assert.equal(loadConfig({ userFile: migrated }).routes.micro.model, 'custom');
+  assert.deepEqual(migrateConfig(migrated), migrated);
+});
+
+test('old config gives an actionable migration error', () => {
+  for (const userFile of [old, { log: true }, { models: { haiku: { maxOutput: 64000 } } }])
+    assert.throws(() => loadConfig({ userFile }), /scripts\/migrate-config\.mjs/);
+});
+
+test('migration rejects conflicts, unknown keys and unsafe object keys', () => {
+  for (const file of [
+    { ...old, baselineTier: 'high' },
+    { gateway: { prot: 123 } },
+    { ...old, policy: { cashCapUsd: -1 } },
+    JSON.parse('{"gateway":{"__proto__":{}}}'),
+    JSON.parse('{"models":{"__proto__":{}}}'),
+  ])
+    assert.throws(() => migrateConfig(file));
+});
+
+test('file conversion backs up exact bytes and never overwrites an existing backup', async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), 'router-migration-'));
+  t.after(() => rm(directory, { recursive: true }));
+  const path = join(directory, 'router.json');
+  const original = JSON.stringify(old);
+  await writeFile(path, original);
+  const backup = await migrateFile(path);
+  assert.equal(await readFile(backup, 'utf8'), original);
+  assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), migrateConfig(old));
+  assert.equal(await migrateFile(path), null);
+  await writeFile(path, original);
+  await assert.rejects(migrateFile(path), { code: 'EEXIST' });
+  assert.equal(await readFile(path, 'utf8'), original);
+  assert.equal(await readFile(backup, 'utf8'), original);
+});

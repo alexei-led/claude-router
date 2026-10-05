@@ -1,0 +1,314 @@
+{
+  "schema": "trace-evaluation/1",
+  "label": "shadow estimate; not measured savings",
+  "window": {
+    "firstDayUtc": "2026-09-23",
+    "lastDayUtc": "2026-10-04"
+  },
+  "counts": {
+    "allRows": 53413,
+    "teamRows": 24408,
+    "nonTeamRowsExcluded": 29005,
+    "teamSessionsWithRows": 112,
+    "teamRowKinds": {
+      "decision": 12532,
+      "observation": 11742,
+      "cacheReset": 34,
+      "historyBreak": 3,
+      "failed": 97
+    },
+    "observations": 11742,
+    "teamDecisionsByClass": {
+      "unclassified": 251,
+      "auxiliary": 660,
+      "main": 11619,
+      "compaction": 2
+    },
+    "teamDecisionsWithAdviceByClass": {
+      "unclassified": 6,
+      "main": 37
+    },
+    "mainDecisions": 11619,
+    "mainDecisionsWithAdvice": 37,
+    "subagentRowsExcluded": 0,
+    "subagentRowsWithAdviceExcluded": 0,
+    "malformedLinesIgnored": 0
+  },
+  "routeTransitions": {
+    "allMainRows": {
+      "up": 9,
+      "down": 0,
+      "stay": 11512,
+      "firstRowOfSession": 98
+    },
+    "turnDecisions": {
+      "up": 9,
+      "down": 0,
+      "stay": 1528,
+      "firstRowOfSession": 98,
+      "byTierPair": {
+        "low->low": 1346,
+        "low->medium": 8,
+        "medium->medium": 125,
+        "medium->high": 1,
+        "high->high": 57
+      },
+      "perDay": {
+        "2026-09-23": {
+          "up": 1,
+          "down": 0,
+          "stay": 17
+        },
+        "2026-09-24": {
+          "up": 1,
+          "down": 0,
+          "stay": 266
+        },
+        "2026-09-25": {
+          "up": 0,
+          "down": 0,
+          "stay": 4
+        },
+        "2026-09-26": {
+          "up": 0,
+          "down": 0,
+          "stay": 22
+        },
+        "2026-09-27": {
+          "up": 3,
+          "down": 0,
+          "stay": 101
+        },
+        "2026-09-28": {
+          "up": 1,
+          "down": 0,
+          "stay": 325
+        },
+        "2026-09-29": {
+          "up": 0,
+          "down": 0,
+          "stay": 69
+        },
+        "2026-09-30": {
+          "up": 1,
+          "down": 0,
+          "stay": 50
+        },
+        "2026-10-01": {
+          "up": 1,
+          "down": 0,
+          "stay": 408
+        },
+        "2026-10-02": {
+          "up": 0,
+          "down": 0,
+          "stay": 98
+        },
+        "2026-10-03": {
+          "up": 0,
+          "down": 0,
+          "stay": 62
+        },
+        "2026-10-04": {
+          "up": 1,
+          "down": 0,
+          "stay": 106
+        }
+      }
+    }
+  },
+  "recordedReasons": {
+    "byRequestClass": {
+      "unclassified": {
+        "no-advice": 72,
+        "uncertain": 1,
+        "auxiliary": 1,
+        "tool-continuation": 172,
+        "downgrade-pending": 5
+      },
+      "auxiliary": {
+        "auxiliary": 660
+      },
+      "main": {
+        "no-advice": 1577,
+        "tool-continuation": 9964,
+        "escalation": 9,
+        "hold": 14,
+        "continuation": 21,
+        "upgrade-pending": 2,
+        "uncertain": 6,
+        "downgrade-pending": 6,
+        "retry": 20
+      },
+      "compaction": {
+        "auxiliary": 2
+      }
+    },
+    "mainDecisionsWithAdvice": {
+      "continuation": 21,
+      "upgrade-pending": 2,
+      "uncertain": 6,
+      "downgrade-pending": 6,
+      "hold": 2
+    }
+  },
+  "shadowScenario": {
+    "label": "shadow estimate; list-price equivalents; not measured savings and not a counterfactual bill",
+    "advisedMainDecisions": 37,
+    "replayEligible": 37,
+    "skippedAdvisedMainDecisions": {},
+    "prefixRobust": 37,
+    "prefixSensitive": 0,
+    "decisionsDiffering": {
+      "byTierOrReason": 0,
+      "byTier": 0,
+      "ofPrefixRobust": 37
+    },
+    "switchesRobust": {
+      "legacy": 0,
+      "native": 0
+    },
+    "legacyReasons": {
+      "continuation": 21,
+      "upgrade-pending": 2,
+      "uncertain": 6,
+      "downgrade-pending": 6,
+      "hold": 2
+    },
+    "nativeReasons": {
+      "continuation": 21,
+      "upgrade-pending": 2,
+      "uncertain": 6,
+      "downgrade-pending": 6,
+      "hold": 2
+    },
+    "gateReasonChanges": {},
+    "differingSwitchCost": {
+      "note": "next-request cost of the differing switch, candidate minus incumbent, native bounds at both prefix bounds; positive means the candidate costs more; sums are not additive across turns",
+      "switches": 0,
+      "perSwitchMinUsd": [],
+      "perSwitchMaxUsd": [],
+      "rangeAcrossSwitchesUsd": null,
+      "sumOfBoundsUsd": null
+    },
+    "thresholdStepReached": {
+      "note": "advised decisions whose policy path priced the switch (upgrade-pending or downgrade-pending); spreads of tax and threshold per arm",
+      "decisions": 8,
+      "taxUsd": {
+        "legacy": {
+          "min": 0,
+          "max": 3.471304
+        },
+        "native": {
+          "min": 0.02866,
+          "max": 3.471293
+        }
+      },
+      "threshold": {
+        "legacy": {
+          "min": 0.860512,
+          "max": 0.953678
+        },
+        "native": {
+          "min": 0.860483,
+          "max": 0.953675
+        }
+      }
+    },
+    "cacheKeyCoverage": {
+      "incumbentStateFound": {
+        "num": 31,
+        "den": 37,
+        "ratio": 0.837838
+      },
+      "candidateStateFound": {
+        "num": 1,
+        "den": 28,
+        "ratio": 0.035714
+      },
+      "incumbentFreshAtLowPrefixBound": {
+        "num": 31,
+        "den": 37,
+        "ratio": 0.837838
+      },
+      "incumbentFreshAtHighPrefixBound": {
+        "num": 31,
+        "den": 37,
+        "ratio": 0.837838
+      }
+    },
+    "legacyParity": {
+      "note": "legacy replay against recorded tier+reason on all replayable main/subagent/workflow turn decisions",
+      "outcome": {
+        "num": 1704,
+        "den": 1704,
+        "ratio": 1
+      },
+      "recordedTaxReproducedWithin1e6": {
+        "num": 2,
+        "den": 2,
+        "ratio": 1
+      }
+    }
+  },
+  "coverage": {
+    "observationFields": {
+      "observations": 11742,
+      "uncachedInputTokens": {
+        "status": "unavailable",
+        "rowsLacking": 11742
+      },
+      "cacheCreationTokens": {
+        "status": "unavailable",
+        "rowsLacking": 11742
+      },
+      "exactCachePrefix": {
+        "status": "unavailable",
+        "rowsLacking": 11742
+      },
+      "cacheReadTokens": {
+        "rowsLacking": 0
+      },
+      "outputTokens": {
+        "rowsLacking": 0
+      },
+      "effort": {
+        "rowsLacking": 1212
+      },
+      "ttl": {
+        "status": "partial",
+        "evidence1h": 11650,
+        "default5mNotEvidence": 92,
+        "rowsLacking": 0
+      }
+    },
+    "exactNativePrefixReplay": {
+      "replayed": 0,
+      "ofAdvisedMainDecisions": 37,
+      "status": "unavailable"
+    },
+    "boundedReplay": {
+      "num": 37,
+      "den": 37,
+      "ratio": 1
+    },
+    "boundedReplayPrefixRobust": {
+      "num": 37,
+      "den": 37,
+      "ratio": 1
+    },
+    "ttlForNativeArm": "unavailable: native policy treats TTL as unknown by contract and uses the 5m minimum",
+    "unclassifiedPreHeaderRowsWithAdviceExcluded": 6
+  },
+  "limitations": [
+    "All figures are shadow estimates at configured list prices (all default models bill as plan). Nothing here is a charge, a measured saving or a counterfactual saving.",
+    "decisions.jsonl lacks uncached and cache-creation token counts, so the native cache prefix (cache read + creation) cannot be replayed exactly. Native decisions run at both bounds of the prefix (cache read only, and the full request); only decisions identical at both bounds count as prefix-robust.",
+    "The logged ttl is 1h only when 1h creation tokens were seen and 5m otherwise, so 5m is a default, not evidence. The legacy arm uses it as logged; the native arm ignores TTL by contract.",
+    "Both arms run on one current default config with recorded model IDs substituted per tier, so config drift over the trace window (prices, routes, efforts) cancels between arms but not against the recorded decisions. Legacy parity is reported to show how far the reconstruction holds.",
+    "Escalation, hold-after-escalation and pinned decisions depend on failure signatures and pins that are not in the trace. Recorded escalations are applied to the state chain and excluded from comparison.",
+    "The state chain follows the legacy policy on the trace inputs and is shared by both arms; it is not re-run per arm, so state divergence after a differing decision is not modeled.",
+    "Subagent, workflow, auxiliary, compaction and unclassified rows are excluded from comparison. Subagent and workflow rows still advance the shared session state, as in the gateway.",
+    "The trace is a small sample of advised decisions (most main rows are tool continuations or have no advice); counts, not rates, carry the meaning.",
+    "Costs cover the next request only (input bounds plus the output-price difference on the last output size) and ignore effort-dependent output length."
+  ]
+}

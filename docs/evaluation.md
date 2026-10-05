@@ -1,83 +1,64 @@
 # Evaluation
 
-A snapshot of real work by one developer on one machine. The router ran in
-Claude Code (claude-router) and in Pi (pi-model-router). Both use Jev.
+The native Mod has no measured savings result. The pane reports Claude's own usage and configured-price scenarios. It does not maintain a counterfactual bill or a cumulative savings total.
 
-![jev-router in Claude Code: where the requests went, and what the work cost](tier-share.svg)
+This page separates an older gateway experiment from a shadow replay of native policy. Neither result measures answer quality or proves lower real spend.
 
-## Claude Code
+## Historical gateway experiment
 
-The window starts at the first request on the current models (Opus 5.5,
-Sonnet 5, Haiku 4.5): 2026-09-23 09:05 UTC. It ends at 2026-09-24 06:00 UTC.
-The data has 26 sessions and 1,611 requests. Jev advised 111 prompts.
+These figures are retained from the earlier gateway implementation. They do not evaluate the native Mod or its current routes. The snapshot covers 26 Claude Code sessions and 1,611 requests from 2026-09-23 09:05 UTC through 2026-09-24 06:00 UTC. Jev advised on 111 prompts.
 
-| Tier     | Model and effort   | Requests | Share |
-| -------- | ------------------ | -------- | ----- |
-| `micro`  | Haiku 4.5          | 154      | 9.6%  |
-| `low`    | Sonnet 5           | 1,239    | 76.9% |
-| `medium` | Opus 5.5, `high`   | 73       | 4.5%  |
-| `high`   | Opus 5.5, `xhigh`  | 145      | 9.0%  |
+![Historical gateway model share and configured-price costs](tier-share.svg)
 
-The cost of the same work at list prices:
+The original list-price comparison was:
 
-| Scenario                  | Cost    | Saving with the router |
-| ------------------------- | ------- | ---------------------- |
-| Always Opus at `xhigh`    | $166.26 | 15.5%                  |
-| Best model per session    | $146.54 | 4.1%                   |
-| jev-router                | $140.55 | —                      |
+| Scenario                                        | Estimated cost | Difference from router |
+| ----------------------------------------------- | -------------: | ---------------------: |
+| Always Opus at `xhigh`                          |        $166.26 | Router was 15.5% lower |
+| Strongest model selected for each whole session |        $146.54 |  Router was 4.1% lower |
+| Earlier gateway router                          |        $140.55 |                      — |
 
-"Best model per session" is a user who knows in advance the strongest tier
-that Jev selected in each session, and uses it for the full session. The
-result for each group of sessions:
+The session-level baseline assumes a user knows the strongest tier needed by each session and uses it for every request. All scenarios reuse the router's token and output counts. The estimate holds stronger-model output constant, so it does not capture any change in output length. The [original evaluation method](#historical-method-and-limits) lists the limits.
 
-| Strongest tier in the session | Sessions | Requests | Router  | Baseline | Saving |
-| ----------------------------- | -------- | -------- | ------- | -------- | ------ |
-| `low` (Sonnet)                | 23       | 573      | $39.74  | $39.74   | 0%     |
-| `medium` (Opus, `high`)       | 2        | 847      | $76.89  | $84.57   | 9.1%   |
-| `high` (Opus, `xhigh`)        | 1        | 191      | $23.92  | $22.23   | −7.6%  |
+This is one developer's short trace at configured list prices. It does not include a quality review. Do not use these values as expected results for the native Mod.
 
-## Output size
+## Native shadow replay
 
-The baselines keep the output tokens of the router. A stronger model at a
-higher effort writes more, so the real savings are larger. If the stronger
-route writes more output on the requests that the router sent lower, the
-savings are:
+The native replay uses an aggregate Team-session trace from 2026-09-23 through 2026-10-04. The checked-in result is [`trace-evaluation.json`](../experiments/mod-router/results/trace-evaluation.json), produced by [`trace-eval.mjs`](../experiments/mod-router/scripts/trace-eval.mjs).
 
-| Output of the stronger route | vs. always Opus at `xhigh` | vs. best model per session |
-| ---------------------------- | -------------------------- | -------------------------- |
-| Same (1×)                    | 15.5%                      | 4.1%                       |
-| 1.5×                         | 21.1%                      | 7.6%                       |
-| 2×                           | 26.0%                      | 10.8%                      |
+| Coverage item                                               |                            Result |
+| ----------------------------------------------------------- | --------------------------------: |
+| Team rows                                                   |        24,408 across 112 sessions |
+| Main-conversation decision rows                             |                            11,619 |
+| Main decisions with Jev advice                              |                                37 |
+| Advised decisions replayed at both cache-prefix bounds      |                          37 of 37 |
+| Decisions with a different route or reason between policies |                           0 of 37 |
+| Differing switches and estimated switch cost                | 0; no switch cost can be computed |
 
-## Pi
+The legacy replay matched the logged tier and reason for 1,704 of 1,704 replayable decisions. On the 37 advised main decisions, both policies produced the same route and reason. This replay therefore shows no native routing difference and cannot support a savings claim.
 
-Pi used two OpenAI profiles from 2026-09-22 21:00 to 2026-09-24 06:00 UTC,
-with 25 sessions and 1,964 requests. Jev advised 148 decisions. The profiles
-put correctness first: `high` served 83.6% of the requests and `medium` served
-16.4%. The router cost $347.90. The best model per session cost $348.37. With
-this policy, routing is cost-neutral.
+Eight advised decisions reached a switching-cost threshold calculation. The native configured-price tax ranged from $0.028660 to $3.471293 and the threshold from 0.860483 to 0.953675. These are shadow estimates for individual next requests, not bills or additive savings.
 
-## Method
+The old log records cache reads but not uncached input or cache-creation tokens. The native replay tests two prefix bounds: cache reads alone and the full observed input. All 37 decisions matched at both bounds. That is a bound-stability check, not an exact reconstruction of native cache state.
 
-- **Data.** Claude Code: `decisions.jsonl`, one `observed` line with the
-  usage of each response. Pi: the session files, a router decision and the
-  usage of each message. Neither source has prompt text.
-- **Prices.** List prices in USD per million tokens. Claude: the defaults in
-  `lib/config.mjs`. Pi: the Pi model registry, with long-context prices. For
-  subscription plans, the dollars show the relative cost only.
-- **Cache writes.** In Claude Code, the input that is not a cache read counts
-  as a cache write at the granted TTL: 1.25× input for 5 minutes, 2× for 1
-  hour.
-- **Baselines.** Each baseline uses the tokens and the cache reads of the
-  router. After each change of route in a conversation, the baseline also
-  reads the previous context from the cache, if the cache is still warm. Thus
-  the baseline does not pay for the cache writes that routing causes.
-- **Tiers with one model.** Opus at `high` and at `xhigh` have the same price.
-  Subagents count toward the strongest tier of their session.
+### Reproduce the native replay
 
-## Limits
+Run this command with the Team `decisions.jsonl` log available in its usual Claude Code profile:
 
-- One developer and two days make a snapshot, not a benchmark.
-- Answer quality was not measured.
-- For Pi, the baseline assumes that the OpenAI cache stays warm for 10
-  minutes.
+```sh
+node experiments/mod-router/scripts/trace-eval.mjs
+node --test test/trace-eval.test.mjs
+```
+
+The script writes aggregate counts, reason histograms, route transitions, and shadow estimates. It excludes prompts, session identifiers, agent names, error text, headers, keys, and filesystem paths from the result. It reads the local profile log and writes the JSON result file.
+
+## Historical method and limits
+
+- Costs use configured USD list prices per million tokens. They are not subscription cash charges.
+- The older gateway baseline uses the router's observed tokens and cache reads. After a route change, the baseline assumes the prior context can be read from cache.
+- The native replay uses the current default routes and prices, with recorded model IDs substituted. It compares the native cost bounds with a legacy cost model using the same policy state and trace facts.
+- The replay cannot reconstruct exact native cache prefixes or one-hour cache evidence from the old log. The native cache model treats TTL as unknown.
+- The replay applies the legacy state chain to both policy arms. It does not simulate later state changes after a different decision.
+- Failure signatures and pins are not present in the trace. The relevant route decisions are excluded from comparison.
+- Most main rows are tool continuations or have no Jev advice. Only 37 advised decisions support the native comparison.
+- Costs cover the next request. They use the last observed output size and do not model effort-dependent output length or future answer quality.

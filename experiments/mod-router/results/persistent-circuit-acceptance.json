@@ -1,0 +1,20 @@
+{
+  "scenario": "persistent-circuit",
+  "claudeVersion": "2.1.289 (Claude Code)",
+  "profile": "ce peer-team, Team credentials, isolated native plugin directory, synthetic Jev stub on loopback",
+  "driver": "node experiments/mod-router/scripts/persistent-acceptance.mjs circuit",
+  "passed": true,
+  "checks": {
+    "failuresToPause": 3,
+    "pausedWithoutHttp": true,
+    "recoveredAfter503": true
+  },
+  "wire": {
+    "requests": 5,
+    "maxUnfinished": 1,
+    "unfinishedAtEnd": 0,
+    "connects": 2,
+    "closes": 2,
+    "secretsOnWire": false
+  }
+}
