@@ -14,6 +14,8 @@ const answer = {
     },
   },
 };
+// The filled endpoint the hook passes in, distinct from any configured template.
+const ENDPOINT = 'https://classifier.test/v1/resolved';
 const ok = () => ({ ok: true, status: 200, text: JSON.stringify(answer), headers: {} });
 const flush = async () => {
   for (let i = 0; i < 12; i += 1) await Promise.resolve();
@@ -56,6 +58,7 @@ function input(timing, request) {
     sleep: timing.sleep,
     config: DEFAULTS,
     apiKey: 'synthetic-test-key',
+    endpoint: ENDPOINT,
     prompt: 'One small edit.',
     turns: [],
   };
@@ -66,7 +69,7 @@ test('native Jev sends the shared contract and reads text and plain headers', as
   const jev = new NativeJev({ now: timing.now });
   const result = await jev.ask(
     input(timing, async (url, init) => {
-      assert.equal(url, DEFAULTS.jev.endpoint);
+      assert.equal(url, ENDPOINT);
       assert.equal(init.headers.authorization, 'Bearer synthetic-test-key');
       assert.equal(JSON.parse(init.body).state.currentRequest.text, 'One small edit.');
       assert.equal(Object.hasOwn(init, 'signal'), false);
@@ -75,6 +78,20 @@ test('native Jev sends the shared contract and reads text and plain headers', as
   );
   assert.equal(result.error, null);
   assert.equal(result.advice.choice, 'medium');
+});
+
+test('the deadline is the active classifier deadline', async () => {
+  for (const id of Object.keys(DEFAULTS.classifiers)) {
+    const timing = clock();
+    const jev = new NativeJev({ now: timing.now });
+    const config = { ...DEFAULTS, classifier: id };
+    const pending = jev.ask({ ...input(timing, () => new Promise(() => {})), config });
+    await flush();
+    await timing.advance(DEFAULTS.classifiers[id].timeoutMs - 1);
+    assert.equal(jev.active, true, id);
+    await timing.advance(1);
+    assert.equal((await pending).error, 'timeout', id);
+  }
 });
 
 test('a timed-out request occupies the slot until settlement, and its late success changes no health', async () => {
@@ -194,6 +211,7 @@ test('missing credentials and policy refusal do not retry or count as provider o
     throw new Error('Network access from plugins denied');
   });
   assert.equal((await jev.ask({ ...args, apiKey: null })).error, 'missing-key');
+  assert.equal((await jev.ask({ ...args, endpoint: null })).error, 'missing-account');
   assert.equal((await jev.ask(args)).error, 'policy');
   assert.equal(calls, 1);
   assert.equal(jev.snapshot().failures, 0);

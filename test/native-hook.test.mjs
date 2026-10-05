@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { register } from '../hooks/native-router.mjs';
+import { jevResponse } from './helpers.mjs';
 
 function harness(options = {}, preferences = new Map()) {
   const hooks = [];
@@ -422,14 +424,14 @@ test('clear discards unsaved tuning and preserves active configuration', async (
   const h = harness();
   await start(h);
   await press(h, 'tab-tuning');
-  await press(h, 'timeoutMs', '3000');
-  assert.equal(h.view().tuning.timeoutMs, 3000);
+  await press(h, 'horizon', '10');
+  assert.equal(h.view().tuning.horizon, 10);
   await h.event('session.end', { reason: 'clear' });
   h.clear();
   await drain(h.step({ ...step, turnId: 't2' }));
   assert.equal(h.view().tuning, null);
   await press(h, 'tab-tuning');
-  assert.equal(controls(await h.render()).find((node) => node.key === 'timeoutMs').value, '1500');
+  assert.equal(controls(await h.render()).find((node) => node.key === 'horizon').value, '5');
 });
 
 test('the key button opens the secure plugin dialog and leaves a prompt draft alone', async () => {
@@ -683,12 +685,12 @@ test('session effort on a tier sends the effort Claude Code asked for', async ()
 
 test('reset to defaults removes saved route overrides and keeps other settings', async () => {
   const h = harness();
-  h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } }, jev: { timeoutMs: 900 } }));
+  h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } }, classifiers: { jev: { timeoutMs: 900 } } }));
   await start(h);
   await press(h, 'tab-tiers');
   await press(h, 'reset-routes');
   await press(h, 'save-routes');
-  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { jev: { timeoutMs: 900 } });
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifiers: { jev: { timeoutMs: 900 } } });
 });
 
 test('a model without effort levels has no effort control and drops the chosen effort', async () => {
@@ -803,7 +805,7 @@ test('the band offers Auto in Manual mode and a key button without a key', async
   await start(h);
   await drain(h.step(step));
   let view = await band(h);
-  assert.match(view.line, /⚠ Jev key not set {2}· {2}keeping model/);
+  assert.match(view.line, /⚠ Jev: no API key {2}· {2}keeping model/);
   await view.controls.find((node) => node.key === 'band-key').onPress();
   assert.equal(h.commandCalls(), 1);
   await h.event('command.run', { command: 'router', args: 'off' });
@@ -896,12 +898,12 @@ test('the pane refuses to save through a symlinked router.json', async () => {
 test('a tuning save writes only the changed value and keeps edits made on disk', async () => {
   const h = harness();
   await start(h);
-  h.files.set(CONFIG, JSON.stringify({ jev: { timeoutMs: 900 } }));
+  h.files.set(CONFIG, JSON.stringify({ classifiers: { jev: { timeoutMs: 900 } } }));
   await press(h, 'tab-tuning');
   await press(h, 'horizon', '10');
   await press(h, 'save-tuning');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
-    jev: { timeoutMs: 900 },
+    classifiers: { jev: { timeoutMs: 900 } },
     policy: { downgradeHorizonTurns: 10 },
   });
 });
@@ -912,8 +914,8 @@ test('a narrow band never exceeds its width: optional parts drop, then the route
   await drain(h.step(step));
   const widthOf = (line) => [...line].length;
   for (const [columns, expected] of [
-    [120, /⚠ Jev key not set {2}· {2}keeping model/],
-    [60, /⚠ Jev key not set/],
+    [120, /⚠ Jev: no API key {2}· {2}keeping model/],
+    [60, /⚠ Jev: no API key/],
     [30, /…/],
   ]) {
     const { tree } = await band(h, { bodyColumns: columns });
@@ -934,22 +936,247 @@ test('a draft on one tab survives a save on the other tab after an on-disk edit'
   await press(h, 'route-model-micro', 'sonnet');
   await press(h, 'tab-tuning');
   await press(h, 'horizon', '10');
-  h.files.set(CONFIG, JSON.stringify({ routes: { high: { model: 'sonnet' } }, jev: { timeoutMs: 900 } }));
+  h.files.set(
+    CONFIG,
+    JSON.stringify({ routes: { high: { model: 'sonnet' } }, classifiers: { jev: { timeoutMs: 900 } } }),
+  );
   await press(h, 'save-tuning');
   await press(h, 'tab-tiers');
   await press(h, 'save-routes');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
     routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet' } },
-    jev: { timeoutMs: 900 },
+    classifiers: { jev: { timeoutMs: 900 } },
     policy: { downgradeHorizonTurns: 10 },
   });
   await press(h, 'tab-tuning');
   await press(h, 'downgradeVotes', '3');
-  h.files.set(CONFIG, JSON.stringify({ jev: { timeoutMs: 3000 } }));
+  h.files.set(CONFIG, JSON.stringify({ classifiers: { jev: { timeoutMs: 3000 } } }));
   await press(h, 'tab-tiers');
   await press(h, 'route-model-micro', 'haiku');
   await press(h, 'save-routes');
   await press(h, 'tab-tuning');
   await press(h, 'save-tuning');
-  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { jev: { timeoutMs: 3000 }, policy: { downgradeVotes: 3 } });
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
+    classifiers: { jev: { timeoutMs: 3000 } },
+    policy: { downgradeVotes: 3 },
+  });
+});
+
+const CLEF_FLASH_ANSWER = readFileSync(new URL('./fixtures/clef-flash-response.json', import.meta.url), 'utf8');
+const CLOUDFLARE_KEYS = { cloudflare_api_token: 'synthetic-token', cloudflare_account_id: 'acct-1' };
+
+test('each classifier reads its key option, then the environment variables named after it', async () => {
+  for (const [name, options, env, expected] of [
+    ['plugin options', CLOUDFLARE_KEYS, {}, { jev: 'missing-key', clef: null, 'clef-flash': null }],
+    [
+      'environment variables',
+      {},
+      { TYPESAFE_API_KEY: 'k', CLOUDFLARE_API_TOKEN: 't', CLOUDFLARE_ACCOUNT_ID: 'a' },
+      { jev: null, clef: null, 'clef-flash': null },
+    ],
+    [
+      'a token without an account',
+      { cloudflare_api_token: '  ' },
+      { CLAUDE_PLUGIN_OPTION_CLOUDFLARE_API_TOKEN: 't' },
+      { jev: 'missing-key', clef: 'missing-account', 'clef-flash': 'missing-account' },
+    ],
+  ]) {
+    const h = harness(options);
+    for (const [key, value] of Object.entries(env)) h.env.set(key, value);
+    await start(h);
+    assert.deepEqual(h.view().credentials, expected, name);
+  }
+});
+
+test('every classifier option has both environment fallbacks', async () => {
+  const cloudflare = { cloudflare_api_token: 't', cloudflare_account_id: 'a' };
+  for (const [variable, options, id] of [
+    ['TYPESAFE_API_KEY', {}, 'jev'],
+    ['CLAUDE_PLUGIN_OPTION_TYPESAFE_API_KEY', {}, 'jev'],
+    ['CLOUDFLARE_API_TOKEN', { cloudflare_account_id: 'a' }, 'clef'],
+    ['CLAUDE_PLUGIN_OPTION_CLOUDFLARE_API_TOKEN', { cloudflare_account_id: 'a' }, 'clef'],
+    ['CLOUDFLARE_ACCOUNT_ID', { cloudflare_api_token: 't' }, 'clef'],
+    ['CLAUDE_PLUGIN_OPTION_CLOUDFLARE_ACCOUNT_ID', { cloudflare_api_token: 't' }, 'clef'],
+  ]) {
+    const h = harness(options);
+    h.env.set(variable, 'value');
+    await start(h);
+    assert.equal(h.view().credentials[id], null, variable);
+  }
+  const h = harness(cloudflare);
+  await start(h);
+  assert.equal(h.view().credentials.jev, 'missing-key');
+});
+
+test('Clef Flash classifies through its filled endpoint and reads the Cloudflare envelope', async () => {
+  const h = harness(CLOUDFLARE_KEYS);
+  h.files.set(CONFIG, JSON.stringify({ classifier: 'clef-flash' }));
+  const calls = [];
+  h.http(async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 200, text: CLEF_FLASH_ANSWER, headers: {} };
+  });
+  await start(h);
+  await drain(h.step(step));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://api.cloudflare.com/client/v4/accounts/acct-1/ai/run/@cf/cloudflare/clef-flash');
+  assert.equal(calls[0].init.headers.authorization, 'Bearer synthetic-token');
+  assert.equal(JSON.parse(calls[0].init.body).model, 'clef-flash');
+  assert.equal(h.view().error, null);
+  assert.equal(h.view().adviceChoice, 'micro');
+  assert.ok(texts(await h.render()).some((line) => /^Clef Flash ready/.test(line)));
+});
+
+test('a missing account warns in the band and the pane and offers the key dialog', async () => {
+  const h = harness({ cloudflare_api_token: 'synthetic-token' });
+  h.files.set(CONFIG, JSON.stringify({ classifier: 'clef' }));
+  h.http(async () => assert.fail('no request without an account'));
+  await start(h);
+  await drain(h.step(step));
+  assert.equal(h.view().error, 'missing-account');
+  const view = await band(h);
+  assert.match(view.line, /⚠ Clef: no account ID {2}· {2}keeping model/);
+  await view.controls.find((node) => node.key === 'band-key').onPress();
+  assert.equal(h.commandCalls(), 1);
+  assert.ok(texts(await h.render()).includes('Clef: no account ID'));
+});
+
+test('a classifier row switches at once, Undo returns to the previous one, and a switch clears the old health', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key', ...CLOUDFLARE_KEYS });
+  h.http(async () => ({ ok: false, status: 401, text: '', headers: {} }));
+  await start(h);
+  await drain(h.step(step));
+  assert.equal(h.view().health.failures, 1);
+  await press(h, 'tab-tuning');
+  await press(h, 'classifier-clef-flash');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifier: 'clef-flash' });
+  assert.deepEqual(h.view().health, { failures: 0, pausedUntil: 0, classifier: 'clef-flash' });
+  let pane = await h.render();
+  assert.equal(controls(pane).find((node) => node.key === 'classifier-clef-flash').label, '◉ Clef Flash ');
+  assert.equal(controls(pane).find((node) => node.key === 'classifier-jev').label, '○ Jev        ');
+  assert.equal(controls(pane).find((node) => node.key === 'timeoutMs').value, '3000');
+  assert.ok(texts(pane).some((line) => /Switched from Jev: Clef Flash from the next turn/.test(line)));
+  assert.ok(texts(pane).some((line) => /Sends .*api\.cloudflare\.com/.test(line)));
+  await press(h, 'undo-classifier');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+  pane = await h.render();
+  assert.equal(
+    controls(pane).find((node) => node.key === 'undo-classifier'),
+    undefined,
+  );
+  assert.equal(controls(pane).find((node) => node.key === 'timeoutMs').value, '1500');
+  await press(h, 'classifier-clef-flash');
+  const calls = [];
+  h.http(async (url) => {
+    calls.push(url);
+    return { ok: true, status: 200, text: CLEF_FLASH_ANSWER, headers: {} };
+  });
+  await h.event('turn.start', { turnId: 't2', text: 'Rename x.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.match(calls[0], /clef-flash$/);
+  await press(h, 'tab-now');
+  assert.equal(h.view().classifierUndo, null);
+});
+
+test('the deadline saves at once for the active classifier and its default is written as nothing', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-tuning');
+  await press(h, 'classifier-clef');
+  await press(h, 'timeoutMs', '1500');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifier: 'clef', classifiers: { clef: { timeoutMs: 1500 } } });
+  assert.match(h.view().notice, /Clef waits 1500 ms from the next turn/);
+  await press(h, 'timeoutMs', '3000');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifier: 'clef' });
+});
+
+test('a classifier without credentials names the missing setting and offers Set up on its own row', async () => {
+  const h = harness(CLOUDFLARE_KEYS);
+  await start(h);
+  await press(h, 'tab-tuning');
+  const pane = await h.render();
+  assert.ok(texts(pane).includes('○ no API key  '));
+  assert.ok(texts(pane).some((line) => line.trim() === 'Jev: API key · Clef, Clef Flash: API token, account ID'));
+  assert.ok(controls(pane).some((node) => node.key === 'key-jev' && node.label === 'Set up'));
+  assert.equal(
+    controls(pane).find((node) => node.key === 'key-clef'),
+    undefined,
+  );
+  await press(h, 'key-jev');
+  assert.equal(h.commandCalls(), 1);
+});
+
+test('a new session keeps classifier health only while the classifier is the same', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key', ...CLOUDFLARE_KEYS });
+  h.http(async () => ({ ok: false, status: 401, text: '', headers: {} }));
+  await start(h);
+  await drain(h.step(step));
+  await h.event('session.start', { cwd: '/fixture' });
+  assert.equal(h.view().health.failures, 1);
+  h.files.set(CONFIG, JSON.stringify({ classifier: 'clef' }));
+  await h.event('session.start', { cwd: '/fixture' });
+  assert.deepEqual(h.view().health, { failures: 0, pausedUntil: 0, classifier: 'clef' });
+  assert.equal(h.view().adviceMs, null);
+});
+
+test('a switch clears the previous classifier readings, so no label claims them', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key', ...CLOUDFLARE_KEYS });
+  h.http(async () => ({
+    ok: true,
+    status: 200,
+    text: JSON.stringify(jevResponse('high', { micro: 0, low: 0.05, medium: 0.05, high: 0.9, uncertain: 0 })),
+    headers: {},
+  }));
+  await start(h);
+  await drain(h.step(step));
+  assert.equal(h.view().probabilities.high, 0.9);
+  await press(h, 'tab-tuning');
+  await press(h, 'classifier-clef');
+  for (const field of ['adviceMs', 'adviceChoice', 'probabilities', 'estimate', 'error'])
+    assert.equal(h.view()[field], null, field);
+  await press(h, 'tab-now');
+  assert.ok(texts(await h.render()).some((line) => /Clef support/.test(line)));
+  assert.ok(!texts(await h.render()).some((line) => /Clef gave/.test(line)));
+});
+
+test('a 1.1 router.json makes routing unavailable and points to the migration script', async () => {
+  const h = harness();
+  h.files.set(CONFIG, JSON.stringify({ jev: { timeoutMs: 900 } }));
+  await start(h);
+  assert.equal(h.view().phase, 'unavailable');
+  assert.match(h.view().error, /migrate-config\.mjs/);
+});
+
+test('a classifier switch during advice cancels it, so the old answer touches neither health nor status', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key', ...CLOUDFLARE_KEYS });
+  let release;
+  h.http(
+    () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+  );
+  await start(h);
+  const turn = drain(h.step(step));
+  for (let i = 0; i < 20 && !release; i += 1) await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(release, 'the Jev request is in flight');
+  await press(h, 'tab-tuning');
+  await press(h, 'classifier-clef-flash');
+  release({ ok: false, status: 401, text: '', headers: {} });
+  await turn;
+  assert.deepEqual(h.view().health, { failures: 0, pausedUntil: 0, classifier: 'clef-flash' });
+  assert.notEqual(h.view().error, 'auth');
+});
+
+test('a classifier switch that cannot write leaves the classifier and router.json unchanged', async () => {
+  const h = harness();
+  h.files.set(CONFIG, '{}');
+  h.links.add(CONFIG);
+  await start(h);
+  await press(h, 'tab-tuning');
+  await press(h, 'classifier-clef');
+  assert.match(h.view().notice, /Not saved: router\.json is a symlink/);
+  assert.equal(h.files.get(CONFIG), '{}');
+  assert.equal(controls(await h.render()).find((node) => node.key === 'classifier-jev').label, '◉ Jev        ');
+  assert.ok(texts(await h.render()).some((line) => /^Jev: no API key/.test(line)));
 });

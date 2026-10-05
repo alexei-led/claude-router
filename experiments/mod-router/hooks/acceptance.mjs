@@ -36,13 +36,15 @@ export function registerAcceptance(on) {
     const base = await $.env.get('ROUTER_PROBE_URL');
     if (action !== 'ask' || !base || !['hang', 'delay', 'slow', 'retry', 'malformed'].includes(scenario))
       return { text: 'Use inspect or ask hang|delay|slow|retry|malformed.' };
-    const config = loadConfig({ userFile: { jev: { endpoint: `${base}/${scenario}`, timeoutMs: 1500 } } });
+    const endpoint = `${base}/${scenario}`;
+    const config = loadConfig({ userFile: { classifiers: { jev: { endpoint, timeoutMs: 1500 } } } });
     const started = Date.now();
     const result = await classifier.ask({
       request: (url, init) => $.http.fetch(url, init),
       sleep: (ms, args) => $.clock.sleep(ms, args),
       config,
       apiKey: 'synthetic-probe-key',
+      endpoint,
       prompt: 'synthetic fixture',
       turns: [],
       signal: next.signal,

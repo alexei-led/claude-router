@@ -1,9 +1,12 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { loadConfig } from '../lib/config.mjs';
+import { isGatewayLayout, loadConfig } from '../lib/config.mjs';
 
-// Convert only retired gateway keys. All routing, pricing, cache and policy overrides survive unchanged.
+const JEV_KEYS = ['endpoint', 'model', 'timeoutMs'];
+
+// Convert only retired keys: the 0.8 gateway settings and the 1.1 `jev` section, which becomes `classifiers.jev`.
+// All routing, pricing, cache and policy overrides survive unchanged.
 export function migrateConfig(file) {
   if (!file || typeof file !== 'object' || Array.isArray(file)) throw new Error('router.json must be an object');
   const next = structuredClone(file);
@@ -21,6 +24,13 @@ export function migrateConfig(file) {
     delete next.gateway;
   }
   delete next.log;
+  if (Object.hasOwn(next, 'jev')) {
+    const jev = next.jev;
+    if (!jev || typeof jev !== 'object' || Array.isArray(jev)) throw new Error('jev must be an object');
+    for (const key of Object.keys(jev)) if (!JEV_KEYS.includes(key)) throw new Error(`jev.${key} is not a known key`);
+    if (Object.keys(jev).length) next.classifiers = { ...next.classifiers, jev: { ...next.classifiers?.jev, ...jev } };
+    delete next.jev;
+  }
   if (next.models && typeof next.models === 'object' && !Array.isArray(next.models)) {
     for (const model of Object.values(next.models)) {
       if (model && typeof model === 'object' && !Array.isArray(model)) {
@@ -38,7 +48,8 @@ export async function migrateFile(path) {
   const file = JSON.parse(original);
   const next = migrateConfig(file);
   if (JSON.stringify(file) === JSON.stringify(next)) return null;
-  const backup = `${path}.v0.8.backup`;
+  // Named for the layout it keeps, so a 1.1 migration never collides with a 0.8 backup already on disk.
+  const backup = `${path}.${isGatewayLayout(file) ? 'v0.8' : 'v1.1'}.backup`;
   await writeFile(backup, original, { flag: 'wx', mode: 0o600 });
   await writeFile(path, `${JSON.stringify(next, null, 2)}\n`);
   return backup;

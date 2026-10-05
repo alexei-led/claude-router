@@ -4,9 +4,9 @@ This guide describes the Mod shipped in the plugin. Claude Code 2.1.289 is the m
 
 ## Turn behavior
 
-At the first main step of a logical turn, the Mod reads recent message text and asks Jev for a tier. It applies local policy and saves the route. Tool continuations reuse that route. Before each continuation, context fit is checked again. A large tool result can move the step to a model with a larger window.
+At the first main step of a logical turn, the Mod reads recent message text and asks the active classifier (Jev, Clef, or Clef Flash) for a tier. It applies local policy and saves the route. Tool continuations reuse that route. Before each continuation, context fit is checked again. A large tool result can move the step to a model with a larger window.
 
-Jev receives the current prompt and at most six preceding user or assistant text messages. Each item is limited to 1,200 characters. It does not receive system messages, tool inputs, or tool results. Claude Code's Anthropic credentials never enter the Jev request.
+The classifier receives the current prompt and at most six preceding user or assistant text messages. Each item is limited to 1,200 characters. It does not receive system messages, tool inputs, or tool results. Claude Code's Anthropic credentials never enter the classifier request.
 
 The default tiers are defined in [Configuration](configuration.md#built-in-defaults). Policy uses vote hysteresis, repeated tool errors, context fit, model availability, and switching-cost estimates. The [architecture](architecture.md#request-flow) explains the event boundary and failure handling.
 
@@ -20,7 +20,7 @@ The default tiers are defined in [Configuration](configuration.md#built-in-defau
 | `/router pin <tier>` | Pin the next turn and tool continuations. Auto must already be enabled. |
 | `/model <name>`      | Select a model and enter Manual mode. `/router auto` resumes routing.   |
 
-The pane's **Set Jev key** button opens Claude Code's secure plugin configuration. Claude Code refuses `$.command.run` from inside a `command.run` hook, so the Mod starts that dialog from a timer after the press returns.
+The pane's **Set up** and **Credentials → Edit** buttons open Claude Code's secure plugin configuration. Claude Code refuses `$.command.run` from inside a `command.run` hook, so the Mod starts that dialog from a timer after the press returns.
 
 Mode belongs to a Claude Code session. Clear starts a new session in Auto. Resume restores the saved mode for that session. A new or forked session has a new ID: it starts in Auto on the baseline model and in Manual on another model, as a fresh launch does. A pin applies to one logical turn, then the prior Auto incumbent resumes. A history reset clears votes and cache evidence; the current turn keeps its route, pin and any native fallback.
 
@@ -31,7 +31,7 @@ The status band is one line above the prompt: a tier meter, the route, a short r
 | Reading                      | Meaning and limits                                                                                                                    |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Now / Served                 | The requested model and effort. **Served** appears only when the engine answered with another model. Actual effort is not reported.   |
-| Jev support                  | Per-tier probabilities from the last classification, and the switch bar the policy required. Pins and skipped calls leave it empty.   |
+| Classifier support           | Per-tier probabilities from the last classification, and the switch bar the policy required. Pins and skipped calls leave it empty.   |
 | Replies                      | The tier that served each of the last 30 main-conversation replies; a dot where the router did not choose.                            |
 | Cost                         | Claude Code's native usage value. A plan's list-price estimates are not subscription cash charges.                                    |
 | Context bar                  | Maximum available observed and local estimated context, compared with the routed model's window. The fit rule reserves 20%.           |
@@ -39,30 +39,33 @@ The status band is one line above the prompt: a tier meter, the route, a short r
 | Cache reuse                  | Last response's cache-read tokens divided by its reported input counters.                                                             |
 | Cache read / written; Output | Response usage counters. Cache warmth does not prove a particular TTL.                                                                |
 | Input per reply              | Up to 30 observed main-conversation input sizes, scaled from the lowest to the highest reading.                                       |
-| Jev / Last classification    | Classifier state and elapsed time. Missing-key, busy, and paused skips have no network latency reading.                               |
+| Classifier header            | Active classifier state and elapsed time. Missing-key, missing-account, busy, and paused skips have no network latency reading.       |
 | Next-turn difference         | Configured-price range for the suggested tier versus the incumbent on the next request. Negative means estimated lower cost.          |
 | Conservative payback         | Conditional later-turn estimate based on configured cache prices, future reads, and the last output size. It is not measured savings. |
 | Cache read benefit           | Estimated price difference for observed cache reads before cache writes. It is not net savings.                                       |
 
-There is no router-owned cost ledger or cumulative savings counter. Jev charges are not included. See [Evaluation](evaluation.md) for what the available trace can support.
+There is no router-owned cost ledger or cumulative savings counter. Classifier charges are not included. See [Evaluation](evaluation.md) for what the available trace can support.
 
 ## Tuning
 
-The Tiers tab edits each tier's model alias and effort and the baseline tier. The Tuning tab has four controls. Drafts do not affect the active turn. **Save routes** and **Save tuning** validate the whole file with the same loader the Mod starts with, write `router.json` for future turns, and keep unrelated keys. A route equal to the built-in default is removed from the file, so later default changes still reach it.
+The Tiers tab edits each tier's model alias and effort and the baseline tier. The Tuning tab has the classifier choice with its deadline, and three policy controls. Drafts do not affect the active turn. **Save routes** and **Save tuning** validate the whole file with the same loader the Mod starts with, write `router.json` for future turns, and keep unrelated keys. A route equal to the built-in default is removed from the file, so later default changes still reach it.
 
-| Control          | Values in the pane          | Effect                                               |
-| ---------------- | --------------------------- | ---------------------------------------------------- |
-| Jev deadline     | 500, 1,000, 1,500, 3,000 ms | Total advice time, including any transient retry.    |
-| Votes to go down | 1, 2, 3                     | Consecutive votes required for a downgrade.          |
-| Payback horizon  | 1, 3, 5, 10 turns           | Later turns included in downgrade economics.         |
-| Credits cap      | $0.50, $1, $2, $5           | Largest estimated cold write on a `credits` model.   |
+| Control          | Values in the pane          | Effect                                                                                   |
+| ---------------- | --------------------------- | ---------------------------------------------------------------------------------------- |
+| Deadline         | 500, 1,000, 1,500, 3,000 ms | The active classifier's total advice time, including any transient retry. Saved at once. |
+| Votes to go down | 1, 2, 3                     | Consecutive votes required for a downgrade.                                              |
+| Payback horizon  | 1, 3, 5, 10 turns           | Later turns included in downgrade economics.                                             |
+| Credits cap      | $0.50, $1, $2, $5           | Largest estimated cold write on a `credits` model.                                       |
+
+The classifier section lists every configured classifier as a row with its service host and whether its key and endpoint settings are complete. Selecting a row writes `classifier` to `router.json` at once, or removes it for the default, through the same validation; it cancels advice in flight and resets the failure count. **Undo** returns to the previous classifier until you leave the tab. The deadline saves at once too, and a built-in classifier's default deadline is written as no override. **Sends** names the host that receives prompt text.
 
 The pane refuses to write through a symlink. A failed validation names the setting and leaves the file unchanged. New model aliases and the other supported fields need an edit to the active profile's `router.json`.
 
 ## Safety and failure states
 
-- Missing Jev key, a Jev failure, or a policy refusal keeps the current model. Network refusal is never bypassed with a helper process.
-- Three launched Jev failures open a 60-second pause. One in-flight request is allowed per active Mod instance. Pending host HTTP work blocks another request until it settles.
+- A missing key or account ID, a classifier failure, or a policy refusal keeps the current model. Network refusal is never bypassed with a helper process.
+- Three launched classifier failures open a 60-second pause for that classifier. One in-flight request is allowed per active Mod instance. Pending host HTTP work blocks another request until it settles.
+- A `router.json` with v0.8 gateway keys or the 1.1 `jev` section marks the router unavailable until the [migration command](configuration.md#convert-an-older-routerjson) converts it.
 - Unsupported Claude Code versions and leftover v0.8 gateway settings (the `jev-router` model or the `127.0.0.1:43170` base URL) mark the router unavailable. `/router` lists the settings to remove. A local gateway does not run as part of this Mod.
 - A context-window error makes that model ineligible until the next history reset. The Mod does not retry an Anthropic request after a stream begins.
 - Unknown context retains the current model. There is no characters-to-tokens fallback.
@@ -72,6 +75,8 @@ The pane refuses to write through a symlink. A failed validation names the setti
 ## Verified checks
 
 The Team canary loaded the published 1.0.0 package with a full Sonnet baseline, reached the real Jev endpoint, and kept Sonnet on a `downgrade-pending` result. This was a routing smoke test, not a measured-savings trial.
+
+On 2026-10-05, live probes of Clef and Clef Flash on Workers AI took 0.7 to 1.3 seconds per call, one call each, and returned the same answer shape as Jev inside Cloudflare's envelope. A rejected token returned HTTP 401, which the Mod reads as a rejected key. No Clef session has been evaluated for routing quality.
 
 Recorded acceptance checks cover the local HTTP deadline and one-request admission, session clear/resume, circuit-breaker pause, reload, replacement, unload, engine fallback, and interrupt during Jev advice. The interrupt check closed the loopback socket within 4 ms and discarded late advice without changing the active route or UI. Results are stored under [`experiments/mod-router/results`](../experiments/mod-router/results/).
 

@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { loadConfig } from '../lib/config.mjs';
-import { buildRequest, parseAnswers } from '../lib/jev-contract.mjs';
+import { DEFAULTS, loadConfig } from '../lib/config.mjs';
+import { buildRequest, parseAnswers, resolveCredentials } from '../lib/jev-contract.mjs';
 
-const config = loadConfig({ env: { TYPESAFE_API_KEY: 'k' } });
+const config = loadConfig();
+// A live Workers AI answer from clef-flash, 2026-10-05, for "Rename the variable x to count in utils.js.".
+const cloudflareAnswer = JSON.parse(readFileSync(new URL('./fixtures/clef-flash-response.json', import.meta.url)));
 
 test('request carries every tier with its route, an uncertain option and a continuation question', () => {
   const body = buildRequest(config, 'do x', [{ role: 'user', text: 'hi' }]);
@@ -13,15 +16,32 @@ test('request carries every tier with its route, an uncertain option and a conti
   assert.equal(body.state.currentRequest.text, 'do x');
 });
 
+test('request names the active classifier model', () => {
+  for (const id of Object.keys(DEFAULTS.classifiers)) {
+    const body = buildRequest(loadConfig({ userFile: { classifier: id } }), 'do x', []);
+    assert.equal(body.model, DEFAULTS.classifiers[id].model, id);
+  }
+});
+
 for (const [name, body] of [
   ['missing route', { answers: {} }],
   ['wrong type', { answers: { route: { type: 'score', probabilities: {} } } }],
   ['unknown choice', { answers: { route: { type: 'choice', choice: 'opus', probabilities: {} } } }],
+  ['a Cloudflare error envelope', { result: null, success: false, errors: [{ code: 5007, message: 'x' }] }],
+  ['a Cloudflare envelope with no answers', { result: { model: 'clef' }, success: true, errors: [] }],
 ]) {
   test(`rejects ${name}`, () => {
-    assert.throws(() => parseAnswers(body), /jev/);
+    assert.throws(() => parseAnswers(body), /classifier/);
   });
 }
+
+test('a Cloudflare answer reads the same as a bare one', () => {
+  const advice = parseAnswers(cloudflareAnswer);
+  assert.deepEqual(advice, parseAnswers(cloudflareAnswer.result));
+  assert.equal(advice.choice, 'micro');
+  assert.equal(advice.probabilities.micro, 0.5923);
+  assert.equal(advice.continuation, 0.0164);
+});
 
 test('missing probabilities and continuation degrade to zero and null', () => {
   const advice = parseAnswers({
@@ -30,4 +50,39 @@ test('missing probabilities and continuation degrade to zero and null', () => {
   assert.equal(advice.probabilities.high, 0);
   assert.equal(advice.confidence, 1);
   assert.equal(advice.continuation, null);
+});
+
+test('credentials fill endpoint settings and report what is missing, key first', async () => {
+  const { jev, clef } = DEFAULTS.classifiers;
+  const cloudflare = (account) => `https://api.cloudflare.com/client/v4/accounts/${account}/ai/run/@cf/cloudflare/clef`;
+  for (const [name, entry, settings, expected] of [
+    ['Jev with its key', jev, { typesafe_api_key: 'k' }, { apiKey: 'k', endpoint: jev.endpoint, missing: null }],
+    [
+      'Jev without a key',
+      jev,
+      { cloudflare_api_token: 't' },
+      { apiKey: null, endpoint: jev.endpoint, missing: 'missing-key' },
+    ],
+    [
+      'Clef with token and account',
+      clef,
+      { cloudflare_api_token: 't', cloudflare_account_id: 'abc123' },
+      { apiKey: 't', endpoint: cloudflare('abc123'), missing: null },
+    ],
+    [
+      'Clef without an account',
+      clef,
+      { cloudflare_api_token: 't' },
+      { apiKey: 't', endpoint: null, missing: 'missing-account' },
+    ],
+    ['Clef with nothing', clef, {}, { apiKey: null, endpoint: null, missing: 'missing-key' }],
+    [
+      'an account that would change the path',
+      clef,
+      { cloudflare_api_token: 't', cloudflare_account_id: '../x?y' },
+      { apiKey: 't', endpoint: cloudflare('..%2Fx%3Fy'), missing: null },
+    ],
+  ]) {
+    assert.deepEqual(await resolveCredentials(entry, async (option) => settings[option]), expected, name);
+  }
 });
