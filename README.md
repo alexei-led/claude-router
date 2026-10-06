@@ -56,7 +56,7 @@ claude plugin marketplace add alexei-led/claude-router
 claude plugin install router@alexei-led-claude-router
 ```
 
-Start Claude Code on the full baseline model, for example `claude --model claude-sonnet-5-5`. Run `/plugin configure router` and save the key. For Clef or Clef Flash, save the Cloudflare token and account ID, then pick the classifier on the pane's Tuning tab. A session on the baseline model starts in Auto; on another model it starts in Manual, and `/router auto` turns routing on.
+Start Claude Code on the full baseline model, for example `claude --model claude-sonnet-5-5`. Run `/plugin configure router` and save the key. For Clef or Clef Flash, save the Cloudflare token and account ID, then pick the classifier on the pane's Classifier tab. A session on the baseline model starts in Auto; on another model it starts in Manual, and `/router auto` turns routing on.
 
 Claude Code updates the plugin at startup when auto-update is on for this marketplace. Otherwise run `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`.
 

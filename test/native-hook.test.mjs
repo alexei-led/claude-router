@@ -423,14 +423,14 @@ test('Manual requests refresh main metrics without rewriting models or effort', 
 test('clear discards unsaved tuning and preserves active configuration', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-routing');
   await press(h, 'horizon', '10');
   assert.equal(h.view().tuning.horizon, 10);
   await h.event('session.end', { reason: 'clear' });
   h.clear();
   await drain(h.step({ ...step, turnId: 't2' }));
   assert.equal(h.view().tuning, null);
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-routing');
   assert.equal(controls(await h.render()).find((node) => node.key === 'horizon').value, '5');
 });
 
@@ -443,14 +443,14 @@ test('the key button opens the secure plugin dialog and leaves a prompt draft al
   assert.equal(h.draft(), 'unfinished task');
 });
 
-test('the key button is on the Tuning tab once a key is set', async () => {
+test('the key button is on the Classifier tab once a key is set', async () => {
   const h = harness({ typesafe_api_key: 'synthetic-key' });
   await start(h);
   assert.equal(
     controls(await h.render()).find((node) => node.key === 'key'),
     undefined,
   );
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-classifier');
   await press(h, 'key');
   assert.equal(h.commandCalls(), 1);
 });
@@ -468,9 +468,9 @@ test('saved tuning cannot change a classification already in progress', async ()
   const pending = drain(h.step(step));
   for (let i = 0; i < 100 && !resolve; i += 1) await Promise.resolve();
   assert.ok(resolve);
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-routing');
   await press(h, 'downgradeVotes', '1');
-  await press(h, 'save-tuning');
+  await press(h, 'save-routing');
   resolve({
     status: 200,
     ok: true,
@@ -656,14 +656,14 @@ const CONFIG = '/fixture/team/router.json';
 test('a saved route edit writes router.json and routes the next turn', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-tiers');
+  await press(h, 'tab-routing');
   await press(h, 'route-model-medium', 'sonnet');
   await press(h, 'route-effort-medium', 'xhigh');
   assert.ok(texts(await h.render()).some((line) => /\+ routes\.medium\s+Sonnet 5\.5 · xhigh/.test(line)));
-  await press(h, 'save-routes');
+  await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { routes: { medium: { model: 'sonnet', effort: 'xhigh' } } });
   assert.equal(h.view().routeDraft, null);
-  assert.match(h.view().notice, /apply from the next turn/);
+  assert.match(h.view().notice, /^Saved: 1 routing change\. Applies from the next turn\.$/);
   await h.event('turn.start', { turnId: 't2', text: 'Next.' });
   await h.event('command.run', { command: 'router', args: 'pin medium' });
   await drain(h.step({ ...step, turnId: 't2' }));
@@ -673,9 +673,9 @@ test('a saved route edit writes router.json and routes the next turn', async () 
 test('session effort on a tier sends the effort Claude Code asked for', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-tiers');
+  await press(h, 'tab-routing');
   await press(h, 'route-effort-high', 'session');
-  await press(h, 'save-routes');
+  await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)).routes.high, { model: 'opus', effort: null });
   await h.event('turn.start', { turnId: 't2', text: 'Next.' });
   await h.event('command.run', { command: 'router', args: 'pin high' });
@@ -687,16 +687,16 @@ test('reset to defaults removes saved route overrides and keeps other settings',
   const h = harness();
   h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } }, classifiers: { jev: { timeoutMs: 900 } } }));
   await start(h);
-  await press(h, 'tab-tiers');
+  await press(h, 'tab-routing');
   await press(h, 'reset-routes');
-  await press(h, 'save-routes');
+  await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifiers: { jev: { timeoutMs: 900 } } });
 });
 
 test('a model without effort levels has no effort control and drops the chosen effort', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-tiers');
+  await press(h, 'tab-routing');
   assert.equal(
     controls(await h.render()).find((node) => node.key === 'route-effort-micro'),
     undefined,
@@ -713,7 +713,7 @@ test('model choices follow the availableModels allowlist', async () => {
   const h = harness();
   h.settings({ availableModels: ['sonnet'] });
   await start(h);
-  await press(h, 'tab-tiers');
+  await press(h, 'tab-routing');
   const select = controls(await h.render()).find((node) => node.key === 'route-model-low');
   assert.deepEqual(
     select.options.map((option) => option.value),
@@ -729,9 +729,9 @@ test('a save that fails validation names the setting and leaves router.json unch
     const h = harness();
     await start(h);
     h.files.set(CONFIG, content);
-    await press(h, 'tab-tiers');
+    await press(h, 'tab-routing');
     await press(h, 'route-model-medium', 'sonnet');
-    await press(h, 'save-routes');
+    await press(h, 'save-routing');
     assert.match(h.view().notice, reason);
     assert.match(h.view().notice, /unchanged/);
     assert.equal(h.files.get(CONFIG), content);
@@ -883,14 +883,14 @@ test('the pane refuses to save through a symlinked router.json', async () => {
   await start(h);
   h.files.set(CONFIG, '{}');
   h.links.add(CONFIG);
-  await press(h, 'tab-tiers');
+  await press(h, 'tab-routing');
   await press(h, 'route-model-medium', 'sonnet');
-  await press(h, 'save-routes');
+  await press(h, 'save-routing');
   assert.match(h.view().notice, /symlink/);
   assert.equal(h.files.get(CONFIG), '{}');
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-routing');
   await press(h, 'horizon', '10');
-  await press(h, 'save-tuning');
+  await press(h, 'save-routing');
   assert.match(h.view().notice, /symlink/);
   assert.equal(h.files.get(CONFIG), '{}');
 });
@@ -899,9 +899,9 @@ test('a tuning save writes only the changed value and keeps edits made on disk',
   const h = harness();
   await start(h);
   h.files.set(CONFIG, JSON.stringify({ classifiers: { jev: { timeoutMs: 900 } } }));
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-routing');
   await press(h, 'horizon', '10');
-  await press(h, 'save-tuning');
+  await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
     classifiers: { jev: { timeoutMs: 900 } },
     policy: { downgradeHorizonTurns: 10 },
@@ -929,37 +929,180 @@ test('a narrow band never exceeds its width: optional parts drop, then the route
   }
 });
 
-test('a draft on one tab survives a save on the other tab after an on-disk edit', async () => {
+test('one routing save writes routes and policy together and keeps edits made on disk', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-tiers');
+  await press(h, 'tab-routing');
   await press(h, 'route-model-micro', 'sonnet');
-  await press(h, 'tab-tuning');
   await press(h, 'horizon', '10');
   h.files.set(
     CONFIG,
     JSON.stringify({ routes: { high: { model: 'sonnet' } }, classifiers: { jev: { timeoutMs: 900 } } }),
   );
-  await press(h, 'save-tuning');
-  await press(h, 'tab-tiers');
-  await press(h, 'save-routes');
+  await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
     routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet' } },
     classifiers: { jev: { timeoutMs: 900 } },
     policy: { downgradeHorizonTurns: 10 },
   });
-  await press(h, 'tab-tuning');
+  assert.equal(h.view().notice, 'Saved: 2 routing changes. Applies from the next turn.');
   await press(h, 'downgradeVotes', '3');
   h.files.set(CONFIG, JSON.stringify({ classifiers: { jev: { timeoutMs: 3000 } } }));
-  await press(h, 'tab-tiers');
   await press(h, 'route-model-micro', 'haiku');
-  await press(h, 'save-routes');
-  await press(h, 'tab-tuning');
-  await press(h, 'save-tuning');
+  await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
     classifiers: { jev: { timeoutMs: 3000 } },
     policy: { downgradeVotes: 3 },
   });
+});
+
+test('Undo puts back only what the routing save changed, keeping an edit made on disk', async () => {
+  const h = harness();
+  await start(h);
+  h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } }, policy: { cashCapUsd: 5 } }));
+  await press(h, 'tab-routing');
+  await press(h, 'route-model-medium', 'sonnet');
+  await press(h, 'horizon', '10');
+  await press(h, 'save-routing');
+  h.files.set(CONFIG, JSON.stringify({ ...JSON.parse(h.files.get(CONFIG)), classifier: 'clef' }));
+  await press(h, 'tab-usage');
+  await press(h, 'undo');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
+    routes: { low: { model: 'opus' } },
+    policy: { cashCapUsd: 5 },
+    classifier: 'clef',
+  });
+  assert.equal(h.view().lastWrite, null);
+});
+
+test('the deadline has Undo too', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-classifier');
+  await press(h, 'timeoutMs', '500');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifiers: { jev: { timeoutMs: 500 } } });
+  await press(h, 'undo');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+});
+
+test('Undo writes back what the file held before the save, not what the session loaded', async () => {
+  const h = harness();
+  h.files.set(CONFIG, JSON.stringify({ routes: { high: { model: 'sonnet' } } }));
+  await start(h);
+  h.files.set(CONFIG, JSON.stringify({ routes: { high: { model: 'sonnet' } }, policy: { downgradeHorizonTurns: 3 } }));
+  await press(h, 'tab-routing');
+  await press(h, 'route-effort-high', 'low');
+  await press(h, 'horizon', '10');
+  await press(h, 'save-routing');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
+    routes: { high: { model: 'sonnet', effort: 'low' } },
+    policy: { downgradeHorizonTurns: 10 },
+  });
+  await press(h, 'undo');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
+    routes: { high: { model: 'sonnet' } },
+    policy: { downgradeHorizonTurns: 3 },
+  });
+});
+
+test('after an Undo, a pending draft compares against the restored values, so picking an undone value again saves', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-routing');
+  await press(h, 'cashCapUsd', '5');
+  await press(h, 'route-model-high', 'sonnet');
+  await press(h, 'save-routing');
+  await press(h, 'downgradeVotes', '3');
+  await press(h, 'route-model-micro', 'sonnet');
+  await press(h, 'undo');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+  assert.equal(controls(await h.render()).find((node) => node.key === 'route-model-high').value, 'opus');
+  await press(h, 'cashCapUsd', '5');
+  await press(h, 'route-model-high', 'sonnet');
+  await press(h, 'save-routing');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
+    routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet', effort: 'xhigh' } },
+    policy: { downgradeVotes: 3, cashCapUsd: 5 },
+  });
+});
+
+test('a reset notice counts only its own section', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-routing');
+  await press(h, 'route-model-medium', 'sonnet');
+  await press(h, 'reset-policy');
+  assert.equal(h.view().notice, 'Policy already at defaults.');
+  await press(h, 'discard-routing');
+  await press(h, 'horizon', '10');
+  await press(h, 'reset-routes');
+  assert.equal(h.view().notice, 'Routes already at defaults.');
+});
+
+test('Reset policy after an Undo compares against the saved values, not an older draft', async () => {
+  const h = harness();
+  h.files.set(CONFIG, JSON.stringify({ policy: { cashCapUsd: 5 } }));
+  await start(h);
+  await press(h, 'tab-routing');
+  await press(h, 'cashCapUsd', '2');
+  await press(h, 'save-routing');
+  await press(h, 'horizon', '10');
+  await press(h, 'undo');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { policy: { cashCapUsd: 5 } });
+  await press(h, 'reset-policy');
+  assert.match(h.view().notice, /^Policy defaults loaded/);
+  await press(h, 'save-routing');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+});
+
+test('policy defaults load as a draft and Save removes the overrides', async () => {
+  const h = harness();
+  h.files.set(CONFIG, JSON.stringify({ policy: { downgradeVotes: 3, cashCapUsd: 5, upgradeVotes: 3 } }));
+  await start(h);
+  await press(h, 'tab-routing');
+  await press(h, 'reset-policy');
+  assert.equal(JSON.parse(h.files.get(CONFIG)).policy.downgradeVotes, 3);
+  await press(h, 'save-routing');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { policy: { upgradeVotes: 3 } });
+  await press(h, 'reset-policy');
+  assert.equal(h.view().notice, 'Policy already at defaults.');
+  assert.equal(
+    controls(await h.render()).find((node) => node.key === 'save-routing'),
+    undefined,
+  );
+});
+
+test('an unsaved routing draft shows on every tab, Discard drops it, and a new session clears it', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-routing');
+  await press(h, 'route-model-medium', 'sonnet');
+  await press(h, 'tab-classifier');
+  let pane = await h.render();
+  assert.equal(controls(pane).find((node) => node.key === 'tab-routing').label, 'Routing ●');
+  assert.ok(texts(pane).includes('● 1 unsaved routing change  '));
+  assert.ok(controls(pane).some((node) => node.key === 'save-routing'));
+  await press(h, 'discard-routing');
+  pane = await h.render();
+  assert.equal(controls(pane).find((node) => node.key === 'tab-routing').label, 'Routing');
+  assert.equal(
+    controls(pane).find((node) => node.key === 'save-routing'),
+    undefined,
+  );
+  await press(h, 'tab-routing');
+  await press(h, 'baseline', 'medium');
+  await h.event('session.start', { cwd: '/fixture' });
+  assert.equal(h.view().routeDraft, null);
+});
+
+test('Manual mode shows no pin buttons', async () => {
+  const h = harness();
+  await start(h);
+  assert.ok(controls(await h.render()).some((node) => node.key === 'pin-high'));
+  await press(h, 'manual');
+  const pane = await h.render();
+  assert.ok(!controls(pane).some((node) => node.key.startsWith('pin-')));
+  assert.ok(texts(pane).some((line) => /Pins need Auto/.test(line)));
 });
 
 const CLEF_FLASH_ANSWER = readFileSync(new URL('./fixtures/clef-flash-response.json', import.meta.url), 'utf8');
@@ -1041,13 +1184,13 @@ test('a missing account warns in the band and the pane and offers the key dialog
   assert.ok(texts(await h.render()).includes('Clef: no account ID'));
 });
 
-test('a classifier row switches at once, Undo returns to the previous one, and a switch clears the old health', async () => {
+test('a classifier row switches at once, Undo from any tab returns to the previous one, and a switch clears the old health', async () => {
   const h = harness({ typesafe_api_key: 'synthetic-key', ...CLOUDFLARE_KEYS });
   h.http(async () => ({ ok: false, status: 401, text: '', headers: {} }));
   await start(h);
   await drain(h.step(step));
   assert.equal(h.view().health.failures, 1);
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-classifier');
   await press(h, 'classifier-clef-flash');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifier: 'clef-flash' });
   assert.deepEqual(h.view().health, { failures: 0, pausedUntil: 0, classifier: 'clef-flash' });
@@ -1055,13 +1198,18 @@ test('a classifier row switches at once, Undo returns to the previous one, and a
   assert.equal(controls(pane).find((node) => node.key === 'classifier-clef-flash').label, '◉ Clef Flash ');
   assert.equal(controls(pane).find((node) => node.key === 'classifier-jev').label, '○ Jev        ');
   assert.equal(controls(pane).find((node) => node.key === 'timeoutMs').value, '3000');
-  assert.ok(texts(pane).some((line) => /Switched from Jev: Clef Flash from the next turn/.test(line)));
+  assert.ok(
+    texts(pane).some((line) => /^Saved: classifier Jev → Clef Flash\. Applies from the next turn\./.test(line)),
+  );
   assert.ok(texts(pane).some((line) => /Sends .*api\.cloudflare\.com/.test(line)));
-  await press(h, 'undo-classifier');
+  await press(h, 'tab-now');
+  await press(h, 'undo');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+  assert.equal(h.view().notice, 'Undid: classifier Jev → Clef Flash.');
+  await press(h, 'tab-classifier');
   pane = await h.render();
   assert.equal(
-    controls(pane).find((node) => node.key === 'undo-classifier'),
+    controls(pane).find((node) => node.key === 'undo'),
     undefined,
   );
   assert.equal(controls(pane).find((node) => node.key === 'timeoutMs').value, '1500');
@@ -1075,17 +1223,17 @@ test('a classifier row switches at once, Undo returns to the previous one, and a
   await drain(h.step({ ...step, turnId: 't2' }));
   assert.match(calls[0], /clef-flash$/);
   await press(h, 'tab-now');
-  assert.equal(h.view().classifierUndo, null);
+  assert.equal(h.view().lastWrite.label, 'classifier Jev → Clef Flash');
 });
 
 test('the deadline saves at once for the active classifier and its default is written as nothing', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-classifier');
   await press(h, 'classifier-clef');
   await press(h, 'timeoutMs', '1500');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifier: 'clef', classifiers: { clef: { timeoutMs: 1500 } } });
-  assert.match(h.view().notice, /Clef waits 1500 ms from the next turn/);
+  assert.match(h.view().notice, /^Saved: Clef deadline 3000 → 1500 ms\./);
   await press(h, 'timeoutMs', '3000');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifier: 'clef' });
 });
@@ -1093,7 +1241,7 @@ test('the deadline saves at once for the active classifier and its default is wr
 test('a classifier without credentials names the missing setting and offers Set up on its own row', async () => {
   const h = harness(CLOUDFLARE_KEYS);
   await start(h);
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-classifier');
   const pane = await h.render();
   assert.ok(texts(pane).includes('○ no API key  '));
   assert.ok(texts(pane).some((line) => line.trim() === 'Jev: API key · Clef, Clef Flash: API token, account ID'));
@@ -1130,7 +1278,7 @@ test('a switch clears the previous classifier readings, so no label claims them'
   await start(h);
   await drain(h.step(step));
   assert.equal(h.view().probabilities.high, 0.9);
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-classifier');
   await press(h, 'classifier-clef');
   for (const field of ['adviceMs', 'adviceChoice', 'probabilities', 'estimate', 'error'])
     assert.equal(h.view()[field], null, field);
@@ -1163,7 +1311,7 @@ test('a turn classified when the switch lands keeps its route, and its answer to
   const turn = drain(h.step(step));
   for (let i = 0; i < 20 && !release; i += 1) await new Promise((resolve) => setImmediate(resolve));
   assert.ok(release, 'the Jev request is in flight');
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-classifier');
   await press(h, 'classifier-clef-flash');
   release({ ok: false, status: 401, text: '', headers: {} });
   await turn;
@@ -1181,9 +1329,9 @@ test('a pane save that adopts a hand-edited classifier starts it clean', async (
   await drain(h.step(step));
   assert.equal(h.view().health.failures, 1);
   h.files.set(CONFIG, JSON.stringify({ classifier: 'clef' }));
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-routing');
   await press(h, 'horizon', '10');
-  await press(h, 'save-tuning');
+  await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifier: 'clef', policy: { downgradeHorizonTurns: 10 } });
   assert.deepEqual(h.view().health, { failures: 0, pausedUntil: 0, classifier: 'clef' });
   assert.equal(h.view().error, null);
@@ -1196,7 +1344,7 @@ test('a classifier switch while routing is unavailable keeps the unavailable rea
   await start(h);
   const reason = h.view().error;
   assert.equal(h.view().phase, 'unavailable');
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-classifier');
   await press(h, 'classifier-clef');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifier: 'clef' });
   assert.equal(h.view().error, reason);
@@ -1207,7 +1355,7 @@ test('a classifier switch that cannot write leaves the classifier and router.jso
   h.files.set(CONFIG, '{}');
   h.links.add(CONFIG);
   await start(h);
-  await press(h, 'tab-tuning');
+  await press(h, 'tab-classifier');
   await press(h, 'classifier-clef');
   assert.match(h.view().notice, /Not saved: router\.json is a symlink/);
   assert.equal(h.files.get(CONFIG), '{}');

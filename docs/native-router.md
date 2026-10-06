@@ -26,7 +26,7 @@ Mode belongs to a Claude Code session. Clear starts a new session in Auto. Resum
 
 ## Router pane
 
-The status band is one line above the prompt: a tier meter, the route, a short reason, classifier support, and context and cache use. Segments drop by priority when the band is narrow. Hovering reveals pins, Manual, and a two-row view. The band yields to surveys and does not describe subagent transcripts. A model change between turns raises a toast. A pin, or a step that changes only the effort, such as `medium` to `high` on the defaults, raises none. While the classifier runs, the turn's spinner says `Choosing model`. In Manual mode or when routing is unavailable, the prompt footer carries `router off` or `router unavailable`. The **Router** button opens the pane. The pane has four tabs, Now, Tiers, Tuning, and Usage, with Auto and Manual on every tab. The [user guide](user-guide.md#open-the-router-pane) describes each tab.
+The status band is one line above the prompt: a tier meter, the route, a short reason, classifier support, and context and cache use. Segments drop by priority when the band is narrow. Hovering reveals pins, Manual, and a two-row view. The band yields to surveys and does not describe subagent transcripts. A model change between turns raises a toast. A pin, or a step that changes only the effort, such as `medium` to `high` on the defaults, raises none. While the classifier runs, the turn's spinner says `Choosing model`. In Manual mode or when routing is unavailable, the prompt footer carries `router off` or `router unavailable`. The **Router** button opens the pane. The pane has four tabs, Now, Routing, Classifier, and Usage, with Auto and Manual on every tab. The [user guide](user-guide.md#open-the-router-pane) describes each tab.
 
 | Reading                      | Meaning and limits                                                                                                                    |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -46,9 +46,9 @@ The status band is one line above the prompt: a tier meter, the route, a short r
 
 There is no router-owned cost ledger or cumulative savings counter. Classifier charges are not included. See [Evaluation](evaluation.md) for what the available trace can support.
 
-## Tuning
+## Routing and classifier settings
 
-The Tiers tab edits each tier's model alias and effort and the baseline tier. The Tuning tab has the classifier choice with its deadline, and three policy controls. Drafts do not affect the active turn. **Save routes** and **Save tuning** validate the whole file with the same loader the Mod starts with, write `router.json` for future turns, and keep unrelated keys. A route equal to the built-in default is removed from the file, so later default changes still reach it.
+The Routing tab edits each tier's model alias and effort, the baseline tier, and three policy controls as one draft. The draft does not affect the active turn, survives a tab change or closing the pane, and is dropped at a new session. **Save** validates the whole file with the same loader the Mod starts with, writes `router.json` for future turns, and keeps unrelated keys. A route or policy value equal to the built-in default is removed from the file, so later default changes still reach it. The Classifier tab writes the classifier choice and its deadline at once. **Undo** reverts the settings the last pane write changed, from any tab, until the next write or a new session.
 
 | Control          | Values in the pane          | Effect                                                                                   |
 | ---------------- | --------------------------- | ---------------------------------------------------------------------------------------- |
@@ -57,7 +57,7 @@ The Tiers tab edits each tier's model alias and effort and the baseline tier. Th
 | Payback horizon  | 1, 3, 5, 10 turns           | Later turns included in downgrade economics.                                             |
 | Credits cap      | $0.50, $1, $2, $5           | Largest estimated cold write on a `credits` model.                                       |
 
-The classifier section lists every configured classifier as a row with its service host and whether its key and endpoint settings are complete. Selecting a row writes `classifier` to `router.json` at once, or removes it for the default, through the same validation, and resets the new classifier's failure count. A turn already being classified finishes with its own classifier; its readings stay off the pane. **Undo** returns to the previous classifier until you leave the tab. The deadline saves at once too, and a built-in classifier's default deadline is written as no override. **Sends** names the host that receives prompt text.
+The classifier section lists every configured classifier as a row with its service host and whether its key and endpoint settings are complete. Selecting a row writes `classifier` to `router.json` at once, or removes it for the default, through the same validation, and resets the new classifier's failure count. A turn already being classified finishes with its own classifier; its readings stay off the pane. **Undo** returns to the previous classifier. The deadline saves at once too, and a built-in classifier's default deadline is written as no override. **Sends** names the host that receives prompt text.
 
 The pane refuses to write through a symlink. A failed validation names the setting and leaves the file unchanged. New model aliases and the other supported fields need an edit to the active profile's `router.json`.
 
