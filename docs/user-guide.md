@@ -21,7 +21,7 @@ In Claude Code:
 2. Enter the credentials of the classifier you use, and save them:
    - **Jev** (the default): the Jev API key from typesafe.ai.
    - **Clef** or **Clef Flash** on Cloudflare Workers AI: the Cloudflare API token and the Cloudflare account ID. One token covers both models.
-3. To use Clef or Clef Flash, open the pane's **Tuning** tab and select its row under **Classifier**. See [Choose the classifier](#choose-the-classifier).
+3. To use Clef or Clef Flash, open the pane's **Classifier** tab and select its row. See [Choose the classifier](#choose-the-classifier).
 4. Check the band above the prompt: `▂▄▆█ Auto · ready`. On another model the session starts in Manual; run `/router auto` to route.
 
 Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers optional settings and migrations.
@@ -66,18 +66,27 @@ Run `/router` or select **Router** above the prompt. Without a UI surface, as in
 
 The **Now** tab answers "what runs next turn, and why". The ladder lists the tiers from strongest to cheapest with the route each one uses. The bar is the support the classifier gave that tier on the last turn. The line under the ladder compares the support for a switch with the bar the policy required and shows the estimated switch tax. **pin** forces that tier for the next turn only.
 
-![The Tiers tab: model and effort per tier, the baseline tier, how each step up is priced, and the router.json change to save](router-pane-tiers.svg)
+![The Routing tab: model and effort per tier, the baseline tier, how each step up is priced, the policy controls, and the unsaved router.json change with Save and Discard](router-pane-routing.svg)
 
-The **Tiers** tab edits the routes. In the picture, `medium` was changed to Sonnet 5.5 at `xhigh`: the tier shows **●**, the switch-cost lines now price `medium → high` as a model change, and the diff lists the one `router.json` line that **Save routes** will write. [Edit tiers](#edit-tiers) explains the controls.
+The **Routing** tab edits the routes and the policy. In the picture, `medium` was changed to Sonnet 5.5 at `xhigh`: the tier shows **●**, the tab reads **Routing ●**, the switch-cost lines now price `medium → high` as a model change, and the status bar lists the one `router.json` line that **Save** will write. [Edit routes and policy](#edit-routes-and-policy) explains the controls.
 
-| Tab      | What it shows                                                                                                                                      |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 Now    | The current tier, model, and reason; the classifier's support for each tier with a **pin** button; the last 30 replies by tier; context and cache. |
-| 2 Tiers  | The model and effort for each tier, the baseline tier, the cache cost of each step up, and the `router.json` change to save.                       |
-| 3 Tuning | The classifier with its deadline, health, and keys; downgrade votes, payback horizon, and credits cap; the `router.json` path.                     |
-| 4 Usage  | Claude-reported cost, context and cache detail, input per reply, quota, and configured-price estimates.                                            |
+| Tab          | What it shows                                                                                                                                                     |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Now        | The current tier, model, and reason; the classifier's support for each tier with a **pin** button; the last 30 replies by tier; context and cache.                |
+| 2 Routing    | The model and effort for each tier, the baseline tier, the cache cost of each step up; downgrade votes, payback horizon, and credits cap; the `router.json` path. |
+| 3 Classifier | The classifier rows with their credentials state, the active classifier's deadline and health, and the credentials each classifier needs.                         |
+| 4 Usage      | Claude-reported cost, context and cache detail, input per reply, quota, and configured-price estimates.                                                           |
 
-**Auto** and **Manual: keep /model** stay at the top of every tab. **?** shows what the estimates leave out.
+**Auto** and **Manual** stay at the top of every tab. **?** shows what the estimates leave out.
+
+### Save and undo changes
+
+The two settings tabs follow one rule each, and the section captions say which:
+
+- **Routing**: edit as a set, then save. Changes stay a draft until **Save** (`s`). **Discard** (`d`) drops them. The draft stays when you change tab or close the pane: the tab reads **Routing ●**, and every tab shows the `router.json` lines that **Save** will write, with **Save** and **Discard**. A new session drops the draft.
+- **Classifier**: a row or a deadline is written to `router.json` when you select it.
+
+Every write applies from the next turn and can be undone. **Undo** (`u`) puts back the settings the last write changed, from any tab, and leaves any other edit to `router.json` alone. A new session clears it. Green notices confirm a write or an undo; a red one names why nothing was written.
 
 ### Understand usage and estimates
 
@@ -102,30 +111,30 @@ There is no router-side spend or savings ledger. The pane does not include class
 | `/router off`                            | Enter Manual mode and preserve Claude's selected model.                     |
 | `/router pin <micro\|low\|medium\|high>` | Pin the next turn and its tool continuations. Auto must already be enabled. |
 | `/model <name>`                          | Select a model and enter Manual mode. Use `/router auto` to resume.         |
-| **Auto** / **Manual: keep /model**       | The same as `/router auto` and `/router off`.                               |
+| **Auto** / **Manual**                    | The same as `/router auto` and `/router off`.                               |
 | **pin** on the Now tab                   | Pin that tier for the next turn. Auto must already be enabled.              |
 
 A pin does not change the next turn after the pinned turn finishes. A fresh session on the baseline model starts in Auto. A fresh session on another model starts in Manual. `/clear` starts the new session in Auto. Resuming a saved session restores its saved Auto or Manual mode.
 
-## Edit tiers
+## Edit routes and policy
 
-On the **Tiers** tab, pick a model and an effort for any tier. The model list comes from the aliases in `router.json` `models`, limited by the `availableModels` setting. `session` keeps the effort Claude Code sends. A model without effort levels, such as Haiku, shows `none`.
+On the **Routing** tab, pick a model and an effort for any tier. The model list comes from the aliases in `router.json` `models`, limited by the `availableModels` setting. `session` keeps the effort Claude Code sends. A model without effort levels, such as Haiku, shows `none`.
 
-Changed tiers show **●**. The tab lists the `router.json` lines that **Save routes** will write. **Discard** drops the draft. **Reset to defaults** loads the built-in routes; saving then removes your route overrides from `router.json`. A saved change applies from the next turn.
+Changed tiers show **●**. **Reset routes to defaults** (`r`) loads the built-in routes into the draft; **Save** then removes your route overrides from `router.json`.
 
 **Switch cost** reads the draft from the bottom tier up and shows how the policy prices each step. A model change is priced as a cold cache write. An effort change on the same model is also priced as a new messages cache; whether the API actually keeps the cache across an effort change is not measured. Two identical tiers make that step change nothing.
 
 A new model ID needs an entry in `router.json` `models` with its price, context window, and effort levels. See [Configuration](configuration.md).
 
-## Tune future decisions
+### Tune future decisions
 
-On the **Tuning** tab, under **Policy**, pick the values, then select **Save tuning**:
+Under **Policy** on the same tab, pick the values. One **Save** writes them with any route changes:
 
 - **Votes to go down:** 1, 2, or 3 consecutive votes before a cheaper tier.
 - **Payback horizon:** 1, 3, 5, or 10 later turns used by the downgrade estimate.
 - **Credits cap:** $0.50, $1, $2, or $5 for an estimated cold cache write on a `credits` model.
 
-The current turn keeps the settings it started with. A save preserves unrelated `router.json` keys and refuses to write through a symlink. When validation fails, the pane names the setting and leaves the file unchanged.
+**Reset policy to defaults** loads the built-in values; **Save** then removes your policy overrides. The current turn keeps the settings it started with. A save preserves unrelated `router.json` keys and refuses to write through a symlink. When validation fails, the pane names the setting and leaves the file unchanged.
 
 ## Choose the classifier
 
@@ -137,13 +146,13 @@ Router asks one classifier per turn. Three are built in:
 | Clef       | Cloudflare Workers AI, 27B | Cloudflare API token and Cloudflare account ID | 3,000 ms |
 | Clef Flash | Cloudflare Workers AI, 9B  | Cloudflare API token and Cloudflare account ID | 3,000 ms |
 
-![The Tuning tab: classifier rows with the active one marked, a missing Jev API key with Set up, Undo after a switch, the deadline, health, the receiving host, the credentials each classifier needs, and the policy controls](router-pane-tuning.svg)
+![The Classifier tab: classifier rows with the active one marked, a missing Jev API key with Set up, the deadline, health, the receiving host, the credentials each classifier needs, and Undo after a switch](router-pane-classifier.svg)
 
-You can save credentials for all of them; only the active one is asked. The **Classifier** section at the top of the **Tuning** tab has one row per classifier: `◉` marks the active one, followed by its service and whether its credentials are complete. A row that lacks one names it, such as `○ no API token`, and has its own **Set up** button.
+You can save credentials for all of them; only the active one is asked. The **Classifier** tab has one row per classifier: `◉` marks the active one, followed by its service and whether its credentials are complete. A row that lacks one names it, such as `○ no API token`, and has its own **Set up** button.
 
-Select a row to switch. The choice is written to `router.json` at once and applies from the next turn. A line under the rows names the previous classifier with an **Undo** button; it goes when you leave the tab. A turn that is already being classified finishes with the classifier it started with. The new classifier starts with a clean failure count.
+Select a row to switch. The choice is written to `router.json` at once and applies from the next turn. **Undo** in the status bar returns to the previous classifier. A turn that is already being classified finishes with the classifier it started with. The new classifier starts with a clean failure count.
 
-- **Deadline:** 500, 1,000, 1,500, or 3,000 ms for the active classifier's total advice attempt, including any retry. Each classifier keeps its own deadline, saved at once.
+- **Deadline:** 500, 1,000, 1,500, or 3,000 ms for the active classifier's total advice attempt, including any retry. Each classifier keeps its own deadline, saved at once, with **Undo**.
 - **Health** shows recent failures or a pause. **Sends** names the service that receives prompt text.
 - **Credentials** lists what each classifier needs, such as `Jev: API key · Clef, Clef Flash: API token, account ID`. **Edit** opens Claude Code's secure plugin configuration, where you enter them.
 

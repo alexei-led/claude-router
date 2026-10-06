@@ -60,9 +60,9 @@ declare module 'claude-code' {
     tuning?: Partial<RouterTuning> | null;
     tuningBase?: RouterTuning | null;
     routeDraft?: (RouterRoutes & { base: RouterRoutes }) | null;
-    // The classifier Undo returns to after a switch in the pane.
-    classifierUndo?: string | null;
-    tab?: 'now' | 'tiers' | 'tuning' | 'usage';
+    // The last pane write to router.json: each leaf it changed with the value the file had before, none if absent.
+    lastWrite?: { label: string; leaves: { path: string[]; value?: unknown }[] } | null;
+    tab?: 'now' | 'routing' | 'classifier' | 'usage';
     help?: boolean;
     bandDetail?: boolean;
     notice?: string | null;

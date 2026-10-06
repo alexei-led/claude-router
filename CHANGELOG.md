@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.3.0 (2026-10-06)
+
+### Changed
+
+- The pane's settings follow one rule per tab. **Routing** (was Tiers, now with the policy controls) edits routes and policy as one draft with one **Save** (`s`) and **Discard** (`d`). **Classifier** (was the classifier part of Tuning) writes a row or a deadline at once.
+- Unsaved routing changes show on every tab: the tab reads **Routing ●**, and the status bar lists the `router.json` lines **Save** will write. The draft stays when you change tab or close the pane, and a new session drops it.
+- **Undo** (`u`) puts back the settings the last pane write changed, from any tab: a classifier, a deadline, or a routing save. It writes back what `router.json` held before that write, so a hand edit elsewhere in the file stays. It no longer goes away when you change tab.
+- **Reset policy to defaults** joins **Reset routes to defaults**. A policy value equal to its default is removed from `router.json`, as routes and deadlines already were.
+- Notices sit in the status bar: green for a write or an undo, red for a refused write. In Manual the pin buttons give way to "Pins need Auto". **Manual: keep /model** is now **Manual**.
+
+### Fixed
+
+- The pane opened with the notice from the last press before it was closed. It now opens without one; the last write keeps its **Undo**.
+
 ## 1.2.0 (2026-10-05)
 
 ### Added

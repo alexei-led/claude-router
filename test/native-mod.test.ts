@@ -77,14 +77,14 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
     await pane.press({ key: 'help' });
     await pane.redraw();
     expect(await pane.find({ type: 'Text', text: /Routing savings are not measured/ })).toBeUndefined();
-    await pane.press({ key: 'tab-tuning' });
+    await pane.press({ key: 'tab-classifier' });
     await pane.redraw();
     expect(await pane.find({ key: 'classifier-jev' })).toBeDefined();
     expect(await pane.find({ key: 'classifier-clef-flash' })).toBeDefined();
     expect(await pane.find({ key: 'key-clef' })).toBeDefined();
     expect(await pane.find({ key: 'timeoutMs' })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /no account ID/ })).toBeDefined();
-    await pane.press({ key: 'tab-tiers' });
+    await pane.press({ key: 'tab-routing' });
     await pane.redraw();
     expect(await pane.find({ key: 'route-model-medium' })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /same model, new effort/ })).toBeDefined();

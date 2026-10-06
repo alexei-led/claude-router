@@ -222,6 +222,18 @@ test('a pane save keeps router.json edits made on disk after the session loaded 
     ),
     { classifiers: { jev: { timeoutMs: 900 } }, policy: { downgradeVotes: 3, downgradeHorizonTurns: 10 } },
   );
+  assert.deepEqual(
+    withTuning(
+      { policy: { downgradeVotes: 3, upgradeVotes: 3 } },
+      { ...saved, downgradeVotes: 2 },
+      {
+        ...saved,
+        downgradeVotes: 3,
+      },
+    ),
+    { policy: { upgradeVotes: 3 } },
+  );
+  assert.deepEqual(withTuning({ policy: { cashCapUsd: 5 } }, saved, { ...saved, cashCapUsd: 5 }), {});
 });
 
 test('a classifier can be selected, partly overridden or added', () => {

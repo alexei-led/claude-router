@@ -10,12 +10,13 @@
 <text x="24.0" y="34" fill="#5fafd7" font-weight="700" xml:space="preserve">ROUTER · Auto</text>
 <text x="148.8" y="34" fill="#87d787" xml:space="preserve">Jev ready · 347 ms</text>
 <text x="24.0" y="53" fill="#87afff" font-weight="700" xml:space="preserve">[ Auto ]</text>
-<text x="94.2" y="53" fill="#d0d0d0" xml:space="preserve">[ Manual: keep /model ]</text>
+<text x="94.2" y="53" fill="#d0d0d0" xml:space="preserve">[ Manual ]</text>
+<text x="172.2" y="53" fill="#7c7c7c" xml:space="preserve">  Manual keeps the /model choice</text>
 <text x="24.0" y="72" fill="#87afff" font-weight="700" xml:space="preserve">[ Now ]</text>
-<text x="86.4" y="72" fill="#d0d0d0" xml:space="preserve">[ Tiers ]</text>
-<text x="164.4" y="72" fill="#d0d0d0" xml:space="preserve">[ Tuning ]</text>
-<text x="250.2" y="72" fill="#d0d0d0" xml:space="preserve">[ Usage ]</text>
-<text x="328.2" y="72" fill="#d0d0d0" xml:space="preserve">[ ? ]</text>
+<text x="86.4" y="72" fill="#d0d0d0" xml:space="preserve">[ Routing ]</text>
+<text x="180.0" y="72" fill="#d0d0d0" xml:space="preserve">[ Classifier ]</text>
+<text x="297.0" y="72" fill="#d0d0d0" xml:space="preserve">[ Usage ]</text>
+<text x="375.0" y="72" fill="#d0d0d0" xml:space="preserve">[ ? ]</text>
 <text x="24.0" y="110" fill="#d0d0d0" xml:space="preserve">Now    </text>
 <text x="78.6" y="110" fill="#e0708a" font-weight="700" xml:space="preserve">▌high  </text>
 <text x="133.2" y="110" fill="#d0d0d0" xml:space="preserve">Opus 5.5 · xhigh</text>

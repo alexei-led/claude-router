@@ -9,7 +9,7 @@ The router works with its built-in defaults. Configure the key of the active cla
 | Jev API key                        | Sensitive plugin option `typesafe_api_key`      | Run `/plugin configure router`, or use **Set up** or **Credentials → Edit** in the router pane. |
 | Cloudflare API token               | Sensitive plugin option `cloudflare_api_token`  | The same dialog. Used by Clef and Clef Flash.                                                   |
 | Cloudflare account ID              | Plugin option `cloudflare_account_id`           | The same dialog, or the config menu row. Not a secret.                                          |
-| Router settings and classifier     | `router.json` in the active Claude Code profile | Edit the file directly, or use the pane's Tiers and Tuning tabs.                                |
+| Router settings and classifier     | `router.json` in the active Claude Code profile | Edit the file directly, or use the pane's Routing and Classifier tabs.                                |
 | Anthropic credentials and API cost | Claude Code                                     | The Mod leaves these to Claude Code.                                                            |
 
 The active profile directory is `CLAUDE_CONFIG_DIR` when set. Otherwise it is `~/.claude`. The Mod does not need an Anthropic proxy URL, model alias, hint header, daemon, or custom status line.
@@ -57,7 +57,7 @@ Prices are configured list-price inputs for estimates. They are not a subscripti
 | `clef`       | `https://api.cloudflare.com/client/v4/accounts/{cloudflare_account_id}/ai/run/@cf/cloudflare/clef`       | `clef`          | `cloudflare_api_token` |      `3000` |
 | `clef-flash` | `https://api.cloudflare.com/client/v4/accounts/{cloudflare_account_id}/ai/run/@cf/cloudflare/clef-flash` | `clef-flash`    | `cloudflare_api_token` |      `3000` |
 
-`jev` is the default. Select another one with a row in the pane's **Tuning → Classifier**, or in `router.json`:
+`jev` is the default. Select another one with a row on the pane's **Classifier** tab, or in `router.json`:
 
 ```json
 { "classifier": "clef-flash" }
@@ -128,7 +128,7 @@ Policy defaults:
 | `escalationHoldTurns`   |     `2` | Turns held after a repeated tool error escalates the route.                                        |
 | `cashCapUsd`            |     `2` | Maximum estimated cold cache write for a `credits` model. It does not cap output or session spend. |
 
-The pane writes a subset of these settings. The **Tiers** tab sets `routes` and `baselineTier`: it writes only tiers that differ from the defaults and removes the rest. The **Tuning** tab sets `classifier` and the active classifier's `timeoutMs` at once, and `policy.downgradeVotes`, `policy.downgradeHorizonTurns`, and `policy.cashCapUsd`. Each save validates the whole file, keeps other keys, and applies from the next turn. A failed check names the setting and leaves the file unchanged. The pane refuses to write through a symlink. Model aliases and the other settings require a direct edit.
+The pane writes a subset of these settings. The **Routing** tab sets `routes`, `baselineTier`, `policy.downgradeVotes`, `policy.downgradeHorizonTurns`, and `policy.cashCapUsd` in one save: it writes only values that differ from the defaults and removes the rest. The **Classifier** tab sets `classifier` and the active classifier's `timeoutMs` at once. **Undo** reverts the settings the last pane write changed. Each save validates the whole file, keeps other keys, and applies from the next turn. A failed check names the setting and leaves the file unchanged. The pane refuses to write through a symlink. Model aliases and the other settings require a direct edit.
 
 Native cache freshness is unknown after 270 seconds or after a history reset. Claude usage does not report the cache TTL. The policy evaluates price bounds for five-minute and one-hour writes, but the one-hour case is not observed fact. See the [architecture](architecture.md#cache-and-cost) for the estimate rules.
 

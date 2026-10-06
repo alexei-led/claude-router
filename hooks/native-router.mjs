@@ -16,7 +16,7 @@ import { resolveCredentials } from '../lib/jev-contract.mjs';
 import { renderBand, switchToast } from '../lib/native-band.mjs';
 import { classifierStatus, GATEWAY_CLEANUP, GATEWAY_SETTINGS, missingCredentials } from '../lib/native-display.mjs';
 import { NativeJev } from '../lib/native-jev.mjs';
-import { renderPanel, routeDraftOf } from '../lib/native-panel.mjs';
+import { renderPanel, routeDraftOf, routingChanges } from '../lib/native-panel.mjs';
 import {
   chooseRoute,
   continueRoute,
@@ -70,7 +70,7 @@ function initialView(model) {
     tuning: null,
     tuningBase: null,
     routeDraft: null,
-    classifierUndo: null,
+    lastWrite: null,
     tab: 'now',
     help: false,
     notice: null,
@@ -107,6 +107,13 @@ async function updateView($, runtime, patch) {
   const value = runtime.view ?? (await readView($, runtime));
   runtime.view = { ...value, ...patch };
   await $.state.set(VIEW, runtime.view);
+}
+
+// A notice answers the last press in the pane, so the pane opens without one; the last write keeps its Undo in the
+// status bar.
+async function openPane($, runtime) {
+  await updateView($, runtime, { notice: null });
+  await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
 }
 
 async function changeMode($, runtime, mode) {
@@ -179,6 +186,51 @@ const CLEARED_READINGS = { adviceMs: null, adviceChoice: null, probabilities: nu
 // The host refuses $.command.run from a hook the turn is holding, so the secure key dialog opens from a timer.
 function openKeySettings($) {
   $.clock.after(0, () => $.command.run({ command: 'plugin', args: `configure ${$.plugin.name}` }).catch(() => {}));
+}
+
+const isRecord = (value) => typeof value === 'object' && value !== null && !Array.isArray(value);
+
+// The leaves where router.json `after` differs from `before`, each with its value in `before`, or no `value` where it
+// had none. An object present on one side only is walked as empty on the other, so a sibling stays out of it.
+function changedLeaves(before, after, path = []) {
+  const out = [];
+  for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    const [a, b] = [before[key], after[key]];
+    if ((isRecord(a) || a === undefined) && (isRecord(b) || b === undefined) && (isRecord(a) || isRecord(b)))
+      out.push(...changedLeaves(a ?? {}, b ?? {}, [...path, key]));
+    else if (JSON.stringify(a) !== JSON.stringify(b))
+      out.push(Object.hasOwn(before, key) ? { path: [...path, key], value: a } : { path: [...path, key] });
+  }
+  return out;
+}
+
+// The router.json `file` with each leaf of one pane write put back as it was before it: a value written again
+// verbatim, a leaf that was absent deleted along with any object that leaves empty. Leaves the write did not touch,
+// such as an edit made on disk since, stay as they are.
+function restored(file, leaves) {
+  const next = structuredClone(file);
+  for (const { path, ...leaf } of leaves) {
+    const parents = path.slice(0, -1);
+    const key = path.at(-1);
+    if (Object.hasOwn(leaf, 'value')) {
+      let node = next;
+      for (const name of parents) {
+        if (!isRecord(node[name])) node[name] = {};
+        node = node[name];
+      }
+      node[key] = leaf.value;
+      continue;
+    }
+    const chain = [next];
+    for (const name of parents) {
+      if (!isRecord(chain.at(-1)[name])) break;
+      chain.push(chain.at(-1)[name]);
+    }
+    if (chain.length !== path.length) continue;
+    delete chain.at(-1)[key];
+    for (let i = chain.length - 1; i > 0 && !Object.keys(chain[i]).length; i -= 1) delete chain[i - 1][path[i - 1]];
+  }
+  return next;
 }
 
 // Writes router.json through `change(previousFile)` once the result validates. Returns the new config or an error
@@ -354,6 +406,8 @@ export function register(on, options) {
         configPath: config.nativePath,
         tuning: null,
         tuningBase: null,
+        routeDraft: null,
+        lastWrite: null,
         bandDetail: (await $.store.get(BAND_DETAIL).catch(() => false)) === true,
       });
     } catch (error) {
@@ -396,7 +450,7 @@ export function register(on, options) {
     const storedView = await readView($, runtime);
     const view = { ...storedView, mode: await modeOf($, runtime, storedView.mode) };
     if (!(await $.session.surfaces()).length) return { text: detailText(config, view) };
-    await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
+    await openPane($, runtime);
     return {};
   });
 
@@ -651,7 +705,6 @@ export function register(on, options) {
     const elements = $.ui.resolve(e);
     const { Box } = elements;
     const usage = await $.session.usage().catch(() => null);
-    const openPane = () => $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
     if (e.component === 'AbovePrompt') {
       if (e.props.hasSurvey) return next(e);
       return Box({
@@ -665,7 +718,7 @@ export function register(on, options) {
             usage,
             { columns: e.props.bodyColumns, agentId: e.props.view?.agentId },
             {
-              open: openPane,
+              open: () => openPane($, runtime),
               mode: (mode) => changeMode($, runtime, mode),
               pin: async (tier) => $.ui.toast(await setPin($, runtime, tier)),
               unpin: () => updateView($, runtime, { pendingPin: null }),
@@ -708,20 +761,50 @@ export function register(on, options) {
         health: healthOf(clientOf(config.classifier), config.classifier),
       };
     };
+    // Pending drafts re-pointed at the config a write just adopted. An edit that still differs stays; everything else
+    // follows the file, and the file becomes what the draft compares against, so picking a value the write replaced
+    // counts as a change again.
+    const rebased = ({ routeDraft, tuning, tuningBase }) => {
+      const routes = routeDraft && effectiveRoutes(routeDraft, config);
+      const edited = Object.entries(tuning ?? {}).filter(([key, value]) => value !== tuningBase?.[key]);
+      return {
+        routeDraft: routes ? { ...routes, base: routeDraftOf(config, {}).base } : null,
+        tuning: edited.length ? Object.fromEntries(edited) : null,
+        tuningBase: edited.length ? tuningOf(config) : null,
+      };
+    };
     const save = async (change, saved) => {
       const result = await saveConfig($, config.nativePath, change);
       if (result.error) return updateView($, runtime, { notice: result.error });
+      const drafts = runtime.view ?? view;
       const reset = await adopt(result.config);
-      return updateView($, runtime, { ...reset, ...saved(config) });
+      return updateView($, runtime, { ...reset, ...rebased(drafts), ...saved(config) });
     };
-    // A classifier choice applies at once; `undo` is the one Undo returns to, null after an Undo.
-    const activateClassifier = (id, undo) =>
-      !id || id === config.classifier || !Object.hasOwn(config.classifiers, id)
-        ? undefined
-        : save(
-            (file) => withClassifier(file, id),
-            () => ({ classifierUndo: undo, notice: null }),
-          );
+    // Defaults go into the routing draft like any edit; the notice says whether Save has anything of that section left
+    // to write.
+    const loadDefaults = (patch, what) => {
+      const changes = routingChanges(config, { ...(runtime.view ?? view), ...patch });
+      const pending = what === 'route' ? changes.tiers.length + Number(changes.baseline) : changes.policy.length;
+      return updateView($, runtime, {
+        ...patch,
+        notice: pending
+          ? `${what === 'route' ? 'Route' : 'Policy'} defaults loaded. Save removes your ${what} overrides from router.json.`
+          : `${what === 'route' ? 'Routes' : 'Policy'} already at defaults.`,
+      });
+    };
+    // A pane write keeps the leaves it changed as router.json had them, read from the file it rewrites rather than from
+    // the loaded config, so Undo restores them verbatim. A later write replaces them, and Undo clears them.
+    const write = (label, change, patch = {}) => {
+      let leaves = [];
+      return save(
+        (file) => {
+          const written = change(file);
+          leaves = changedLeaves(file, written);
+          return written;
+        },
+        () => ({ ...patch, lastWrite: { label, leaves }, notice: `Saved: ${label}. Applies from the next turn.` }),
+      );
+    };
     return renderPanel(
       elements,
       config,
@@ -729,7 +812,7 @@ export function register(on, options) {
       usage,
       {
         mode: (mode) => changeMode($, runtime, mode),
-        tab: (tab) => updateView($, runtime, { tab, notice: null, classifierUndo: null }),
+        tab: (tab) => updateView($, runtime, { tab, notice: null }),
         help: () => updateView($, runtime, { help: !view.help }),
         pin: async (tier) => {
           await updateView($, runtime, { notice: await setPin($, runtime, tier) });
@@ -754,50 +837,70 @@ export function register(on, options) {
           const draft = routeDraftOf(config, runtime.view ?? view);
           await updateView($, runtime, { routeDraft: { ...draft, baselineTier: tier }, notice: null });
         },
-        saveRoutes: async () => {
-          const draft = (runtime.view ?? view).routeDraft;
-          if (!draft) return updateView($, runtime, { notice: 'No route changes to save.' });
-          return save(
-            (file) => withRoutes(file, draft),
-            () => ({ routeDraft: null, notice: 'Saved routes. They apply from the next turn.' }),
+        saveRouting: async () => {
+          const current = runtime.view ?? view;
+          const routeDraft = current.routeDraft;
+          const saved = tuningOf(config);
+          const base = current.tuningBase ?? saved;
+          const edited = Object.keys(current.tuning ?? {}).filter((key) => current.tuning[key] !== base[key]);
+          const changes = routingChanges(config, current).count;
+          if (!changes) return updateView($, runtime, { notice: 'No routing changes to save.' });
+          const after = Object.fromEntries(edited.map((key) => [key, current.tuning[key]]));
+          return write(
+            `${changes} routing change${changes === 1 ? '' : 's'}`,
+            (file) => {
+              const routed = routeDraft ? withRoutes(file, routeDraft) : file;
+              return edited.length ? withTuning(routed, { ...base, ...after }, base) : routed;
+            },
+            { routeDraft: null, tuning: null, tuningBase: null },
           );
         },
-        discardRoutes: () => updateView($, runtime, { routeDraft: null, notice: null }),
+        discardRouting: () =>
+          updateView($, runtime, { routeDraft: null, tuning: null, tuningBase: null, notice: null }),
         resetRoutes: () =>
-          updateView($, runtime, {
-            routeDraft: {
-              ...structuredClone({ routes: DEFAULTS.routes, baselineTier: DEFAULTS.baselineTier }),
-              base: routeDraftOf(config, {}).base,
+          loadDefaults(
+            {
+              routeDraft: {
+                ...structuredClone({ routes: DEFAULTS.routes, baselineTier: DEFAULTS.baselineTier }),
+                base: routeDraftOf(config, {}).base,
+              },
             },
-            notice: 'Defaults loaded. Save routes to remove your overrides from router.json.',
-          }),
+            'route',
+          ),
         tune: (key, value) =>
           updateView($, runtime, {
             tuning: { ...(runtime.view ?? view).tuning, [key]: value },
             tuningBase: (runtime.view ?? view).tuningBase ?? tuningOf(config),
             notice: null,
           }),
-        saveTuning: async () => {
-          const current = runtime.view ?? view;
-          const base = current.tuningBase ?? tuningOf(config);
-          const draft = { ...base, ...current.tuning };
-          if (Object.keys(base).every((key) => draft[key] === base[key]))
-            return updateView($, runtime, { notice: 'No tuning changes to save.' });
-          return save(
-            (file) => withTuning(file, draft, base),
-            () => ({ tuning: null, tuningBase: null, notice: 'Saved. New tuning applies to future turns.' }),
+        resetPolicy: () =>
+          loadDefaults(
+            // The draft is replaced whole, so it starts from the saved values, not from an older draft's base.
+            { tuning: tuningOf(DEFAULTS), tuningBase: tuningOf(config) },
+            'policy',
+          ),
+        classifier: (id) => {
+          if (!id || id === config.classifier || !Object.hasOwn(config.classifiers, id)) return undefined;
+          const from = config.classifier;
+          return write(`classifier ${config.classifiers[from].label} → ${config.classifiers[id].label}`, (file) =>
+            withClassifier(file, id),
           );
         },
-        resetTuning: () => updateView($, runtime, { tuning: null, tuningBase: null, notice: null }),
-        classifier: (id) => activateClassifier(id, config.classifier),
-        undoClassifier: () => activateClassifier((runtime.view ?? view).classifierUndo, null),
-        classifierTimeout: (timeoutMs) =>
-          save(
-            (file) => withClassifierTimeout(file, config.classifier, timeoutMs),
-            (saved) => ({
-              notice: `Saved. ${activeClassifier(saved).label} waits ${timeoutMs} ms from the next turn.`,
-            }),
-          ),
+        classifierTimeout: (timeoutMs) => {
+          const active = activeClassifier(config);
+          if (timeoutMs === active.timeoutMs) return undefined;
+          return write(`${active.label} deadline ${active.timeoutMs} → ${timeoutMs} ms`, (file) =>
+            withClassifierTimeout(file, config.classifier, timeoutMs),
+          );
+        },
+        undo: async () => {
+          const last = (runtime.view ?? view).lastWrite;
+          if (!last) return undefined;
+          return save(
+            (file) => restored(file, last.leaves),
+            () => ({ lastWrite: null, notice: `Undid: ${last.label}.` }),
+          );
+        },
       },
       { modelOptions },
     );

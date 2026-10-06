@@ -213,28 +213,30 @@ pane(
 pane(
   {
     ...base,
-    tab: 'tiers',
+    tab: 'routing',
     routeDraft: {
       routes: { ...config.routes, medium: { model: 'sonnet', effort: 'xhigh' } },
       baselineTier: 'low',
       base: { routes: config.routes, baselineTier: 'low' },
     },
+    configPath: '~/.claude/router.json',
   },
-  'Router pane, Tiers tab',
-  'Model and effort per tier with prices and windows, the baseline tier, how the policy prices each step up, and the router.json change Save routes will write.',
-  'router-pane-tiers.svg',
+  'Router pane, Routing tab',
+  'Model and effort per tier with prices and windows, the baseline tier, how the policy prices each step up, the policy controls, and the unsaved router.json change with Save and Discard.',
+  'router-pane-routing.svg',
 );
 pane(
   {
     ...base,
-    tab: 'tuning',
+    tab: 'classifier',
     adviceMs: null,
-    classifierUndo: 'clef',
     credentials: { jev: 'missing-key', clef: null, 'clef-flash': null },
+    notice: 'Saved: classifier Clef → Clef Flash. Applies from the next turn.',
+    lastWrite: { label: 'classifier Clef → Clef Flash', leaves: [{ path: ['classifier'], value: 'clef' }] },
   },
-  'Router pane, Tuning tab',
-  'The classifier rows with the active one marked, a missing Jev API key with Set up, Undo after a switch, the deadline, health, the receiving host and the credentials each classifier needs, then the policy controls.',
-  'router-pane-tuning.svg',
+  'Router pane, Classifier tab',
+  'The classifier rows with the active one marked, a missing Jev API key with Set up, the deadline, health, the receiving host and the credentials each classifier needs, and Undo after a switch.',
+  'router-pane-classifier.svg',
   { ...config, classifier: 'clef-flash' },
 );
-console.log(`wrote router-band.svg and the Now, Tiers and Tuning pane pictures to ${OUT}`);
+console.log(`wrote router-band.svg and the Now, Routing and Classifier pane pictures to ${OUT}`);

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 626 363" role="img" aria-labelledby="title desc">
+  <title id="title">Router pane, Classifier tab</title>
+  <desc id="desc">The classifier rows with the active one marked, a missing Jev API key with Set up, the deadline, health, the receiving host and the credentials each classifier needs, and Undo after a switch.</desc>
+  <style>
+    text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; }
+    .cap { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; fill: #9a988f; }
+  </style>
+  <rect width="626" height="363" rx="8" fill="#1c1c1c"/>
+<rect x="10" y="10" width="606" height="343" rx="6" fill="none" stroke="#3f5f8f"/>
+<text x="24.0" y="34" fill="#5fafd7" font-weight="700" xml:space="preserve">ROUTER · Auto</text>
+<text x="148.8" y="34" fill="#87d787" xml:space="preserve">Clef Flash ready</text>
+<text x="24.0" y="53" fill="#87afff" font-weight="700" xml:space="preserve">[ Auto ]</text>
+<text x="94.2" y="53" fill="#d0d0d0" xml:space="preserve">[ Manual ]</text>
+<text x="172.2" y="53" fill="#7c7c7c" xml:space="preserve">  Manual keeps the /model choice</text>
+<text x="24.0" y="72" fill="#d0d0d0" xml:space="preserve">[ Now ]</text>
+<text x="86.4" y="72" fill="#d0d0d0" xml:space="preserve">[ Routing ]</text>
+<text x="180.0" y="72" fill="#87afff" font-weight="700" xml:space="preserve">[ Classifier ]</text>
+<text x="297.0" y="72" fill="#d0d0d0" xml:space="preserve">[ Usage ]</text>
+<text x="375.0" y="72" fill="#d0d0d0" xml:space="preserve">[ ? ]</text>
+<text x="24.0" y="110" fill="#5fafd7" font-weight="700" xml:space="preserve">CLASSIFIER</text>
+<text x="102.0" y="110" fill="#7c7c7c" xml:space="preserve"> · applies next turn · saves at once</text>
+<text x="24.0" y="129" fill="#7c7c7c" xml:space="preserve">Asked once per new turn.</text>
+<text x="24.0" y="148" fill="#d0d0d0" xml:space="preserve">[ ○ Jev         ]</text>
+<text x="164.4" y="148" fill="#7c7c7c" xml:space="preserve">api.typesafe.ai</text>
+<text x="320.4" y="148" fill="#d7af5f" xml:space="preserve">○ no API key  </text>
+<text x="429.6" y="148" fill="#d0d0d0" xml:space="preserve">[ Set up ]</text>
+<text x="24.0" y="167" fill="#d0d0d0" xml:space="preserve">[ ○ Clef        ]</text>
+<text x="164.4" y="167" fill="#7c7c7c" xml:space="preserve">api.cloudflare.com</text>
+<text x="320.4" y="167" fill="#87d787" xml:space="preserve">● ready</text>
+<text x="24.0" y="186" fill="#87afff" font-weight="700" xml:space="preserve">[ ◉ Clef Flash  ]</text>
+<text x="164.4" y="186" fill="#7c7c7c" xml:space="preserve">api.cloudflare.com</text>
+<text x="320.4" y="186" fill="#87d787" xml:space="preserve">● ready</text>
+<text x="24.0" y="205" fill="#d0d0d0" xml:space="preserve">Deadline</text>
+<text x="94.2" y="205" fill="#d0d0d0" xml:space="preserve">3000 ms ▾</text>
+<text x="187.8" y="205" fill="#7c7c7c" xml:space="preserve">then keep the model</text>
+<text x="24.0" y="224" fill="#d0d0d0" xml:space="preserve">Health   active · 0 recent failures</text>
+<text x="24.0" y="243" fill="#7c7c7c" xml:space="preserve">Sends    prompt + 6 recent turns → api.cloudflare.com</text>
+<text x="24.0" y="262" fill="#d0d0d0" xml:space="preserve">Credentials  </text>
+<text x="125.4" y="262" fill="#d0d0d0" xml:space="preserve">[ Edit ]</text>
+<text x="187.8" y="262" fill="#7c7c7c" xml:space="preserve">  opens /plugin configure</text>
+<text x="24.0" y="281" fill="#7c7c7c" xml:space="preserve">             Jev: API key · Clef, Clef Flash: API token, account ID</text>
+<text x="24.0" y="319" fill="#87d787" xml:space="preserve">Saved: classifier Clef → Clef Flash. Applies from the next turn.  </text>
+<text x="538.8" y="319" fill="#d0d0d0" xml:space="preserve">[ Undo ]</text>
+<text x="24.0" y="338" fill="#d0d0d0" xml:space="preserve">[ Close ]</text>
+</svg>

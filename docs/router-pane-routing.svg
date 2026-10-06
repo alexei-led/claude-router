@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 594 686" role="img" aria-labelledby="title desc">
+  <title id="title">Router pane, Routing tab</title>
+  <desc id="desc">Model and effort per tier with prices and windows, the baseline tier, how the policy prices each step up, the policy controls, and the unsaved router.json change with Save and Discard.</desc>
+  <style>
+    text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; }
+    .cap { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; fill: #9a988f; }
+  </style>
+  <rect width="594" height="686" rx="8" fill="#1c1c1c"/>
+<rect x="10" y="10" width="574" height="666" rx="6" fill="none" stroke="#3f5f8f"/>
+<text x="24.0" y="34" fill="#5fafd7" font-weight="700" xml:space="preserve">ROUTER · Auto</text>
+<text x="148.8" y="34" fill="#87d787" xml:space="preserve">Jev ready · 347 ms</text>
+<text x="24.0" y="53" fill="#87afff" font-weight="700" xml:space="preserve">[ Auto ]</text>
+<text x="94.2" y="53" fill="#d0d0d0" xml:space="preserve">[ Manual ]</text>
+<text x="172.2" y="53" fill="#7c7c7c" xml:space="preserve">  Manual keeps the /model choice</text>
+<text x="24.0" y="72" fill="#d0d0d0" xml:space="preserve">[ Now ]</text>
+<text x="86.4" y="72" fill="#87afff" font-weight="700" xml:space="preserve">[ Routing ● ]</text>
+<text x="195.6" y="72" fill="#d0d0d0" xml:space="preserve">[ Classifier ]</text>
+<text x="312.6" y="72" fill="#d0d0d0" xml:space="preserve">[ Usage ]</text>
+<text x="390.6" y="72" fill="#d0d0d0" xml:space="preserve">[ ? ]</text>
+<text x="24.0" y="110" fill="#5fafd7" font-weight="700" xml:space="preserve">ROUTES</text>
+<text x="70.8" y="110" fill="#7c7c7c" xml:space="preserve"> · applies next turn · edit, then Save</text>
+<text x="24.0" y="129" fill="#7c7c7c" xml:space="preserve">tier    model         effort        $/M in · out  window</text>
+<text x="24.0" y="148" fill="#e0708a" font-weight="700" xml:space="preserve">high</text>
+<text x="86.4" y="148" fill="#d0d0d0" xml:space="preserve">Opus 5.5 ▾</text>
+<text x="195.6" y="148" fill="#d0d0d0" xml:space="preserve">xhigh ▾</text>
+<text x="304.8" y="148" fill="#d0d0d0" xml:space="preserve">4 · 20</text>
+<text x="414.0" y="148" fill="#d0d0d0" xml:space="preserve">1M</text>
+<text x="24.0" y="167" fill="#d7af5f" font-weight="700" xml:space="preserve">medium</text>
+<text x="86.4" y="167" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 ▾</text>
+<text x="195.6" y="167" fill="#d0d0d0" xml:space="preserve">xhigh ▾</text>
+<text x="289.2" y="167" fill="#d7af5f" xml:space="preserve">●</text>
+<text x="304.8" y="167" fill="#d0d0d0" xml:space="preserve">2 · 10</text>
+<text x="414.0" y="167" fill="#d0d0d0" xml:space="preserve">1M</text>
+<text x="24.0" y="186" fill="#5f9fe0" font-weight="700" xml:space="preserve">low</text>
+<text x="86.4" y="186" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 ▾</text>
+<text x="195.6" y="186" fill="#d0d0d0" xml:space="preserve">session ▾</text>
+<text x="304.8" y="186" fill="#d0d0d0" xml:space="preserve">2 · 10</text>
+<text x="414.0" y="186" fill="#d0d0d0" xml:space="preserve">1M</text>
+<text x="24.0" y="205" fill="#5fd7af" font-weight="700" xml:space="preserve">micro</text>
+<text x="86.4" y="205" fill="#d0d0d0" xml:space="preserve">Haiku 4.5 ▾</text>
+<text x="195.6" y="205" fill="#7c7c7c" xml:space="preserve">none</text>
+<text x="304.8" y="205" fill="#d0d0d0" xml:space="preserve">1 · 5</text>
+<text x="414.0" y="205" fill="#d0d0d0" xml:space="preserve">200K</text>
+<text x="24.0" y="224" fill="#d0d0d0" xml:space="preserve">Baseline tier: low ▾</text>
+<text x="304.8" y="224" fill="#7c7c7c" xml:space="preserve">start here, fall back here</text>
+<text x="24.0" y="262" fill="#5fafd7" font-weight="700" xml:space="preserve">SWITCH COST · from these routes</text>
+<text x="24.0" y="281" fill="#7c7c7c" xml:space="preserve">· </text>
+<text x="39.6" y="281" fill="#d0d0d0" xml:space="preserve">medium → high   </text>
+<text x="164.4" y="281" fill="#d0d0d0" xml:space="preserve">model change: priced as a cold cache write</text>
+<text x="24.0" y="300" fill="#7c7c7c" xml:space="preserve">· </text>
+<text x="39.6" y="300" fill="#d0d0d0" xml:space="preserve">low → medium    </text>
+<text x="164.4" y="300" fill="#d0d0d0" xml:space="preserve">same model, new effort: priced as a new cache</text>
+<text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">· </text>
+<text x="39.6" y="319" fill="#d0d0d0" xml:space="preserve">micro → low     </text>
+<text x="164.4" y="319" fill="#d0d0d0" xml:space="preserve">model change: priced as a cold cache write</text>
+<text x="24.0" y="338" fill="#d0d0d0" xml:space="preserve">[ Reset routes to defaults ]</text>
+<text x="24.0" y="357" fill="#7c7c7c" xml:space="preserve">A new model ID needs router.json → models: price, window, efforts.</text>
+<text x="24.0" y="395" fill="#5fafd7" font-weight="700" xml:space="preserve">POLICY</text>
+<text x="70.8" y="395" fill="#7c7c7c" xml:space="preserve"> · applies next turn · edit, then Save</text>
+<text x="24.0" y="414" fill="#d0d0d0" xml:space="preserve">Votes to go down</text>
+<text x="180.0" y="414" fill="#d0d0d0" xml:space="preserve">2 ▾</text>
+<text x="289.2" y="414" fill="#7c7c7c" xml:space="preserve">agreeing turns before cheaper</text>
+<text x="24.0" y="433" fill="#d0d0d0" xml:space="preserve">Payback horizon</text>
+<text x="180.0" y="433" fill="#d0d0d0" xml:space="preserve">5 turns ▾</text>
+<text x="289.2" y="433" fill="#7c7c7c" xml:space="preserve">a switch repays its cache</text>
+<text x="24.0" y="452" fill="#d0d0d0" xml:space="preserve">Credits cap</text>
+<text x="180.0" y="452" fill="#d0d0d0" xml:space="preserve">$2.00 ▾</text>
+<text x="289.2" y="452" fill="#7c7c7c" xml:space="preserve">max cold write on credits</text>
+<text x="24.0" y="471" fill="#d0d0d0" xml:space="preserve">[ Reset policy to defaults ]</text>
+<text x="24.0" y="509" fill="#5fafd7" font-weight="700" xml:space="preserve">CONFIG</text>
+<text x="24.0" y="528" fill="#d0d0d0" xml:space="preserve">File     ~/.claude/router.json  </text>
+<text x="273.6" y="528" fill="#d0d0d0" xml:space="preserve">[ copy ]</text>
+<text x="24.0" y="547" fill="#7c7c7c" xml:space="preserve">Main conversation only. Subagents keep their own model.</text>
+<text x="24.0" y="585" fill="#7c7c7c" xml:space="preserve">router.json changes:</text>
+<text x="24.0" y="604" fill="#e06c6c" xml:space="preserve">- routes.medium                  Opus 5.5 · medium</text>
+<text x="24.0" y="623" fill="#87d787" xml:space="preserve">+ routes.medium                  Sonnet 5.5 · xhigh</text>
+<text x="24.0" y="642" fill="#d7af5f" xml:space="preserve">● 1 unsaved routing change  </text>
+<text x="242.4" y="642" fill="#87afff" font-weight="700" xml:space="preserve">[ Save ]</text>
+<text x="312.6" y="642" fill="#d0d0d0" xml:space="preserve">[ Discard ]</text>
+<text x="24.0" y="661" fill="#d0d0d0" xml:space="preserve">[ Close ]</text>
+</svg>
