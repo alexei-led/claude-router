@@ -1026,6 +1026,19 @@ test('after an Undo, a pending draft compares against the restored values, so pi
   });
 });
 
+test('the pane opens without the last notice and keeps Undo for the last write', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-classifier');
+  await press(h, 'timeoutMs', '500');
+  assert.match(h.view().notice, /^Saved:/);
+  await h.event('command.run', { command: 'router', args: '' });
+  assert.equal(h.view().notice, null);
+  const pane = await h.render();
+  assert.ok(texts(pane).some((line) => /^Last change: Jev deadline 1500 → 500 ms/.test(line)));
+  assert.ok(controls(pane).some((node) => node.key === 'undo'));
+});
+
 test('a reset notice counts only its own section', async () => {
   const h = harness();
   await start(h);

@@ -109,6 +109,13 @@ async function updateView($, runtime, patch) {
   await $.state.set(VIEW, runtime.view);
 }
 
+// A notice answers the last press in the pane, so the pane opens without one; the last write keeps its Undo in the
+// status bar.
+async function openPane($, runtime) {
+  await updateView($, runtime, { notice: null });
+  await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
+}
+
 async function changeMode($, runtime, mode) {
   const view = runtime.view ?? (await readView($, runtime));
   for (const controller of runtime.controllers) controller.abort();
@@ -443,7 +450,7 @@ export function register(on, options) {
     const storedView = await readView($, runtime);
     const view = { ...storedView, mode: await modeOf($, runtime, storedView.mode) };
     if (!(await $.session.surfaces()).length) return { text: detailText(config, view) };
-    await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
+    await openPane($, runtime);
     return {};
   });
 
@@ -698,7 +705,6 @@ export function register(on, options) {
     const elements = $.ui.resolve(e);
     const { Box } = elements;
     const usage = await $.session.usage().catch(() => null);
-    const openPane = () => $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
     if (e.component === 'AbovePrompt') {
       if (e.props.hasSurvey) return next(e);
       return Box({
@@ -712,7 +718,7 @@ export function register(on, options) {
             usage,
             { columns: e.props.bodyColumns, agentId: e.props.view?.agentId },
             {
-              open: openPane,
+              open: () => openPane($, runtime),
               mode: (mode) => changeMode($, runtime, mode),
               pin: async (tier) => $.ui.toast(await setPin($, runtime, tier)),
               unpin: () => updateView($, runtime, { pendingPin: null }),
