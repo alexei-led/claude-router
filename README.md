@@ -74,9 +74,10 @@ In Claude Code, run `/plugin configure router` and save your classifier key in t
 
 Run `/router` to open the pane: route status, per-tier controls, tuning, and usage. Run `/model` to select a model and enter Manual mode, and `/router auto` to resume. For controls, metrics, tuning, and troubleshooting, see the [user guide](docs/user-guide.md).
 
-Before a push, run the same checks as CI. `npm run validate` and `npm run test:plugin` need the `claude` CLI: they load the Mod in the Claude Code engine, which refuses some faults that lint and unit tests miss.
+Before a push, run the same checks as CI. `npm run setup` installs Biome and TypeScript into `tools/`; the plugin root keeps no lockfile, so Claude Code installs nothing with the plugin. `npm run validate` and `npm run test:plugin` need the `claude` CLI: they load the Mod in the Claude Code engine, which refuses some faults that lint and unit tests miss.
 
 ```sh
+npm run setup
 npm run check && npm run typecheck && npm test && npm run validate && npm run test:plugin
 ```
 

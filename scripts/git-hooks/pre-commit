@@ -5,9 +5,9 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-biome=node_modules/.bin/biome
+biome=tools/node_modules/.bin/biome
 [ -x "$biome" ] || {
-  echo "pre-commit: $biome missing; run 'npm ci'" >&2
+  echo "pre-commit: $biome missing; run 'npm run setup'" >&2
   exit 1
 }
 command -v gitleaks >/dev/null || {

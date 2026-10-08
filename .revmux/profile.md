@@ -45,6 +45,7 @@
 ## Deliberate conventions
 
 - Smallest correct change; no speculative flags, abstractions or compatibility shims; the dev dependencies are Biome and TypeScript (typecheck only).
+- Dev tools live in `tools/` (`tools/package.json`, `tools/package-lock.json`; `npm run setup` installs them). The plugin root has no lockfile and its `package.json` declares no dependencies, so Claude Code installs nothing with the plugin; `test/plugin-root.test.mjs` fails if either comes back.
 - Tests mock only system boundaries: `$` host calls, clock, HTTP, filesystem. Table-driven where cases form a matrix.
 - `router.view` is a write-through cache of `$.state`, because state reads are frozen within one dispatch.
 - Classifier failures fail open: keep the current model and never block a turn. A network-policy refusal is never bypassed.
