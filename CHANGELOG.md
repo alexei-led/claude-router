@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.4.0 (2026-10-08)
+
+### Changed
+
+- `low` is now Haiku 5.5 at `high` effort (was Sonnet 5.5 on the session effort), and `micro` Haiku 5.5 at `medium` (was `low`). On Anthropic's OSWorld 2.1 effort chart, Haiku 5.5 at `high` scored above Sonnet 5.5 at `low`, and at `xhigh` near Sonnet at `medium`, for a fraction of the cost per attempt; OSWorld is computer use, not coding.
+- `medium` and `high` stay Opus 5.5 at `medium` and `xhigh`. Opus 5.5 at `medium` matched or beat Sonnet 5.5 at `xhigh` at 25 to 50% lower cost per task on Terminal-Bench 4.0, FrontierCode v1.1, and CursorBench 4.0 (anthropic.com/claude-sonnet-5-5).
+- No default tier keeps the session effort now. The `sonnet` alias stays. To restore the 1.3 ladder, add to `router.json`: `"routes": { "low": { "model": "sonnet", "effort": null }, "micro": { "model": "haiku", "effort": "low" } }`.
+- A new session starts in Auto when its model is the model of any configured tier, not only the baseline's, and in Manual otherwise. A saved mode still wins on resume, `/model` still enters Manual, and `/clear` still starts Auto.
+
+### Upgrade notes
+
+- A session started on Sonnet 5.5, as the 1.3 guides suggested, now starts in Manual, because no default tier routes to Sonnet. Start on Opus 5.5 or Haiku 5.5, run `/router auto`, or restore the 1.3 ladder above.
+- A `routes.low` entry in `router.json` without an `effort` used to keep the session effort, because the 1.3 default named none. It now takes the new default, `high`. Add `"effort": null` to that entry to keep the session effort.
+
+### Fixed
+
+- The start mode was decided by whichever ran first, the band or session start. When the band drew first, a session on a model no tier routes to could start in Auto.
+
 ## 1.3.2 (2026-10-08)
 
 ### Fixed

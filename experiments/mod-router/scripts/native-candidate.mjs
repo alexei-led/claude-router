@@ -47,7 +47,7 @@ export async function prepareNativeCandidate({ acceptance = false } = {}) {
   return directory;
 }
 
-const BASELINE_MODEL = 'claude-sonnet-5-5';
+const BASELINE_MODEL = 'claude-haiku-5-5';
 const RESUME_FLAGS = new Set(['--resume', '-r', '--continue', '-c']);
 
 function hasFlag(argv, names) {

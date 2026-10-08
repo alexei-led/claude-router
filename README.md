@@ -38,14 +38,14 @@ sequenceDiagram
 
 The active classifier labels a new logical turn once. Tool continuations keep that choice. A local policy applies vote, context, failure, and cache-cost rules before the Mod changes the next step. Claude Code owns request construction, model credentials, tools, streaming, and the API cost ledger.
 
-| Tier     | Default model | Effort                   |
-| -------- | ------------- | ------------------------ |
-| `micro`  | Haiku 5.5     | `low`                    |
-| `low`    | Sonnet 5.5    | Keeps the session effort |
-| `medium` | Opus 5.5      | `medium`                 |
-| `high`   | Opus 5.5      | `xhigh`                  |
+| Tier     | Default model | Effort   |
+| -------- | ------------- | -------- |
+| `micro`  | Haiku 5.5     | `medium` |
+| `low`    | Haiku 5.5     | `high`   |
+| `medium` | Opus 5.5      | `medium` |
+| `high`   | Opus 5.5      | `xhigh`  |
 
-These are routing defaults. They do not claim equal model quality.
+These are routing defaults. They do not claim equal model quality. [Configuration](docs/configuration.md#built-in-defaults) gives the published results behind them and the `router.json` lines that restore the 1.3 Sonnet ladder.
 
 ## Install
 
@@ -56,7 +56,7 @@ claude plugin marketplace add alexei-led/claude-router
 claude plugin install router@alexei-led-claude-router
 ```
 
-Start Claude Code on the full baseline model, for example `claude --model claude-sonnet-5-5`. Run `/plugin configure router` and save the key. For Clef or Clef Flash, save the Cloudflare token and account ID, then pick the classifier on the pane's Classifier tab. A session on the baseline model starts in Auto; on another model it starts in Manual, and `/router auto` turns routing on.
+Start Claude Code on the full baseline model, for example `claude --model claude-haiku-5-5`. Run `/plugin configure router` and save the key. For Clef or Clef Flash, save the Cloudflare token and account ID, then pick the classifier on the pane's Classifier tab. A new session on a model that one of the tiers routes to starts in Auto; on another model it starts in Manual, and `/router auto` turns routing on.
 
 Claude Code updates the plugin at startup when auto-update is on for this marketplace. Otherwise run `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`.
 
@@ -64,10 +64,10 @@ Upgrading from 0.8? Remove the gateway settings that 0.8 `/router:setup` wrote b
 
 ## Run from a checkout
 
-Start Claude Code with this directory as a local plugin and the full Sonnet baseline model:
+Start Claude Code with this directory as a local plugin and the full Haiku baseline model:
 
 ```sh
-claude --plugin-dir "$PWD" --model claude-sonnet-5-5
+claude --plugin-dir "$PWD" --model claude-haiku-5-5
 ```
 
 In Claude Code, run `/plugin configure router` and save your classifier key in the sensitive plugin option. The Mod adds its status band and `/router` pane. No status-line setup or gateway environment variables are needed.

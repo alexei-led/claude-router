@@ -15,7 +15,7 @@ import {
 import { advice as adviceOf } from './helpers.mjs';
 
 const now = 1_000_000;
-const model = 'claude-sonnet-5-5';
+const model = 'claude-haiku-5-5';
 const context = {
   messages: [{ role: 'user', content: 'Do one small edit.' }],
   prompt: 'Do one small edit.',
@@ -54,29 +54,36 @@ const usage = (overrides = {}) => ({
 });
 
 test('switch comparison needs observed usage and preserves savings and added-cost scenarios', () => {
-  const initial = emptyLoop(SMALL_MICRO, model);
-  assert.equal(chooseRoute(SMALL_MICRO, initial, smallInput(initial)).decision.comparison, null);
+  const sonnet = 'claude-sonnet-5-5';
+  const config = loadConfig({
+    userFile: { models: { tiny }, routes: { micro: { model: 'tiny' }, low: { model: 'sonnet', effort: null } } },
+  });
+  const sonnetInput = (loop, overrides) => input(loop, { nativeModel: sonnet, ...overrides }, config);
+  const initial = emptyLoop(config, sonnet);
+  assert.equal(chooseRoute(config, initial, sonnetInput(initial)).decision.comparison, null);
   const observed = observeResponse(initial, {
     usage: usage({
+      model: sonnet,
       input_tokens: 2000,
       cache_read_input_tokens: 140_000,
       cache_creation_input_tokens: 8000,
       output_tokens: 1500,
     }),
-    requestedModel: model,
+    requestedModel: sonnet,
     effort: 'medium',
     stopReason: 'end_turn',
     now,
   });
   const selected = chooseRoute(
-    SMALL_MICRO,
+    config,
     observed,
-    smallInput(observed, {
-      facts: nativeFacts(SMALL_MICRO, observed, { ...context, contextTokens: 151_500 }),
+    sonnetInput(observed, {
+      facts: nativeFacts(config, observed, { ...context, contextTokens: 151_500 }),
     }),
   );
   const comparison = selected.decision.comparison;
   assert.equal(comparison.candidate, 'micro');
+  assert.equal(comparison.incumbent, 'low');
   assert.ok(comparison.minUsd < 0);
   assert.ok(comparison.maxUsd > 0);
   assert.equal(comparison.outputTokens, 1500);
@@ -182,17 +189,18 @@ test('a local estimate alone cannot downgrade a new or reset history into a smal
 });
 
 test('allowed models handle exact versions and alias narrowing', () => {
+  const sonnet = 'claude-sonnet-5-5';
   for (const [id, allowed, expected] of [
-    [model, undefined, true],
-    [model, [], false],
-    [model, ['sonnet'], true],
-    [model, ['sonnet', 'claude-sonnet-4-5'], false],
+    [sonnet, undefined, true],
+    [sonnet, [], false],
+    [sonnet, ['sonnet'], true],
+    [sonnet, ['sonnet', 'claude-sonnet-4-5'], false],
     ['claude-haiku-4-5-20251001', ['claude-haiku-4-5'], true],
     ['custom.provider/model', ['custom.provider/model'], true],
-    [model, ['default'], true],
-    [model, 'invalid', false],
+    [sonnet, ['default'], true],
+    [sonnet, 'invalid', false],
   ])
-    assert.equal(isModelAllowed(id, allowed, model), expected);
+    assert.equal(isModelAllowed(id, allowed, sonnet), expected);
 });
 
 test('a denied pin uses an allowed native model', () => {

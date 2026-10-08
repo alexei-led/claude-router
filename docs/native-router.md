@@ -22,7 +22,7 @@ The default tiers are defined in [Configuration](configuration.md#built-in-defau
 
 The pane's **Set up** and **Credentials → Edit** buttons open Claude Code's secure plugin configuration. Claude Code refuses `$.command.run` from inside a `command.run` hook, so the Mod starts that dialog from a timer after the press returns.
 
-Mode belongs to a Claude Code session. Clear starts a new session in Auto. Resume restores the saved mode for that session. A new or forked session has a new ID: it starts in Auto on the baseline model and in Manual on another model, as a fresh launch does. A pin applies to one logical turn, then the prior Auto incumbent resumes. A history reset clears votes and cache evidence; the current turn keeps its route, pin and any native fallback.
+Mode belongs to a Claude Code session. Clear starts a new session in Auto. Resume restores the saved mode for that session. A new or forked session has a new ID: it starts in Auto on a model that one of the tiers routes to and in Manual on any other model, as a fresh launch does. A pin applies to one logical turn, then the prior Auto incumbent resumes. A history reset clears votes and cache evidence; the current turn keeps its route, pin and any native fallback.
 
 ## Router pane
 
@@ -80,6 +80,6 @@ On 2026-10-05, live probes of Clef and Clef Flash on Workers AI took 0.7 to 1.3 
 
 Recorded acceptance checks cover the local HTTP deadline and one-request admission, session clear/resume, circuit-breaker pause, reload, replacement, unload, engine fallback, and interrupt during Jev advice. The interrupt check closed the loopback socket within 4 ms and discarded late advice without changing the active route or UI. Results are stored under [`experiments/mod-router/results`](../experiments/mod-router/results/).
 
-A billed chain of pinned turns moved across Opus, Haiku 4.5, and Sonnet with a tool call on every turn, and no request was rejected. Claude Code builds each model's request itself; Haiku 4.5 received its own thinking mode and a 32K output cap. Haiku 5.5 was not probed. Sonnet and Opus accepted histories above 589K input tokens. These probes validate the tested path only. Claude Code and organization policy control other model and request combinations.
+A billed chain of pinned turns moved across Opus, Haiku 4.5, and Sonnet with a tool call on every turn, and no request was rejected. Claude Code builds each model's request itself; Haiku 4.5 received its own thinking mode and a 32K output cap. On Claude Code 2.1.293, a turn pinned to `low` ran on Haiku 5.5 at `high` with a tool call and was served by the requested model (2026-10-08). Sonnet and Opus accepted histories above 589K input tokens. These probes validate the tested path only. Claude Code and organization policy control other model and request combinations.
 
 To stop routing in a session, run `/router off`. To stop loading the Mod, run `claude plugin disable router@alexei-led-claude-router` and restart.

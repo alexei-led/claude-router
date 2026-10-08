@@ -484,8 +484,13 @@ export function summarizeReplay(results, advisedMain) {
 
 const sum = (items, key) => items.reduce((total, item) => total + item[key], 0);
 
+// The routes the recorded trace ran under (1.3): replaying it on later defaults would price its tiers wrongly.
+export const TRACE_LADDER = loadConfig({
+  userFile: { routes: { low: { model: 'sonnet', effort: null }, micro: { model: 'haiku', effort: 'low' } } },
+});
+
 export function evaluate(rows, teamIds, malformed = 0) {
-  const config = loadConfig({});
+  const config = TRACE_LADDER;
   const counts = { ...countRows(rows, teamIds), malformedLinesIgnored: malformed };
   const days = rows.filter((r) => teamIds.has(r.session) && typeof r.at === 'string').map((r) => r.at.slice(0, 10));
   const results = [...groupBySession(rows, teamIds).values()].map((sessionRows) => replaySession(sessionRows, config));

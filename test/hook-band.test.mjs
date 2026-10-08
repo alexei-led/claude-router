@@ -37,12 +37,12 @@ test('the band offers Auto in Manual mode and a key button without a key', async
   await start(h);
   await drain(h.step(step));
   let view = await band(h);
-  assert.match(view.line, /⚠ Jev: no API key .*Sonnet 5\.5.* {2}· {2}keeping model/);
+  assert.match(view.line, /⚠ Jev: no API key .*Haiku 5\.5.* {2}· {2}keeping model/);
   await view.controls.find((node) => node.key === 'band-key').onPress();
   assert.equal(h.commandCalls(), 1);
   await h.event('command.run', { command: 'router', args: 'off' });
   view = await band(h);
-  assert.match(view.line, /Router off · keeping Sonnet 5\.5/);
+  assert.match(view.line, /Router off · keeping Haiku 5\.5/);
   await view.controls.find((node) => node.key === 'band-auto').onPress();
   assert.equal(h.view().mode, 'auto');
 });
@@ -72,7 +72,7 @@ test('a route change raises one toast with the old and new model; a pin does not
   await h.event('turn.start', { turnId: 't2', text: 'Next.' });
   await drain(h.step({ ...step, turnId: 't2' }));
   assert.equal(h.toasts.length, 1);
-  assert.match(h.toasts[0], /^Opus 5\.5 · xhigh → Sonnet 5\.5 .*— /);
+  assert.match(h.toasts[0], /^Opus 5\.5 · xhigh → Haiku 5\.5 · high — /);
 });
 
 test('the spinner says Choosing model only while the classifier runs', async () => {
@@ -108,7 +108,7 @@ test('a narrow band never exceeds its width: optional parts drop, then the route
   await drain(h.step(step));
   const widthOf = (line) => [...line].length;
   for (const [columns, expected] of [
-    [120, /⚠ Jev: no API key .*Sonnet 5\.5.* {2}· {2}keeping model/],
+    [120, /⚠ Jev: no API key .*Haiku 5\.5.* {2}· {2}keeping model/],
     [60, /⚠ Jev: no API key/],
     [30, /⚠ Jev: no API key/],
   ]) {

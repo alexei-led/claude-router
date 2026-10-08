@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadConfig } from '../../../lib/config.mjs';
 import {
   countRows,
   evaluate,
@@ -10,6 +9,7 @@ import {
   replaySession,
   routeTransitions,
   summarizeReplay,
+  TRACE_LADDER,
   teamSessionIds,
 } from './trace-eval.mjs';
 
@@ -116,7 +116,7 @@ const upgradeSession = () => [
 ];
 
 test('replay finds the decision where native conservative costs withhold an upgrade legacy takes: a 0.83 vote clears the legacy bar, not the native one', () => {
-  const [result] = [replaySession(upgradeSession(), loadConfig({}))];
+  const [result] = [replaySession(upgradeSession(), TRACE_LADDER)];
   assert.equal(result.parity.checked, 2);
   assert.equal(result.parity.matched, 2);
   assert.equal(result.records.length, 2);
@@ -133,7 +133,7 @@ test('replay finds the decision where native conservative costs withhold an upgr
 });
 
 test('summary counts differing decisions, gate reason changes and cost ranges', () => {
-  const summary = summarizeReplay([replaySession(upgradeSession(), loadConfig({}))], 2);
+  const summary = summarizeReplay([replaySession(upgradeSession(), TRACE_LADDER)], 2);
   assert.equal(summary.replayEligible, 2);
   assert.equal(summary.decisionsDiffering.byTier, 1);
   assert.deepEqual(summary.gateReasonChanges, { 'upgrade->upgrade-pending': 1 });
@@ -145,7 +145,7 @@ test('summary counts differing decisions, gate reason changes and cost ranges', 
 
 test('advised decisions without a prior observation are skipped, not replayed', () => {
   const rows = [decision(0, { reason: 'upgrade-pending', advice: advice(0.83), model: 'claude-sonnet-5-5' })];
-  const result = replaySession(rows, loadConfig({}));
+  const result = replaySession(rows, TRACE_LADDER);
   assert.equal(result.records.length, 0);
   assert.deepEqual(result.skipped, { 'no-prior-observation': 1 });
 });
@@ -155,7 +155,7 @@ test('recorded escalations enter the state chain but are never compared', () => 
     observed(-MINUTE),
     decision(0, { reason: 'escalation', tier: 'medium', advice: advice(0.5), model: 'claude-sonnet-5-5' }),
   ];
-  const result = replaySession(rows, loadConfig({}));
+  const result = replaySession(rows, TRACE_LADDER);
   assert.equal(result.records.length, 0);
   assert.deepEqual(result.skipped, { 'failure-facts-unavailable': 1 });
 });

@@ -20,7 +20,7 @@ export function harness(options = {}, preferences = new Map()) {
   const requests = [];
   const files = new Map();
   const links = new Set();
-  let model = 'claude-sonnet-5-5';
+  let model = 'claude-haiku-5-5';
   let usage = { context: { tokens: 8000, breakdown: { totalTokens: 9000 } } };
   let draft = '';
   let commandCalls = 0;
@@ -232,7 +232,7 @@ export const TINY_ROUTER = JSON.stringify({
   routes: { micro: { model: 'tiny' } },
 });
 
-export const step = { turnId: 't1', index: 0, model: 'claude-sonnet-5-5', effort: 'medium', messageCount: 1 };
+export const step = { turnId: 't1', index: 0, model: 'claude-haiku-5-5', effort: 'medium', messageCount: 1 };
 
 export const start = async (h) => {
   await h.event('session.start', { cwd: '/fixture' });

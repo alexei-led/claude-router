@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { CONFIG, drain, harness, start, step, substituted, TINY_ROUTER, texts } from './harness.mjs';
+import { band, CONFIG, drain, harness, start, step, substituted, TINY_ROUTER, texts } from './harness.mjs';
 
 test('frozen native state reads do not restore consumed pins or drop first response usage', async () => {
   const h = harness();
@@ -24,7 +24,7 @@ test('a failed routed request leaves an engine-selected fallback untouched', asy
     h.requests.map((r) => [r.model, r.effort]),
     [
       ['claude-opus-5-5', 'xhigh'],
-      ['claude-sonnet-5-5', 'low'],
+      [step.model, 'low'],
     ],
   );
 });
@@ -106,13 +106,32 @@ test('a fresh process restoring the same conversation keeps an explicit Manual b
   assert.equal(resumed.requests[0].model, step.model);
 });
 
-test('an explicit startup model is preserved unless this conversation chose Auto', async () => {
+test('a fresh session starts Auto on a model some tier routes to and Manual on any other', async () => {
+  for (const [model, mode, effort] of [
+    ['claude-opus-5-5', 'auto', 'medium'],
+    ['claude-haiku-5-5', 'auto', 'high'],
+    ['claude-sonnet-5-5', 'manual', 'low'],
+    ['claude-fable-5-1', 'manual', 'low'],
+  ]) {
+    const h = harness();
+    h.model(model);
+    await start(h);
+    await drain(h.step({ ...step, model, effort: 'low' }));
+    assert.equal(h.view().mode, mode, model);
+    assert.equal(h.preferences.get('mode:s1'), mode, model);
+    assert.deepEqual([h.requests[0].model, h.requests[0].effort], [model, effort], model);
+  }
+});
+
+test('a band drawn before session start does not decide the start mode', async () => {
   const h = harness();
-  h.model('claude-opus-5-5');
+  h.model('claude-fable-5-1');
+  await band(h);
   await start(h);
-  await drain(h.step({ ...step, model: 'claude-opus-5-5' }));
+  await drain(h.step({ ...step, model: 'claude-fable-5-1' }));
   assert.equal(h.view().mode, 'manual');
-  assert.equal(h.requests[0].model, 'claude-opus-5-5');
+  assert.equal(h.preferences.get('mode:s1'), 'manual');
+  assert.equal(h.requests[0].model, 'claude-fable-5-1');
   assert.equal(h.requests[0].effort, step.effort);
 });
 
@@ -139,9 +158,9 @@ test('a continuation context-fit publishes the model actually requested', async 
   await drain(h.step(step));
   h.usage({ context: { tokens: 1100, breakdown: { totalTokens: 300_000 } } });
   await drain(h.step({ ...step, index: 1, messageCount: 3 }));
-  assert.equal(h.view().selectedModel, 'claude-sonnet-5-5');
-  assert.equal(h.view().actualModel, 'claude-sonnet-5-5');
-  assert.equal(h.view().effort, 'medium');
+  assert.equal(h.view().selectedModel, 'claude-haiku-5-5');
+  assert.equal(h.view().actualModel, 'claude-haiku-5-5');
+  assert.equal(h.view().effort, 'high');
   assert.equal(h.view().reason, 'context-fit');
   assert.equal(h.view().contextTokens, 300_000);
 });
@@ -252,7 +271,7 @@ test('a billed substitute keeps the rest of the turn native and the next turn ro
     h.requests.map((r) => [r.turnId, r.index, r.model]),
     [
       ['t1', 0, 'claude-opus-5-5'],
-      ['t1', 1, 'claude-sonnet-5-5'],
+      ['t1', 1, step.model],
       ['t2', 0, 'claude-opus-5-5'],
       ['t2', 1, 'claude-opus-5-5'],
     ],

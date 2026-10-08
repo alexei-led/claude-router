@@ -17,7 +17,7 @@ import { routeEffort } from '../lib/cost.mjs';
 
 test('defaults load without a user file, with Jev as the classifier', () => {
   const config = loadConfig();
-  assert.equal(config.routes.low.model, 'sonnet');
+  assert.deepEqual(config.routes.low, { model: 'haiku', effort: 'high' });
   assert.equal(config.baselineTier, 'low');
   assert.equal(config.classifier, 'jev');
   assert.deepEqual(Object.keys(config.classifiers), ['jev', 'clef', 'clef-flash']);
@@ -188,10 +188,17 @@ test('withRoutes writes only the routes and baseline that differ from the defaul
       { routes: { high: { model: 'opus', effort: null } } },
     ],
     [
-      'no effort where the default has none',
+      'the Sonnet ladder of 1.3',
       {},
-      edit('low', { model: 'opus', effort: null }),
-      { routes: { low: { model: 'opus' } } },
+      {
+        ...defaults,
+        routes: {
+          ...defaults.routes,
+          low: { model: 'sonnet', effort: null },
+          micro: { model: 'haiku', effort: 'low' },
+        },
+      },
+      { routes: { low: { model: 'sonnet', effort: null }, micro: { model: 'haiku', effort: 'low' } } },
     ],
     ['baseline', { baselineTier: 'micro' }, { ...defaults, baselineTier: 'medium' }, { baselineTier: 'medium' }],
   ]) {
@@ -338,10 +345,15 @@ test('a loopback http endpoint passes for local stubs', () => {
   }
 });
 
-test('the default micro route is Haiku at low effort whatever the session effort', () => {
-  assert.deepEqual(DEFAULTS.routes.micro, { model: 'haiku', effort: 'low' });
-  for (const session of ['low', 'medium', 'high', 'xhigh', 'max', null])
-    assert.equal(routeEffort(loadConfig({}), 'micro', session), 'low', String(session));
+test('the default micro and low routes are Haiku at their own effort whatever the session effort', () => {
+  for (const [tier, effort] of [
+    ['micro', 'medium'],
+    ['low', 'high'],
+  ]) {
+    assert.deepEqual(DEFAULTS.routes[tier], { model: 'haiku', effort });
+    for (const session of ['low', 'medium', 'high', 'xhigh', 'max', null])
+      assert.equal(routeEffort(loadConfig({}), tier, session), effort, `${tier} ${session}`);
+  }
 });
 
 test('supportedVersion accepts Claude Code 2.1.289 and newer, with or without a prerelease', () => {
