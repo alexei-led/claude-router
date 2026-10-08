@@ -434,7 +434,7 @@ function paneActions($, router, view) {
   return {
     mode: (mode) => changeMode($, router, mode),
     tab: (tab) => updateView($, router, { tab, notice: null }),
-    help: () => updateView($, router, { help: !view.help }),
+    help: () => updateView($, router, { help: !(router.view ?? view).help }),
     pin: async (tier) => {
       await updateView($, router, { notice: await setPin($, router, tier) });
     },
@@ -794,7 +794,7 @@ export function register(on, options) {
               unpin: () => updateView($, router, { pendingPin: null }),
               key: () => openKeySettings($),
               toggleDetail: async () => {
-                const bandDetail = !view.bandDetail;
+                const bandDetail = !(router.view ?? view).bandDetail;
                 await $.store.set(BAND_DETAIL, bandDetail).catch(() => {});
                 await updateView($, router, { bandDetail });
               },

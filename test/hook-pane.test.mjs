@@ -527,3 +527,12 @@ test('a classifier switch that cannot write leaves the classifier and router.jso
   assert.equal(controls(await h.render()).find((node) => node.key === 'classifier-jev').label, '◉ Jev        ');
   assert.ok(texts(await h.render()).some((line) => /^Jev: no API key/.test(line)));
 });
+
+test('two presses on one drawn pane open and close help again', async () => {
+  const h = harness();
+  await start(h);
+  const help = controls(await h.render()).find((node) => node.key === 'help');
+  await help.onPress();
+  await help.onPress();
+  assert.equal(h.view().help, false);
+});

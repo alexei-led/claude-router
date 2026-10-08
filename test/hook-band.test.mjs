@@ -122,3 +122,14 @@ test('a narrow band never exceeds its width: optional parts drop, then the route
     assert.ok(widthOf(line) + widthOf(buttons) <= columns, `${columns}: ${line}${buttons}`);
   }
 });
+
+test('two presses on one drawn band toggle two rows on and off again', async () => {
+  const preferences = new Map();
+  const h = harness({}, preferences);
+  await start(h);
+  const detail = (await band(h)).controls.find((node) => node.key === 'band-detail');
+  await detail.onPress();
+  await detail.onPress();
+  assert.equal(h.view().bandDetail, false);
+  assert.equal(preferences.get('band:detail'), false);
+});
