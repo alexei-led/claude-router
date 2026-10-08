@@ -12,7 +12,7 @@ claude plugin install router@alexei-led-claude-router
 Start with the full baseline model so Auto mode has a known starting point:
 
 ```sh
-claude --model claude-sonnet-5-5
+claude --model claude-haiku-5-5
 ```
 
 In Claude Code:
@@ -22,7 +22,7 @@ In Claude Code:
    - **Jev** (the default): the Jev API key from typesafe.ai.
    - **Clef** or **Clef Flash** on Cloudflare Workers AI: the Cloudflare API token and the Cloudflare account ID. One token covers both models.
 3. To use Clef or Clef Flash, open the pane's **Classifier** tab and select its row. See [Choose the classifier](#choose-the-classifier).
-4. Check the band above the prompt: `▂▄▆█ Auto · ready`. On another model the session starts in Manual; run `/router auto` to route.
+4. Check the band above the prompt: `▂▄▆█ Auto · ready`. On a model that no tier routes to, the session starts in Manual; run `/router auto` to route.
 
 Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers optional settings and migrations.
 
@@ -114,7 +114,7 @@ There is no router-side spend or savings ledger. The pane does not include class
 | **Auto** / **Manual**                    | The same as `/router auto` and `/router off`.                               |
 | **pin** on the Now tab                   | Pin that tier for the next turn. Auto must already be enabled.              |
 
-A pin does not change the next turn after the pinned turn finishes. A fresh session on the baseline model starts in Auto. A fresh session on another model starts in Manual. `/clear` starts the new session in Auto. Resuming a saved session restores its saved Auto or Manual mode.
+A pin does not change the next turn after the pinned turn finishes. A fresh session on a model that one of the tiers routes to starts in Auto. A fresh session on any other model starts in Manual. `/clear` starts the new session in Auto. Resuming a saved session restores its saved Auto or Manual mode.
 
 ## Edit routes and policy
 
@@ -167,7 +167,7 @@ The v1 plugin has the same plugin ID, `router@alexei-led-claude-router`, but it 
 1. Update the plugin: `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`.
 2. Remove the settings that v0.8 `/router:setup` wrote. The [migration checklist](configuration.md#convert-a-v08-configuration) lists them: the `jev-router[1m]` model and picker row, the loopback `ANTHROPIC_BASE_URL`, the hint header, and the router status line.
 3. Convert `router.json` if you created one.
-4. Restart Claude Code with a full baseline model, such as `claude-sonnet-5-5`.
+4. Restart Claude Code with a full baseline model, such as `claude-haiku-5-5`.
 
 Keep the plugin enabled: in v1 it is the Mod. The Jev key option keeps its saved value. If the band reads `v0.8 gateway settings remain`, step 2 is incomplete.
 

@@ -6,6 +6,7 @@ import { decide, fitTier, initialState, massAbove, massAtOrBelow } from '../lib/
 import { advice, served, T0 } from './helpers.mjs';
 
 const config = loadConfig({});
+const sonnetLow = loadConfig({ userFile: { routes: { low: { model: 'sonnet', effort: null } } } });
 const smallMicro = loadConfig({
   userFile: {
     models: {
@@ -132,7 +133,7 @@ test('the upgrade threshold rises with the switching tax', () => {
 });
 
 test('a cold metered model above the cash cap is gated, which only a user-billed model can trigger', () => {
-  const sonnetMetered = loadConfig({ userFile: { models: { sonnet: { billing: 'credits', input: 10 } } } });
+  const haikuMetered = loadConfig({ userFile: { models: { haiku: { billing: 'credits', input: 10 } } } });
   const upgrade = advice('high', { high: 0.97 });
   const downgrade = advice('low', { low: 0.99 });
   for (const [name, cfg, f, votes, tier] of [
@@ -145,7 +146,7 @@ test('a cold metered model above the cash cap is gated, which only a user-billed
     ],
     [
       'a downgrade stays on the incumbent',
-      sonnetMetered,
+      haikuMetered,
       facts({ lastRoute: 'high', tokens: 300_000, servedBy: 'claude-opus-5-5', effort: 'xhigh' }),
       [downgrade, downgrade],
       'high',
@@ -183,7 +184,9 @@ test('a metered model warm at the routed effort passes the cash gate; warm at an
 });
 
 test('an effort-only upgrade between one model at two efforts pays the tax of rewriting the messages cache', () => {
-  const sonnetMedium = loadConfig({ userFile: { routes: { medium: { model: 'sonnet', effort: 'xhigh' } } } });
+  const sonnetMedium = loadConfig({
+    userFile: { routes: { low: { model: 'sonnet', effort: null }, medium: { model: 'sonnet', effort: 'xhigh' } } },
+  });
   const f = facts({ lastRoute: 'low', tokens: 400_000 });
   const votes = [advice('medium', { medium: 0.8, low: 0.2 }), advice('medium', { medium: 0.8, low: 0.2 })];
   const [, second] = runTurns(f, votes, initialState(), sonnetMedium);
@@ -192,16 +195,26 @@ test('an effort-only upgrade between one model at two efforts pays the tax of re
   assert.deepEqual(second.estimate.cache, { candidate: 'unknown', incumbent: 'fresh' });
 });
 
+test('the default micro to low upgrade is effort-only on Haiku and pays its cache rewrite', () => {
+  const f = facts({ lastRoute: 'micro', tokens: 400_000, servedBy: 'claude-haiku-5-5', effort: 'medium' });
+  const votes = [advice('low', { low: 0.8, micro: 0.2 }), advice('low', { low: 0.8, micro: 0.2 })];
+  const [, second] = runTurns(f, votes);
+  assert.deepEqual([second.tier, second.reason], ['low', 'upgrade']);
+  assert.deepEqual(second.estimate.cache, { candidate: 'unknown', incumbent: 'fresh' });
+  assert.ok(second.estimate.taxUsd > 0);
+  assert.ok(second.estimate.threshold > config.policy.upgradeBase);
+});
+
 test('a downgrade to a candidate colder than the incumbent raises the bar by its cache write, as an upgrade tax does', () => {
   const votes = [advice('low', { low: 0.92, high: 0.08 }), advice('low', { low: 0.92, high: 0.08 })];
 
   const sonnetWarmOpusCold = facts({ lastRoute: 'high', servedBy: 'claude-sonnet-5-5' });
-  const [, warm] = runTurns(sonnetWarmOpusCold, votes);
+  const [, warm] = runTurns(sonnetWarmOpusCold, votes, initialState(), sonnetLow);
   assert.equal(warm.reason, 'downgrade');
   assert.equal(warm.estimate.threshold, config.policy.downgradeMass);
 
   const coldCandidate = facts({ lastRoute: 'high', servedBy: 'claude-opus-5-5', effort: 'xhigh', tokens: 100_000 });
-  const [, cold] = runTurns(coldCandidate, votes);
+  const [, cold] = runTurns(coldCandidate, votes, initialState(), sonnetLow);
   assert.equal(cold.reason, 'downgrade-pending');
   assert.ok(cold.estimate.threshold > config.policy.downgradeMass);
   assert.ok(cold.estimate.taxUsd > 0);
@@ -230,17 +243,20 @@ const unpriced = (fields = {}) =>
 for (const { name, cfg = config, candidate, f = facts(opusWarm), want } of [
   {
     name: 'a warm candidate keeps the base bar',
+    cfg: sonnetLow,
     candidate: 'low',
     f: facts({ ...opusWarm, extraModels: sonnetWarm }),
     want: 'base',
   },
   {
     name: 'equal output prices keep the bar without output savings',
-    cfg: loadConfig({ userFile: { models: { sonnet: { output: 20 } } } }),
+    cfg: loadConfig({
+      userFile: { models: { sonnet: { output: 20 } }, routes: { low: { model: 'sonnet', effort: null } } },
+    }),
     candidate: 'low',
     want: 'without-output-savings',
   },
-  { name: 'cheaper output lowers a cold bar', candidate: 'low', want: 'lower' },
+  { name: 'cheaper output lowers a cold bar', cfg: sonnetLow, candidate: 'low', want: 'lower' },
   { name: 'much cheaper output lowers a cold bar to the base', candidate: 'micro', want: 'base' },
   {
     name: 'a missing output price keeps the bar without output savings',

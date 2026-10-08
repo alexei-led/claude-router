@@ -133,7 +133,7 @@ test('model choices follow the availableModels allowlist', async () => {
   const select = controls(await h.render()).find((node) => node.key === 'route-model-low');
   assert.deepEqual(
     select.options.map((option) => option.value),
-    ['sonnet'],
+    ['haiku', 'sonnet'],
   );
 });
 
@@ -197,7 +197,7 @@ test('one routing save writes routes and policy together and keeps edits made on
   );
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
-    routes: { micro: { model: 'sonnet', effort: 'low' }, high: { model: 'sonnet' } },
+    routes: { micro: { model: 'sonnet', effort: 'medium' }, high: { model: 'sonnet' } },
     classifiers: { jev: { timeoutMs: 900 } },
     policy: { downgradeHorizonTurns: 10 },
   });
@@ -277,7 +277,7 @@ test('after an Undo, a pending draft compares against the restored values, so pi
   await press(h, 'route-model-high', 'sonnet');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
-    routes: { micro: { model: 'sonnet', effort: 'low' }, high: { model: 'sonnet', effort: 'xhigh' } },
+    routes: { micro: { model: 'sonnet', effort: 'medium' }, high: { model: 'sonnet', effort: 'xhigh' } },
     policy: { downgradeVotes: 3, cashCapUsd: 5 },
   });
 });
@@ -464,6 +464,7 @@ test('a switch clears the previous classifier readings, so no label claims them'
 test('a turn classified when the switch lands keeps its route, and its answer touches neither health nor status', async () => {
   const h = harness({ typesafe_api_key: 'synthetic-key', ...CLOUDFLARE_KEYS });
   h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } } }));
+  h.model('claude-sonnet-5-5');
   let release;
   h.http(
     () =>
@@ -473,7 +474,7 @@ test('a turn classified when the switch lands keeps its route, and its answer to
   );
   await start(h);
   await h.event('command.run', { command: 'router', args: 'auto' });
-  const turn = drain(h.step(step));
+  const turn = drain(h.step({ ...step, model: 'claude-sonnet-5-5' }));
   for (let i = 0; i < 20 && !release; i += 1) await new Promise((resolve) => setImmediate(resolve));
   assert.ok(release, 'the Jev request is in flight');
   await press(h, 'tab-classifier');

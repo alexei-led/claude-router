@@ -40,8 +40,14 @@ test('native cache evidence is only a five-minute fresh estimate, never an infer
 });
 
 test('cache identity preserves model snapshots and separates effective efforts', () => {
-  const config = loadConfig({ userFile: { models: { haiku: { id: 'claude-haiku-5-5-20260101' } } } });
-  assert.equal(native.routeCacheKey(config, 'micro', 'xhigh'), 'claude-haiku-5-5-20260101@low');
+  const config = loadConfig({
+    userFile: {
+      models: { haiku: { id: 'claude-haiku-5-5-20260101' } },
+      routes: { low: { model: 'sonnet', effort: null } },
+    },
+  });
+  assert.equal(native.routeCacheKey(config, 'micro', 'xhigh'), 'claude-haiku-5-5-20260101@medium');
+  assert.equal(native.routeCacheKey(DEFAULTS, 'low', 'medium'), 'claude-haiku-5-5@high');
   assert.equal(native.routeCacheKey(SONNET_MEDIUM, 'micro', 'xhigh'), 'claude-haiku-4-5');
   assert.equal(native.routeCacheKey(config, 'medium', 'low'), 'claude-opus-5-5@medium');
   assert.equal(native.routeCacheKey(SONNET_MEDIUM, 'medium', 'low'), 'claude-sonnet-5-5@xhigh');

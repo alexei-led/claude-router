@@ -7,7 +7,6 @@ import {
   effectiveRoutes,
   loadConfig,
   MIGRATION_HINT,
-  routeModel,
   supportedVersion,
   TIERS,
   tuningOf,
@@ -37,6 +36,7 @@ import {
   observeResponse,
   prepareLoop,
   resetHistory,
+  tierForModel,
 } from '../lib/route.mjs';
 import { CLEARED_READINGS, healthOf, initialView, responseMetrics } from '../lib/view.mjs';
 
@@ -95,10 +95,9 @@ async function modeOf($, router, fallback = 'auto') {
   }
 }
 
-// A saved preference wins; a fresh session starts Auto on the baseline model and Manual on any other.
+// A saved preference wins; a fresh session starts Auto on a model some tier routes to and Manual on any other.
 async function startMode($, router, model) {
-  const baselineModel = routeModel(router.config, router.config.baselineTier).id;
-  const mode = await modeOf($, router, model === baselineModel ? 'auto' : 'manual');
+  const mode = await modeOf($, router, tierForModel(router.config, model) === null ? 'manual' : 'auto');
   router.modes.set(await $.session.id(), mode);
   return mode;
 }

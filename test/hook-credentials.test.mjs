@@ -105,7 +105,7 @@ test('a missing account warns in the band and the pane and offers the key dialog
   await drain(h.step(step));
   assert.equal(h.view().error, 'missing-account');
   const view = await band(h);
-  assert.match(view.line, /⚠ Clef: no account ID .*Sonnet 5\.5.* {2}· {2}keeping model/);
+  assert.match(view.line, /⚠ Clef: no account ID .*Haiku 5\.5.* {2}· {2}keeping model/);
   await view.controls.find((node) => node.key === 'band-key').onPress();
   assert.equal(h.commandCalls(), 1);
   assert.ok(texts(await h.render()).includes('Clef: no account ID'));
