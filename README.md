@@ -77,7 +77,7 @@ Run `/router` to open the pane: route status, per-tier controls, tuning, and usa
 Before a push, run the same checks as CI. `npm run validate` and `npm run test:plugin` need the `claude` CLI: they load the Mod in the Claude Code engine, which refuses some faults that lint and unit tests miss.
 
 ```sh
-npm run check && npm test && npm run validate && npm run test:plugin
+npm run check && npm run typecheck && npm test && npm run validate && npm run test:plugin
 ```
 
 ## Documentation

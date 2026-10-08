@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { buildRequest, parseAnswers, resolveCredentials } from '../lib/classifier-contract.mjs';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
-import { buildRequest, parseAnswers, resolveCredentials } from '../lib/jev-contract.mjs';
 
 const config = loadConfig();
 const liveClefFlashAnswer = JSON.parse(readFileSync(new URL('./fixtures/clef-flash-response.json', import.meta.url)));

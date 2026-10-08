@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ClassifierClient } from '../lib/classifier-client.mjs';
+import { parseAnswers, RETRY_DELAY_MS } from '../lib/classifier-contract.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
-import { parseAnswers, RETRY_DELAY_MS } from '../lib/jev-contract.mjs';
-import { NativeJev } from '../lib/native-jev.mjs';
 import { jevResponse } from './helpers.mjs';
 
 const answer = jevResponse('medium', { micro: 0, low: 0, medium: 0.9, high: 0.1, uncertain: 0 });
@@ -57,7 +57,7 @@ function input(timing, request) {
 
 test('native Jev sends the shared contract and reads text and plain headers', async () => {
   const timing = clock();
-  const jev = new NativeJev({ now: timing.now });
+  const jev = new ClassifierClient({ now: timing.now });
   const result = await jev.ask(
     input(timing, async (url, init) => {
       assert.equal(url, FILLED_ENDPOINT);
@@ -74,7 +74,7 @@ test('native Jev sends the shared contract and reads text and plain headers', as
 test('the deadline is the active classifier deadline', async () => {
   for (const id of Object.keys(DEFAULTS.classifiers)) {
     const timing = clock();
-    const jev = new NativeJev({ now: timing.now });
+    const jev = new ClassifierClient({ now: timing.now });
     const config = { ...DEFAULTS, classifier: id };
     const pending = jev.ask({ ...input(timing, () => new Promise(() => {})), config });
     await flush();
@@ -87,7 +87,7 @@ test('the deadline is the active classifier deadline', async () => {
 
 test('a timed-out request occupies the slot until settlement, and its late success changes no health', async () => {
   const timing = clock();
-  const jev = new NativeJev({ now: timing.now });
+  const jev = new ClassifierClient({ now: timing.now });
   let finish;
   let requests = 0;
   const request = () => {
@@ -112,7 +112,7 @@ test('a timed-out request occupies the slot until settlement, and its late succe
 
 test('native retry uses Retry-After inside the same total deadline', async () => {
   const timing = clock();
-  const jev = new NativeJev({ now: timing.now });
+  const jev = new ClassifierClient({ now: timing.now });
   let requests = 0;
   const pending = jev.ask(
     input(timing, async () =>
@@ -129,7 +129,7 @@ test('native retry uses Retry-After inside the same total deadline', async () =>
 
 test('the admission slot stays occupied during retry backoff', async () => {
   const timing = clock();
-  const jev = new NativeJev({ now: timing.now });
+  const jev = new ClassifierClient({ now: timing.now });
   let requests = 0;
   const args = input(timing, async () => (++requests === 1 ? { ok: false, status: 503, headers: {} } : ok()));
   const pending = jev.ask(args);
@@ -143,7 +143,7 @@ test('the admission slot stays occupied during retry backoff', async () => {
 
 test('retry beyond the remaining budget is not sent', async () => {
   const timing = clock();
-  const jev = new NativeJev({ now: timing.now });
+  const jev = new ClassifierClient({ now: timing.now });
   let requests = 0;
   const result = await jev.ask(
     input(timing, async () => {
@@ -157,7 +157,7 @@ test('retry beyond the remaining budget is not sent', async () => {
 
 test('abort does not count as an outage or allow an overlapping request', async () => {
   const timing = clock();
-  const jev = new NativeJev({ now: timing.now });
+  const jev = new ClassifierClient({ now: timing.now });
   let finish;
   const args = input(
     timing,
@@ -179,7 +179,7 @@ test('abort does not count as an outage or allow an overlapping request', async 
 
 test('three failed attempts pause Jev, then one success resumes it', async () => {
   const timing = clock();
-  const jev = new NativeJev({ now: timing.now });
+  const jev = new ClassifierClient({ now: timing.now });
   let requests = 0;
   const failed = input(timing, async () => {
     requests += 1;
@@ -195,7 +195,7 @@ test('three failed attempts pause Jev, then one success resumes it', async () =>
 
 test('missing credentials and policy refusal do not retry or count as provider outages', async () => {
   const timing = clock();
-  const jev = new NativeJev({ now: timing.now });
+  const jev = new ClassifierClient({ now: timing.now });
   let calls = 0;
   const args = input(timing, async () => {
     calls += 1;
@@ -210,7 +210,7 @@ test('missing credentials and policy refusal do not retry or count as provider o
 
 test('a refused connection is a transport failure: it retries and counts toward the breaker', async () => {
   const timing = clock();
-  const jev = new NativeJev({ now: timing.now });
+  const jev = new ClassifierClient({ now: timing.now });
   let calls = 0;
   const pending = jev.ask(
     input(timing, async () => {
@@ -227,7 +227,7 @@ test('a refused connection is a transport failure: it retries and counts toward 
 
 test('malformed responses reveal no provider text and invalid probability shapes fail at the contract boundary', async () => {
   const timing = clock();
-  const jev = new NativeJev({ now: timing.now });
+  const jev = new ClassifierClient({ now: timing.now });
   for (const text of [
     'PRIVATE_PROMPT',
     JSON.stringify({ answers: { route: { type: 'choice', choice: 'PRIVATE_PROMPT', probabilities: {} } } }),

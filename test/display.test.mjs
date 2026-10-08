@@ -11,7 +11,7 @@ import {
   sparkline,
   switchCount,
   usageMetrics,
-} from '../lib/native-display.mjs';
+} from '../lib/display.mjs';
 
 test('unknown metrics stay unknown and zero is a real reading', () => {
   assert.equal(formatTokens(null), 'unknown');

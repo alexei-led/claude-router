@@ -11,7 +11,7 @@ import {
   observeResponse,
   prepareLoop,
   resetHistory,
-} from '../lib/native-router.mjs';
+} from '../lib/route.mjs';
 import { advice as adviceOf } from './helpers.mjs';
 
 const now = 1_000_000;

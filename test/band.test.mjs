@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { bandSegments, fitSegments } from '../lib/band.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
-import { bandSegments, fitSegments } from '../lib/native-band.mjs';
-import { GATEWAY_SETTINGS } from '../lib/native-display.mjs';
+import { GATEWAY_SETTINGS } from '../lib/display.mjs';
 
 const ROUTER_BUTTON_COLUMNS = 8;
 const SIXTY_COLUMNS = 60 - ROUTER_BUTTON_COLUMNS;

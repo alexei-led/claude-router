@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { initialView, responseMetrics } from '../lib/native-view.mjs';
+import { initialView, responseMetrics } from '../lib/view.mjs';
 
 const usage = (input, read, write) => ({
   model: 'claude-haiku-4-5',

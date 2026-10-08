@@ -5,8 +5,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { buildRequest, parseAnswers, resolveCredentials } from '../lib/classifier-contract.mjs';
 import { loadConfig } from '../lib/config.mjs';
-import { buildRequest, parseAnswers, resolveCredentials } from '../lib/jev-contract.mjs';
 
 if (existsSync('.env')) process.loadEnvFile('.env');
 const profile = join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'router.json');

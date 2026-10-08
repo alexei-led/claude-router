@@ -13,7 +13,7 @@ import {
   withRoutes,
   withTuning,
 } from '../lib/config.mjs';
-import { routeEffort } from '../lib/native-cost.mjs';
+import { routeEffort } from '../lib/cost.mjs';
 
 test('defaults load without a user file, with Jev as the classifier', () => {
   const config = loadConfig();

@@ -29,7 +29,8 @@
   },
   "scripts": {
     "test": "node --test --test-timeout=8000 test/*.test.mjs experiments/mod-router/scripts/*.test.mjs",
-    "check": "biome check lib scripts test hooks types .claude-plugin package.json package-lock.json biome.json experiments/mod-router",
+    "check": "biome check lib scripts test hooks types .claude-plugin package.json package-lock.json biome.json tsconfig.json experiments/mod-router",
+    "typecheck": "tsc -p tsconfig.json",
     "validate": "claude plugin validate .claude-plugin/plugin.json && claude plugin validate .claude-plugin/marketplace.json",
     "test:plugin": "bash scripts/plugin-test.sh",
     "format": "biome format --write .",
@@ -38,6 +39,7 @@
     "prepublishOnly": "npm run check && npm test"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.14"
+    "@biomejs/biome": "2.5.14",
+    "typescript": "7.0.2"
   }
 }

@@ -38,19 +38,19 @@ Claude Code builds each request for the model the Mod selects, so no request rew
 
 ## Responsibilities
 
-| Component                                     | Responsibility                                                                                                  |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| [Native hooks](../hooks/native-router.mjs)    | Turn identity, controls, lifecycle, per-step rewrites, response observation, pane actions, and every host call. |
-| [Jev contract](../lib/jev-contract.mjs)       | Classifier request payload, credentials and endpoint filling, answer validation, and retry rules.               |
-| [Native Jev](../lib/native-jev.mjs)           | Classifier HTTP, deadline, in-flight admission, and circuit breaker.                                            |
-| [Router controller](../lib/native-router.mjs) | Context fit, model identity, engine fallback, cache observations, and one-turn pins.                            |
-| [Policy](../lib/policy.mjs)                   | Tier votes, escalation, and switching gates.                                                                    |
-| [Native costs](../lib/native-cost.mjs)        | Cache uncertainty bounds and switching estimates.                                                               |
-| [Router view](../lib/native-view.mjs)         | The view's initial shape and the usage readings each reply adds to it.                                          |
-| [Config file](../lib/config-file.mjs)         | Pane writes to `router.json`: the validated rewrite and what Undo restores.                                     |
-| [Native panel](../lib/native-panel.mjs)       | Tabbed pane: route status, tier pins, the route editor, tuning, and usage.                                      |
-| [Router band](../lib/native-band.mjs)         | Status band segments fitted to the band's width, and route-change toasts.                                       |
-| Claude Code                                   | API requests, tools, authentication, stream output, and usage ledger.                                           |
+| Component                                             | Responsibility                                                                                                  |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| [Native hooks](../hooks/native-router.mjs)            | Turn identity, controls, lifecycle, per-step rewrites, response observation, pane actions, and every host call. |
+| [Classifier contract](../lib/classifier-contract.mjs) | Classifier request payload, credentials and endpoint filling, answer validation, and retry rules.               |
+| [Classifier client](../lib/classifier-client.mjs)     | Classifier HTTP, deadline, in-flight admission, and circuit breaker.                                            |
+| [Router controller](../lib/route.mjs)                 | Context fit, model identity, engine fallback, cache observations, and one-turn pins.                            |
+| [Policy](../lib/policy.mjs)                           | Tier votes, escalation, and switching gates.                                                                    |
+| [Costs](../lib/cost.mjs)                              | Cache uncertainty bounds and switching estimates.                                                               |
+| [Router view](../lib/view.mjs)                        | The view's initial shape and the usage readings each reply adds to it.                                          |
+| [Config file](../lib/config-file.mjs)                 | Pane writes to `router.json`: the validated rewrite and what Undo restores.                                     |
+| [Panel](../lib/panel.mjs)                             | Tabbed pane: route status, tier pins, the route editor, tuning, and usage.                                      |
+| [Router band](../lib/band.mjs)                        | Status band segments fitted to the band's width, and route-change toasts.                                       |
+| Claude Code                                           | API requests, tools, authentication, stream output, and usage ledger.                                           |
 
 Every function that takes the engine interface `$` lives in the hooks module: the engine does not follow `$` across an import, so the modules in `lib/` stay pure.
 

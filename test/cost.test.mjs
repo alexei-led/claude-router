@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
-import * as native from '../lib/native-cost.mjs';
+import * as native from '../lib/cost.mjs';
 import { decide, initialState } from '../lib/policy.mjs';
 import { advice as adviceOf } from './helpers.mjs';
 

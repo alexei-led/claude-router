@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { loadConfig } from '../lib/config.mjs';
-import { switchingTaxUsd } from '../lib/native-cost.mjs';
+import { switchingTaxUsd } from '../lib/cost.mjs';
 import { decide, fitTier, initialState, massAbove, massAtOrBelow } from '../lib/policy.mjs';
 import { advice, served, T0 } from './helpers.mjs';
 

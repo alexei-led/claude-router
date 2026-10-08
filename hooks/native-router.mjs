@@ -1,3 +1,6 @@
+import { renderBand, switchToast } from '../lib/band.mjs';
+import { ClassifierClient } from '../lib/classifier-client.mjs';
+import { resolveCredentials } from '../lib/classifier-contract.mjs';
 import {
   activeClassifier,
   DEFAULTS,
@@ -14,18 +17,15 @@ import {
   withTuning,
 } from '../lib/config.mjs';
 import { changedLeaves, notSaved, restored, rewrittenConfig } from '../lib/config-file.mjs';
-import { clip } from '../lib/facts-pure.mjs';
-import { resolveCredentials } from '../lib/jev-contract.mjs';
-import { renderBand, switchToast } from '../lib/native-band.mjs';
 import {
   classifierStatus,
   classifierTimed,
   GATEWAY_CLEANUP,
   GATEWAY_SETTINGS,
   missingCredentials,
-} from '../lib/native-display.mjs';
-import { NativeJev } from '../lib/native-jev.mjs';
-import { renderPanel, routeDraftOf, routingChanges } from '../lib/native-panel.mjs';
+} from '../lib/display.mjs';
+import { clip } from '../lib/facts.mjs';
+import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
 import {
   chooseRoute,
   continueRoute,
@@ -37,8 +37,8 @@ import {
   observeResponse,
   prepareLoop,
   resetHistory,
-} from '../lib/native-router.mjs';
-import { CLEARED_READINGS, healthOf, initialView, responseMetrics } from '../lib/native-view.mjs';
+} from '../lib/route.mjs';
+import { CLEARED_READINGS, healthOf, initialView, responseMetrics } from '../lib/view.mjs';
 
 // The engine follows $ only into functions declared in this file, never across an import: every helper that takes $
 // lives here, and the pure parts live in lib/.
@@ -71,7 +71,7 @@ function createRouter(options) {
 }
 
 function clientOf(router, id) {
-  if (!router.clients.has(id)) router.clients.set(id, new NativeJev());
+  if (!router.clients.has(id)) router.clients.set(id, new ClassifierClient());
   return router.clients.get(id);
 }
 

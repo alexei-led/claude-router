@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { extractFacts as factsFromRequest } from '../lib/facts-pure.mjs';
+import { extractFacts as factsFromRequest } from '../lib/facts.mjs';
 import { assistant, body, memory, toolResult, user } from './helpers.mjs';
 
 const CONTEXT = { recentTurns: 4, maxTextChars: 30 };

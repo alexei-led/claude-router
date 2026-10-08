@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { bandSegments } from '../lib/band.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
-import { bandSegments } from '../lib/native-band.mjs';
-import { TIER_COLOR } from '../lib/native-display.mjs';
-import { renderPanel } from '../lib/native-panel.mjs';
-import { isSameModel } from '../lib/native-router.mjs';
+import { TIER_COLOR } from '../lib/display.mjs';
+import { renderPanel } from '../lib/panel.mjs';
+import { isSameModel } from '../lib/route.mjs';
 import { controls, ELEMENTS, texts } from './harness.mjs';
 
 const actions = new Proxy({}, { get: () => () => {} });

@@ -5,18 +5,18 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const modules = [
+  'band',
+  'classifier-client',
+  'classifier-contract',
   'config',
   'config-file',
-  'facts-pure',
-  'jev-contract',
-  'native-band',
-  'native-cost',
-  'native-display',
-  'native-jev',
-  'native-panel',
-  'native-router',
-  'native-view',
+  'cost',
+  'display',
+  'facts',
+  'panel',
   'policy',
+  'route',
+  'view',
 ];
 
 export async function prepareNativeCandidate({ acceptance = false } = {}) {
