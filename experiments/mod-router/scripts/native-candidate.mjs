@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const modules = [
   'config',
+  'config-file',
   'facts-pure',
   'jev-contract',
   'native-band',
@@ -14,6 +15,7 @@ const modules = [
   'native-jev',
   'native-panel',
   'native-router',
+  'native-view',
   'policy',
 ];
 

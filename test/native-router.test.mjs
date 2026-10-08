@@ -6,6 +6,7 @@ import {
   continueRoute,
   emptyLoop,
   isModelAllowed,
+  isNativeFallback,
   nativeFacts,
   observeResponse,
   prepareLoop,
@@ -281,4 +282,17 @@ test('window-exceeded responses latch the model without a retry', () => {
   const result = chooseRoute(SMALL_MICRO, failed, smallInput(failed, { pin: 'micro' }));
   assert.equal(result.decision.model, model);
   assert.equal(result.decision.reason, 'model-unavailable');
+});
+
+test('isNativeFallback: a model the router neither saw nor chose is an engine fallback', () => {
+  const routed = { engineModel: 'claude-sonnet-5-5', decision: { model: 'claude-haiku-4-5' } };
+  for (const [name, loop, served, fallback] of [
+    ['the engine model again', routed, 'claude-sonnet-5-5', false],
+    ['the routed model echoed', routed, 'claude-haiku-4-5', false],
+    ['a dated snapshot of the routed model', routed, 'claude-haiku-4-5-20251001', false],
+    ['a third model', routed, 'claude-opus-5-5', true],
+    ['a suspended loop', { ...routed, suspended: true }, 'claude-sonnet-5-5', true],
+    ['nothing known yet', {}, 'claude-opus-5-5', false],
+  ])
+    assert.equal(isNativeFallback(loop, served), fallback, name);
 });

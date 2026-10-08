@@ -25,5 +25,29 @@
       "suspicious": { "noImportCycles": "error" }
     }
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } }
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "overrides": [
+    {
+      "includes": ["lib/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 71 } },
+            "noExcessiveLinesPerFunction": { "level": "error", "options": { "maxLines": 93 } }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["hooks/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 45 } },
+            "noExcessiveLinesPerFunction": { "level": "error", "options": { "maxLines": 240 } }
+          }
+        }
+      }
+    }
+  ]
 }

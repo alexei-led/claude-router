@@ -6,6 +6,7 @@ import {
   CLASSIFIER_OPTIONS,
   DEFAULTS,
   loadConfig,
+  supportedVersion,
   tuningOf,
   withClassifier,
   withClassifierTimeout,
@@ -341,4 +342,21 @@ test('the default micro route is Haiku at low effort whatever the session effort
   assert.deepEqual(DEFAULTS.routes.micro, { model: 'haiku', effort: 'low' });
   for (const session of ['low', 'medium', 'high', 'xhigh', 'max', null])
     assert.equal(routeEffort(loadConfig({}), 'micro', session), 'low', String(session));
+});
+
+test('supportedVersion accepts Claude Code 2.1.289 and newer, with or without a prerelease', () => {
+  for (const [version, supported] of [
+    ['2.1.289', true],
+    ['2.1.290-beta.1', true],
+    ['2.2.0', true],
+    ['3.0.0', true],
+    ['2.1.288', false],
+    ['2.0.999', false],
+    ['1.9.400', false],
+    ['2.1.289.1', false],
+    ['2.1', false],
+    ['', false],
+    [undefined, false],
+  ])
+    assert.equal(supportedVersion(version), supported, String(version));
 });
