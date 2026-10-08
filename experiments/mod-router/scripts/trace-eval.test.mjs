@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { loadConfig } from '../../../lib/config.mjs';
 import {
   countRows,
   evaluate,
@@ -10,6 +9,7 @@ import {
   replaySession,
   routeTransitions,
   summarizeReplay,
+  TRACE_LADDER,
   teamSessionIds,
 } from './trace-eval.mjs';
 
@@ -19,9 +19,6 @@ const teamIds = teamSessionIds([`${TEAM}.jsonl`, TEAM, 'memory', 'sessions-index
 const T0 = Date.parse('2026-10-01T12:00:00Z');
 const at = (offsetMs) => new Date(T0 + offsetMs).toISOString();
 const MINUTE = 60_000;
-const TRACE_LADDER = loadConfig({
-  userFile: { routes: { low: { model: 'sonnet', effort: null }, micro: { model: 'haiku', effort: 'low' } } },
-});
 
 const decision = (offset, fields) => ({
   at: at(offset),
