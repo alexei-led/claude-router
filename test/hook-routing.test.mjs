@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { CONFIG, drain, harness, start, step, substituted, TINY_ROUTER, texts } from './harness.mjs';
+import { band, CONFIG, drain, harness, start, step, substituted, TINY_ROUTER, texts } from './harness.mjs';
 
 test('frozen native state reads do not restore consumed pins or drop first response usage', async () => {
   const h = harness();
@@ -113,6 +113,18 @@ test('an explicit startup model is preserved unless this conversation chose Auto
   await drain(h.step({ ...step, model: 'claude-opus-5-5' }));
   assert.equal(h.view().mode, 'manual');
   assert.equal(h.requests[0].model, 'claude-opus-5-5');
+  assert.equal(h.requests[0].effort, step.effort);
+});
+
+test('a band drawn before session start does not decide the start mode', async () => {
+  const h = harness();
+  h.model('claude-fable-5-1');
+  await band(h);
+  await start(h);
+  await drain(h.step({ ...step, model: 'claude-fable-5-1' }));
+  assert.equal(h.view().mode, 'manual');
+  assert.equal(h.preferences.get('mode:s1'), 'manual');
+  assert.equal(h.requests[0].model, 'claude-fable-5-1');
   assert.equal(h.requests[0].effort, step.effort);
 });
 

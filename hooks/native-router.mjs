@@ -80,17 +80,27 @@ async function readView($, router) {
   return (await $.state.get(VIEW)).value ?? router.view ?? initialView(await $.session.model());
 }
 
+// Only a saved mode is cached: the engine can draw the band before session.start, and a cached fallback from that
+// render would override the start rule.
 async function modeOf($, router, fallback = 'auto') {
   const sessionId = await $.session.id();
   if (router.modes.has(sessionId)) return router.modes.get(sessionId);
   try {
     const saved = await $.store.get(`${MODE_PREFIX}${sessionId}`);
-    const mode = saved === 'manual' || saved === 'auto' ? saved : fallback;
-    router.modes.set(sessionId, mode);
-    return mode;
+    if (saved !== 'manual' && saved !== 'auto') return fallback;
+    router.modes.set(sessionId, saved);
+    return saved;
   } catch {
     return 'manual';
   }
+}
+
+// A saved preference wins; a fresh session starts Auto on the baseline model and Manual on any other.
+async function startMode($, router, model) {
+  const baselineModel = routeModel(router.config, router.config.baselineTier).id;
+  const mode = await modeOf($, router, model === baselineModel ? 'auto' : 'manual');
+  router.modes.set(await $.session.id(), mode);
+  return mode;
 }
 
 async function rememberMode($, mode) {
@@ -545,14 +555,13 @@ export function register(on, options) {
       const base = await $.env.get('ANTHROPIC_BASE_URL');
       const version = await $.session.version().catch(() => null);
       const supported = supportedVersion(version?.version);
-      const baselineModel = routeModel(router.config, router.config.baselineTier).id;
       const gateway =
         ['jev-router', 'jev-router[1m]'].includes(model) ||
         model === 'router' ||
         Boolean(base?.includes('127.0.0.1:43170') || base?.includes('localhost:43170'));
       await updateView($, router, {
         nativeModel: model,
-        mode: await modeOf($, router, model === baselineModel ? 'auto' : 'manual'),
+        mode: await startMode($, router, model),
         phase: gateway || !supported ? 'unavailable' : 'ready',
         error: !supported ? 'requires Claude Code 2.1.289 or newer' : gateway ? GATEWAY_SETTINGS : null,
         ...(sameClassifier ? {} : CLEARED_READINGS),
