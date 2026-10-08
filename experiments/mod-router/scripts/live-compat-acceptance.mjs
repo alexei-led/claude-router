@@ -8,9 +8,9 @@ import { prepareNativeCandidate } from './native-candidate.mjs';
 const PINS = ['high', 'micro', 'medium', 'low', 'micro'];
 const EXPECTED = {
   high: 'claude-opus-5-5',
-  medium: 'claude-sonnet-5-5',
-  low: 'claude-sonnet-5-5',
-  micro: 'claude-haiku-4',
+  medium: 'claude-opus-5-5',
+  low: 'claude-haiku-5-5',
+  micro: 'claude-haiku-5-5',
 };
 
 const directory = await prepareNativeCandidate();
