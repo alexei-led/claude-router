@@ -19,7 +19,9 @@
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "style": { "useNodejsImportProtocol": "error" },
+      "correctness": { "noUnusedVariables": "error", "noUnusedFunctionParameters": "error" },
+      "nursery": { "noFloatingPromises": "error", "noMisusedPromises": "error", "noIdenticalTestTitle": "error" },
+      "style": { "useNodejsImportProtocol": "error", "useConsistentArrayType": "error", "noParameterAssign": "error" },
       "suspicious": { "noImportCycles": "error" }
     }
   },

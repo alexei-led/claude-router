@@ -5,11 +5,9 @@ import { assistant, body, memory, toolResult, user } from './helpers.mjs';
 
 const CONTEXT = { recentTurns: 4, maxTextChars: 30 };
 
-// Claude Code 2.1.x puts hook output (and tool additions) in a `system` message after the user message, and keeps
-// it in the history. Shapes captured from a live session on 2026-09-24.
 const system = (text, extra = []) => ({ role: 'system', content: [{ type: 'text', text }, ...extra] });
 
-test('a trailing system message (hook output) does not hide the prompt', () => {
+test('a system message after the user message, where Claude Code 2.1.x puts hook output, does not hide the prompt', () => {
   const facts = factsFromRequest(
     body([user('fix the bug'), system('hook said x'), assistant('done'), user('now the tests'), system('hook')]),
     memory(),
@@ -26,14 +24,18 @@ test('a trailing system message (hook output) does not hide the prompt', () => {
   );
 });
 
-test('a tool result followed by a system message is still a continuation', () => {
-  const facts = factsFromRequest(
-    body([user('fix'), system('hook'), assistant('reading', ['Read']), toolResult('ok'), system('hook')]),
-    memory(),
-    CONTEXT,
-  );
-  assert.equal(facts.continuation, true);
-  assert.equal(facts.prompt, '');
+test('a trailing tool result is a continuation with no prompt, also behind a system message', () => {
+  for (const [name, messages] of [
+    ['tool result last', [user('run tests'), assistant('running', ['Bash']), toolResult('ok')]],
+    [
+      'system message after the tool result',
+      [user('fix'), system('hook'), assistant('reading', ['Read']), toolResult('ok'), system('hook')],
+    ],
+  ]) {
+    const facts = factsFromRequest(body(messages), memory(), CONTEXT);
+    assert.equal(facts.continuation, true, name);
+    assert.equal(facts.prompt, '', name);
+  }
 });
 
 test('a new user turn yields the prompt without system reminders', () => {
@@ -57,22 +59,16 @@ test('a new user turn yields the prompt without system reminders', () => {
   );
 });
 
-test('a tool result at the end is a continuation with no prompt', () => {
-  const facts = factsFromRequest(
-    body([user('run tests'), assistant('running', ['Bash']), toolResult('ok')]),
-    memory(),
-    CONTEXT,
-  );
-  assert.equal(facts.continuation, true);
-  assert.equal(facts.prompt, '');
-});
-
-test('turns are bounded and truncated', () => {
+test('turns keep only the most recent ones, each clipped', () => {
   const messages = [];
   for (let i = 0; i < 10; i += 1) messages.push(user(`prompt ${i} ${'x'.repeat(80)}`), assistant(`answer ${i}`));
   const facts = factsFromRequest(body(messages), memory(), CONTEXT);
-  assert.equal(facts.turns.length, 4);
-  assert.ok(facts.turns[0].text.length <= 30);
+  assert.deepEqual(facts.turns, [
+    { role: 'user', text: 'prompt 8 xxxx […] xxxxxxxxxxxx' },
+    { role: 'assistant', text: 'answer 8' },
+    { role: 'user', text: 'prompt 9 xxxx […] xxxxxxxxxxxx' },
+    { role: 'assistant', text: 'answer 9' },
+  ]);
 });
 
 test('repeated failure needs the same signature with an edit attempt between', () => {
@@ -83,7 +79,10 @@ test('repeated failure needs the same signature with an edit attempt between', (
     assistant('b', ['Edit']),
     toolResult('Error: test_login failed at line 40', { isError: true }),
   ]);
-  assert.ok(factsFromRequest(same, memory(), CONTEXT).failure);
+  assert.deepEqual(factsFromRequest(same, memory(), CONTEXT).failure, {
+    signature: 'error: test_login failed at line #',
+    index: 4,
+  });
   const noEdit = body([
     user('go'),
     assistant('a', ['Bash']),
@@ -101,29 +100,27 @@ test('memory fields pass through', () => {
   assert.deepEqual(facts.models, { a: 1 });
 });
 
-// Jev input: the prompt is capped like every turn (head and tail kept), and it is not also the last turn.
-test('a long prompt is capped to maxTextChars and keeps its head and tail', () => {
-  const long = `HEAD-${'x'.repeat(10_000)}-TAIL`;
-  const { prompt } = factsFromRequest(body([user(long)]), memory(), CONTEXT);
-  assert.ok(prompt.length <= CONTEXT.maxTextChars, `length ${prompt.length}`);
-  assert.ok(prompt.startsWith('HEAD-'));
-  assert.ok(prompt.endsWith('-TAIL'));
-});
-
-test('a prompt within the cap is unchanged', () => {
-  const { prompt } = factsFromRequest(body([user('fix the flaky test')]), memory(), CONTEXT);
-  assert.equal(prompt, 'fix the flaky test');
-});
-
-test('a long earlier turn keeps its head and tail', () => {
-  const facts = factsFromRequest(
-    body([user(`START-${'y'.repeat(500)}-END`), assistant('ok'), user('next')]),
-    memory(),
-    CONTEXT,
-  );
-  assert.ok(facts.turns[0].text.length <= CONTEXT.maxTextChars);
-  assert.ok(facts.turns[0].text.startsWith('START-'));
-  assert.ok(facts.turns[0].text.endsWith('-END'));
+test('the prompt and earlier turns sent to Jev are capped at maxTextChars, keeping head and tail', () => {
+  for (const [name, messages, context, read, expected] of [
+    [
+      'a long prompt',
+      [user(`HEAD-${'x'.repeat(10_000)}-TAIL`)],
+      CONTEXT,
+      (f) => f.prompt,
+      'HEAD-xxxxxxxx […] xxxxxxx-TAIL',
+    ],
+    ['a prompt within the cap', [user('fix the flaky test')], CONTEXT, (f) => f.prompt, 'fix the flaky test'],
+    [
+      'a long earlier turn',
+      [user(`START-${'y'.repeat(500)}-END`), assistant('ok'), user('next')],
+      CONTEXT,
+      (f) => f.turns[0].text,
+      'START-yyyyyyy […] yyyyyyyy-END',
+    ],
+    ['a cap smaller than the marker', [user('abcdefgh')], { ...CONTEXT, maxTextChars: 2 }, (f) => f.prompt, 'ab'],
+  ]) {
+    assert.equal(read(factsFromRequest(body(messages), memory(), context)), expected, name);
+  }
 });
 
 test('the current user message is the prompt only, not also the last turn', () => {
@@ -132,8 +129,11 @@ test('the current user message is the prompt only, not also the last turn', () =
     memory(),
     CONTEXT,
   );
-  assert.match(facts.prompt, /CURRENT-MARKER/);
-  assert.ok(facts.turns.every((t) => !t.text.includes('CURRENT-MARKER')));
+  assert.equal(facts.prompt, 'CURRENT-MARKER now this');
+  assert.deepEqual(
+    facts.turns.map((t) => t.text),
+    ['first task', 'done'],
+  );
 });
 
 test('a trailing tool result with text is not a turn either', () => {
@@ -145,7 +145,6 @@ test('a trailing tool result with text is not a turn either', () => {
     ],
   };
   const facts = factsFromRequest(body([user('go'), assistant('running', ['Bash']), trailing]), memory(), CONTEXT);
-  assert.ok(facts.turns.every((t) => !t.text.includes('TRAILING-MARKER')));
   assert.deepEqual(
     facts.turns.map((t) => t.text),
     ['go', 'running'],
@@ -156,9 +155,4 @@ test('a history that ends with the assistant keeps it as the last turn', () => {
   const facts = factsFromRequest(body([user('go'), assistant('LAST-ASSISTANT')]), memory(), CONTEXT);
   assert.equal(facts.turns.at(-1).text, 'LAST-ASSISTANT');
   assert.equal(facts.prompt, '');
-});
-
-test('a cap smaller than the marker still bounds the text', () => {
-  const { prompt } = factsFromRequest(body([user('abcdefgh')]), memory(), { ...CONTEXT, maxTextChars: 2 });
-  assert.ok(prompt.length <= 2);
 });

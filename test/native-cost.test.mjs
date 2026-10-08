@@ -3,6 +3,7 @@ import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import * as native from '../lib/native-cost.mjs';
 import { decide, initialState } from '../lib/policy.mjs';
+import { advice as adviceOf } from './helpers.mjs';
 
 const now = 1_000_000;
 const facts = {
@@ -20,7 +21,6 @@ const tiny = {
   billing: 'plan',
   efforts: [],
 };
-// The cost figures below were computed with a Sonnet `medium` route and a $1/$5 micro model, so pin them instead of the changing defaults.
 const SONNET_MEDIUM = loadConfig({
   userFile: { models: { tiny }, routes: { medium: { model: 'sonnet', effort: 'xhigh' }, micro: { model: 'tiny' } } },
 });
@@ -68,7 +68,7 @@ test('unknown TTL keeps an optimistic incumbent scenario and a cold candidate up
 });
 
 test('the default policy accounts for bounded native switching costs', () => {
-  const advice = { choice: 'micro', continuation: 0, probabilities: { micro: 0.92, low: 0, medium: 0.08, high: 0 } };
+  const advice = adviceOf('micro', { micro: 0.92, medium: 0.08 });
   const state = { ...initialState(), votes: [{ tier: 'micro', turn: 0 }] };
   const args = { config: SONNET_MEDIUM, facts, advice, state, baseline: 'medium', now };
   const original = decide(args);
@@ -90,7 +90,7 @@ test('an all-credits policy with no plan fallback stays rather than returning an
   const result = decide({
     config,
     facts,
-    advice: { choice: 'high', continuation: 0, probabilities: { high: 1 } },
+    advice: adviceOf('high', { high: 1 }),
     state: initialState(),
     baseline: 'medium',
     now,

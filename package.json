@@ -28,7 +28,7 @@
     "access": "public"
   },
   "scripts": {
-    "test": "node --test --test-timeout=8000 test/*.test.mjs",
+    "test": "node --test --test-timeout=8000 test/*.test.mjs experiments/mod-router/scripts/*.test.mjs",
     "check": "biome check lib scripts test hooks types .claude-plugin package.json package-lock.json biome.json experiments/mod-router",
     "validate": "claude plugin validate .claude-plugin/plugin.json && claude plugin validate .claude-plugin/marketplace.json",
     "test:plugin": "bash scripts/plugin-test.sh",

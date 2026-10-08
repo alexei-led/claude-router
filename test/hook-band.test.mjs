@@ -1,0 +1,124 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { band, controls, drain, harness, start, step, texts } from './harness.mjs';
+
+test('the band shows the tier meter, route, reason and context after a routed reply', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step));
+  const { line, controls: buttons } = await band(h);
+  assert.match(line, /▂▄▆█ high Opus 5\.5 · xhigh/);
+  assert.match(line, /⏵ pinned/);
+  assert.match(line, /ctx \d+% · cache \d+%/);
+  assert.ok(buttons.some((node) => node.key === 'details'));
+  assert.doesNotMatch(line, /Jev Router/);
+});
+
+test('a narrow band drops context and reason before the route', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step));
+  const { line } = await band(h, { bodyColumns: 40 });
+  assert.match(line, /high Opus 5\.5 · xhigh/);
+  assert.doesNotMatch(line, /ctx|pinned/);
+});
+
+test('the band yields to a survey and says subagents keep their model', async () => {
+  const h = harness();
+  await start(h);
+  assert.equal((await band(h, { hasSurvey: true })).tree.component, 'AbovePrompt');
+  assert.match((await band(h, { view: { agentId: 'a1' } })).line, /subagents keep their own model/);
+});
+
+test('the band offers Auto in Manual mode and a key button without a key', async () => {
+  const h = harness();
+  await start(h);
+  await drain(h.step(step));
+  let view = await band(h);
+  assert.match(view.line, /⚠ Jev: no API key .*Sonnet 5\.5.* {2}· {2}keeping model/);
+  await view.controls.find((node) => node.key === 'band-key').onPress();
+  assert.equal(h.commandCalls(), 1);
+  await h.event('command.run', { command: 'router', args: 'off' });
+  view = await band(h);
+  assert.match(view.line, /Router off · keeping Sonnet 5\.5/);
+  await view.controls.find((node) => node.key === 'band-auto').onPress();
+  assert.equal(h.view().mode, 'auto');
+});
+
+test('the band hover row pins, unpins and switches to two rows', async () => {
+  const preferences = new Map();
+  const h = harness({}, preferences);
+  await start(h);
+  await (await band(h)).controls.find((node) => node.key === 'band-pin-medium').onPress();
+  assert.equal(h.view().pendingPin, 'medium');
+  assert.match(h.toasts.at(-1), /medium pinned/);
+  await (await band(h)).controls.find((node) => node.key === 'band-unpin').onPress();
+  assert.equal(h.view().pendingPin, null);
+  await (await band(h)).controls.find((node) => node.key === 'band-detail').onPress();
+  assert.equal(preferences.get('band:detail'), true);
+  await h.event('command.run', { command: 'router', args: 'pin low' });
+  await drain(h.step(step));
+  assert.match((await band(h)).line, /replies █/);
+});
+
+test('a route change raises one toast with the old and new model; a pin does not', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step(step));
+  assert.equal(h.toasts.length, 0);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.equal(h.toasts.length, 1);
+  assert.match(h.toasts[0], /^Opus 5\.5 · xhigh → Sonnet 5\.5 .*— /);
+});
+
+test('the spinner says Choosing model only while the classifier runs', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key' });
+  let calls = 0;
+  h.http(() => {
+    calls += 1;
+    return new Promise(() => {});
+  });
+  await start(h);
+  const spinner = { word: 'Baking', message: null, suffix: '…', mode: 'requesting' };
+  assert.equal((await h.component('Spinner', spinner)).props.message, null);
+  void drain(h.step(step));
+  for (let i = 0; i < 100 && !calls; i += 1) await Promise.resolve();
+  assert.equal((await h.component('Spinner', spinner)).props.message, 'Choosing model');
+  assert.equal(
+    (await h.component('Spinner', { ...spinner, message: 'Waiting for permission' })).props.message,
+    'Waiting for permission',
+  );
+});
+
+test('the footer labels paused routing', async () => {
+  const h = harness();
+  await start(h);
+  assert.deepEqual((await h.component('SessionMode', { modes: ['focus'] })).props.modes, ['focus']);
+  await h.event('command.run', { command: 'router', args: 'off' });
+  assert.deepEqual((await h.component('SessionMode', { modes: ['focus'] })).props.modes, ['focus', 'router off']);
+});
+
+test('a narrow band never exceeds its width: optional parts drop, then the route is cut', async () => {
+  const h = harness();
+  await start(h);
+  await drain(h.step(step));
+  const widthOf = (line) => [...line].length;
+  for (const [columns, expected] of [
+    [120, /⚠ Jev: no API key .*Sonnet 5\.5.* {2}· {2}keeping model/],
+    [60, /⚠ Jev: no API key/],
+    [30, /⚠ Jev: no API key/],
+  ]) {
+    const { tree } = await band(h, { bodyColumns: columns });
+    const row = tree.props.children[1].props.children[0];
+    const line = texts(row).join('');
+    const buttons = controls(row)
+      .map((node) => (node.plain ? node.label : `[ ${node.label} ]`))
+      .join('');
+    assert.match(line, expected, `at ${columns}`);
+    assert.ok(widthOf(line) + widthOf(buttons) <= columns, `${columns}: ${line}${buttons}`);
+  }
+});

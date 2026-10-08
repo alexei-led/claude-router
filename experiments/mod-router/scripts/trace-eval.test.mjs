@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { loadConfig } from '../../../lib/config.mjs';
 import {
   countRows,
   evaluate,
@@ -10,8 +11,7 @@ import {
   routeTransitions,
   summarizeReplay,
   teamSessionIds,
-} from '../experiments/mod-router/scripts/trace-eval.mjs';
-import { loadConfig } from '../lib/config.mjs';
+} from './trace-eval.mjs';
 
 const TEAM = '11111111-1111-4111-8111-111111111111';
 const OTHER = '22222222-2222-4222-8222-222222222222';
@@ -108,8 +108,6 @@ test('observation coverage marks the missing split and treats a logged 5m ttl as
   assert.deepEqual(coverage.ttl, { status: 'partial', evidence1h: 1, default5mNotEvidence: 1, rowsLacking: 1 });
 });
 
-// Cold caches at 5m: legacy prices the Sonnet -> Opus switch at a $0.38 tax, native at about $1.18, so the second
-// upgrade vote of 0.83 clears the legacy bar (0.815) but not the native one (0.855).
 const upgradeSession = () => [
   observed(-40 * MINUTE, { model: 'claude-opus-5-5', tier: 'high', effort: 'xhigh' }),
   observed(-10 * MINUTE, { tokens: 150_000 }),
@@ -117,7 +115,7 @@ const upgradeSession = () => [
   decision(MINUTE, { reason: 'upgrade', tier: 'high', advice: advice(0.83), model: 'claude-opus-5-5' }),
 ];
 
-test('replay finds the decision where native conservative costs withhold an upgrade legacy takes', () => {
+test('replay finds the decision where native conservative costs withhold an upgrade legacy takes: a 0.83 vote clears the legacy bar, not the native one', () => {
   const [result] = [replaySession(upgradeSession(), loadConfig({}))];
   assert.equal(result.parity.checked, 2);
   assert.equal(result.parity.matched, 2);

@@ -45,8 +45,9 @@ function facts({
   };
 }
 
-function runTurns(f, advices, state = initialState(), cfg = config) {
+function runTurns(f, advices, initial = initialState(), cfg = config) {
   const out = [];
+  let state = initial;
   for (const a of advices) {
     const d = decide({ config: cfg, facts: f, advice: a, state, baseline: 'low', now: NOW });
     state = d.state;
@@ -55,7 +56,6 @@ function runTurns(f, advices, state = initialState(), cfg = config) {
   return out;
 }
 
-// No default model bills credits, so the cash gate is inert until a user adds one in router.json.
 const metered = loadConfig({ userFile: { models: { opus: { billing: 'credits', input: 10 } } } });
 
 test('mass helpers exclude uncertain', () => {
@@ -78,12 +78,43 @@ test('continuation inherits the route and adds no vote', () => {
   assert.equal(d.state.votes.length, 0);
 });
 
-test('one-tier upgrade needs two consecutive votes above the incumbent', () => {
-  const [first, second] = runTurns(facts(), [advice('medium', { medium: 0.9 }), advice('medium', { medium: 0.9 })]);
-  assert.equal(first.reason, 'upgrade-pending');
-  assert.equal(first.tier, 'low');
-  assert.equal(second.reason, 'upgrade');
-  assert.equal(second.tier, 'medium');
+test('a one-tier switch needs two consecutive votes with enough mass', () => {
+  for (const [name, lastRoute, vote, expected] of [
+    [
+      'upgrade above the incumbent',
+      null,
+      advice('medium', { medium: 0.9 }),
+      [
+        ['low', 'upgrade-pending'],
+        ['medium', 'upgrade'],
+      ],
+    ],
+    [
+      'downgrade with mass',
+      'high',
+      advice('low', { low: 0.95 }),
+      [
+        ['high', 'downgrade-pending'],
+        ['low', 'downgrade'],
+      ],
+    ],
+    [
+      'weak downgrade mass never switches',
+      'high',
+      advice('low', { low: 0.6, high: 0.4 }),
+      [
+        ['high', 'downgrade-pending'],
+        ['high', 'downgrade-pending'],
+      ],
+    ],
+  ]) {
+    const turns = runTurns(facts({ lastRoute }), [vote, vote]);
+    assert.deepEqual(
+      turns.map((d) => [d.tier, d.reason]),
+      expected,
+      name,
+    );
+  }
 });
 
 test('a two-tier jump with high mass switches at once', () => {
@@ -100,40 +131,47 @@ test('the upgrade threshold rises with the switching tax', () => {
   assert.ok(pending.estimate.threshold > 0.8);
 });
 
-test('a cold metered model above the cash cap routes to the strongest plan tier instead', () => {
-  // From micro, so the strongest plan tier (low; medium and high are Opus, metered here) is a real switch.
-  const f = facts({ lastRoute: 'micro', tokens: 300_000, servedBy: 'claude-haiku-4-5-20251001' });
-  const [d] = runTurns(f, [advice('high', { high: 0.97 })], initialState(), metered);
-  assert.equal(d.reason, 'cash-gate');
-  assert.equal(d.tier, 'low');
-  assert.ok(d.estimate.coldUsd > metered.policy.cashCapUsd);
-  assert.equal(d.estimate.cache, 'unknown');
-});
-
-test('a downgrade to a cold metered model above the cash cap stays on the incumbent', () => {
+test('a cold metered model above the cash cap is gated, which only a user-billed model can trigger', () => {
   const sonnetMetered = loadConfig({ userFile: { models: { sonnet: { billing: 'credits', input: 10 } } } });
-  const f = facts({ lastRoute: 'high', tokens: 300_000, servedBy: 'claude-opus-5-5', effort: 'xhigh' });
-  const votes = [advice('low', { low: 0.99 }), advice('low', { low: 0.99 })];
-  const [, second] = runTurns(f, votes, initialState(), sonnetMetered);
-  assert.equal(second.reason, 'cash-gate');
-  assert.equal(second.tier, 'high');
-  assert.ok(second.estimate.coldUsd > sonnetMetered.policy.cashCapUsd);
+  const upgrade = advice('high', { high: 0.97 });
+  const downgrade = advice('low', { low: 0.99 });
+  for (const [name, cfg, f, votes, tier] of [
+    [
+      'an upgrade from micro routes to the strongest plan tier instead',
+      metered,
+      facts({ lastRoute: 'micro', tokens: 300_000, servedBy: 'claude-haiku-4-5-20251001' }),
+      [upgrade],
+      'low',
+    ],
+    [
+      'a downgrade stays on the incumbent',
+      sonnetMetered,
+      facts({ lastRoute: 'high', tokens: 300_000, servedBy: 'claude-opus-5-5', effort: 'xhigh' }),
+      [downgrade, downgrade],
+      'high',
+    ],
+    [
+      'an escalation stays on the strongest plan tier',
+      metered,
+      facts({ lastRoute: 'low', tokens: 300_000, failure: { signature: 'sig' } }),
+      [null],
+      'low',
+    ],
+  ]) {
+    const d = runTurns(f, votes, initialState(), cfg).at(-1);
+    assert.deepEqual(
+      [d.tier, d.reason, d.estimate],
+      [tier, 'cash-gate', { coldUsd: 6, cap: 2, cache: 'unknown' }],
+      name,
+    );
+  }
 });
 
-test('an escalation to a cold metered model above the cash cap stays on the strongest plan tier', () => {
-  const f = facts({ lastRoute: 'low', tokens: 300_000, failure: { signature: 'sig' } });
-  const [d] = runTurns(f, [null], initialState(), metered);
-  assert.equal(d.reason, 'cash-gate');
-  assert.equal(d.tier, 'low');
-});
-
-test('a warm metered model passes the cash gate even when a cold write would not', () => {
-  // 300k at $10/M with the 5m write multiplier: $3.75 cold, above the $2 cap. The warm cache of high's effort passes.
+test('a metered model warm at the routed effort passes the cash gate; warm at another effort is still gated', () => {
   const warm = served('claude-opus-5-5', { tokens: 300_000, ttl: '5m', at: T0, effort: 'xhigh' }).models;
   const f = facts({ tokens: 300_000, extraModels: warm });
   const [d] = runTurns(f, [advice('high', { high: 0.97 })], initialState(), metered);
   assert.equal(d.reason, 'jump');
-  // Warm at another effort is another cache: the guard still applies.
   const otherEffort = served('claude-opus-5-5', { tokens: 300_000, ttl: '5m', at: T0, effort: 'high' }).models;
   const [guarded] = runTurns(
     facts({ tokens: 300_000, extraModels: otherEffort }),
@@ -144,8 +182,7 @@ test('a warm metered model passes the cash gate even when a cold write would not
   assert.equal(guarded.reason, 'cash-gate');
 });
 
-// Regression: with low and medium as one model at two efforts, the switch rewrites the messages cache.
-test('an effort-only upgrade pays the switching tax of a new messages cache', () => {
+test('an effort-only upgrade between one model at two efforts pays the tax of rewriting the messages cache', () => {
   const sonnetMedium = loadConfig({ userFile: { routes: { medium: { model: 'sonnet', effort: 'xhigh' } } } });
   const f = facts({ lastRoute: 'low', tokens: 400_000 });
   const votes = [advice('medium', { medium: 0.8, low: 0.2 }), advice('medium', { medium: 0.8, low: 0.2 })];
@@ -155,29 +192,11 @@ test('an effort-only upgrade pays the switching tax of a new messages cache', ()
   assert.deepEqual(second.estimate.cache, { candidate: 'unknown', incumbent: 'fresh' });
 });
 
-test('downgrade needs mass and two consecutive votes', () => {
-  const [a, b] = runTurns(facts({ lastRoute: 'high' }), [advice('low', { low: 0.95 }), advice('low', { low: 0.95 })]);
-  assert.equal(a.reason, 'downgrade-pending');
-  assert.equal(a.tier, 'high');
-  assert.equal(b.reason, 'downgrade');
-  assert.equal(b.tier, 'low');
-});
-
-test('weak downgrade mass never switches', () => {
-  const [, b] = runTurns(facts({ lastRoute: 'high' }), [
-    advice('low', { low: 0.6, high: 0.4 }),
-    advice('low', { low: 0.6, high: 0.4 }),
-  ]);
-  assert.equal(b.reason, 'downgrade-pending');
-});
-
-// Regression: a downgrade is not always cheaper this turn. A candidate colder than the incumbent pays a cache
-// write the confidence bar must account for, the same way an upgrade's tax raises its bar.
-test('the downgrade bar rises when the candidate is colder than the incumbent', () => {
+test('a downgrade to a candidate colder than the incumbent raises the bar by its cache write, as an upgrade tax does', () => {
   const votes = [advice('low', { low: 0.92, high: 0.08 }), advice('low', { low: 0.92, high: 0.08 })];
 
-  const warmCandidate = facts({ lastRoute: 'high' }); // default servedBy: sonnet (low) is warm, opus (high) is not
-  const [, warm] = runTurns(warmCandidate, votes);
+  const sonnetWarmOpusCold = facts({ lastRoute: 'high', servedBy: 'claude-sonnet-5-5' });
+  const [, warm] = runTurns(sonnetWarmOpusCold, votes);
   assert.equal(warm.reason, 'downgrade');
   assert.equal(warm.estimate.threshold, config.policy.downgradeMass);
 
@@ -188,7 +207,6 @@ test('the downgrade bar rises when the candidate is colder than the incumbent', 
   assert.ok(cold.estimate.taxUsd > 0);
 });
 
-// Warm Opus at xhigh, 100k of context and 4k of output. `input-only` is the bar before output savings counted.
 const opusWarm = { lastRoute: 'high', servedBy: 'claude-opus-5-5', effort: 'xhigh', tokens: 100_000, output: 4_000 };
 const sonnetWarm = served('claude-sonnet-5-5', { tokens: 100_000, output: 4_000, at: T0 }).models;
 const unpriced = (fields = {}) =>
@@ -217,31 +235,36 @@ for (const { name, cfg = config, candidate, f = facts(opusWarm), want } of [
     want: 'base',
   },
   {
-    name: 'equal output prices keep the input-only bar',
+    name: 'equal output prices keep the bar without output savings',
     cfg: loadConfig({ userFile: { models: { sonnet: { output: 20 } } } }),
     candidate: 'low',
-    want: 'input-only',
+    want: 'without-output-savings',
   },
   { name: 'cheaper output lowers a cold bar', candidate: 'low', want: 'lower' },
   { name: 'much cheaper output lowers a cold bar to the base', candidate: 'micro', want: 'base' },
-  { name: 'a missing output price keeps the input-only bar', cfg: unpriced(), candidate: 'micro', want: 'input-only' },
   {
-    name: 'a zero output price keeps the input-only bar',
+    name: 'a missing output price keeps the bar without output savings',
+    cfg: unpriced(),
+    candidate: 'micro',
+    want: 'without-output-savings',
+  },
+  {
+    name: 'a zero output price keeps the bar without output savings',
     cfg: unpriced({ output: 0 }),
     candidate: 'micro',
-    want: 'input-only',
+    want: 'without-output-savings',
   },
 ]) {
-  test(`downgrade bar: ${name}`, () => {
+  test(`downgrade bar from warm Opus at xhigh: ${name}`, () => {
     const p = cfg.policy;
     const bar = (tax) => p.downgradeMass + p.downgradeSlope * (tax / (tax + p.downgradePivotUsd));
-    const inputOnly = bar(Math.max(0, switchingTaxUsd(cfg, candidate, 'high', f, NOW)));
+    const withoutOutputSavings = bar(Math.max(0, switchingTaxUsd(cfg, candidate, 'high', f, NOW)));
     const [d] = runTurns(f, [advice(candidate, { [candidate]: 1 })], initialState(), cfg);
     const { threshold } = d.estimate;
     assert.ok(threshold >= p.downgradeMass);
     if (want === 'base') assert.equal(threshold, p.downgradeMass);
-    if (want === 'input-only') assert.equal(threshold, inputOnly);
-    if (want === 'lower') assert.ok(threshold > p.downgradeMass && threshold < inputOnly);
+    if (want === 'without-output-savings') assert.equal(threshold, withoutOutputSavings);
+    if (want === 'lower') assert.ok(threshold > p.downgradeMass && threshold < withoutOutputSavings);
   });
 }
 

@@ -3,19 +3,10 @@ import test from 'node:test';
 import { DEFAULTS } from '../lib/config.mjs';
 import { parseAnswers, RETRY_DELAY_MS } from '../lib/jev-contract.mjs';
 import { NativeJev } from '../lib/native-jev.mjs';
+import { jevResponse } from './helpers.mjs';
 
-const answer = {
-  answers: {
-    route: {
-      type: 'choice',
-      choice: 'medium',
-      confidence: 0.9,
-      probabilities: { micro: 0, low: 0, medium: 0.9, high: 0.1, uncertain: 0 },
-    },
-  },
-};
-// The filled endpoint the hook passes in, distinct from any configured template.
-const ENDPOINT = 'https://classifier.test/v1/resolved';
+const answer = jevResponse('medium', { micro: 0, low: 0, medium: 0.9, high: 0.1, uncertain: 0 });
+const FILLED_ENDPOINT = 'https://classifier.test/v1/resolved';
 const ok = () => ({ ok: true, status: 200, text: JSON.stringify(answer), headers: {} });
 const flush = async () => {
   for (let i = 0; i < 12; i += 1) await Promise.resolve();
@@ -58,7 +49,7 @@ function input(timing, request) {
     sleep: timing.sleep,
     config: DEFAULTS,
     apiKey: 'synthetic-test-key',
-    endpoint: ENDPOINT,
+    endpoint: FILLED_ENDPOINT,
     prompt: 'One small edit.',
     turns: [],
   };
@@ -69,7 +60,7 @@ test('native Jev sends the shared contract and reads text and plain headers', as
   const jev = new NativeJev({ now: timing.now });
   const result = await jev.ask(
     input(timing, async (url, init) => {
-      assert.equal(url, ENDPOINT);
+      assert.equal(url, FILLED_ENDPOINT);
       assert.equal(init.headers.authorization, 'Bearer synthetic-test-key');
       assert.equal(JSON.parse(init.body).state.currentRequest.text, 'One small edit.');
       assert.equal(Object.hasOwn(init, 'signal'), false);

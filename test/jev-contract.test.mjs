@@ -5,8 +5,7 @@ import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { buildRequest, parseAnswers, resolveCredentials } from '../lib/jev-contract.mjs';
 
 const config = loadConfig();
-// A live Workers AI answer from clef-flash, 2026-10-05, for "Rename the variable x to count in utils.js.".
-const cloudflareAnswer = JSON.parse(readFileSync(new URL('./fixtures/clef-flash-response.json', import.meta.url)));
+const liveClefFlashAnswer = JSON.parse(readFileSync(new URL('./fixtures/clef-flash-response.json', import.meta.url)));
 
 test('request carries every tier with its route, an uncertain option and a continuation question', () => {
   const body = buildRequest(config, 'do x', [{ role: 'user', text: 'hi' }]);
@@ -36,8 +35,8 @@ for (const [name, body] of [
 }
 
 test('a Cloudflare answer reads the same as a bare one', () => {
-  const advice = parseAnswers(cloudflareAnswer);
-  assert.deepEqual(advice, parseAnswers(cloudflareAnswer.result));
+  const advice = parseAnswers(liveClefFlashAnswer);
+  assert.deepEqual(advice, parseAnswers(liveClefFlashAnswer.result));
   assert.equal(advice.choice, 'micro');
   assert.equal(advice.probabilities.micro, 0.5923);
   assert.equal(advice.continuation, 0.0164);

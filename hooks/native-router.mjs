@@ -330,7 +330,7 @@ function isNativeFallback(loop, model) {
   return known.length > 0 && !known.some((id) => isSameModel(id, model));
 }
 
-async function* passMain($, e, next, loop, version, nativeModel, reason, config, runtime) {
+async function* passMain($, e, next, loop, version, nativeModel, reason, runtime) {
   const ref = { ...LOOP, id: 'main' };
   const context = await contextOf($, loop);
   await updateView($, runtime, {
@@ -344,7 +344,7 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, config,
   const sessionId = await $.session.id();
   const response = yield* next(e);
   if (!next.signal.aborted && (await $.session.id()) === sessionId) {
-    const observed = observeResponse(config, loop, {
+    const observed = observeResponse(loop, {
       usage: response.usage,
       requestedModel: e.model,
       effort: e.effort ?? null,
@@ -479,10 +479,10 @@ export function register(on, options) {
     let loopVersion = loaded.version;
     let loop = prepareLoop(loaded.value ?? emptyLoop(cfg, e.model), e.messageCount);
     if (view.phase === 'unavailable' || mode === 'manual') {
-      return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'manual', cfg, runtime);
+      return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'manual', runtime);
     }
     if (loop.turnId === e.turnId && isNativeFallback(loop, e.model)) {
-      return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'native-fallback', cfg, runtime);
+      return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'native-fallback', runtime);
     }
     const context = await contextOf($, loop);
     const settings = await $.settings.read();
@@ -592,7 +592,7 @@ export function register(on, options) {
         if (!next.signal.aborted && (await $.session.id()) === sessionId && runtime.view?.activeTurnId === e.turnId) {
           const reserved = await $.state.set(ref, loop, { ifVersion: loopVersion });
           if (reserved.isSet)
-            return yield* passMain($, e, next, loop, reserved.version, nativeModel, 'manual', cfg, runtime);
+            return yield* passMain($, e, next, loop, reserved.version, nativeModel, 'manual', runtime);
         }
         return yield* next(e);
       }
@@ -620,7 +620,7 @@ export function register(on, options) {
     else request.effort = loop.decision.effort;
     const response = yield* next(request);
     if (!next.signal.aborted && (await $.session.id()) === sessionId) {
-      const observed = observeResponse(cfg, loop, {
+      const observed = observeResponse(loop, {
         usage: response.usage,
         requestedModel: request.model,
         effort: request.effort ?? null,

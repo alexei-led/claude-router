@@ -47,7 +47,7 @@ Run this command with the Team `decisions.jsonl` log available in its usual Clau
 
 ```sh
 node experiments/mod-router/scripts/trace-eval.mjs
-node --test test/trace-eval.test.mjs
+node --test experiments/mod-router/scripts/trace-eval.test.mjs
 ```
 
 The script writes aggregate counts, reason histograms, route transitions, and shadow estimates. It excludes prompts, session identifiers, agent names, error text, headers, keys, and filesystem paths from the result. It reads the local profile log and writes the JSON result file.

@@ -3,8 +3,8 @@ import test from 'node:test';
 import { DEFAULTS } from '../lib/config.mjs';
 import { bandSegments, fitSegments } from '../lib/native-band.mjs';
 
-// What a 60-column band keeps once the Router button has its 8 columns.
-const NARROW = 52;
+const ROUTER_BUTTON_COLUMNS = 8;
+const SIXTY_COLUMNS = 60 - ROUTER_BUTTON_COLUMNS;
 const actions = new Proxy({}, { get: () => () => {} });
 const routes = [
   ['low', 'claude-sonnet-5-5', 'medium'],
@@ -12,13 +12,13 @@ const routes = [
   ['high', 'claude-opus-5-5', 'xhigh'],
 ];
 
-test('a narrow band keeps the missing-credential warning and Set up for every classifier and route', () => {
+test('a 60-column band keeps the missing-credential warning and Set up beside the Router button for every classifier and route', () => {
   for (const id of Object.keys(DEFAULTS.classifiers)) {
     const config = { ...DEFAULTS, classifier: id };
     for (const error of ['missing-key', 'missing-account']) {
       for (const [tier, selectedModel, effort] of routes) {
         const view = { mode: 'auto', phase: 'routed', tier, selectedModel, effort, error };
-        const parts = fitSegments(bandSegments(config, view, null, actions), NARROW).flatMap((s) => s.parts);
+        const parts = fitSegments(bandSegments(config, view, null, actions), SIXTY_COLUMNS).flatMap((s) => s.parts);
         const label = `${id} ${error} on ${tier}`;
         assert.ok(
           parts.some((p) => p.text?.startsWith(`⚠ ${DEFAULTS.classifiers[id].label}: no `)),

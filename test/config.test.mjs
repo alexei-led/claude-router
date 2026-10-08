@@ -50,8 +50,7 @@ for (const [name, userFile, message] of [
   });
 }
 
-// Strict router.json: every key must be known, every number finite. A typo fails loudly instead of doing nothing.
-const parse = (json) => JSON.parse(json); // JSON.parse keeps "__proto__" as an own key, as readJsonFile does
+const fromDisk = (json) => JSON.parse(json);
 
 for (const [name, userFile, message] of [
   ['an unknown top-level key', { routs: {} }, /routs/],
@@ -62,9 +61,9 @@ for (const [name, userFile, message] of [
   ['an unknown cache key', { cache: { ttl: 1 } }, /cache\.ttl/],
   ['an unknown classifier key', { classifiers: { jev: { url: 'x' } } }, /classifiers\.jev\.url/],
   ['an unknown context key', { context: { turns: 3 } }, /context\.turns/],
-  ['a __proto__ key at the top', parse('{"__proto__": {"log": false}}'), /__proto__/],
-  ['a __proto__ model alias', parse('{"models": {"__proto__": {}}}'), /models\.__proto__/],
-  ['a __proto__ ttl', parse('{"cache": {"ttlMs": {"__proto__": 1}}}'), /cache\.ttlMs\.__proto__/],
+  ['a __proto__ key at the top', fromDisk('{"__proto__": {"log": false}}'), /__proto__/],
+  ['a __proto__ model alias', fromDisk('{"models": {"__proto__": {}}}'), /models\.__proto__/],
+  ['a __proto__ ttl', fromDisk('{"cache": {"ttlMs": {"__proto__": 1}}}'), /cache\.ttlMs\.__proto__/],
   ['a constructor model alias', { models: { constructor: {} } }, /models\.constructor/],
   ['a route to an inherited property', { routes: { low: { model: 'constructor' } } }, /routes\.low\.model/],
   ['a route to toString', { routes: { low: { model: 'toString' } } }, /routes\.low\.model/],
@@ -78,10 +77,10 @@ for (const [name, userFile, message] of [
   ['a zero downgradeHorizonTurns', { policy: { downgradeHorizonTurns: 0 } }, /policy\.downgradeHorizonTurns/],
   ['a fractional downgradeHorizonTurns', { policy: { downgradeHorizonTurns: 1.5 } }, /policy\.downgradeHorizonTurns/],
   ['a non-numeric downgradeHorizonTurns', { policy: { downgradeHorizonTurns: 'x' } }, /policy\.downgradeHorizonTurns/],
-  ['an infinite cashCapUsd', parse('{"policy": {"cashCapUsd": 1e999}}'), /policy\.cashCapUsd/],
+  ['an infinite cashCapUsd', fromDisk('{"policy": {"cashCapUsd": 1e999}}'), /policy\.cashCapUsd/],
   [
     'an infinite classifier timeout',
-    parse('{"classifiers": {"jev": {"timeoutMs": 1e999}}}'),
+    fromDisk('{"classifiers": {"jev": {"timeoutMs": 1e999}}}'),
     /classifiers\.jev\.timeoutMs/,
   ],
   ['an empty classifier endpoint', { classifiers: { clef: { endpoint: '' } } }, /classifiers\.clef\.endpoint/],
@@ -112,7 +111,7 @@ for (const [name, userFile, message] of [
   ],
   ['an active classifier that is not configured', { classifier: 'gpt' }, /classifier is not in classifiers/],
   ['an active classifier on an inherited property', { classifier: 'toString' }, /classifier is not in classifiers/],
-  ['a __proto__ classifier id', parse('{"classifiers": {"__proto__": {}}}'), /classifiers\.__proto__/],
+  ['a __proto__ classifier id', fromDisk('{"classifiers": {"__proto__": {}}}'), /classifiers\.__proto__/],
   ['the 1.1 jev section', { jev: { timeoutMs: 900 } }, /scripts\/migrate-config\.mjs/],
   ['a zero write multiplier', { cache: { writeMultiplier: { '5m': 0 } } }, /cache\.writeMultiplier\.5m/],
   ['a negative ttl', { cache: { ttlMs: { '1h': -1 } } }, /cache\.ttlMs\.1h/],
@@ -120,7 +119,7 @@ for (const [name, userFile, message] of [
   ['zero recent turns', { context: { recentTurns: 0 } }, /context\.recentTurns/],
   ['fractional text chars', { context: { maxTextChars: 1.5 } }, /context\.maxTextChars/],
 ]) {
-  test(`rejects ${name}`, () => {
+  test(`strict router.json rejects ${name} instead of ignoring it`, () => {
     assert.throws(() => loadConfig({ userFile }), message);
   });
 }
@@ -202,7 +201,7 @@ test('withRoutes writes only the routes and baseline that differ from the defaul
   }
 });
 
-test('a pane save keeps router.json edits made on disk after the session loaded it', () => {
+test('withRoutes keeps router.json edits made on disk after the session loaded it', () => {
   const base = loadConfig({});
   const draft = {
     routes: { ...structuredClone(DEFAULTS.routes), micro: { model: 'sonnet', effort: null } },
@@ -214,27 +213,35 @@ test('a pane save keeps router.json edits made on disk after the session loaded 
     routes: { micro: { model: 'sonnet', effort: null }, high: { model: 'sonnet' } },
     baselineTier: 'medium',
   });
-  const saved = tuningOf(base);
-  assert.deepEqual(
-    withTuning(
+});
+
+test('withTuning writes only the tuning values the draft changed and keeps edits made on disk', () => {
+  const defaults = tuningOf(loadConfig({}));
+  for (const [name, onDisk, draft, saved, expected] of [
+    [
+      'a changed value joins the edits on disk',
       { classifiers: { jev: { timeoutMs: 900 } }, policy: { downgradeVotes: 3 } },
-      { ...saved, horizon: 10 },
-      saved,
-    ),
-    { classifiers: { jev: { timeoutMs: 900 } }, policy: { downgradeVotes: 3, downgradeHorizonTurns: 10 } },
-  );
-  assert.deepEqual(
-    withTuning(
+      { ...defaults, horizon: 10 },
+      defaults,
+      { classifiers: { jev: { timeoutMs: 900 } }, policy: { downgradeVotes: 3, downgradeHorizonTurns: 10 } },
+    ],
+    [
+      'a value set back to its default is removed',
       { policy: { downgradeVotes: 3, upgradeVotes: 3 } },
-      { ...saved, downgradeVotes: 2 },
-      {
-        ...saved,
-        downgradeVotes: 3,
-      },
-    ),
-    { policy: { upgradeVotes: 3 } },
-  );
-  assert.deepEqual(withTuning({ policy: { cashCapUsd: 5 } }, saved, { ...saved, cashCapUsd: 5 }), {});
+      { ...defaults, downgradeVotes: 2 },
+      { ...defaults, downgradeVotes: 3 },
+      { policy: { upgradeVotes: 3 } },
+    ],
+    [
+      'the last override removed drops its section',
+      { policy: { cashCapUsd: 5 } },
+      defaults,
+      { ...defaults, cashCapUsd: 5 },
+      {},
+    ],
+  ]) {
+    assert.deepEqual(withTuning(onDisk, draft, saved), expected, name);
+  }
 });
 
 test('a classifier can be selected, partly overridden or added', () => {
