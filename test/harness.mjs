@@ -2,6 +2,14 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { register } from '../hooks/native-router.mjs';
 
+const element = (type) => (props) => ({ type, props });
+export const ELEMENTS = {
+  Box: element('Box'),
+  Text: element('Text'),
+  Button: element('Button'),
+  Select: element('Select'),
+};
+
 export function harness(options = {}, preferences = new Map()) {
   const hooks = [];
   const state = new Map();
@@ -93,10 +101,7 @@ export function harness(options = {}, preferences = new Map()) {
       toast: (text) => toasts.push(text),
       open: async () => ({}),
       close: async () => {},
-      resolve: () => {
-        const element = (type) => (props) => ({ type, props });
-        return { Box: element('Box'), Text: element('Text'), Button: element('Button'), Select: element('Select') };
-      },
+      resolve: () => ELEMENTS,
     },
   };
   register(

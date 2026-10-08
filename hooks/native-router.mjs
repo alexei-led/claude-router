@@ -4,6 +4,7 @@ import {
   effectiveRoutes,
   loadConfig,
   MIGRATION_HINT,
+  routeModel,
   TIERS,
   tuningOf,
   withClassifier,
@@ -14,7 +15,13 @@ import {
 import { clip } from '../lib/facts-pure.mjs';
 import { resolveCredentials } from '../lib/jev-contract.mjs';
 import { renderBand, switchToast } from '../lib/native-band.mjs';
-import { classifierStatus, GATEWAY_CLEANUP, GATEWAY_SETTINGS, missingCredentials } from '../lib/native-display.mjs';
+import {
+  classifierStatus,
+  classifierTimed,
+  GATEWAY_CLEANUP,
+  GATEWAY_SETTINGS,
+  missingCredentials,
+} from '../lib/native-display.mjs';
 import { NativeJev } from '../lib/native-jev.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/native-panel.mjs';
 import {
@@ -390,7 +397,7 @@ export function register(on, options) {
       const base = await $.env.get('ANTHROPIC_BASE_URL');
       const version = await $.session.version().catch(() => null);
       const supported = supportedVersion(version?.version);
-      const baselineModel = config.models[config.routes[config.baselineTier].model].id;
+      const baselineModel = routeModel(config, config.baselineTier).id;
       const gateway =
         ['jev-router', 'jev-router[1m]'].includes(model) ||
         model === 'router' ||
@@ -568,10 +575,7 @@ export function register(on, options) {
                 ? {
                     error: result.error,
                     health: healthOf(clientOf(cfg.classifier), cfg.classifier),
-                    adviceMs:
-                      pin || ['missing-key', 'missing-account', 'busy', 'paused'].includes(result.error)
-                        ? null
-                        : Date.now() - adviceStarted,
+                    adviceMs: pin || !classifierTimed(result.error) ? null : Date.now() - adviceStarted,
                     adviceChoice: result.advice?.choice ?? null,
                     probabilities: result.advice?.probabilities ?? null,
                     estimate: selected.decision.estimate ?? null,

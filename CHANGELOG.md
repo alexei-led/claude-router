@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The band and the pane's **Served** row now call a reply a fallback by the same rule routing uses: the requested model, or its one mapped dated snapshot (Haiku 4.5). Before, they accepted any dated suffix of the requested model, so a reply that routing treated as an engine substitution could show no **fallback**.
+
 ## 1.3.1 (2026-10-08)
 
 ### Changed
