@@ -18,8 +18,8 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
     phase: 'routed',
     mode: 'auto',
     nativeModel: 'claude-sonnet-5-5',
-    selectedModel: 'claude-haiku-4-5',
-    actualModel: 'claude-haiku-4-5-20251001',
+    selectedModel: 'claude-haiku-5-5',
+    actualModel: 'claude-haiku-5-5',
     effort: null,
     reason: 'pinned',
     error: null,
@@ -64,7 +64,7 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
         view: {},
       },
     });
-    expect(await pane.find({ type: 'Text', text: /Context.*75%.*200.0K/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /Context.*15%.*1.00M/ })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /Cache.*80%/ })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /2 switches/ })).toBeDefined();
     await pane.press({ key: 'tab-usage' });
