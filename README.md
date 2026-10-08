@@ -3,9 +3,23 @@
 [![CI](https://github.com/alexei-led/claude-router/actions/workflows/ci.yml/badge.svg)](https://github.com/alexei-led/claude-router/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**A Claude Code Mod that chooses a model and effort for each main-conversation turn, advised by a prompt classifier: Jev, or Cloudflare's Clef and Clef Flash.**
+**A Claude Code Mod that chooses a model and effort for each main-conversation turn, advised by a prompt classifier: Jev, Cloudflare's Clef and Clef Flash, OpenAI, or a local Ollama model.**
 
-The Mod changes only the model and effort in Claude Code's turn hook. Claude Code sends the request, streams the reply, runs tools, and reports usage. The router does not proxy Anthropic traffic or start a local server. Subagent model choices pass through unchanged.
+The Mod changes only the model and effort in Claude Code's turn hook. Claude Code sends the request, streams the reply, runs tools, and reports usage. The router does not proxy Anthropic traffic or start a local server; an Ollama classifier calls an Ollama server that you run. Subagent model choices pass through unchanged.
+
+## Supported classifiers
+
+The active classifier is asked once per logical turn. Pick one on the pane's **Classifier** tab or in `router.json`; only the active one receives prompt text.
+
+| Classifier | Service                                    | Credential                                  | Prompt text goes to          |
+| ---------- | ------------------------------------------ | ------------------------------------------- | ---------------------------- |
+| Jev        | [typesafe.ai](https://typesafe.ai)         | Jev API key                                 | typesafe.ai                  |
+| Clef       | Cloudflare Workers AI, 27B                 | Cloudflare API token and account ID         | Cloudflare                   |
+| Clef Flash | Cloudflare Workers AI, 9B                  | Cloudflare API token and account ID         | Cloudflare                   |
+| OpenAI     | OpenAI, `gpt-6-luna` (public beta)         | OpenAI API key                              | OpenAI (`api.openai.com`)    |
+| Ollama     | A local [Ollama](https://ollama.com) model | None                                        | Stays on this machine        |
+
+Jev is the default. [Configuration](docs/configuration.md#classifiers) gives the endpoints, timeouts, and how to add another service that speaks one of the supported protocols.
 
 ![The Router band above the Claude Code prompt in five states](docs/router-band.svg)
 
@@ -49,14 +63,14 @@ These are routing defaults. They do not claim equal model quality. [Configuratio
 
 ## Install
 
-You need Claude Code 2.1.289 or newer and credentials for one classifier: a Jev API key from [typesafe.ai](https://typesafe.ai), or a Cloudflare API token and account ID for [Clef or Clef Flash](https://developers.cloudflare.com/workers-ai/models/clef/) on Workers AI.
+You need Claude Code 2.1.289 or newer and credentials for one [supported classifier](#supported-classifiers).
 
 ```sh
 claude plugin marketplace add alexei-led/claude-router
 claude plugin install router@alexei-led-claude-router
 ```
 
-Start Claude Code on the full baseline model, for example `claude --model claude-haiku-5-5`. Run `/plugin configure router` and save the key. For Clef or Clef Flash, save the Cloudflare token and account ID, then pick the classifier on the pane's Classifier tab. A new session on a model that one of the tiers routes to starts in Auto; on another model it starts in Manual, and `/router auto` turns routing on.
+Start Claude Code on the full baseline model, for example `claude --model claude-haiku-5-5`. Run `/plugin configure router` and save the key. For any other classifier, save its credentials, or run `ollama serve` with a pulled model, then pick the classifier on the pane's Classifier tab. A new session on a model that one of the tiers routes to starts in Auto; on another model it starts in Manual, and `/router auto` turns routing on.
 
 Claude Code updates the plugin at startup when auto-update is on for this marketplace. Otherwise run `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`.
 

@@ -20,7 +20,7 @@ test('defaults load without a user file, with Jev as the classifier', () => {
   assert.deepEqual(config.routes.low, { model: 'haiku', effort: 'high' });
   assert.equal(config.baselineTier, 'low');
   assert.equal(config.classifier, 'jev');
-  assert.deepEqual(Object.keys(config.classifiers), ['jev', 'clef', 'clef-flash']);
+  assert.deepEqual(Object.keys(config.classifiers), ['jev', 'clef', 'clef-flash', 'openai', 'ollama']);
 });
 
 test('user file overrides merge deeply and keep the rest', () => {
@@ -99,6 +99,7 @@ for (const [name, userFile, message] of [
   ['a stray brace in an endpoint', { classifiers: { jev: { endpoint: 'https://x/{Account}' } } }, /placeholders/],
   ['a non-string classifier model', { classifiers: { jev: { model: 5 } } }, /classifiers\.jev\.model/],
   ['a key option that is not a plugin option', { classifiers: { jev: { keyOption: 'house_key' } } }, /keyOption/],
+  ['an unknown classifier API', { classifiers: { jev: { api: 'anthropic' } } }, /classifiers\.jev\.api/],
   [
     'an endpoint setting that is not a plugin option',
     { classifiers: { jev: { endpoint: 'https://x/{region}/decide' } } },
@@ -269,7 +270,7 @@ test('a classifier can be selected, partly overridden or added', () => {
       'clef',
       { ...DEFAULTS.classifiers.clef, timeoutMs: 4000 },
     ],
-    ['a new one', { classifier: 'house', classifiers: { house } }, 'house', house],
+    ['a new one', { classifier: 'house', classifiers: { house } }, 'house', { api: 'system-one', ...house }],
   ]) {
     const config = loadConfig({ userFile });
     assert.equal(config.classifier, id, name);
@@ -337,6 +338,25 @@ test('withClassifierTimeout writes only a deadline that differs from the default
 test('classifiers read exactly the options plugin.json declares', () => {
   const manifest = JSON.parse(readFileSync(new URL('../.claude-plugin/plugin.json', import.meta.url), 'utf8'));
   assert.deepEqual(Object.keys(manifest.userConfig).sort(), Object.keys(CLASSIFIER_OPTIONS).sort());
+});
+
+test('a keyless classifier needs no key option; a user entry speaks System One unless it names an API', () => {
+  const config = loadConfig({
+    userFile: {
+      classifiers: {
+        'local-proxy': {
+          label: 'Proxy',
+          endpoint: 'http://127.0.0.1:9/v1',
+          model: 'm',
+          keyOption: null,
+          timeoutMs: 800,
+        },
+      },
+    },
+  });
+  assert.equal(config.classifiers.ollama.keyOption, null);
+  assert.equal(config.classifiers['local-proxy'].api, 'system-one');
+  assert.equal(config.classifiers.openai.api, 'openai-decisions');
 });
 
 test('a loopback http endpoint passes for local stubs', () => {

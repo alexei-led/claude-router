@@ -9,7 +9,8 @@ The router works with its built-in defaults. Configure the key of the active cla
 | Jev API key                        | Sensitive plugin option `typesafe_api_key`      | Run `/plugin configure router`, or use **Set up** or **Credentials → Edit** in the router pane. |
 | Cloudflare API token               | Sensitive plugin option `cloudflare_api_token`  | The same dialog. Used by Clef and Clef Flash.                                                   |
 | Cloudflare account ID              | Plugin option `cloudflare_account_id`           | The same dialog, or the config menu row. Not a secret.                                          |
-| Router settings and classifier     | `router.json` in the active Claude Code profile | Edit the file directly, or use the pane's Routing and Classifier tabs.                                |
+| OpenAI API key                     | Sensitive plugin option `openai_api_key`        | The same dialog. Used only by the OpenAI classifier. Ollama needs no key.                       |
+| Router settings and classifier     | `router.json` in the active Claude Code profile | Edit the file directly, or use the pane's Routing and Classifier tabs.                          |
 | Anthropic credentials and API cost | Claude Code                                     | The Mod leaves these to Claude Code.                                                            |
 
 The active profile directory is `CLAUDE_CONFIG_DIR` when set. Otherwise it is `~/.claude`. The Mod does not need an Anthropic proxy URL, model alias, hint header, daemon, or custom status line.
@@ -21,6 +22,7 @@ The Mod reads each value from its plugin option first. When the option is empty,
 | `typesafe_api_key`      | `TYPESAFE_API_KEY`, `CLAUDE_PLUGIN_OPTION_TYPESAFE_API_KEY`           |
 | `cloudflare_api_token`  | `CLOUDFLARE_API_TOKEN`, `CLAUDE_PLUGIN_OPTION_CLOUDFLARE_API_TOKEN`   |
 | `cloudflare_account_id` | `CLOUDFLARE_ACCOUNT_ID`, `CLAUDE_PLUGIN_OPTION_CLOUDFLARE_ACCOUNT_ID` |
+| `openai_api_key`        | `OPENAI_API_KEY`, `CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY`               |
 
 Export the variables before you start `claude`. Without the key or the account ID of the active classifier, the Mod keeps Claude's current model and reports which value is missing.
 
@@ -59,13 +61,15 @@ Prices are configured list-price inputs for estimates. They are not a subscripti
 
 ## Classifiers
 
-`classifier` names the active entry of `classifiers`. All entries use the same typed-questions API: Router sends the same request to each and reads the same answer. Cloudflare wraps that answer in `{ result, success, errors }`; Router reads both forms.
+`classifier` names the active entry of `classifiers`. Each entry names its wire protocol in `api`: `system-one` for Jev, Clef and Clef Flash, `openai-decisions` for OpenAI, and `ollama` for a local Ollama server. Every protocol is converted to the same advice, so the routing policy does not change with the classifier. Cloudflare wraps the System One answer in `{ result, success, errors }`; Router reads both forms.
 
 | `classifier` | Endpoint                                                                                                 | Request `model` | Key option             | `timeoutMs` |
 | ------------ | -------------------------------------------------------------------------------------------------------- | --------------- | ---------------------- | ----------: |
 | `jev`        | `https://api.typesafe.ai/v1/systemone`                                                                   | `jev-1.13.0`    | `typesafe_api_key`     |      `1500` |
 | `clef`       | `https://api.cloudflare.com/client/v4/accounts/{cloudflare_account_id}/ai/run/@cf/cloudflare/clef`       | `clef`          | `cloudflare_api_token` |      `3000` |
 | `clef-flash` | `https://api.cloudflare.com/client/v4/accounts/{cloudflare_account_id}/ai/run/@cf/cloudflare/clef-flash` | `clef-flash`    | `cloudflare_api_token` |      `3000` |
+| `openai`     | `https://api.openai.com/v1/decisions`                                                                    | `gpt-6-luna`    | `openai_api_key`       |      `3000` |
+| `ollama`     | `http://127.0.0.1:11434/api/chat`                                                                        | `qwen3.5:9b`    | none                   |      `5000` |
 
 `jev` is the default. Select another one with a row on the pane's **Classifier** tab, or in `router.json`:
 
@@ -73,9 +77,9 @@ Prices are configured list-price inputs for estimates. They are not a subscripti
 { "classifier": "clef-flash" }
 ```
 
-An entry has five fields: `label` (the name the band and pane show), `endpoint`, `model`, `keyOption`, and `timeoutMs`. `endpoint` must use `https`; plain `http` is accepted only for `localhost`, `127.0.0.1`, or `[::1]`, because the key travels with each request. A `{name}` in `endpoint` is filled from the plugin option of that name, URL-encoded. `keyOption` names the plugin option sent as the bearer token. Override one field of a built-in entry and the rest stay, for example `"classifiers": { "clef": { "timeoutMs": 4000 } }`.
+An entry has six fields: `label` (the name the band and pane show), `api`, `endpoint`, `model`, `keyOption`, and `timeoutMs`. An entry without `api` speaks `system-one`. `endpoint` must use `https`; plain `http` is accepted only for `localhost`, `127.0.0.1`, or `[::1]`, because the key travels with each request. A `{name}` in `endpoint` is filled from the plugin option of that name, URL-encoded. `keyOption` names the plugin option sent as the bearer token, or is `null` when the service takes no key. Override one field of a built-in entry and the rest stay, for example `"classifiers": { "clef": { "timeoutMs": 4000 } }`.
 
-You can add an entry for another service that speaks the same API. Its `keyOption` and endpoint placeholders must be one of `typesafe_api_key`, `cloudflare_api_token`, or `cloudflare_account_id`. Claude Code lets a Mod read only the options its manifest declares and environment variables it names in code, so an entry cannot bring a key of its own. Nor can it add request headers. For example, a company proxy in front of Jev:
+You can add an entry for another service that speaks one of the three protocols. Its `keyOption` and endpoint placeholders must be one of `typesafe_api_key`, `cloudflare_api_token`, `cloudflare_account_id`, or `openai_api_key`, or `null` for no key. Claude Code lets a Mod read only the options its manifest declares and environment variables it names in code, so an entry cannot bring a key of its own. Nor can it add request headers. For example, a company proxy in front of Jev:
 
 ```json
 {
@@ -94,7 +98,15 @@ You can add an entry for another service that speaks the same API. Its `keyOptio
 
 The active classifier receives the current prompt and recent dialogue, as described in the [architecture](architecture.md#request-flow). Give a Cloudflare token Workers AI permissions only. The routing policy thresholds were tuned against Jev; another classifier's probabilities can place the same prompt differently.
 
-To check a classifier outside Claude Code, run `node scripts/probe-classifier.mjs [classifier]` from a checkout. It reads `router.json` and the upper-case variables `TYPESAFE_API_KEY`, `CLOUDFLARE_API_TOKEN`, and `CLOUDFLARE_ACCOUNT_ID` from the environment or `./.env`; it does not read plugin options or the `CLAUDE_PLUGIN_OPTION_*` names. It sends the router's real request, and prints the status, latency, and parsed answer. It never prints the key or the full endpoint.
+To check a classifier outside Claude Code, run `node scripts/probe-classifier.mjs [classifier]` from a checkout. It reads `router.json` and the upper-case variables `TYPESAFE_API_KEY`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `OPENAI_API_KEY` from the environment or `./.env`; it does not read plugin options or the `CLAUDE_PLUGIN_OPTION_*` names. It sends the router's real request, and prints the status, latency, and parsed answer. It never prints the key or the full endpoint.
+
+### OpenAI
+
+`openai` sends the prompt and recent dialogue to OpenAI's Decisions API, `POST /v1/decisions`, with `gpt-6-luna`. Save an OpenAI API key in `openai_api_key`. The Decisions API is in public beta, and this adapter follows its guide, not a live check of every response shape.
+
+### Ollama
+
+`ollama` needs no key and keeps the text on this machine. Run `ollama serve`, pull the model named in `model`, and select the classifier. `model` is any tag you have pulled, such as `qwen3.5:9b`; change it under `classifiers.ollama.model`. The endpoint must stay on `localhost`, `127.0.0.1`, or `[::1]`, so a server on another machine on your network is not reachable through this entry. Each request turns thinking off. If Ollama rejects that setting for a model, the request fails and the router keeps the baseline. Ollama unloads an idle model after its keep-alive period, and the first request after that can exceed `timeoutMs` while the model loads; the router then keeps the baseline for that turn.
 
 ## Optional `router.json`
 
@@ -117,7 +129,7 @@ The Mod validates the whole file. Unknown keys and invalid values make routing u
 | `cache`            | `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms |
 | `policy`           | Fields below                                                                         | Values below                                             |
 | `classifier`       | An id in `classifiers`                                                               | `jev`                                                    |
-| `classifiers.<id>` | `label`, `endpoint`, `model`, `keyOption`, `timeoutMs`                               | [Classifiers](#classifiers) above                        |
+| `classifiers.<id>` | `label`, `api`, `endpoint`, `model`, `keyOption`, `timeoutMs`                        | [Classifiers](#classifiers) above                        |
 | `context`          | `recentTurns`, `maxTextChars`                                                        | `6`, `1200`                                              |
 
 Policy defaults:

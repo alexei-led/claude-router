@@ -1,6 +1,6 @@
 # Architecture
 
-Claude Code owns the model request. The router Mod asks the active classifier (Jev by default, or Cloudflare's Clef or Clef Flash) for tier advice, applies local routing policy, and changes only the next main-conversation step's model and effort. Every subagent step passes through with Claude's model selection unchanged.
+Claude Code owns the model request. The router Mod asks the active classifier (Jev by default; Cloudflare's Clef or Clef Flash; OpenAI; or a local Ollama model) for tier advice, applies local routing policy, and changes only the next main-conversation step's model and effort. Every subagent step passes through with Claude's model selection unchanged.
 
 ## Request flow
 
@@ -28,11 +28,11 @@ sequenceDiagram
     Mod-->>Dev: Status band and details pane
 ```
 
-The Mod does not construct an Anthropic request or proxy its response. Claude Code owns authentication, request fields, streaming, tools, model fallback, and its native usage ledger. No local gateway process or port is part of the runtime.
+The Mod does not construct an Anthropic request or proxy its response. Claude Code owns authentication, request fields, streaming, tools, model fallback, and its native usage ledger. No local gateway process or port is part of the runtime. The Ollama classifier calls an Ollama server that you run; the Mod starts none.
 
-The active classifier receives only the current prompt and up to six recent user or assistant text messages. Each text is capped at 1,200 characters. System messages, tool inputs, and tool results are not included. Only the active classifier is asked: Jev sends that text to typesafe.ai, Clef and Clef Flash to Cloudflare Workers AI. The keys are sensitive plugin options; the Cloudflare account ID is a plain one that fills the endpoint. The Mod does not receive Claude's Anthropic credentials.
+The active classifier receives only the current prompt and up to six recent user or assistant text messages. Each text is capped at 1,200 characters. System messages, tool inputs, and tool results are not included. Only the active classifier is asked: Jev sends that text to typesafe.ai, Clef and Clef Flash to Cloudflare Workers AI, OpenAI to api.openai.com. Ollama runs on this machine, so the text stays here. The Jev, Cloudflare, and OpenAI keys are sensitive plugin options; the Cloudflare account ID is a plain one that fills the endpoint. Ollama takes no key. The Mod does not receive Claude's Anthropic credentials.
 
-All classifiers share one wire contract: the same `state` and typed `questions` request, and the same `answers.route` choice with per-tier probabilities. Cloudflare's REST API wraps the answer in `{ result, success, errors }`, which the parser unwraps.
+Each classifier names its wire protocol, `api`, and `classifier-apis.mjs` holds one adapter per protocol. `system-one` (Jev, Clef, Clef Flash) sends the typed `state` and `questions` request and reads `answers.route`; Cloudflare's REST API wraps that answer in `{ result, success, errors }`, which the parser unwraps. `openai-decisions` (OpenAI) sends the state as `input` text and reads a `choice` answer plus a `predicate` for the continuation. `ollama` asks for one letter with thinking off and reads the log-probability of each letter from the top 20 candidates. A letter's probability is its share of the letters found there; a letter missing from the list counts as zero. The Ollama adapter asks no continuation question, so `continuation` is null there. Every adapter returns the same advice shape, so the routing policy is unchanged.
 
 Claude Code builds each request for the model the Mod selects, so no request rewriting is needed: Haiku 4.5 got its own thinking mode and a 32K output cap. On Claude Code 2.1.289, a billed chain of pinned turns (Opus, Haiku 4.5, Sonnet at `xhigh`, Sonnet, Haiku 4.5) used a tool on every turn over the previous models' history, and no request was rejected. Sonnet and Opus accepted histories above 589K input tokens. These checks cover tested requests. They do not prove every Claude Code feature combination.
 
@@ -41,7 +41,8 @@ Claude Code builds each request for the model the Mod selects, so no request rew
 | Component                                             | Responsibility                                                                                                  |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | [Native hooks](../hooks/native-router.mjs)            | Turn identity, controls, lifecycle, per-step rewrites, response observation, pane actions, and every host call. |
-| [Classifier contract](../lib/classifier-contract.mjs) | Classifier request payload, credentials and endpoint filling, answer validation, and retry rules.               |
+| [Classifier contract](../lib/classifier-contract.mjs) | Route criteria and instructions shared by every protocol, credentials and endpoint filling, and retry rules.    |
+| [Classifier APIs](../lib/classifier-apis.mjs)         | One adapter per wire protocol: request payload, answer validation, and the shared advice shape.                 |
 | [Classifier client](../lib/classifier-client.mjs)     | Classifier HTTP, deadline, in-flight admission, and circuit breaker.                                            |
 | [Router controller](../lib/route.mjs)                 | Context fit, model identity, engine fallback, cache observations, and one-turn pins.                            |
 | [Policy](../lib/policy.mjs)                           | Tier votes, escalation, and switching gates.                                                                    |
@@ -74,7 +75,7 @@ Subagent events pass directly to Claude Code. They do not create classifier requ
 
 ## Classifier deadline and failure handling
 
-Each advice attempt has a total deadline, including any transient retry: 1,500 ms for Jev and 3,000 ms for Clef and Clef Flash by default. A timeout does not retry. `Retry-After` is honored only when it fits the remaining budget. Three launched failures pause the classifier for 60 seconds. Missing-key, missing-account, busy, and paused skips do not count as failures. Each classifier has its own failure count, pause, and in-flight slot. A turn that started under one classifier finishes with it, even if the pane switches meanwhile. Switching the classifier, or starting a session with another one, starts the new one from a clean count.
+Each advice attempt has a total deadline, including any transient retry: 1,500 ms for Jev, 3,000 ms for Clef, Clef Flash and OpenAI, and 5,000 ms for Ollama by default. Ollama's first call after its model unloads can exceed that while the model loads. A timeout does not retry. `Retry-After` is honored only when it fits the remaining budget. Three launched failures pause the classifier for 60 seconds. Missing-key, missing-account, busy, and paused skips do not count as failures. Each classifier has its own failure count, pause, and in-flight slot. A turn that started under one classifier finishes with it, even if the pane switches meanwhile. Switching the classifier, or starting a session with another one, starts the new one from a clean count.
 
 The pinned host API does not expose a per-request abort option for `$.http.fetch`. The Mod returns to the incumbent at its own deadline and blocks another advice request while that wire call remains pending. Claude Code's observed host timeout is about 30 seconds. Recorded reload and unload checks closed pending sockets after 24.7 and 28.5 seconds. Replacement closed one after 31.6 seconds. These runs do not show immediate per-call cancellation. A plugin network-policy refusal degrades routing and is never bypassed with a subprocess.
 

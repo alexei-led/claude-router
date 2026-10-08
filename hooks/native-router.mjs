@@ -161,6 +161,8 @@ async function envSettingOf($, name) {
       return (
         (await $.env.get('CLOUDFLARE_ACCOUNT_ID')) || (await $.env.get('CLAUDE_PLUGIN_OPTION_CLOUDFLARE_ACCOUNT_ID'))
       );
+    case 'openai_api_key':
+      return (await $.env.get('OPENAI_API_KEY')) || (await $.env.get('CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY'));
     default:
       return null;
   }
@@ -219,7 +221,7 @@ async function saveConfig($, path, change) {
 }
 
 function detailText(config, view) {
-  const missing = missingCredentials(view, config.classifier);
+  const missing = missingCredentials(config, view, config.classifier);
   return [
     `Router — ${view.mode === 'auto' ? 'Auto' : 'Manual'}`,
     `Native model: ${view.nativeModel}`,

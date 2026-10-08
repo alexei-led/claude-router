@@ -4,9 +4,9 @@ This guide describes the Mod shipped in the plugin. Claude Code 2.1.289 is the m
 
 ## Turn behavior
 
-At the first main step of a logical turn, the Mod reads recent message text and asks the active classifier (Jev, Clef, or Clef Flash) for a tier. It applies local policy and saves the route. Tool continuations reuse that route. Before each continuation, context fit is checked again. A large tool result can move the step to a model with a larger window.
+At the first main step of a logical turn, the Mod reads recent message text and asks the active classifier (Jev, Clef, Clef Flash, OpenAI, or Ollama) for a tier. It applies local policy and saves the route. Tool continuations reuse that route. Before each continuation, context fit is checked again. A large tool result can move the step to a model with a larger window.
 
-The classifier receives the current prompt and at most six preceding user or assistant text messages. Each item is limited to 1,200 characters. It does not receive system messages, tool inputs, or tool results. Claude Code's Anthropic credentials never enter the classifier request.
+The classifier receives the current prompt and at most six preceding user or assistant text messages. Each item is limited to 1,200 characters. It does not receive system messages, tool inputs, or tool results. Claude Code's Anthropic credentials never enter the classifier request. Jev, Clef, Clef Flash, and OpenAI receive the text on their services; Ollama receives it on this machine. [Configuration](configuration.md#classifiers) lists each host.
 
 The default tiers are defined in [Configuration](configuration.md#built-in-defaults). Policy uses vote hysteresis, repeated tool errors, context fit, model availability, and switching-cost estimates. The [architecture](architecture.md#request-flow) explains the event boundary and failure handling.
 
@@ -50,12 +50,12 @@ There is no router-owned cost ledger or cumulative savings counter. Classifier c
 
 The Routing tab edits each tier's model alias and effort, the baseline tier, and three policy controls as one draft. The draft does not affect the active turn, survives a tab change or closing the pane, and is dropped at a new session. **Save** validates the whole file with the same loader the Mod starts with, writes `router.json` for future turns, and keeps unrelated keys. A route or policy value equal to the built-in default is removed from the file, so later default changes still reach it. The Classifier tab writes the classifier choice and its deadline at once. **Undo** reverts the settings the last pane write changed, from any tab, until the next write or a new session.
 
-| Control          | Values in the pane          | Effect                                                                                   |
-| ---------------- | --------------------------- | ---------------------------------------------------------------------------------------- |
-| Deadline         | 500, 1,000, 1,500, 3,000 ms | The active classifier's total advice time, including any transient retry. Saved at once. |
-| Votes to go down | 1, 2, 3                     | Consecutive votes required for a downgrade.                                              |
-| Payback horizon  | 1, 3, 5, 10 turns           | Later turns included in downgrade economics.                                             |
-| Credits cap      | $0.50, $1, $2, $5           | Largest estimated cold write on a `credits` model.                                       |
+| Control          | Values in the pane                 | Effect                                                                                   |
+| ---------------- | ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| Deadline         | 500, 1,000, 1,500, 3,000, 5,000 ms | The active classifier's total advice time, including any transient retry. Saved at once. |
+| Votes to go down | 1, 2, 3                            | Consecutive votes required for a downgrade.                                              |
+| Payback horizon  | 1, 3, 5, 10 turns                  | Later turns included in downgrade economics.                                             |
+| Credits cap      | $0.50, $1, $2, $5                  | Largest estimated cold write on a `credits` model.                                       |
 
 The classifier section lists every configured classifier as a row with its service host and whether its key and endpoint settings are complete. Selecting a row writes `classifier` to `router.json` at once, or removes it for the default, through the same validation, and resets the new classifier's failure count. A turn already being classified finishes with its own classifier; its readings stay off the pane. **Undo** returns to the previous classifier. The deadline saves at once too, and a built-in classifier's default deadline is written as no override. **Sends** names the host that receives prompt text.
 

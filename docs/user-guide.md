@@ -21,7 +21,9 @@ In Claude Code:
 2. Enter the credentials of the classifier you use, and save them:
    - **Jev** (the default): the Jev API key from typesafe.ai.
    - **Clef** or **Clef Flash** on Cloudflare Workers AI: the Cloudflare API token and the Cloudflare account ID. One token covers both models.
-3. To use Clef or Clef Flash, open the pane's **Classifier** tab and select its row. See [Choose the classifier](#choose-the-classifier).
+   - **OpenAI**: an OpenAI API key. The prompt text goes to OpenAI.
+   - **Ollama**: no credential. Run `ollama serve` and pull the model; the prompt text stays on this machine.
+3. To use another classifier, open the pane's **Classifier** tab and select its row. See [Choose the classifier](#choose-the-classifier).
 4. Check the band above the prompt: `▂▄▆█ Auto · ready`. On a model that no tier routes to, the session starts in Manual; run `/router auto` to route.
 
 Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers optional settings and migrations.
@@ -138,13 +140,15 @@ Under **Policy** on the same tab, pick the values. One **Save** writes them with
 
 ## Choose the classifier
 
-Router asks one classifier per turn. Three are built in:
+Router asks one classifier per turn. Five are built in:
 
 | Classifier | Service                    | Credentials                                    | Deadline |
 | ---------- | -------------------------- | ---------------------------------------------- | -------: |
 | Jev        | typesafe.ai                | Jev API key                                    | 1,500 ms |
 | Clef       | Cloudflare Workers AI, 27B | Cloudflare API token and Cloudflare account ID | 3,000 ms |
 | Clef Flash | Cloudflare Workers AI, 9B  | Cloudflare API token and Cloudflare account ID | 3,000 ms |
+| OpenAI     | OpenAI, `gpt-6-luna`       | OpenAI API key                                 | 3,000 ms |
+| Ollama     | Local Ollama, `qwen3.5:9b` | None                                           | 5,000 ms |
 
 ![The Classifier tab: classifier rows with the active one marked, a missing Jev API key with Set up, the deadline, health, the receiving host, the credentials each classifier needs, and Undo after a switch](router-pane-classifier.svg)
 
@@ -152,13 +156,23 @@ You can save credentials for all of them; only the active one is asked. The **Cl
 
 Select a row to switch. The choice is written to `router.json` at once and applies from the next turn. **Undo** in the status bar returns to the previous classifier. A turn that is already being classified finishes with the classifier it started with. The new classifier starts with a clean failure count.
 
-- **Deadline:** 500, 1,000, 1,500, or 3,000 ms for the active classifier's total advice attempt, including any retry. Each classifier keeps its own deadline, saved at once, with **Undo**.
+- **Deadline:** 500, 1,000, 1,500, 3,000, or 5,000 ms for the active classifier's total advice attempt, including any retry. Each classifier keeps its own deadline, saved at once, with **Undo**.
 - **Health** shows recent failures or a pause. **Sends** names the service that receives prompt text.
-- **Credentials** lists what each classifier needs, such as `Jev: API key · Clef, Clef Flash: API token, account ID`. **Edit** opens Claude Code's secure plugin configuration, where you enter them.
+- **Credentials** lists what each classifier needs, such as `Jev: API key · Clef, Clef Flash: API token, account ID · OpenAI: API key · Ollama: no key needed`. **Edit** opens Claude Code's secure plugin configuration, where you enter them.
 
-**Sends** names the service that receives the prompt and recent dialogue. With Clef or Clef Flash that is Cloudflare, not typesafe.ai. Give the Cloudflare token Workers AI permissions only.
+**Sends** names the service that receives the prompt and recent dialogue. With Clef or Clef Flash that is Cloudflare, not typesafe.ai; with OpenAI it is OpenAI; with Ollama it stays on this machine. Give the Cloudflare token Workers AI permissions only.
 
-The routing policy thresholds were tuned against Jev's probabilities. Clef's probabilities have not been compared with Jev's, so the same prompt can switch tiers at a different point. Watch **Classifier support** for a few sessions before you rely on a new classifier.
+The routing policy thresholds were tuned against Jev's probabilities. Clef's, OpenAI's, and Ollama's probabilities have not been compared with Jev's, so the same prompt can switch tiers at a different point. Watch **Classifier support** for a few sessions before you rely on a new classifier.
+
+### Use Ollama
+
+Ollama runs the classifier on this machine, so the prompt text does not leave it. It needs no key.
+
+1. Install Ollama and pull a model: `ollama pull qwen3.5:9b`.
+2. Start the server: `ollama serve`. The router calls `http://127.0.0.1:11434`.
+3. On the pane's **Classifier** tab, select the **Ollama** row, or set `"classifier": "ollama"` in `router.json`.
+
+The model is the `model` field of `classifiers.ollama` in [Configuration](configuration.md#ollama). To use another tag, pull it and set `"classifiers": { "ollama": { "model": "<tag>" } }`.
 
 ## Move from v0.8 gateway setup
 
@@ -179,16 +193,20 @@ To stop routing for a session, run `/router off`. To stop loading the Mod, run `
 
 ## Troubleshooting
 
-| Symptom                                    | Cause                                                                            | Fix                                                                                                                                                                |
-| ------------------------------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Status says `no API key` or `no API token` | The active classifier's plugin option is unset or unavailable to this process.   | Select **Set up** in the pane, or run `/plugin configure router`. Save the option and start a new turn.                                                            |
-| Status says `no account ID`                | Clef or Clef Flash is active without the Cloudflare account ID.                  | Run `/plugin configure router` and save the Cloudflare account ID.                                                                                                 |
-| Route stays on the current model           | The classifier timed out, failed, is paused, or network policy refused it.       | Read the status band and the pane header. Network policy refusal is not bypassed.                                                                                  |
-| `/model` changed but routing stopped       | Choosing a model enters Manual mode.                                             | Run `/router auto` to resume automatic routing.                                                                                                                    |
-| Router reports invalid configuration       | `router.json` is invalid, or project/local settings redirect the router profile. | Inspect `router.json`, remove project/local `HOME` or `CLAUDE_CONFIG_DIR` overrides, or run the [migration command](configuration.md#convert-an-older-routerjson). |
-| Router says old settings need migration    | `router.json` still contains v0.8 gateway keys or the 1.1 `jev` section.         | Run the [migration command](configuration.md#convert-an-older-routerjson).                                                                                         |
-| Band reads `v0.8 gateway settings remain`  | The `jev-router[1m]` model or the `127.0.0.1:43170` base URL is still set.       | Run `/router`: it lists the keys. Remove them as in the [migration checklist](configuration.md#convert-a-v08-configuration) and restart.                           |
-| Router controls are unavailable            | Claude Code is older than 2.1.289.                                               | Update Claude Code.                                                                                                                                                |
-| Context reads as unknown                   | The router lacks a reliable local estimate or current-history measurement.       | Keep using the current model, or start a new history with a supported context estimate.                                                                            |
+| Symptom                                     | Cause                                                                            | Fix                                                                                                                                                                |
+| ------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Status says `no API key` or `no API token`  | The active classifier's plugin option is unset or unavailable to this process.   | Select **Set up** in the pane, or run `/plugin configure router`. Save the option and start a new turn.                                                            |
+| Status says `no account ID`                 | Clef or Clef Flash is active without the Cloudflare account ID.                  | Run `/plugin configure router` and save the Cloudflare account ID.                                                                                                 |
+| Route stays on the current model            | The classifier timed out, failed, is paused, or network policy refused it.       | Read the status band and the pane header. Network policy refusal is not bypassed.                                                                                  |
+| `/model` changed but routing stopped        | Choosing a model enters Manual mode.                                             | Run `/router auto` to resume automatic routing.                                                                                                                    |
+| Router reports invalid configuration        | `router.json` is invalid, or project/local settings redirect the router profile. | Inspect `router.json`, remove project/local `HOME` or `CLAUDE_CONFIG_DIR` overrides, or run the [migration command](configuration.md#convert-an-older-routerjson). |
+| Router says old settings need migration     | `router.json` still contains v0.8 gateway keys or the 1.1 `jev` section.         | Run the [migration command](configuration.md#convert-an-older-routerjson).                                                                                         |
+| `⚠ OpenAI rejected the key · keeping model` | The OpenAI key is wrong, revoked, or lacks access to `gpt-6-luna`.               | Run `/plugin configure router` and save a valid OpenAI API key.                                                                                                    |
+| `⚠ Ollama unreachable · keeping model`      | No Ollama server listens on `127.0.0.1:11434`.                                   | Run `ollama serve`, then start a new turn.                                                                                                                         |
+| `⚠ Ollama timed out · keeping model`        | The model is loading after an idle period, or the machine is slow.               | Wait for one more turn. If it recurs, raise `classifiers.ollama.timeoutMs` in `router.json`.                                                                       |
+| `⚠ Ollama request failed · keeping model`   | The tag in `model` is not pulled, or Ollama rejected a request setting.          | Run `ollama pull <model>` for the tag in `model`, or choose another model.                                                                                         |
+| Band reads `v0.8 gateway settings remain`   | The `jev-router[1m]` model or the `127.0.0.1:43170` base URL is still set.       | Run `/router`: it lists the keys. Remove them as in the [migration checklist](configuration.md#convert-a-v08-configuration) and restart.                           |
+| Router controls are unavailable             | Claude Code is older than 2.1.289.                                               | Update Claude Code.                                                                                                                                                |
+| Context reads as unknown                    | The router lacks a reliable local estimate or current-history measurement.       | Keep using the current model, or start a new history with a supported context estimate.                                                                            |
 
 For the internal event flow and network deadline behavior, see [Architecture](architecture.md). For what the test traces do and do not show, see [Evaluation](evaluation.md).

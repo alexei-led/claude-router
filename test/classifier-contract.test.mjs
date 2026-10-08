@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { buildRequest, parseAnswers, resolveCredentials } from '../lib/classifier-contract.mjs';
+import { buildRequest, parseAnswers } from '../lib/classifier-apis.mjs';
+import { resolveCredentials } from '../lib/classifier-contract.mjs';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 
 const config = loadConfig();
@@ -30,25 +31,34 @@ for (const [name, body] of [
   ['a Cloudflare envelope with no answers', { result: { model: 'clef' }, success: true, errors: [] }],
 ]) {
   test(`rejects ${name}`, () => {
-    assert.throws(() => parseAnswers(body), /classifier/);
+    assert.throws(() => parseAnswers(config, body), /classifier/);
   });
 }
 
 test('a Cloudflare answer reads the same as a bare one', () => {
-  const advice = parseAnswers(liveClefFlashAnswer);
-  assert.deepEqual(advice, parseAnswers(liveClefFlashAnswer.result));
+  const advice = parseAnswers(config, liveClefFlashAnswer);
+  assert.deepEqual(advice, parseAnswers(config, liveClefFlashAnswer.result));
   assert.equal(advice.choice, 'micro');
   assert.equal(advice.probabilities.micro, 0.5923);
   assert.equal(advice.continuation, 0.0164);
 });
 
 test('missing probabilities and continuation degrade to zero and null', () => {
-  const advice = parseAnswers({
+  const advice = parseAnswers(config, {
     answers: { route: { type: 'choice', choice: 'low', confidence: 2, probabilities: { low: 1 } } },
   });
   assert.equal(advice.probabilities.high, 0);
   assert.equal(advice.confidence, 1);
   assert.equal(advice.continuation, null);
+});
+
+test('a classifier with no key option reads its endpoint without a key', async () => {
+  const { ollama } = DEFAULTS.classifiers;
+  assert.deepEqual(await resolveCredentials(ollama, async () => 'ignored'), {
+    apiKey: null,
+    endpoint: ollama.endpoint,
+    missing: null,
+  });
 });
 
 test('credentials fill endpoint settings and report what is missing, key first', async () => {

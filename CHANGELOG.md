@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.5.0 (2026-10-08)
+
+Two classifiers are new: OpenAI and a local Ollama model. Jev stays the default, and nothing changes until you select one of the new classifiers.
+
+### Added
+
+- OpenAI classifier: `gpt-6-luna` through OpenAI's Decisions API. Save an OpenAI API key with `/plugin configure router`, then select the OpenAI row on the Classifier tab. The prompt text goes to OpenAI. This path has not been run against a live key yet.
+- Ollama classifier: a local model that needs no key. The prompt text stays on your machine. Checked with Ollama 0.35.1 and `qwen3.5:9b`.
+- `classifiers.<id>.api` selects the wire protocol: `system-one`, `openai-decisions`, or `ollama`. An entry without `api` keeps `system-one`. `keyOption: null` means the classifier needs no key.
+
+### Changed
+
+- The Classifier tab's deadline choices include 5,000 ms, the default for Ollama.
+
 ## 1.4.1 (2026-10-08)
 
 ### Fixed

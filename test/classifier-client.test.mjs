@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { parseAnswers } from '../lib/classifier-apis.mjs';
 import { ClassifierClient } from '../lib/classifier-client.mjs';
-import { parseAnswers, RETRY_DELAY_MS } from '../lib/classifier-contract.mjs';
-import { DEFAULTS } from '../lib/config.mjs';
+import { RETRY_DELAY_MS } from '../lib/classifier-contract.mjs';
+import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { jevResponse } from './helpers.mjs';
 
 const answer = jevResponse('medium', { micro: 0, low: 0, medium: 0.9, high: 0.1, uncertain: 0 });
@@ -54,6 +56,24 @@ function input(timing, request) {
     turns: [],
   };
 }
+
+test('a keyless classifier sends no credential and reads its local answer', async () => {
+  const timing = clock();
+  const ollama = new ClassifierClient({ now: timing.now });
+  const local = readFileSync(new URL('./fixtures/ollama-route-response.json', import.meta.url), 'utf8');
+  const result = await ollama.ask({
+    ...input(timing, async (url, init) => {
+      assert.equal(url, FILLED_ENDPOINT);
+      assert.equal(Object.hasOwn(init.headers, 'authorization'), false);
+      assert.equal(JSON.parse(init.body).think, false);
+      return { ok: true, status: 200, text: local, headers: {} };
+    }),
+    config: loadConfig({ userFile: { classifier: 'ollama' } }),
+    apiKey: null,
+  });
+  assert.equal(result.error, null);
+  assert.equal(result.advice.choice, 'medium');
+});
 
 test('native Jev sends the shared contract and reads text and plain headers', async () => {
   const timing = clock();
@@ -237,7 +257,7 @@ test('malformed responses reveal no provider text and invalid probability shapes
   }
   for (const probabilities of [null, []])
     assert.throws(
-      () => parseAnswers({ answers: { route: { type: 'choice', choice: 'medium', probabilities } } }),
+      () => parseAnswers(DEFAULTS, { answers: { route: { type: 'choice', choice: 'medium', probabilities } } }),
       /malformed/,
     );
 });

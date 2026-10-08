@@ -37,18 +37,35 @@ test('the key button is on the Classifier tab once a key is set', async () => {
 
 test('each classifier reads its key option, then the environment variables named after it', async () => {
   for (const [name, options, env, expected] of [
-    ['plugin options', CLOUDFLARE_KEYS, {}, { jev: 'missing-key', clef: null, 'clef-flash': null }],
+    [
+      'plugin options',
+      CLOUDFLARE_KEYS,
+      {},
+      { jev: 'missing-key', clef: null, 'clef-flash': null, openai: 'missing-key', ollama: null },
+    ],
     [
       'environment variables',
       {},
       { TYPESAFE_API_KEY: 'k', CLOUDFLARE_API_TOKEN: 't', CLOUDFLARE_ACCOUNT_ID: 'a' },
-      { jev: null, clef: null, 'clef-flash': null },
+      { jev: null, clef: null, 'clef-flash': null, openai: 'missing-key', ollama: null },
+    ],
+    [
+      'an OpenAI environment variable',
+      {},
+      { OPENAI_API_KEY: 'o' },
+      { jev: 'missing-key', clef: 'missing-key', 'clef-flash': 'missing-key', openai: null, ollama: null },
     ],
     [
       'a token without an account',
       { cloudflare_api_token: '  ' },
       { CLAUDE_PLUGIN_OPTION_CLOUDFLARE_API_TOKEN: 't' },
-      { jev: 'missing-key', clef: 'missing-account', 'clef-flash': 'missing-account' },
+      {
+        jev: 'missing-key',
+        clef: 'missing-account',
+        'clef-flash': 'missing-account',
+        openai: 'missing-key',
+        ollama: null,
+      },
     ],
   ]) {
     const h = harness(options);
@@ -117,7 +134,13 @@ test('a classifier without credentials names the missing setting and offers Set 
   await press(h, 'tab-classifier');
   const pane = await h.render();
   assert.ok(texts(pane).includes('○ no API key  '));
-  assert.ok(texts(pane).some((line) => line.trim() === 'Jev: API key · Clef, Clef Flash: API token, account ID'));
+  assert.ok(
+    texts(pane).some(
+      (line) =>
+        line.trim() ===
+        'Jev: API key · Clef, Clef Flash: API token, account ID · OpenAI: API key · Ollama: no key needed',
+    ),
+  );
   assert.ok(controls(pane).some((node) => node.key === 'key-jev' && node.label === 'Set up'));
   assert.equal(
     controls(pane).find((node) => node.key === 'key-clef'),

@@ -6,6 +6,7 @@ import {
   classifierStatus,
   credentialsNeeded,
   formatTokens,
+  missingCredentials,
   missingText,
   routeLabel,
   sparkline,
@@ -140,6 +141,13 @@ test('a classifier status names the classifier and the setting it lacks', () => 
   assert.equal(missingText(clef, 'jev', 'missing-key'), 'no API key');
 });
 
+test('a classifier that takes no key is not missing one before its credentials are read', () => {
+  const unread = { credentials: null };
+  assert.equal(missingCredentials(DEFAULTS, unread, 'ollama'), null);
+  assert.equal(missingCredentials(DEFAULTS, unread, 'jev'), 'missing-key');
+  assert.equal(missingCredentials(DEFAULTS, { credentials: { jev: null } }, 'jev'), null);
+});
+
 test('the credentials list groups classifiers that need the same settings', () => {
   const proxy = {
     label: 'Proxy',
@@ -148,9 +156,10 @@ test('the credentials list groups classifiers that need the same settings', () =
     keyOption: 'typesafe_api_key',
     timeoutMs: 1500,
   };
-  assert.equal(credentialsNeeded(DEFAULTS), 'Jev: API key · Clef, Clef Flash: API token, account ID');
+  const needs = 'Clef, Clef Flash: API token, account ID · OpenAI: API key · Ollama: no key needed';
+  assert.equal(credentialsNeeded(DEFAULTS), `Jev: API key · ${needs}`);
   assert.equal(
     credentialsNeeded(loadConfig({ userFile: { classifiers: { proxy } } })),
-    'Jev, Proxy: API key · Clef, Clef Flash: API token, account ID',
+    `Jev, Proxy: API key · ${needs}`,
   );
 });
