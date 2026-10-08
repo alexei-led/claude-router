@@ -20,9 +20,16 @@ test('unknown metrics stay unknown and zero is a real reading', () => {
   assert.equal(bar(200, 100).text.length, 16);
 });
 
-test('Haiku context is measured against its own window, not the native session model', () => {
+test('a small-window model is measured against its own window, not the native session model', () => {
+  const config = loadConfig({
+    userFile: {
+      models: {
+        haiku: { id: 'claude-haiku-4-5', input: 1, output: 5, cacheRead: 0.1, contextWindow: 200_000, efforts: [] },
+      },
+    },
+  });
   const metrics = usageMetrics(
-    DEFAULTS,
+    config,
     {
       actualModel: 'claude-haiku-4-5-20251001',
       contextTokens: 150_000,

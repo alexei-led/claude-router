@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.1 (2026-10-08)
+
+### Changed
+
+- `micro` is now Haiku 5.5 at `low` effort (was Haiku 4.5 with no effort setting). The `haiku` alias is `claude-haiku-5-5` with a 1,000,000-token window, all five effort levels, and list prices of 0.1 / 0.5 / 0.01 USD per million tokens. Those prices hold for prompts up to 100,000 tokens and are higher above, so estimates run low there.
+- To keep Haiku 4.5, set `models.haiku` to `claude-haiku-4-5` with `"efforts": []`, a 200,000-token window, and 1 / 5 / 0.1 prices, and set `routes.micro.effort` to `null`.
+
 ## 1.3.0 (2026-10-06)
 
 ### Changed

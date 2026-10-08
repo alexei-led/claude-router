@@ -11,8 +11,19 @@ const facts = {
   lastRequest: { tokens: 150_000, outputTokens: 1500 },
   models: { 'claude-sonnet-5-5@xhigh': { prefixTokens: 148_000, lastAt: now } },
 };
-// The cost figures below were computed with a Sonnet `medium` route, so pin it instead of the changing default.
-const SONNET_MEDIUM = loadConfig({ userFile: { routes: { medium: { model: 'sonnet', effort: 'xhigh' } } } });
+const tiny = {
+  id: 'claude-haiku-4-5',
+  input: 1,
+  output: 5,
+  cacheRead: 0.1,
+  contextWindow: 200_000,
+  billing: 'plan',
+  efforts: [],
+};
+// The cost figures below were computed with a Sonnet `medium` route and a $1/$5 micro model, so pin them instead of the changing defaults.
+const SONNET_MEDIUM = loadConfig({
+  userFile: { models: { tiny }, routes: { medium: { model: 'sonnet', effort: 'xhigh' }, micro: { model: 'tiny' } } },
+});
 const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-10, `${actual} != ${expected}`);
 
 test('native cache evidence is only a five-minute fresh estimate, never an inferred hour', () => {
@@ -29,8 +40,9 @@ test('native cache evidence is only a five-minute fresh estimate, never an infer
 });
 
 test('cache identity preserves model snapshots and separates effective efforts', () => {
-  const config = loadConfig({ userFile: { models: { haiku: { id: 'claude-haiku-4-5-20251001' } } } });
-  assert.equal(native.routeCacheKey(config, 'micro', 'xhigh'), 'claude-haiku-4-5-20251001');
+  const config = loadConfig({ userFile: { models: { haiku: { id: 'claude-haiku-5-5-20260101' } } } });
+  assert.equal(native.routeCacheKey(config, 'micro', 'xhigh'), 'claude-haiku-5-5-20260101@low');
+  assert.equal(native.routeCacheKey(SONNET_MEDIUM, 'micro', 'xhigh'), 'claude-haiku-4-5');
   assert.equal(native.routeCacheKey(config, 'medium', 'low'), 'claude-opus-5-5@medium');
   assert.equal(native.routeCacheKey(SONNET_MEDIUM, 'medium', 'low'), 'claude-sonnet-5-5@xhigh');
   assert.equal(native.routeCacheKey(config, 'low', 'medium'), 'claude-sonnet-5-5@medium');
@@ -41,7 +53,7 @@ test('bounds distinguish observed cached prefix from generated and uncached toke
   const bounds = native.inputBounds(SONNET_MEDIUM, 'medium', 151_500, facts, now);
   near(bounds.min, 0.0366);
   near(bounds.max, 0.0436);
-  near(native.coldWriteUsd(SONNET_MEDIUM, 'haiku', 151_500), 0.303);
+  near(native.coldWriteUsd(SONNET_MEDIUM, 'tiny', 151_500), 0.303);
 });
 
 test('unknown TTL keeps an optimistic incumbent scenario and a cold candidate upper cost', () => {

@@ -213,6 +213,21 @@ async function drain(stream) {
   return result.value;
 }
 
+const CONFIG = '/fixture/team/router.json';
+const TINY_ROUTER = JSON.stringify({
+  models: {
+    tiny: {
+      id: 'claude-haiku-4-5',
+      input: 1,
+      output: 5,
+      cacheRead: 0.1,
+      contextWindow: 200_000,
+      billing: 'plan',
+      efforts: [],
+    },
+  },
+  routes: { micro: { model: 'tiny' } },
+});
 const step = { turnId: 't1', index: 0, model: 'claude-sonnet-5-5', effort: 'medium', messageCount: 1 };
 const start = async (h) => {
   await h.event('session.start', { cwd: '/fixture' });
@@ -376,6 +391,7 @@ function controls(tree) {
 
 test('a continuation context-fit publishes the model actually requested', async () => {
   const h = harness();
+  h.files.set(CONFIG, TINY_ROUTER);
   await start(h);
   await drain(h.step({ ...step, turnId: 'prime' }));
   await h.event('command.run', { command: 'router', args: 'pin micro' });
@@ -391,6 +407,7 @@ test('a continuation context-fit publishes the model actually requested', async 
 
 test('Manual requests refresh main metrics without rewriting models or effort', async () => {
   const h = harness();
+  h.files.set(CONFIG, TINY_ROUTER);
   await start(h);
   await drain(h.step({ ...step, turnId: 'prime' }));
   await h.event('command.run', { command: 'router', args: 'pin micro' });
@@ -651,8 +668,6 @@ test('clear after a manual /model choice on a non-baseline model starts Auto', a
   assert.equal(h.preferences.get('mode:s2'), 'auto');
 });
 
-const CONFIG = '/fixture/team/router.json';
-
 test('a saved route edit writes router.json and routes the next turn', async () => {
   const h = harness();
   await start(h);
@@ -695,14 +710,15 @@ test('reset to defaults removes saved route overrides and keeps other settings',
 
 test('a model without effort levels has no effort control and drops the chosen effort', async () => {
   const h = harness();
+  h.files.set(CONFIG, TINY_ROUTER);
   await start(h);
   await press(h, 'tab-routing');
   assert.equal(
     controls(await h.render()).find((node) => node.key === 'route-effort-micro'),
     undefined,
   );
-  await press(h, 'route-model-high', 'haiku');
-  assert.deepEqual(h.view().routeDraft.routes.high, { model: 'haiku', effort: null });
+  await press(h, 'route-model-high', 'tiny');
+  assert.deepEqual(h.view().routeDraft.routes.high, { model: 'tiny', effort: null });
   assert.equal(
     controls(await h.render()).find((node) => node.key === 'route-effort-high'),
     undefined,
@@ -941,7 +957,7 @@ test('one routing save writes routes and policy together and keeps edits made on
   );
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
-    routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet' } },
+    routes: { micro: { model: 'sonnet', effort: 'low' }, high: { model: 'sonnet' } },
     classifiers: { jev: { timeoutMs: 900 } },
     policy: { downgradeHorizonTurns: 10 },
   });
@@ -1021,7 +1037,7 @@ test('after an Undo, a pending draft compares against the restored values, so pi
   await press(h, 'route-model-high', 'sonnet');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
-    routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet', effort: 'xhigh' } },
+    routes: { micro: { model: 'sonnet', effort: 'low' }, high: { model: 'sonnet', effort: 'xhigh' } },
     policy: { downgradeVotes: 3, cashCapUsd: 5 },
   });
 });

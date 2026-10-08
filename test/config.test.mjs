@@ -12,6 +12,7 @@ import {
   withRoutes,
   withTuning,
 } from '../lib/config.mjs';
+import { routeEffort } from '../lib/native-cost.mjs';
 
 test('defaults load without a user file, with Jev as the classifier', () => {
   const config = loadConfig();
@@ -210,7 +211,7 @@ test('a pane save keeps router.json edits made on disk after the session loaded 
   };
   const onDisk = { routes: { high: { model: 'sonnet' } }, baselineTier: 'medium' };
   assert.deepEqual(withRoutes(onDisk, draft), {
-    routes: { micro: { model: 'sonnet' }, high: { model: 'sonnet' } },
+    routes: { micro: { model: 'sonnet', effort: null }, high: { model: 'sonnet' } },
     baselineTier: 'medium',
   });
   const saved = tuningOf(base);
@@ -327,4 +328,10 @@ test('a loopback http endpoint passes for local stubs', () => {
   for (const endpoint of ['http://127.0.0.1:43171/delay', 'http://localhost/v1', 'http://[::1]:8080/v1']) {
     assert.equal(loadConfig({ userFile: { classifiers: { jev: { endpoint } } } }).classifiers.jev.endpoint, endpoint);
   }
+});
+
+test('the default micro route is Haiku at low effort whatever the session effort', () => {
+  assert.deepEqual(DEFAULTS.routes.micro, { model: 'haiku', effort: 'low' });
+  for (const session of ['low', 'medium', 'high', 'xhigh', 'max', null])
+    assert.equal(routeEffort(loadConfig({}), 'micro', session), 'low', String(session));
 });
