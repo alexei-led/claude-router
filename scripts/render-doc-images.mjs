@@ -2,9 +2,9 @@
 // Run after a UI change: npm run docs:images. The layout is a plain row/column flow, not Claude Code's renderer.
 import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { renderBand } from '../lib/band.mjs';
 import { loadConfig } from '../lib/config.mjs';
-import { renderBand } from '../lib/native-band.mjs';
-import { renderPanel } from '../lib/native-panel.mjs';
+import { renderPanel } from '../lib/panel.mjs';
 
 const OUT = fileURLToPath(new URL('../docs', import.meta.url));
 const config = { ...loadConfig(), nativePath: '~/.claude/router.json' };

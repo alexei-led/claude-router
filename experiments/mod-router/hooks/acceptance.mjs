@@ -1,8 +1,8 @@
+import { ClassifierClient } from '../lib/classifier-client.mjs';
 import { loadConfig } from '../lib/config.mjs';
-import { NativeJev } from '../lib/native-jev.mjs';
 
 export function registerAcceptance(on) {
-  const classifier = new NativeJev();
+  const classifier = new ClassifierClient();
   const lifecycle = [];
   on('session.start', { isInteractive: [true, false] }, async ($, e, next) => {
     await $.command.register({

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { nativeLaunchPlan } from '../experiments/mod-router/scripts/native-candidate.mjs';
+import { nativeLaunchPlan } from './native-candidate.mjs';
 
 const pinsModel = (plan) =>
   plan.args.includes('--model') || 'model' in plan.settings || 'ANTHROPIC_MODEL' in plan.settings.env;

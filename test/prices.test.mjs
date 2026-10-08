@@ -12,17 +12,14 @@ test('the price fixture names its source and the date it was checked', () => {
   assert.match(fixture.checked, /^\d{4}-\d{2}-\d{2}$/);
 });
 
-// A price edit in lib/config.mjs must come with a fixture edit: a new source, a new date.
 for (const [alias, model] of Object.entries(DEFAULTS.models)) {
-  test(`default prices of ${alias} match the checked fixture`, () => {
+  test(`default prices of ${alias} match the checked fixture, so a price edit needs a new source and date`, () => {
     const { input, output, cacheRead } = model;
     assert.deepEqual({ input, output, cacheRead }, fixture.models[model.id]);
   });
 }
 
-// The failure of a838f7c: Opus cache reads entered at ten times the list price. Sonnet served the last turn and
-// Opus at xhigh is still warm from an earlier one, 400k of context; Jev votes twice for high at 0.8.
-function upgradeFromSonnet(config, mass) {
+function twoHighVotesFromSonnetWithOpusWarm(config, mass) {
   const sonnet = served('claude-sonnet-5-5', { tokens: 400_000, output: 0, at: T0 });
   const opus = served('claude-opus-5-5', { tokens: 400_000, output: 0, at: T0, effort: 'xhigh' });
   const facts = { lastRoute: 'low', lastRequest: sonnet.lastRequest, models: { ...sonnet.models, ...opus.models } };
@@ -45,21 +42,20 @@ function upgradeFromSonnet(config, mass) {
 const right = loadConfig({});
 const wrong = loadConfig({ userFile: { models: { opus: { cacheRead: 2 } } } });
 
-test('a tenfold cache-read error holds back an upgrade the right price allows', () => {
-  assert.equal(upgradeFromSonnet(right, 0.8).reason, 'upgrade');
-  const held = upgradeFromSonnet(wrong, 0.8);
+test('a tenfold Opus cache-read price, the a838f7c failure, holds back an upgrade the right price allows', () => {
+  assert.equal(twoHighVotesFromSonnetWithOpusWarm(right, 0.8).reason, 'upgrade');
+  const held = twoHighVotesFromSonnetWithOpusWarm(wrong, 0.8);
   assert.equal(held.reason, 'upgrade-pending');
   assert.ok(held.estimate.taxUsd > 0.7);
 });
 
 test('a price error moves the bar only within its bounds, and a confident jump ignores it', () => {
   const { upgradeBase, upgradeSlope } = wrong.policy;
-  const held = upgradeFromSonnet(wrong, 0.8);
+  const held = twoHighVotesFromSonnetWithOpusWarm(wrong, 0.8);
   assert.ok(held.estimate.threshold > upgradeBase && held.estimate.threshold < upgradeBase + upgradeSlope);
-  assert.equal(upgradeFromSonnet(wrong, 0.96).reason, 'jump');
+  assert.equal(twoHighVotesFromSonnetWithOpusWarm(wrong, 0.96).reason, 'jump');
 });
 
-// The effort levels each default model accepts, as probed against the real API. clampEffort relies on them.
 const efforts = JSON.parse(readFileSync(new URL('./fixtures/effort-support.json', import.meta.url), 'utf8'));
 
 test('the effort fixture names its method and the date it was checked', () => {
@@ -68,7 +64,7 @@ test('the effort fixture names its method and the date it was checked', () => {
 });
 
 for (const [alias, model] of Object.entries(DEFAULTS.models)) {
-  test(`default efforts of ${alias} match the probed fixture`, () => {
+  test(`default efforts of ${alias} match the levels the live API accepted, which clampEffort relies on`, () => {
     assert.deepEqual(model.efforts, efforts.models[model.id]);
   });
 }

@@ -3,14 +3,15 @@
 ## What it is
 
 - A Claude Code Mod: `hooks/native-router.mjs` registers engine hooks and rewrites only `model` and `effort` of main-conversation requests. Subagent turns pass through.
-- `lib/*.mjs` is pure logic: config, policy, cost estimates, Jev contract, band and pane rendering. Only the hooks module touches the host, and only through `$`: no Node APIs, no process, no port.
+- `lib/*.mjs` is pure logic: config, `router.json` rewrites and Undo (`config-file`), policy, cost estimates (`cost`), the classifier contract and client (`classifier-contract`, `classifier-client`), route control (`route`), the view shape (`view`), band and pane rendering (`band`, `panel`, `display`). Only the hooks module touches the host, and only through `$`: no Node APIs, no process, no port.
+- `hooks/native-router.mjs` is one file by engine rule: `$` is never passed across an import, so every helper that takes `$` (view and mode state, settings and credentials, `router.json` I/O, `decideTurn`, `paneActions`) lives there. `register()` keeps the mutable runtime in one `router` object it passes to those helpers.
 - Shipped as npm `@alexeiled/claude-router` and marketplace plugin `router@alexei-led-claude-router`. One maintainer, small user base, but it sits in every routed turn of every user.
 - `experiments/mod-router/` is a research probe with acceptance scripts. It is not shipped; `results/*.json` are recorded evidence.
 - Languages: JavaScript ESM, TypeScript declarations and engine tests, Markdown, some bash and GitHub Actions YAML.
 
 ## Real failures
 
-- The hooks module does not load or a hook throws. The engine then skips the Mod silently. Known triggers: a binding that shadows `next`, `$.command.run` inside a `command.run` hook, a `ui.render` tree the surface refuses.
+- The hooks module does not load or a hook throws. The engine then skips the Mod silently. Known triggers: a binding that shadows `next`, `$.command.run` inside a `command.run` hook, `$` passed to a function imported from another file (`claude plugin validate` refuses it), a `ui.render` tree the surface refuses.
 - A turn goes to the wrong model or effort; a request is rewritten after an engine fallback or substitution; routing to a smaller window overflows context.
 - A switch rewrites a large prompt cache the policy did not price. A cold write at 400K tokens costs dollars.
 - A pane save loses or reverts the user's `router.json`, or writes through a symlink.
@@ -38,14 +39,14 @@
 - `docs/architecture.md`: event flow, state, failure handling, cache and cost rules.
 - `docs/configuration.md`: `router.json` schema and defaults. `docs/native-router.md` and `docs/user-guide.md`: controls, band and pane. `docs/evaluation.md`: what the evidence supports.
 - `CHANGELOG.md`: user-visible changes; the release workflow publishes the dated section as release notes.
-- Checks: `npm run check`, `npm test`, `npm run validate`, `npm run test:plugin`, `npm run pack:dry`, mirrored in `scripts/git-hooks/pre-push` and `.github/workflows/ci.yml`.
+- Checks: `npm run check`, `npm run typecheck` (tsc on `lib/` only; `hooks/` needs the engine's types), `npm test`, `npm run validate`, `npm run test:plugin`, `npm run pack:dry`, mirrored in `scripts/git-hooks/pre-push` and `.github/workflows/ci.yml`.
 - The Claude Code plugin API contract is the engine's own types, laid in `.claude-plugin/types/` when the plugin loads with `--plugin-dir`.
 
 ## Deliberate conventions
 
-- Smallest correct change; no speculative flags, abstractions or compatibility shims; the only dev dependency is Biome.
+- Smallest correct change; no speculative flags, abstractions or compatibility shims; the dev dependencies are Biome and TypeScript (typecheck only).
 - Tests mock only system boundaries: `$` host calls, clock, HTTP, filesystem. Table-driven where cases form a matrix.
-- `runtime.view` is a write-through cache of `$.state`, because state reads are frozen within one dispatch.
+- `router.view` is a write-through cache of `$.state`, because state reads are frozen within one dispatch.
 - Classifier failures fail open: keep the current model and never block a turn. A network-policy refusal is never bypassed.
 - Model prices are configured list prices in `lib/config.mjs`; a change must also change `test/fixtures/` with its source and date.
 - The UI says "Router"; "Jev" appears only where it explains a classifier reading or failure.

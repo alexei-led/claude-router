@@ -6,7 +6,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { loadConfig, rank, TIERS } from '../../../lib/config.mjs';
-import * as nativeCosts from '../../../lib/native-cost.mjs';
+import * as nativeCosts from '../../../lib/cost.mjs';
 import { decide, fitTier, initialState } from '../../../lib/policy.mjs';
 import * as legacyCosts from '../lib/legacy-cost.mjs';
 

@@ -6,11 +6,13 @@ import {
   continueRoute,
   emptyLoop,
   isModelAllowed,
+  isNativeFallback,
   nativeFacts,
   observeResponse,
   prepareLoop,
   resetHistory,
-} from '../lib/native-router.mjs';
+} from '../lib/route.mjs';
+import { advice as adviceOf } from './helpers.mjs';
 
 const now = 1_000_000;
 const model = 'claude-sonnet-5-5';
@@ -31,7 +33,7 @@ const tiny = {
   efforts: [],
 };
 const SMALL_MICRO = loadConfig({ userFile: { models: { tiny }, routes: { micro: { model: 'tiny' } } } });
-const advice = { choice: 'micro', continuation: 0, probabilities: { micro: 0.99, low: 0, medium: 0.01, high: 0 } };
+const advice = adviceOf('micro', { micro: 0.99, medium: 0.01 });
 const input = (loop, overrides = {}, config = DEFAULTS) => ({
   facts: nativeFacts(config, loop, context),
   advice,
@@ -54,7 +56,7 @@ const usage = (overrides = {}) => ({
 test('switch comparison needs observed usage and preserves savings and added-cost scenarios', () => {
   const initial = emptyLoop(SMALL_MICRO, model);
   assert.equal(chooseRoute(SMALL_MICRO, initial, smallInput(initial)).decision.comparison, null);
-  const observed = observeResponse(SMALL_MICRO, initial, {
+  const observed = observeResponse(initial, {
     usage: usage({
       input_tokens: 2000,
       cache_read_input_tokens: 140_000,
@@ -85,7 +87,7 @@ test('a model without an output price still gets a finite input-only comparison'
   const { output, ...inputOnly } = tiny;
   const config = loadConfig({ userFile: { models: { tiny: inputOnly }, routes: { micro: { model: 'tiny' } } } });
   const initial = emptyLoop(config, model);
-  const observed = observeResponse(config, initial, {
+  const observed = observeResponse(initial, {
     usage: usage({ input_tokens: 2000, cache_read_input_tokens: 140_000, cache_creation_input_tokens: 8000 }),
     requestedModel: model,
     effort: 'medium',
@@ -145,7 +147,7 @@ test('large and unknown contexts cannot be pinned into a smaller window', () => 
 });
 
 test('large tool results trigger fit without another turn vote', () => {
-  const loop = observeResponse(SMALL_MICRO, emptyLoop(SMALL_MICRO, model), {
+  const loop = observeResponse(emptyLoop(SMALL_MICRO, model), {
     usage: usage(),
     requestedModel: model,
     effort: 'medium',
@@ -165,7 +167,7 @@ test('large tool results trigger fit without another turn vote', () => {
 
 test('a local estimate alone cannot downgrade a new or reset history into a smaller window', () => {
   const initial = emptyLoop(SMALL_MICRO, model);
-  const observed = observeResponse(SMALL_MICRO, initial, {
+  const observed = observeResponse(initial, {
     usage: usage(),
     requestedModel: model,
     effort: 'medium',
@@ -208,7 +210,7 @@ test('an unknown context also blocks smaller windows in the fallback search', ()
 });
 
 test('observations count cached input only and never merge different dated snapshots', () => {
-  const observed = observeResponse(DEFAULTS, emptyLoop(DEFAULTS, model), {
+  const observed = observeResponse(emptyLoop(DEFAULTS, model), {
     usage: usage(),
     requestedModel: model,
     effort: 'medium',
@@ -216,14 +218,14 @@ test('observations count cached input only and never merge different dated snaps
   });
   assert.equal(observed.models[`${model}@medium`].prefixTokens, 1100);
   assert.equal(observed.lastRequest.tokens, 1200);
-  const dated = observeResponse(DEFAULTS, observed, {
+  const dated = observeResponse(observed, {
     usage: usage({ model: 'claude-haiku-4-5-20251001' }),
     requestedModel: 'claude-haiku-4-5',
     effort: null,
     now,
   });
   assert.equal(dated.resolutions['claude-haiku-4-5'], 'claude-haiku-4-5-20251001');
-  const moved = observeResponse(DEFAULTS, dated, {
+  const moved = observeResponse(dated, {
     usage: usage({ model: 'claude-haiku-4-5-20270101' }),
     requestedModel: 'claude-haiku-4-5',
     effort: null,
@@ -240,7 +242,7 @@ test('incomplete usage cannot erase the last context measurement', () => {
     usage({ input_tokens: -1 }),
   ]) {
     assert.equal(
-      observeResponse(DEFAULTS, loop, { usage: u, requestedModel: model, effort: null, now }).lastRequest.tokens,
+      observeResponse(loop, { usage: u, requestedModel: model, effort: null, now }).lastRequest.tokens,
       700_000,
     );
   }
@@ -264,13 +266,13 @@ test('rewind clears votes and warmth but retains the context floor', () => {
 });
 
 test('window-exceeded responses latch the model without a retry', () => {
-  const loop = observeResponse(SMALL_MICRO, emptyLoop(SMALL_MICRO, model), {
+  const loop = observeResponse(emptyLoop(SMALL_MICRO, model), {
     usage: usage(),
     requestedModel: model,
     effort: 'medium',
     now,
   });
-  const failed = observeResponse(SMALL_MICRO, loop, {
+  const failed = observeResponse(loop, {
     usage: null,
     requestedModel: 'claude-haiku-4-5',
     effort: null,
@@ -280,4 +282,17 @@ test('window-exceeded responses latch the model without a retry', () => {
   const result = chooseRoute(SMALL_MICRO, failed, smallInput(failed, { pin: 'micro' }));
   assert.equal(result.decision.model, model);
   assert.equal(result.decision.reason, 'model-unavailable');
+});
+
+test('isNativeFallback: a model the router neither saw nor chose is an engine fallback', () => {
+  const routed = { engineModel: 'claude-sonnet-5-5', decision: { model: 'claude-haiku-4-5' } };
+  for (const [name, loop, served, fallback] of [
+    ['the engine model again', routed, 'claude-sonnet-5-5', false],
+    ['the routed model echoed', routed, 'claude-haiku-4-5', false],
+    ['a dated snapshot of the routed model', routed, 'claude-haiku-4-5-20251001', false],
+    ['a third model', routed, 'claude-opus-5-5', true],
+    ['a suspended loop', { ...routed, suspended: true }, 'claude-sonnet-5-5', true],
+    ['nothing known yet', {}, 'claude-opus-5-5', false],
+  ])
+    assert.equal(isNativeFallback(loop, served), fallback, name);
 });

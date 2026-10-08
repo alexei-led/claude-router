@@ -50,7 +50,7 @@ try {
     requestModels: models,
     servedAfterFallback: served,
     statusMentionsFallback: /fallback/i.test(status),
-    note: "On 2.1.289 the engine carries the fallback model into the continuation's turn.step model, so the controller from before the fallback fix also passed this run. Unit regressions in test/native-hook.test.mjs cover a billed substitute with an unchanged step model and the engine echoing the routed model.",
+    note: "On 2.1.289 the engine carries the fallback model into the continuation's turn.step model, so the controller from before the fallback fix also passed this run. Unit regressions in test/hook-routing.test.mjs cover a billed substitute with an unchanged step model and the engine echoing the routed model.",
   };
   const text = JSON.stringify(summary, null, 2);
   assert.equal(text.match(UUID), null);

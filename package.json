@@ -1,6 +1,6 @@
 {
   "name": "@alexeiled/claude-router",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Native Claude Code Mod: model and effort routing for the main conversation, advised by Jev, Clef or Clef Flash.",
   "license": "MIT",
   "author": "Alexei Ledenev",
@@ -28,8 +28,9 @@
     "access": "public"
   },
   "scripts": {
-    "test": "node --test --test-timeout=8000 test/*.test.mjs",
-    "check": "biome check lib scripts test hooks types .claude-plugin package.json package-lock.json biome.json experiments/mod-router",
+    "test": "node --test --test-timeout=8000 test/*.test.mjs experiments/mod-router/scripts/*.test.mjs",
+    "check": "biome check lib scripts test hooks types .claude-plugin package.json package-lock.json biome.json tsconfig.json experiments/mod-router",
+    "typecheck": "tsc -p tsconfig.json",
     "validate": "claude plugin validate .claude-plugin/plugin.json && claude plugin validate .claude-plugin/marketplace.json",
     "test:plugin": "bash scripts/plugin-test.sh",
     "format": "biome format --write .",
@@ -38,6 +39,7 @@
     "prepublishOnly": "npm run check && npm test"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.14"
+    "@biomejs/biome": "2.5.14",
+    "typescript": "7.0.2"
   }
 }

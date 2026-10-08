@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.3.2 (2026-10-08)
+
+### Fixed
+
+- The band and the pane's **Served** row now call a reply a fallback by the same rule routing uses: the requested model, or its one mapped dated snapshot (Haiku 4.5). Before, they accepted any dated suffix of the requested model, so a reply that routing treated as an engine substitution could show no **fallback**.
+- Pressing **?** in the pane or **2 rows** on the band twice before the next redraw now toggles twice. The second press used to repeat the first.
+
+### Internal
+
+- Module names drop the historical `native-` and `jev` prefixes: `lib/classifier-contract.mjs`, `classifier-client.mjs` (class `ClassifierClient`), `route.mjs`, `cost.mjs`, `panel.mjs`, `band.mjs`, `display.mjs` and `facts.mjs`. The hook entry stays `hooks/native-router.mjs`; option names, state keys and the pane id are unchanged.
+- Pure logic moved out of the hooks module into `lib/config-file.mjs` and `lib/view.mjs`, with tests. The hook tests are split by area, and lint is stricter, with complexity limits.
+- `npm run typecheck` runs `tsc` on `lib/` in CI and in the pre-push hook. TypeScript is a dev dependency for this check only.
+
 ## 1.3.1 (2026-10-08)
 
 ### Changed

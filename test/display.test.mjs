@@ -7,9 +7,11 @@ import {
   credentialsNeeded,
   formatTokens,
   missingText,
+  routeLabel,
   sparkline,
+  switchCount,
   usageMetrics,
-} from '../lib/native-display.mjs';
+} from '../lib/display.mjs';
 
 test('unknown metrics stay unknown and zero is a real reading', () => {
   assert.equal(formatTokens(null), 'unknown');
@@ -55,11 +57,73 @@ test('unreported ledgers and model pricing produce no fake savings', () => {
   assert.equal(metrics.reuse, null);
 });
 
-test('the tiny trend chart handles empty, zero and changing observed data', () => {
-  assert.equal(sparkline([]), 'no history yet');
-  assert.equal(sparkline([0, 0]), '▄▄');
-  assert.equal(sparkline([1, 4, 8]), '▁▄█');
-  assert.equal(sparkline([396_000, 400_000, 402_000]), '▁▆█');
+test('the trend chart scales from the lowest to the highest reading and refuses unknown readings', () => {
+  for (const [values, expected] of [
+    [[], 'no history yet'],
+    [[5], '▄'],
+    [[0, 0], '▄▄'],
+    [[0, 7], '▁█'],
+    [[0, 1, 2, 3, 4, 5, 6, 7], '▁▂▃▄▅▆▇█'],
+    [[1, 4, 8], '▁▄█'],
+    [[396_000, 400_000, 402_000], '▁▆█'],
+    [[1, Number.NaN], 'no history yet'],
+    [[1, Number.POSITIVE_INFINITY], 'no history yet'],
+  ])
+    assert.equal(sparkline(values), expected, JSON.stringify(values));
+});
+
+test('token counts switch unit at a thousand and a million', () => {
+  for (const [value, expected] of [
+    [0, '0'],
+    [999, '999'],
+    [999.4, '999'],
+    [1000, '1.0K'],
+    [12_345, '12.3K'],
+    [1_000_000, '1.00M'],
+    [1_234_567, '1.23M'],
+    [Number.NaN, 'unknown'],
+    [Number.POSITIVE_INFINITY, 'unknown'],
+    [undefined, 'unknown'],
+  ])
+    assert.equal(formatTokens(value), expected, String(value));
+});
+
+test('a bar turns yellow above 60% and red above 80%, clamps its fill and knows no reading', () => {
+  for (const [value, maximum, width, expected] of [
+    [0, 1, 4, { text: '░░░░', percent: 0, color: 'green' }],
+    [0.6, 1, 10, { text: '██████░░░░', percent: 60, color: 'green' }],
+    [0.61, 1, 10, { text: '██████░░░░', percent: 61, color: 'yellow' }],
+    [0.8, 1, 10, { text: '████████░░', percent: 80, color: 'yellow' }],
+    [0.81, 1, 10, { text: '████████░░', percent: 81, color: 'red' }],
+    [3, 2, 4, { text: '████', percent: 150, color: 'red' }],
+    [-1, 1, 4, { text: '░░░░', percent: 0, color: 'green' }],
+    [1, 0, 4, { text: 'unknown', percent: null, color: 'gray' }],
+    [Number.NaN, 1, 4, { text: 'unknown', percent: null, color: 'gray' }],
+    [null, 1, 4, { text: 'unknown', percent: null, color: 'gray' }],
+  ])
+    assert.deepEqual(bar(value, maximum, width), expected, `${value} of ${maximum}`);
+});
+
+test('a route label adds the effort only when there is one', () => {
+  for (const [model, effort, expected] of [
+    ['claude-opus-5-5', 'high', 'Opus 5.5 · high'],
+    ['claude-haiku-4-5-20251001', null, 'Haiku 4.5'],
+    ['claude-sonnet-5-5', undefined, 'Sonnet 5.5'],
+    ['claude-sonnet-5-5', 0, 'Sonnet 5.5 · 0'],
+  ])
+    assert.equal(routeLabel(model, effort), expected);
+});
+
+test('a switch is a tier change between consecutive routed replies', () => {
+  for (const [tiers, expected] of [
+    [[], 0],
+    [['low'], 0],
+    [['low', 'low'], 0],
+    [['low', 'high', 'high'], 1],
+    [['low', 'high', 'low'], 2],
+    [['low', null, 'high'], 0],
+  ])
+    assert.equal(switchCount(tiers), expected, tiers.join(','));
 });
 
 test('a classifier status names the classifier and the setting it lacks', () => {
