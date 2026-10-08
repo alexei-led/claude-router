@@ -6,6 +6,22 @@ import { decide, fitTier, initialState, massAbove, massAtOrBelow } from '../lib/
 import { advice, served, T0 } from './helpers.mjs';
 
 const config = loadConfig({});
+const smallMicro = loadConfig({
+  userFile: {
+    models: {
+      tiny: {
+        id: 'claude-haiku-4-5',
+        input: 1,
+        output: 5,
+        cacheRead: 0.1,
+        contextWindow: 200_000,
+        billing: 'plan',
+        efforts: [],
+      },
+    },
+    routes: { micro: { model: 'tiny' } },
+  },
+});
 const NOW = T0 + 10_000;
 
 function facts({
@@ -248,15 +264,21 @@ test('repeated failure escalates one tier and holds, once per signature', () => 
 
 test('fitTier climbs past models whose window the context would overflow', () => {
   const cases = [
-    { tier: 'micro', tokens: 100_000, want: 'micro' }, // Haiku 200K holds it
-    { tier: 'micro', tokens: 170_000, want: 'low' }, // above 80% of Haiku's window
+    { tier: 'micro', tokens: 100_000, want: 'micro' },
+    { tier: 'micro', tokens: 170_000, want: 'low' },
     { tier: 'high', tokens: 900_000, want: 'high' },
   ];
-  for (const { tier, tokens, want } of cases) assert.equal(fitTier(config, tier, tokens), want, `${tier} @ ${tokens}`);
+  for (const { tier, tokens, want } of cases)
+    assert.equal(fitTier(smallMicro, tier, tokens), want, `${tier} @ ${tokens}`);
 });
 
 test('fitTier looks down, then to the largest window, when no higher route fits', () => {
-  const cfg = loadConfig({ userFile: { routes: { high: { model: 'haiku' }, medium: { model: 'haiku' } } } });
+  const cfg = loadConfig({
+    userFile: {
+      models: { tiny: { ...smallMicro.models.tiny } },
+      routes: { high: { model: 'tiny' }, medium: { model: 'tiny' }, micro: { model: 'tiny' } },
+    },
+  });
   assert.equal(fitTier(cfg, 'high', 500_000), 'low');
   assert.equal(fitTier(cfg, 'micro', 5_000_000), 'low');
 });

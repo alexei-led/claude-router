@@ -34,7 +34,7 @@ The active classifier receives only the current prompt and up to six recent user
 
 All classifiers share one wire contract: the same `state` and typed `questions` request, and the same `answers.route` choice with per-tier probabilities. Cloudflare's REST API wraps the answer in `{ result, success, errors }`, which the parser unwraps.
 
-Claude Code builds each request for the model the Mod selects, so no request rewriting is needed: Haiku gets its own thinking mode and a 32K output cap. On Claude Code 2.1.289, a billed chain of pinned turns (Opus, Haiku, Sonnet at `xhigh`, Sonnet, Haiku) used a tool on every turn over the previous models' history, and no request was rejected. Sonnet and Opus accepted histories above 589K input tokens. These checks cover tested requests. They do not prove every Claude Code feature combination.
+Claude Code builds each request for the model the Mod selects, so no request rewriting is needed: Haiku 4.5 got its own thinking mode and a 32K output cap. On Claude Code 2.1.289, a billed chain of pinned turns (Opus, Haiku 4.5, Sonnet at `xhigh`, Sonnet, Haiku 4.5) used a tool on every turn over the previous models' history, and no request was rejected. Sonnet and Opus accepted histories above 589K input tokens. These checks cover tested requests. They do not prove every Claude Code feature combination.
 
 ## Responsibilities
 
@@ -78,7 +78,7 @@ In a 20-process loopback test, timeout fallback had 1,504 ms p95 and 1,505 ms wo
 
 ## Cache and cost
 
-Cache identity uses the exact response model ID and effective effort. The known Haiku dated snapshot has an explicit mapping. An unrecognized substituted model gets no cache credit for the requested route.
+Cache identity uses the exact response model ID and effective effort. The Haiku 4.5 dated snapshot has an explicit mapping; Haiku 5.5 has no dated ID. An unrecognized substituted model gets no cache credit for the requested route.
 
 The cached prefix is observed `cache_read + cache_creation`. Output tokens count only toward the next context size. Freshness uses the configured five-minute lifetime with its safety margin. Claude's usage counters do not prove one-hour cache lifetime.
 

@@ -40,7 +40,7 @@ The active classifier labels a new logical turn once. Tool continuations keep th
 
 | Tier     | Default model | Effort                   |
 | -------- | ------------- | ------------------------ |
-| `micro`  | Haiku 4.5     | No effort setting        |
+| `micro`  | Haiku 5.5     | `low`                    |
 | `low`    | Sonnet 5.5    | Keeps the session effort |
 | `medium` | Opus 5.5      | `medium`                 |
 | `high`   | Opus 5.5      | `xhigh`                  |

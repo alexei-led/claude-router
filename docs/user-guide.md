@@ -118,7 +118,7 @@ A pin does not change the next turn after the pinned turn finishes. A fresh sess
 
 ## Edit routes and policy
 
-On the **Routing** tab, pick a model and an effort for any tier. The model list comes from the aliases in `router.json` `models`, limited by the `availableModels` setting. `session` keeps the effort Claude Code sends. A model without effort levels, such as Haiku, shows `none`.
+On the **Routing** tab, pick a model and an effort for any tier. The model list comes from the aliases in `router.json` `models`, limited by the `availableModels` setting. `session` keeps the effort Claude Code sends. A model without effort levels, such as a custom one with `"efforts": []`, shows `none`.
 
 Changed tiers show **●**. **Reset routes to defaults** (`r`) loads the built-in routes into the draft; **Save** then removes your route overrides from `router.json`.
 

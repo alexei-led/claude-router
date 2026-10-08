@@ -32,7 +32,7 @@ The default baseline is tier `low`. Each route refers to an alias in `models`.
 
 | Tier     | Model alias | Model ID            | Effort                               |
 | -------- | ----------- | ------------------- | ------------------------------------ |
-| `micro`  | `haiku`     | `claude-haiku-4-5`  | None                                 |
+| `micro`  | `haiku`     | `claude-haiku-5-5`  | `low`                                |
 | `low`    | `sonnet`    | `claude-sonnet-5-5` | Keeps the effort sent by Claude Code |
 | `medium` | `opus`      | `claude-opus-5-5`   | `medium`                             |
 | `high`   | `opus`      | `claude-opus-5-5`   | `xhigh`                              |
@@ -43,9 +43,9 @@ Default model settings:
 | -------- | --------------------------------------------------- | -------------- | ------- | --------------------------------------- |
 | `opus`   | 4 / 20 / 0.2                                        | 1,000,000      | `plan`  | `low`, `medium`, `high`, `xhigh`, `max` |
 | `sonnet` | 2 / 10 / 0.2                                        | 1,000,000      | `plan`  | `low`, `medium`, `high`, `xhigh`, `max` |
-| `haiku`  | 1 / 5 / 0.1                                         | 200,000        | `plan`  | none                                    |
+| `haiku`  | 0.1 / 0.5 / 0.01                                    | 1,000,000      | `plan`  | `low`, `medium`, `high`, `xhigh`, `max` |
 
-Prices are configured list-price inputs for estimates. They are not a subscription bill or a claim of savings. Haiku receives no effort field. A route without an effort keeps the session effort, clamped to what the model supports. To make a tier whose default names an effort keep the session effort instead, set `"effort": null`, for example `"routes": { "high": { "model": "opus", "effort": null } }`.
+Prices are configured list-price inputs for estimates. They are not a subscription bill or a claim of savings. Haiku 5.5 prices are for prompts up to 100,000 tokens; above that Anthropic charges more, so estimates run low there. A model with `"efforts": []` receives no effort field. A route without an effort keeps the session effort, clamped to what the model supports. To make a tier whose default names an effort keep the session effort instead, set `"effort": null`, for example `"routes": { "high": { "model": "opus", "effort": null } }`.
 
 ## Classifiers
 
