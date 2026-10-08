@@ -8,7 +8,7 @@
 
 ### Internal
 
-- Module names drop the historical `native-` and `jev` prefixes: `lib/classifier-contract.mjs`, `classifier-client.mjs` (class `ClassifierClient`), `route.mjs`, `cost.mjs`, `panel.mjs`, `band.mjs`, `display.mjs`, `facts.mjs` and `view.mjs`. The hook entry stays `hooks/native-router.mjs`; option names, state keys and the pane id are unchanged.
+- Module names drop the historical `native-` and `jev` prefixes: `lib/classifier-contract.mjs`, `classifier-client.mjs` (class `ClassifierClient`), `route.mjs`, `cost.mjs`, `panel.mjs`, `band.mjs`, `display.mjs` and `facts.mjs`. The hook entry stays `hooks/native-router.mjs`; option names, state keys and the pane id are unchanged.
 - Pure logic moved out of the hooks module into `lib/config-file.mjs` and `lib/view.mjs`, with tests. The hook tests are split by area, and lint is stricter, with complexity limits.
 - `npm run typecheck` runs `tsc` on `lib/` in CI and in the pre-push hook. TypeScript is a dev dependency for this check only.
 
