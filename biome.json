@@ -8,6 +8,7 @@
       "test/**/*.ts",
       "types/**/*.ts",
       "*.json",
+      "tools/*.json",
       ".claude-plugin/*.json",
       "hooks/*.json",
       "hooks/*.mjs"

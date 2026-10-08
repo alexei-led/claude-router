@@ -1,0 +1,9 @@
+{
+  "name": "claude-router-dev-tools",
+  "private": true,
+  "description": "Development tools for Router. Kept out of the plugin root so Claude Code installs nothing with the plugin.",
+  "devDependencies": {
+    "@biomejs/biome": "2.5.14",
+    "typescript": "7.0.2"
+  }
+}

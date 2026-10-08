@@ -5,8 +5,8 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 zero=0000000000000000000000000000000000000000
 
-[ -x node_modules/.bin/biome ] || {
-  echo "pre-push: node_modules/.bin/biome missing; run 'npm ci'" >&2
+[ -x tools/node_modules/.bin/biome ] || {
+  echo "pre-push: tools/node_modules/.bin/biome missing; run 'npm run setup'" >&2
   exit 1
 }
 command -v claude >/dev/null || {

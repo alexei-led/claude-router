@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1 (2026-10-08)
+
+### Fixed
+
+- Installing or updating the plugin no longer downloads the development tools (Biome, TypeScript; about 85 MB per version) into the plugin cache. Router has no runtime dependencies. Claude Code removes old cached versions, and their downloaded tools, 14 days after an update.
+
 ## 1.4.0 (2026-10-08)
 
 ### Changed
