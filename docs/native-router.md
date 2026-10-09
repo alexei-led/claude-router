@@ -72,7 +72,7 @@ The pane refuses to write through a symlink. A failed validation names the setti
 ## Safety and failure states
 
 - A missing key or account ID, a classifier failure, or a policy refusal keeps the current model. Network refusal is never bypassed with a helper process.
-- A missing, malformed, or timed-out activity answer keeps the running activity and its route in `on`, as a missing classifier answer does; in `shadow` the tier route runs as always. It does not count as a classifier failure. If the whole classifier call fails, the running route stays. Activity statistics are written inside a guard: a failed store read or write loses that turn's counts and never fails a turn.
+- A missing, malformed, or timed-out activity answer keeps the running activity in `on`; the tier answer still applies. In `shadow` the tier route runs as always. It does not count as a classifier failure. If the whole classifier call fails, the running route stays. Activity statistics are written inside a guard: a failed store read or write loses that turn's counts and never fails a turn.
 - Three launched classifier failures open a 60-second pause for that classifier. One in-flight request is allowed per classifier in each active Mod instance. Pending host HTTP work blocks another request until it settles.
 - A `router.json` with v0.8 gateway keys or the 1.1 `jev` section marks the router unavailable until the [migration command](configuration.md#convert-an-older-routerjson) converts it.
 - Unsupported Claude Code versions and leftover v0.8 gateway settings (the `jev-router` model or the `127.0.0.1:43170` base URL) mark the router unavailable. `/router` lists the settings to remove. A local gateway does not run as part of this Mod.
