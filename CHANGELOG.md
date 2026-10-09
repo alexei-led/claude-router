@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.6.0 (2026-10-10)
+
+The classifier now also names the turn's **activity**: what the turn produces (`code`, `debug`, `explore`, `plan`, `review`, `ops`, `docs`, or `uncertain`). The route can then depend on tier and activity, so a `low` coding turn can run on Sonnet 5.5 while a `low` git turn stays on Haiku 5.5. Routing does not change until you opt in.
+
+### Added
+
+- Activity routing, `activityRouting` in `router.json`: `off`, `shadow` (the default), or `on`. `shadow` asks for the activity, shows it, records stats, and works out what `on` would run; the tier route still runs. `on` applies the activity overrides. Switch with `/router activities on|shadow|off` or the mode selector on the Routing tab.
+- Default activity overrides on top of the unchanged tier routes: at `low`, `code`, `debug`, `plan`, `review` and `docs` run on Sonnet 5.5 at `medium`; at `medium`, `ops`, `explore` and `docs` run on Sonnet 5.5 at `medium`. Every other cell uses its tier's route. Override any cell, per field, under `activities.<activity>.<tier>`.
+- `policy.activityMass` (0.6): the probability an activity needs to apply.
+- Switching between routes of one tier compares routes, not labels: a move to a stronger route needs the classifier's support, a move to a cheaper one must pay back its cache write, and both pass the cash gate. A continuation may move the activity only to a stronger route. Escalation keeps the activity and skips tiers whose route is no stronger.
+- The band shows the activity between the tier and the model, `(shadow)` while in shadow, and the reasons `↗ code`, `↘ ops`, `… ops: not worth a switch`. The toast names the activity of an activity move.
+- Pane: **Now** has **Activity** and **Route** lines and a letter row under **Replies**; **Routing** has the **ACTIVITIES** matrix and an **OVERRIDES** editor that joins the routing draft; **Usage** has **ACTIVITY · this session**, switches by tier and by activity, tool **Agreement**, the **Shadow** line, and **Reset activity stats**.
+- Tool agreement: each finished turn is labelled from its tool calls (edits, Bash, reads, none), locally and without storing any text, and compared with the classifier's activity. Counts are kept per session and across sessions.
+- `scripts/probe-activity.mjs` and a 70-prompt synthetic probe set. Clef and Clef Flash each answered 69 of 70 against the live API (p50 444 and 470 ms). Jev, OpenAI and Ollama have no probe result yet.
+
+### Changed
+
+- Before the first measured reply of a history (session start, `/clear`, compaction, rewind), an upgrade or downgrade needs one classifier answer that clears its bar instead of a streak of votes. A session started on the wrong tier now moves on turn 1.
+- Jev, Clef and Clef Flash get the activity as one more question in the same request, and OpenAI as a second question. Ollama asks it in a second request inside the same deadline, only when at least 300 ms remain. With `off`, the requests are the same as in 1.5. A missing or malformed activity answer never costs the tier answer and never counts as a classifier failure.
+
+### Upgrade notes
+
+- Nothing routes differently after the upgrade: `shadow` runs the tier routes, as 1.5 did.
+- With `shadow` or `on`, every classified turn sends the activity question too. Set `"activityRouting": "off"` to send exactly what 1.5 sent.
+- 1.5 rejects `activities`, `activityRouting` and `policy.activityMass`. Remove them from `router.json` before downgrading.
+
 ## 1.5.1 (2026-10-09)
 
 ### Changed
