@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { initialView, responseMetrics } from '../lib/view.mjs';
+import { CLEARED_READINGS, initialView, responseMetrics } from '../lib/view.mjs';
 
 const usage = (input, read, write) => ({
   model: 'claude-haiku-4-5',
@@ -50,4 +50,17 @@ test('responseMetrics keeps the last 30 readings, history and tiers in step', ()
 test('responseMetrics starts the activity strip for a view saved before 1.6', () => {
   const view = { history: [1, 2], tiers: ['low', 'low'] };
   assert.deepEqual(responseMetrics(view, { usage: usage(3, 0, 0) }, 'low', 'code').activities, ['code']);
+});
+
+test('a classifier switch clears its activity readings with its tier readings', () => {
+  const view = {
+    ...initialView('claude-sonnet-5-5'),
+    adviceChoice: 'low',
+    activityChoice: 'code',
+    activityProbabilities: { code: 0.8 },
+    wouldRoute: { activity: 'code', tier: 'low', model: 'claude-sonnet-5-5', effort: 'medium', reason: 'x' },
+  };
+  const cleared = { ...view, ...CLEARED_READINGS };
+  for (const key of ['adviceChoice', 'activityChoice', 'activityProbabilities', 'wouldRoute'])
+    assert.equal(cleared[key], null, key);
 });
