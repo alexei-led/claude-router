@@ -69,7 +69,7 @@ The classifier also names the activity of a turn: what the turn produces. `activ
 | `shadow`          | The default. Asks, shows the activity, records stats, and computes what `on` would run. The tier routes still run. |
 | `on`              | Applies the `activities` overrides below.                                                                          |
 
-The seven activities are `code`, `debug`, `explore`, `plan`, `review`, `ops`, and `docs`. The classifier may also answer `uncertain`. An activity applies only when its probability is at least `policy.activityMass`. Otherwise, and when the classifier gives no activity, the turn uses its tier's route.
+The seven activities are `code`, `debug`, `explore`, `plan`, `review`, `ops`, and `docs`. The classifier may also answer `uncertain`. In `on`, an activity applies only when its probability is at least `policy.activityMass`. Below that, on `uncertain`, or when the classifier answers the tier but not the activity, the turn goes back to its tier's route, if the move passes the cache checks. When the classifier gives no answer at all, the running route stays. In `off` and `shadow`, the tier route runs.
 
 `activities` maps an activity to a tier to a route override. An override may set `model`, `effort`, or both. A field it leaves out comes from the tier's route:
 
@@ -101,12 +101,12 @@ A user file merges over these overrides one field at a time, as `routes` does. T
 - `effort: null` keeps the session effort, as in `routes`.
 - A cell cannot be `null`. To drop a built-in override, set it to the tier's route, for example `"ops": { "medium": { "model": "opus", "effort": "medium" } }`. The pane writes this for you when you remove an override.
 - An override applies to whatever the tier's route is. If you move `routes.low` to Opus, the built-in `code` override at `low` still runs Sonnet. Set it to match, or remove it.
-- Unknown activities and tiers, unknown model aliases, and invalid efforts make the file invalid. The error names the path, such as `activities.code.low.model is not in models`.
+- Unknown activities and tiers, unknown model aliases, and invalid efforts make the file invalid, like any other invalid setting. The pane refuses to save one and names it, such as `activities.code.low.model is not in models`.
 - Each distinct (model, effort) pair is its own cache. The Routing tab counts them.
 
 `policy.activityMass` (default `0.6`) is the lowest probability at which an activity applies. It has not been tuned on any classifier. Probabilities differ between classifiers, so recalibrate it from the [probe set](evaluation.md#activity-probe-set) if you change classifier.
 
-Switch the mode with `/router activities off|shadow|on`, or with the selector at the top of the Routing tab's OVERRIDES section. Both write `router.json`. Choosing `shadow`, the default, removes the key from the file.
+Switch the mode with `/router activities off|shadow|on`, or with the selector at the top of the Routing tab's OVERRIDES section. The command writes `router.json` at once; the selector joins the Routing draft and writes on **Save**. Choosing `shadow`, the default, removes the key from the file.
 
 **Rollback.** Router 1.5 rejects unknown keys and makes routing unavailable. Before you install 1.5 again, remove `activities`, `activityRouting`, and `policy.activityMass` from `router.json`. The pane writes them when you set the mode to `off` or `on`, or edit or remove an override.
 

@@ -25,7 +25,7 @@ The activity is what the turn produces: `code`, `debug`, `explore`, `plan`, `rev
 
 The pane's **Set up** and **Credentials → Edit** buttons open Claude Code's secure plugin configuration. Claude Code refuses `$.command.run` from inside a `command.run` hook, so the Mod starts that dialog from a timer after the press returns.
 
-Mode belongs to a Claude Code session. Clear starts a new session with routing on. Resume restores the saved mode for that session. A new or forked session has a new ID: it starts with routing on for a model that one of the tiers routes to and with routing off for any other model, as a fresh launch does. A pin applies to one logical turn, then the prior route resumes. A history reset clears votes and cache evidence; the current turn keeps its route, pin and any native fallback.
+Mode belongs to a Claude Code session. Clear starts a new session with routing on. Resume restores the saved mode for that session. A new or forked session has a new ID: it starts with routing on for a model that one of the tiers routes to and with routing off for any other model, as a fresh launch does. With activity routing `on`, a model that only an activity override uses also starts the session with routing on. A pin applies to one logical turn, then the prior route resumes. A history reset clears votes and cache evidence; the current turn keeps its route, pin and any native fallback.
 
 ## Router pane
 
@@ -72,7 +72,7 @@ The pane refuses to write through a symlink. A failed validation names the setti
 ## Safety and failure states
 
 - A missing key or account ID, a classifier failure, or a policy refusal keeps the current model. Network refusal is never bypassed with a helper process.
-- A missing, malformed, or timed-out activity answer routes the turn by tier alone. It does not count as a classifier failure. Activity statistics are written inside a guard: a failed store read or write loses that turn's counts and never fails a turn.
+- A missing, malformed, or timed-out activity answer leaves the turn without an activity: in `on` it goes back to the tier's route if the move passes the cache checks, in `shadow` the tier route runs as always. It does not count as a classifier failure. If the whole classifier call fails, the running route stays. Activity statistics are written inside a guard: a failed store read or write loses that turn's counts and never fails a turn.
 - Three launched classifier failures open a 60-second pause for that classifier. One in-flight request is allowed per classifier in each active Mod instance. Pending host HTTP work blocks another request until it settles.
 - A `router.json` with v0.8 gateway keys or the 1.1 `jev` section marks the router unavailable until the [migration command](configuration.md#convert-an-older-routerjson) converts it.
 - Unsupported Claude Code versions and leftover v0.8 gateway settings (the `jev-router` model or the `127.0.0.1:43170` base URL) mark the router unavailable. `/router` lists the settings to remove. A local gateway does not run as part of this Mod.

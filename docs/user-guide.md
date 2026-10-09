@@ -118,7 +118,7 @@ A tier says how hard the work is. The activity says what kind of work it is. The
 | `ops`     | Executed commands: git, builds, test runs, CI, deploys          |
 | `docs`    | Prose for people: README, docs, comments, commit messages       |
 
-A mixed turn such as "fix it and commit" takes the hardest part, here `code`. The router then picks the route by tier and activity. On the defaults, a `low` coding turn runs on Sonnet 5.5 at `medium`, while a `low` git turn stays on Haiku 5.5 at `high`. [Configuration](configuration.md#activity-routing) has the full matrix and how to change it.
+A mixed turn such as "fix it and commit" takes the hardest part, here `code`. The router then picks the route by tier and activity. With activity routing on and the default overrides, a `low` coding turn runs on Sonnet 5.5 at `medium`, while a `low` git turn stays on Haiku 5.5 at `high`. [Configuration](configuration.md#activity-routing) has the full matrix and how to change it.
 
 The mode decides what happens with the label:
 
@@ -134,9 +134,10 @@ How the router moves inside a tier:
 
 - It compares routes, not labels. If the new activity resolves to the route already running, nothing switches.
 - A move to a stronger route needs the classifier's support, as an upgrade between tiers does. A move to a cheaper one must pay back its cache write within the payback horizon. One vote is enough for either, because the activity is a fact about this turn.
-- An activity applies only when the classifier gives it at least 60% probability (`policy.activityMass`). Otherwise the turn uses its tier's route. On a tool continuation the route stays, and the activity may only move up to a stronger route.
+- An activity applies only when the classifier gives it at least 60% probability (`policy.activityMass`). Below that, or on `uncertain`, the turn goes back to its tier's route, if the move passes the same checks. Tool continuations inside a turn keep the turn's route. When the classifier sees a new prompt as a continuation of the task, the activity may only move to a stronger route: `explore` can become `code`, but not the other way. Ollama does not answer the continuation question, so this rule does not apply to it.
 - A pinned turn uses the pin's tier route and shows no activity.
-- When the classifier gives no activity, a timeout, a failure, or a malformed answer included, the turn is routed by tier alone, as in 1.5.
+- When the classifier gives no answer at all (a timeout, a failure, a pause, or a missing key), the running route and its activity stay. When it answers the tier but not the activity, the turn goes back to its tier's route, again only if the move passes the checks. In `shadow` and `off` the tier route always runs, as in 1.5.
+- A fresh session starts with routing on when the session model is a tier's route. With activity routing `on`, a model that only an activity override uses also counts: Sonnet 5.5 on the defaults. In `off` and `shadow` it does not.
 
 The band's activity label appears only when the activity applies, so a weak or `uncertain` answer shows none. The two-row band and the **Replies** strip show the activities of recent replies.
 
