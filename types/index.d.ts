@@ -141,6 +141,8 @@ declare module 'claude-code' {
     lastRoute: RouterTier;
     // The activity of the route running now; absent in loops saved before 1.6.
     lastActivity?: RouterActivity | null;
+    // Shadow mode only: the cell and policy state `on` would run with, so each would-route continues the last one.
+    would?: { lastRoute: RouterTier; lastActivity: RouterActivity | null; state: RouterPolicyState } | null;
     state: RouterPolicyState;
     models: Record<string, { lastAt: number; prefixTokens: number }>;
     resolutions: Record<string, string>;

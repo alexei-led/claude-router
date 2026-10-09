@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { acceptActivity, compareRoutes } from '../lib/activity.mjs';
+import { turnActivity } from '../lib/activity-stats.mjs';
 import { loadConfig, resolveRoute } from '../lib/config.mjs';
 import { routeCacheKey } from '../lib/cost.mjs';
 import { initialState } from '../lib/policy.mjs';
-import { chooseRoute, emptyLoop } from '../lib/route.mjs';
+import { chooseRoute, emptyLoop, resetHistory } from '../lib/route.mjs';
 import { advice, T0 } from './helpers.mjs';
 
 const ON = loadConfig({ userFile: { activityRouting: 'on' } });
@@ -97,7 +98,12 @@ test('compareRoutes orders by output price, then effort; a session effort or an 
 
 // One turn in `on` from the cell (tier, activity) with its route warm. `choice` is the tier advice; `label` the
 // activity answer.
-function turn({
+const turn = (setup) => {
+  const { config, loop, input } = turnInput(setup);
+  return chooseRoute(config, loop, input);
+};
+
+function turnInput({
   config = ON,
   tier = 'low',
   activity = null,
@@ -160,7 +166,7 @@ function turn({
     contextKnown: true,
     now: NOW,
   };
-  return chooseRoute(config, loop, input);
+  return { config, loop, input };
 }
 
 const priorVote = (tier) => ({ ...initialState(), turn: 1, votes: [{ tier, turn: 1 }] });
@@ -422,4 +428,50 @@ test('off and the applied shadow decision ignore an activity left in the loop by
       assert.deepEqual(routeOf(left), routeOf(clean), `${mode} ${name}`);
       assert.deepEqual(routeOf(left).slice(0, 5), ['low', null, routeOf(clean)[2], HAIKU, 'high'], `${mode} ${name}`);
     }
+});
+
+test('shadow follows what on would run from turn to turn, not from the applied route each turn', () => {
+  const config = loadConfig({ userFile: { activityRouting: 'shadow' } });
+  const { loop: start, input } = turnInput({ config });
+  let loop = start;
+  const seen = [];
+  for (const p of [0.95, 0.95, 0.95, 0.95, 0.95, 0.65]) {
+    const label = labelOf('code', p);
+    const turnInputs = { ...input, advice: { ...input.advice, activity: label } };
+    const previous = loop.decision;
+    loop = chooseRoute(
+      config,
+      { ...loop, decision: null },
+      { ...turnInputs, facts: { ...input.facts, lastRoute: loop.lastRoute } },
+    );
+    const stats = turnActivity(config, turnInputs.advice, previous, loop.decision);
+    seen.push([
+      loop.decision.model,
+      loop.decision.wouldRoute.model,
+      loop.decision.wouldRoute.reason,
+      stats.lateral,
+      stats.wouldDiffer,
+    ]);
+  }
+  assert.deepEqual(seen, [
+    [HAIKU, SONNET, 'activity-up', 'taken', true],
+    ...Array(4).fill([HAIKU, SONNET, 'same-tier', null, true]),
+    [HAIKU, SONNET, 'same-tier', null, true],
+  ]);
+  assert.deepEqual([loop.would.lastRoute, loop.would.lastActivity], ['low', 'code']);
+});
+
+test('only shadow keeps the would-route cell, and a history reset clears its votes and hold', () => {
+  for (const mode of ['off', 'shadow', 'on']) {
+    const config = loadConfig({ userFile: { activityRouting: mode } });
+    const loop = turn({ config, label: labelOf('code') });
+    assert.equal(loop.would === null, mode !== 'shadow', mode);
+  }
+  const config = loadConfig({ userFile: { activityRouting: 'shadow' } });
+  const loop = turn({ config, label: labelOf('code'), state: holding, choice: 'medium' });
+  const reset = resetHistory(loop);
+  assert.deepEqual(
+    [reset.would.state.votes, reset.would.state.holdUntilTurn, reset.would.state.escalatedSignature],
+    [[], 0, null],
+  );
 });
