@@ -183,7 +183,8 @@ Route strength orders models by configured output price, then effort. No new set
 ### 5.2 Decision
 
 ```
-R0 = route running now (native model at session start), T0 = its tier, A0 = its activity (null at start)
+R0 = route running now (native model at session start), T0 = its tier, A0 = its activity
+     (at session start, the cell cellForModel found for the native model, §6; null for a base cell)
 
 1. pin            → tier = pin, activity = null (base route of the pinned tier). Done.
 2. activity A:
@@ -214,9 +215,11 @@ and a single `ops` turn would never get a second one. The economics already cove
 
 Other rules:
 
-- **Escalation** after repeated tool errors keeps the activity and moves to the lowest tier above T0 whose
-  route(t, A) is stronger than R0. When no tier above gives a stronger route, there is no escalation and the failure
-  signature is not consumed: with the defaults, `low` and `medium` docs are both Sonnet, so docs escalates to `high`.
+- **Escalation** after repeated tool errors keeps the activity. With A = null it is today's rule, one tier up, so
+  `off` and the applied `shadow` decision stay equal to 1.5. With an activity it moves to the lowest tier above T0
+  whose route(t, A) is stronger than R0; when no tier above gives a stronger route, there is no escalation and the
+  failure signature is not consumed. With the defaults, `low` and `medium` docs are both Sonnet, so docs escalates to
+  `high`.
 - **Context fit** resolves windows through `route(t, A)`.
 - **Model unavailable** falls back through the same chain as today, with resolved routes.
 - **Fresh history** (session start, `/clear`, committed compaction, rewind): tier and activity moves skip the vote
@@ -442,7 +445,7 @@ activity and stats, UI; then the hook wiring and docs.
 | Config | Valid and invalid `activities` (path in the message), field inheritance, `withActivities` strips defaults, `cellForModel` and the start mode with overrides |
 | Contract | Per protocol: build includes the question only when the mode is not `off`; parse a valid activity → `activity` set; a missing, malformed or unknown one → route intact, `activity` null; fixtures next to the existing `*-response.json` |
 | Client | Ollama: route OK and activity times out → partial advice, no failure counted; deadline floor skips step 2 |
-| Policy | Table-driven (R0, tier advice, activity advice, cache state, context) → (route, reason): same route despite a label change; continuation up allowed, down refused; uncertain → base, up or down, with P = 1; tier and activity change together; escalation keeps the activity and skips tiers whose route is not stronger (docs: low → high), and keeps the signature when none is; a lateral move to a credits model above the cash cap is blocked; a hold refuses a cheaper lateral move and allows a stronger one; pin ignores the activity; fresh history skips votes; a cheaper move refused at large context and taken at small |
+| Policy | Table-driven (R0, tier advice, activity advice, cache state, context) → (route, reason): same route despite a label change; continuation up allowed, down refused; uncertain → base, up or down, with P = 1; tier and activity change together; escalation keeps the activity, skips tiers whose route is not stronger (docs: low → high) and keeps the signature when none is, and with A = null is one tier up as in 1.5; a session started on an override cell keeps it when the classifier fails; a lateral move to a credits model above the cash cap is blocked; a hold refuses a cheaper lateral move and allows a stronger one; pin ignores the activity; fresh history skips votes; a cheaper move refused at large context and taken at small |
 | Invariants | `off` ≡ 1.5 decisions over all existing scenarios; `shadow` never changes a route; equal routes never switch |
 | Observed | `observedActivity` buckets on synthetic histories: doc vs code paths, Bash ops vs tests, read-only, no tools |
 | Hook | Activity reaches the view, toast and stats; stats survive reload; reset on a new session |
