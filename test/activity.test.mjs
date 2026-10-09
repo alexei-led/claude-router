@@ -113,6 +113,7 @@ function turn({
   pin = null,
   noAdvice = false,
   effort = 'medium',
+  loopActivity = activity,
 }) {
   const running = resolveRoute(config, tier, activity);
   const models = warm
@@ -129,7 +130,7 @@ function turn({
   const loop = {
     ...emptyLoop(config, HAIKU),
     lastRoute: tier,
-    lastActivity: activity,
+    lastActivity: loopActivity,
     state,
     models,
     lastRequest,
@@ -391,4 +392,34 @@ test('off routes without the activity, shadow applies the same and reports what 
     assert.deepEqual(loop.decision.wouldRoute, wouldRoute, mode);
     assert.equal(loop.lastActivity, applied[1], mode);
   }
+});
+
+test('off and the applied shadow decision ignore an activity left in the loop by on', () => {
+  const routeOf = ({ decision: d, lastRoute, lastActivity }) => [
+    d.tier,
+    d.activity,
+    d.reason,
+    d.model,
+    d.effort,
+    lastRoute,
+    lastActivity,
+  ];
+  for (const mode of ['off', 'shadow'])
+    for (const [name, setup] of [
+      ['during a hold', { state: holding }],
+      ['on a same-tier answer', {}],
+      ['on a coding answer', { label: labelOf('code', 0.95) }],
+      ['on a credits model above the cash cap', { tokens: 300_000 }],
+    ]) {
+      const config = loadConfig({
+        userFile: {
+          activityRouting: mode,
+          ...(setup.tokens ? { models: { haiku: { billing: 'credits' } }, policy: { cashCapUsd: 0.05 } } : {}),
+        },
+      });
+      const left = turn({ config, activity: 'code', loopActivity: 'code', ...setup });
+      const clean = turn({ config, activity: 'code', loopActivity: null, ...setup });
+      assert.deepEqual(routeOf(left), routeOf(clean), `${mode} ${name}`);
+      assert.deepEqual(routeOf(left).slice(0, 5), ['low', null, routeOf(clean)[2], HAIKU, 'high'], `${mode} ${name}`);
+    }
 });
