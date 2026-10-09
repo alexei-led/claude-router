@@ -400,7 +400,7 @@ checked in.
 
 | File | Change |
 | --- | --- |
-| `lib/config.mjs` | `resolveRoute(config, tier, activity)`; `routeModel` becomes a thin wrapper over it |
+| `lib/config.mjs` | `resolveRoute(config, tier, activity)` and `routeSpec(config, route)` replace `routeModel`, which is removed |
 | `lib/cost.mjs` | `routeEffort`, `routeCacheKey`, `inputBounds`, `switchingTaxUsd`, `shadowEconomics` and `downgradeTaxUsd` take a route `{ model, effort }` instead of a tier |
 | `lib/policy.mjs` | `decide` and `fitTier` take `routeFor(tier)` and `incumbentRoute`; `cashGate`, `gatedResult` and the plan-billing fallback use routes |
 | `lib/route.mjs` | `chooseRoute` (including the `comparison` block) and `continueRoute` pass resolved routes; `tierForModel` → `cellForModel` |
