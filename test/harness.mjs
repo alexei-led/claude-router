@@ -126,6 +126,7 @@ export function harness(options = {}, preferences = new Map()) {
   const next = (input) => input;
   next.signal = new AbortController().signal;
   return {
+    $,
     state,
     env,
     requests,

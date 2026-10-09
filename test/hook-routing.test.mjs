@@ -622,6 +622,32 @@ test('a turn finishing while the session changes records nothing into the new se
   assert.deepEqual(h.preferences.get(STATS).runs, { code: [1, 0, 0, 0, 0] });
 });
 
+test('a session ending while a turn writes its stats leaves no run in the new session', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-haiku-5-5', ['Edit']);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  h.messages(async () => [user('Next.'), assistant('done', ['Edit'])]);
+  const set = h.$.state.set;
+  let release;
+  h.$.state.set = async (ref, value, options) => {
+    if (ref.key === 'view' && value.activityStats && !release) await new Promise((resolve) => (release = resolve));
+    return set(ref, value, options);
+  };
+  const completing = h.event('turn.complete', { turnId: 't2' });
+  for (let i = 0; i < 100 && !release; i += 1) await Promise.resolve();
+  h.$.state.set = set;
+  await h.event('session.end', { reason: 'clear' });
+  h.clear('s2');
+  await h.event('session.start', { cwd: '/fixture' });
+  release();
+  await completing;
+  await h.event('session.end', { reason: 'clear' });
+  assert.deepEqual(h.preferences.get(STATS).runs, { code: [0, 1, 0, 0, 0] });
+});
+
 test('with activity routing on, a continuation that falls back to the native model drops the activity label', async () => {
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
