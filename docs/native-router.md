@@ -53,7 +53,7 @@ The Routing tab edits each tier's model alias and effort, the baseline tier, and
 | Control          | Values in the pane                 | Effect                                                                                   |
 | ---------------- | ---------------------------------- | ---------------------------------------------------------------------------------------- |
 | Deadline         | 500, 1,000, 1,500, 3,000, 5,000 ms | The active classifier's total advice time, including any transient retry. Saved at once. |
-| Votes to go down | 1, 2, 3                            | Consecutive votes required for a downgrade.                                              |
+| Votes to go down | 1, 2, 3                            | Consecutive votes for a downgrade; one before a history's first measured reply.          |
 | Payback horizon  | 1, 3, 5, 10 turns                  | Later turns included in downgrade economics.                                             |
 | Credits cap      | $0.50, $1, $2, $5                  | Largest estimated cold write on a `credits` model.                                       |
 

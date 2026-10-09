@@ -136,12 +136,12 @@ Policy defaults:
 
 | Field                   | Default | Meaning                                                                                            |
 | ----------------------- | ------: | -------------------------------------------------------------------------------------------------- |
-| `upgradeVotes`          |     `2` | Consecutive supporting votes before an upgrade.                                                    |
+| `upgradeVotes`          |     `2` | Consecutive supporting votes before an upgrade; one before a history's first measured reply.       |
 | `upgradeBase`           |  `0.75` | Minimum probability mass required for an upgrade.                                                  |
 | `upgradeSlope`          |  `0.15` | Maximum increase to the upgrade bar from estimated switching cost.                                 |
 | `upgradePivotUsd`       |   `0.5` | Cost scale used by the upgrade bar. Must be positive.                                              |
 | `jumpConfidence`        |  `0.95` | Support for a two-tier jump without waiting for votes.                                             |
-| `downgradeVotes`        |     `2` | Consecutive supporting votes before a downgrade.                                                   |
+| `downgradeVotes`        |     `2` | Consecutive supporting votes before a downgrade; one before a history's first measured reply.      |
 | `downgradeMass`         |   `0.9` | Minimum probability mass required for a downgrade.                                                 |
 | `downgradeSlope`        |  `0.08` | Maximum increase to the downgrade bar from estimated switching cost.                               |
 | `downgradePivotUsd`     |   `0.5` | Cost scale used by the downgrade bar. Must be positive.                                            |

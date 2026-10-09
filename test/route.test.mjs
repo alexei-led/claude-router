@@ -122,6 +122,35 @@ test('native facts use engine turn ids and bounded prompt rather than tool outpu
   );
 });
 
+test('a new or reset history switches on one vote; a measured one waits for the streak', () => {
+  const initial = emptyLoop(DEFAULTS, model);
+  const observed = observeResponse(initial, { usage: usage(), requestedModel: model, effort: 'high', now });
+  const up = adviceOf('medium', { medium: 0.95, low: 0.05 });
+  for (const [name, config, loop, vote, expected] of [
+    ['session start, down', DEFAULTS, initial, advice, ['micro', 'downgrade']],
+    ['session start, up', DEFAULTS, initial, up, ['medium', 'upgrade']],
+    ['measured, down', DEFAULTS, observed, advice, ['low', 'downgrade-pending']],
+    ['measured, up', DEFAULTS, observed, up, ['low', 'upgrade-pending']],
+    ['history reset', DEFAULTS, resetHistory(observed), advice, ['micro', 'downgrade']],
+    ['rewind', DEFAULTS, prepareLoop({ ...observed, lastMessageCount: 8 }, 4), up, ['medium', 'upgrade']],
+    ['into a smaller window', SMALL_MICRO, emptyLoop(SMALL_MICRO, model), advice, ['low', 'context-unknown']],
+  ]) {
+    const { decision } = chooseRoute(config, loop, input(loop, { advice: vote }, config));
+    assert.deepEqual([decision.tier, decision.reason], expected, name);
+  }
+});
+
+test('native facts say whether this history has a measured reply', () => {
+  const initial = emptyLoop(DEFAULTS, model);
+  const observed = observeResponse(initial, { usage: usage(), requestedModel: model, effort: 'high', now });
+  for (const [loop, measured] of [
+    [initial, false],
+    [observed, true],
+    [resetHistory(observed), false],
+  ])
+    assert.equal(nativeFacts(DEFAULTS, loop, context).historyMeasured, measured);
+});
+
 test('pins and tool continuations do not replace the automatic incumbent or add votes', () => {
   const loop = emptyLoop(DEFAULTS, model);
   const pinned = chooseRoute(DEFAULTS, loop, input(loop, { pin: 'high' }));

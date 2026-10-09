@@ -132,7 +132,7 @@ A new model ID needs an entry in `router.json` `models` with its price, context 
 
 Under **Policy** on the same tab, pick the values. One **Save** writes them with any route changes:
 
-- **Votes to go down:** 1, 2, or 3 consecutive votes before a cheaper tier.
+- **Votes to go down:** 1, 2, or 3 consecutive votes before a cheaper tier. A new or reset history needs one.
 - **Payback horizon:** 1, 3, 5, or 10 later turns used by the downgrade estimate.
 - **Credits cap:** $0.50, $1, $2, or $5 for an estimated cold cache write on a `credits` model.
 

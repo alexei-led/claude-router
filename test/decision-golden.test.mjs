@@ -128,6 +128,7 @@ function scenario(config, s) {
     turns: [],
     pin: null,
     turnKey: 't',
+    historyMeasured,
   };
   const input = { facts, advice: noAdvice ? null : adviceFor(choice, shape, continuation), pin, nativeModel, now: NOW };
   return { loop, input: { ...input, contextKnown, availableModels } };
@@ -259,6 +260,15 @@ function scenarios() {
         routed('mixed', { lastRoute, choice: 'micro', pin: 'micro', contextKnown, historyMeasured }),
       );
     }
+  // A history with no measured reply yet: one vote, no cache evidence.
+  for (const configName of ['defaults', 'mixed'])
+    for (const lastRoute of TIERS)
+      for (const choice of TIERS)
+        if (choice !== lastRoute)
+          add(
+            `${configName} fresh-history ${lastRoute}->${choice}`,
+            routed(configName, { lastRoute, choice, cache: 'none', historyMeasured: false }),
+          );
   // Models the session cannot use, by availability list or by an observed context overflow.
   for (const [label, extra] of [
     ['available-sonnet', { availableModels: ['sonnet'] }],
