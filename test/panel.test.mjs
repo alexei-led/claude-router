@@ -334,8 +334,7 @@ test('the Usage tab shows activity counts, switches, agreement and the shadow re
     assert.deepEqual(lines.slice(at, at + expected.length), expected, `${mode} ${Boolean(activityStats)}`);
     assert.equal(lines[at + expected.length], ' ', `${mode}: no further activity lines`);
     const reset = controls(tree).find((c) => c.key === 'reset-activity-stats');
-    assert.equal(Boolean(reset), Boolean(activityStats), mode);
-    reset?.onPress();
-    assert.deepEqual(calls, activityStats ? [['resetActivityStats']] : []);
+    reset.onPress();
+    assert.deepEqual(calls, [['resetActivityStats']], `${mode}: the stored counts can always be reset`);
   }
 });
