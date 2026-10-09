@@ -560,3 +560,30 @@ test('/router activities writes the mode to router.json, off stops the question,
   await turn(h, 't3', 'claude-haiku-5-5');
   assert.ok(bodies[2].questions.activity);
 });
+
+test('a failing stats store or transcript never breaks a turn', async () => {
+  const saved = new Map();
+  const store = {
+    get: (key) => {
+      if (key === STATS) throw new Error('store down');
+      return saved.get(key);
+    },
+    set: (key, value) => {
+      if (key === STATS) throw new Error('store down');
+      return saved.set(key, value);
+    },
+  };
+  const h = harness(JEV_KEY, store);
+  answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-haiku-5-5', ['Edit']);
+  assert.equal(h.requests[0].model, 'claude-haiku-5-5');
+  assert.equal(h.view().activityStats.byActivity.code.turns, 1);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  h.messages(() => Promise.reject(new Error('transcript gone')));
+  await h.event('turn.complete', { turnId: 't2' });
+  assert.equal(h.requests.length, 2);
+  assert.equal(h.view().activityStats.byActivity.code.turns, 1);
+  await h.event('session.end', { reason: 'clear' });
+});
