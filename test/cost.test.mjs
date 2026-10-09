@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULTS, loadConfig } from '../lib/config.mjs';
+import { DEFAULTS, loadConfig, resolveRoute } from '../lib/config.mjs';
 import * as native from '../lib/cost.mjs';
 import { decide, initialState } from '../lib/policy.mjs';
 import { advice as adviceOf } from './helpers.mjs';
@@ -46,17 +46,18 @@ test('cache identity preserves model snapshots and separates effective efforts',
       routes: { low: { model: 'sonnet', effort: null } },
     },
   });
-  assert.equal(native.routeCacheKey(config, 'micro', 'xhigh'), 'claude-haiku-5-5-20260101@medium');
-  assert.equal(native.routeCacheKey(DEFAULTS, 'low', 'medium'), 'claude-haiku-5-5@high');
-  assert.equal(native.routeCacheKey(SONNET_MEDIUM, 'micro', 'xhigh'), 'claude-haiku-4-5');
-  assert.equal(native.routeCacheKey(config, 'medium', 'low'), 'claude-opus-5-5@medium');
-  assert.equal(native.routeCacheKey(SONNET_MEDIUM, 'medium', 'low'), 'claude-sonnet-5-5@xhigh');
-  assert.equal(native.routeCacheKey(config, 'low', 'medium'), 'claude-sonnet-5-5@medium');
-  assert.equal(native.routeCacheKey(config, 'low', 2000), 'claude-sonnet-5-5@2000');
+  const key = (cfg, tier, sent) => native.routeCacheKey(cfg, resolveRoute(cfg, tier), sent);
+  assert.equal(key(config, 'micro', 'xhigh'), 'claude-haiku-5-5-20260101@medium');
+  assert.equal(key(DEFAULTS, 'low', 'medium'), 'claude-haiku-5-5@high');
+  assert.equal(key(SONNET_MEDIUM, 'micro', 'xhigh'), 'claude-haiku-4-5');
+  assert.equal(key(config, 'medium', 'low'), 'claude-opus-5-5@medium');
+  assert.equal(key(SONNET_MEDIUM, 'medium', 'low'), 'claude-sonnet-5-5@xhigh');
+  assert.equal(key(config, 'low', 'medium'), 'claude-sonnet-5-5@medium');
+  assert.equal(key(config, 'low', 2000), 'claude-sonnet-5-5@2000');
 });
 
 test('bounds distinguish observed cached prefix from generated and uncached tokens', () => {
-  const bounds = native.inputBounds(SONNET_MEDIUM, 'medium', 151_500, facts, now);
+  const bounds = native.inputBounds(SONNET_MEDIUM, resolveRoute(SONNET_MEDIUM, 'medium'), 151_500, facts, now);
   near(bounds.min, 0.0366);
   near(bounds.max, 0.0436);
   near(native.coldWriteUsd(SONNET_MEDIUM, 'tiny', 151_500), 0.303);
@@ -64,9 +65,10 @@ test('bounds distinguish observed cached prefix from generated and uncached toke
 
 test('unknown TTL keeps an optimistic incumbent scenario and a cold candidate upper cost', () => {
   const later = now + 600_000;
-  near(native.switchingTaxUsd(SONNET_MEDIUM, 'micro', 'medium', facts, later), 0.2664);
-  near(native.downgradeTaxUsd(SONNET_MEDIUM, 'micro', 'medium', facts, later, 5), 0.1683);
-  const estimate = native.shadowEconomics(SONNET_MEDIUM, 'micro', 'medium', facts, later);
+  const [micro, medium] = ['micro', 'medium'].map((tier) => resolveRoute(SONNET_MEDIUM, tier));
+  near(native.switchingTaxUsd(SONNET_MEDIUM, micro, medium, facts, later), 0.2664);
+  near(native.downgradeTaxUsd(SONNET_MEDIUM, micro, medium, facts, later, 5), 0.1683);
+  const estimate = native.shadowEconomics(SONNET_MEDIUM, micro, medium, facts, later);
   near(estimate.nextTurnUsd, 0.2589);
   near(estimate.laterTurnUsd, -0.02265);
   assert.equal(estimate.paybackTurns, 12);

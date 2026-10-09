@@ -27,6 +27,7 @@ import {
 import { clip } from '../lib/facts.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
 import {
+  cellForModel,
   chooseRoute,
   continueRoute,
   emptyLoop,
@@ -37,7 +38,6 @@ import {
   observeResponse,
   prepareLoop,
   resetHistory,
-  tierForModel,
 } from '../lib/route.mjs';
 import { CLEARED_READINGS, healthOf, initialView, responseMetrics } from '../lib/view.mjs';
 
@@ -98,7 +98,7 @@ async function modeOf($, router, fallback = 'auto') {
 
 // A saved preference wins; a fresh session starts with routing on for a model some tier routes to, and off for any other.
 async function startMode($, router, model) {
-  const mode = await modeOf($, router, tierForModel(router.config, model) === null ? 'manual' : 'auto');
+  const mode = await modeOf($, router, cellForModel(router.config, model) === null ? 'manual' : 'auto');
   router.modes.set(await $.session.id(), mode);
   return mode;
 }

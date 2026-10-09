@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { loadConfig } from '../lib/config.mjs';
+import { loadConfig, resolveRoute } from '../lib/config.mjs';
 import { switchingTaxUsd } from '../lib/cost.mjs';
 import { decide, fitTier, initialState, massAbove, massAtOrBelow } from '../lib/policy.mjs';
 import { advice, served, T0 } from './helpers.mjs';
@@ -274,7 +274,9 @@ for (const { name, cfg = config, candidate, f = facts(opusWarm), want } of [
   test(`downgrade bar from warm Opus at xhigh: ${name}`, () => {
     const p = cfg.policy;
     const bar = (tax) => p.downgradeMass + p.downgradeSlope * (tax / (tax + p.downgradePivotUsd));
-    const withoutOutputSavings = bar(Math.max(0, switchingTaxUsd(cfg, candidate, 'high', f, NOW)));
+    const withoutOutputSavings = bar(
+      Math.max(0, switchingTaxUsd(cfg, resolveRoute(cfg, candidate), resolveRoute(cfg, 'high'), f, NOW)),
+    );
     const [d] = runTurns(f, [advice(candidate, { [candidate]: 1 })], initialState(), cfg);
     const { threshold } = d.estimate;
     assert.ok(threshold >= p.downgradeMass);

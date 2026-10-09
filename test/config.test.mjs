@@ -6,6 +6,7 @@ import {
   CLASSIFIER_OPTIONS,
   DEFAULTS,
   loadConfig,
+  resolveRoute,
   supportedVersion,
   tuningOf,
   withClassifier,
@@ -372,7 +373,11 @@ test('the default micro and low routes are Haiku at their own effort whatever th
   ]) {
     assert.deepEqual(DEFAULTS.routes[tier], { model: 'haiku', effort });
     for (const session of ['low', 'medium', 'high', 'xhigh', 'max', null])
-      assert.equal(routeEffort(loadConfig({}), tier, session), effort, `${tier} ${session}`);
+      assert.equal(
+        routeEffort(loadConfig({}), resolveRoute(loadConfig({}), tier), session),
+        effort,
+        `${tier} ${session}`,
+      );
   }
 });
 
