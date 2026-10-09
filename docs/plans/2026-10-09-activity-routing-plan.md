@@ -1,12 +1,26 @@
 # Activity routing
 
-Version 0.2 · 2026-10-09 · Draft for review. Targets: 1.6 (shadow), 1.7 (on).
+Version 0.3 · 2026-10-10 · Approved for implementation. Target: 1.6.0 ships phases 0–2, `shadow` by default, `on`
+opt-in. Phase 3 (`on` by default) waits for shadow data.
 
 The router picks a tier for each logical turn: how hard the work is. This plan adds a second label, the **activity**:
 what kind of work the turn does. A route is then chosen by tier *and* activity, so a `low` coding turn can run on
 Sonnet while a `low` git turn runs on Haiku.
 
-## 0. Changes since v0.1
+## 0. Changes since v0.2
+
+v0.3 checks v0.2 against the 1.5.1 code and fixes the release shape.
+
+| Area | v0.2 | v0.3 | Why |
+| --- | --- | --- | --- |
+| Base routes | §3.1 drew `low` as Sonnet · medium | Base routes stay as in 1.5: `low` is Haiku · high (since 1.4.0). The proposed matrix ships as default **activity overrides** on top of them (§3.1) | With activity `null` (off, uncertain, failed) routing must equal 1.5, as §4.3 already requires. Changing the base would change routing for every user in `off` and `shadow` |
+| Releases | 1.6 shadow, 1.7 on, 1.8 default on | 1.6.0 ships phases 0–2: `shadow` default with the proposed overrides, so shadow measures exactly what `on` would do; `on` is opt-in | One minor release; Phase 3 still needs the §11 exit data |
+| Phase 0 scope | config, cost, policy, route | adds `cashGate`/`gatedResult` and the plan-billing fallback in `policy.mjs`, the `comparison` block in `chooseRoute`, `display.mjs` (`tierForModel`, `routeModel`), and the loop shape: `lastRoute` keeps the tier, `lastActivity` is added in Phase 1 | These sites were still tier-keyed |
+| Fresh history | inside Phase 0 | its own PR after Phase 0 | It changes tier behaviour; Phase 0 must be a provable no-op |
+| Classifier criteria | — | the classifier keeps seeing the **base** route per tier (`classifier-apis.mjs` sends `route` in the criteria) | The tier question is about difficulty; overrides are the router's business |
+| Rollback | `activities`, `activityRouting` | also `policy.activityMass`: 1.5 closes the `policy` keys too | Verified in `checkShape` |
+
+## 0.1 Changes since v0.1
 
 v0.1 was the chat draft (`kinds`, six types, one switching rule). This version reviews it against the code.
 
@@ -79,14 +93,15 @@ their own: if a new activity resolves to the route already running, nothing swit
 ```json
 {
   "activityRouting": "on",
-  "routes": { "low": { "model": "sonnet", "effort": "medium" } },
   "activities": {
-    "ops":     { "low": { "model": "haiku", "effort": "high" }, "medium": { "model": "sonnet" } },
-    "explore": { "low": { "model": "haiku", "effort": "high" }, "medium": { "model": "sonnet" } },
-    "docs":    { "medium": { "model": "sonnet" } }
+    "code":   { "high": { "effort": "max" } },
+    "review": { "low": { "model": "opus", "effort": "medium" } }
   }
 }
 ```
+
+A user file is merged over the built-in overrides (§3.1) per field, as `routes` is. To drop a built-in override, set
+it to the tier's base route; the pane writes that for you.
 
 - `activityRouting`: `off` asks nothing new and routes exactly as 1.5. `shadow` asks, shows, and records, and does
   not change routes. `on` applies the overrides. Also: `/router activities on|shadow|off`.
@@ -95,28 +110,30 @@ their own: if a new activity resolves to the route already running, nothing swit
 - Validation follows the existing loader: unknown activity or tier, unknown model alias, invalid effort, and forbidden
   keys fail with the path. An override equal to its tier's route is reported in the pane as having no effect.
 - Pane writes remove values equal to the built-in defaults, as `withRoutes` does today.
-- Rollback: 1.5 rejects unknown top-level keys. Remove `activities` and `activityRouting` before downgrading. The
-  CHANGELOG says so.
+- Rollback: 1.5 rejects unknown top-level keys and unknown `policy` keys. Remove `activities`, `activityRouting` and
+  `policy.activityMass` before downgrading. The CHANGELOG says so.
 
 ### 3.1 Defaults
 
-Phase 1 ships `activityRouting: "shadow"` and no overrides: routes are unchanged.
+1.6.0 ships `activityRouting: "shadow"` with the overrides below. In `shadow` they only feed the "would route" readout
+and stats, so shadow data measures exactly what `on` would do. Routes change only after a user opts in to `on`.
 
-Phase 2 proposes this matrix. Cells marked `·` inherit the base route.
+The base routes stay as in 1.5. Cells marked `·` inherit them; activity `null` always uses them.
 
 | | micro | low | medium | high | Evidence |
 | --- | --- | --- | --- | --- | --- |
-| base | Haiku · medium | **Sonnet · medium** | Opus · medium | Opus · xhigh | `low` is defined as simple coding: Haiku is weakest there (Terminal-Bench 39 vs 71) |
-| `ops` | · | Haiku · high | Sonnet · medium | · | Terminal-style tasks: Sonnet 5.5 70.6% vs Opus 5.5 66.4% (xhigh) |
-| `explore` | · | Haiku · high | Sonnet · medium | · | Knowledge work: Sonnet ≈ Opus (1844 vs 1846); Haiku close at low |
-| `docs` | · | · | Sonnet · medium | · | Same |
-| `code` `debug` `plan` `review` | · | · | · | · | Coding benchmarks favour the base ladder |
+| base (1.5) | Haiku · medium | Haiku · high | Opus · medium | Opus · xhigh | Unchanged |
+| `code` `debug` `plan` `review` | · | **Sonnet · medium** | · | · | Coding is where Haiku is weakest: Terminal-Bench 4.0, Haiku 5.5 39.2% vs Sonnet 5.5 70.6% |
+| `docs` | · | **Sonnet · medium** | **Sonnet · medium** | · | Knowledge work: Sonnet ≈ Opus (GDPval-AA 1844 vs 1846) |
+| `ops` | · | · | **Sonnet · medium** | · | Terminal-style tasks: Sonnet 5.5 70.6% vs Opus 5.5 66.4% (xhigh) |
+| `explore` | · | · | **Sonnet · medium** | · | Knowledge work: Sonnet ≈ Opus; Haiku close (1620) |
 
-Only five distinct (model, effort) pairs: Haiku·medium, Haiku·high, Sonnet·medium, Opus·medium, Opus·xhigh. Every
-override reuses a pair the ladder already has, so it adds no new cache. The pane counts the distinct pairs.
+At `low`, `ops` and `explore` keep 1.5's Haiku · high: they are the cheap cases the 1.4.0 ladder was chosen for. Only
+five distinct (model, effort) pairs: Haiku·medium, Haiku·high, Sonnet·medium, Opus·medium, Opus·xhigh, one more than
+1.5. The pane counts the distinct pairs.
 
-These are vendor benchmarks at max or xhigh effort, not measurements of this router. Phase 2 starts only after the
-shadow data in §8.
+These are vendor benchmarks at max or xhigh effort, not measurements of this router. `on` by default (Phase 3) waits
+for the shadow data in §8 and §11.
 
 ## 4. Classifier
 
@@ -158,7 +175,7 @@ The advice shape becomes `{ choice, confidence, probabilities, continuation, act
 2. **Up on evidence, down on economics.** A stronger route is about quality and needs classifier support. A cheaper
    route is about cost and must pay back its cache write.
 3. **One route per turn.** Tool continuations keep it.
-4. **Uncertainty resolves to the base route**, the quality default, except on a continuation.
+4. **Uncertainty resolves to the base route**, 1.5's route for the tier, except on a continuation.
 5. **No cache, no votes.** Before the first measured reply of a history, nothing is protected by staying.
 
 Route strength orders models by configured output price, then effort. No new setting.
@@ -219,16 +236,17 @@ The policy computes this per turn with `downgradeTaxUsd` and `switchingTaxUsd`. 
 
 Everything else reuses the tier policy: `upgradeBase`, `upgradeSlope`, `upgradePivotUsd`, `downgradeHorizonTurns`,
 `continuationMass`. Not in the pane. Open question: the horizon counts requests, while activities run for a few turns
-of several requests each. Calibrate from §8 stats before Phase 2.
+of several requests each. Calibrate from §8 stats before Phase 3.
 
 ## 6. Session start
 
 - The incumbent route is the session's model. `tierForModel` becomes `cellForModel`: it searches the base routes
-  (baseline first), then the overrides, and returns `{ tier, activity }`.
-- The start-mode rule is unchanged: routing starts on when some cell routes to the session model.
-- With the Phase 2 defaults, start on Sonnet: `claude --model claude-sonnet-5-5`. It is the base `low` route and the
-  most common destination. Starting on Haiku or Opus also works: the fresh-history rule moves turn 1 to the right
-  route without votes.
+  (baseline first), then, only with `activityRouting: on`, the overrides, and returns `{ tier, activity }`.
+- The start-mode rule is unchanged: routing starts on when some effective cell routes to the session model. In
+  `off` and `shadow` only base routes count, as in 1.5.
+- Any start model with a cell works: the fresh-history rule moves turn 1 to the right route without votes. With
+  `on` and the default overrides, Sonnet 5.5 is the most common destination, so `claude --model claude-sonnet-5-5`
+  avoids the first switch.
 - `baselineTier` keeps its meaning: start here, fall back here. Its route is resolved with `activity = null`.
 
 ## 7. UI
@@ -271,11 +289,10 @@ Keep the ROUTES table. Add two sections under it.
 
 ```
 ACTIVITIES · routing on                  micro    low      medium   high
-  base                                   H·med    S·med    O·med    O·xh
-  ops                                    ·        H·high   S·med    ·
-  explore                                ·        H·high   S·med    ·
-  docs                                   ·        ·        S·med    ·
-  code debug plan review                 ·        ·        ·        ·
+  base                                   H·med    H·high   O·med    O·xh
+  code debug plan review                 ·        S·med    ·        ·
+  docs                                   ·        S·med    S·med    ·
+  ops explore                            ·        ·        S·med    ·
   5 distinct routes = 5 caches
 ```
 
@@ -370,12 +387,18 @@ checked in.
 | --- | --- |
 | `lib/config.mjs` | `resolveRoute(config, tier, activity)`; `routeModel` becomes a thin wrapper over it |
 | `lib/cost.mjs` | `routeEffort`, `routeCacheKey`, `inputBounds`, `switchingTaxUsd`, `shadowEconomics` and `downgradeTaxUsd` take a route `{ model, effort }` instead of a tier |
-| `lib/policy.mjs` | `decide` and `fitTier` take `routeFor(tier)` and `incumbentRoute`; the fresh-history rule |
-| `lib/route.mjs` | `chooseRoute` and `continueRoute` pass resolved routes; `tierForModel` → `cellForModel` |
+| `lib/policy.mjs` | `decide` and `fitTier` take `routeFor(tier)` and `incumbentRoute`; `cashGate`, `gatedResult` and the plan-billing fallback use routes |
+| `lib/route.mjs` | `chooseRoute` (including the `comparison` block) and `continueRoute` pass resolved routes; `tierForModel` → `cellForModel` |
+| `lib/display.mjs` | `cellForModel` and resolved routes instead of `tierForModel` and `routeModel` |
 
-Invariant test: with no activity, every scenario in `policy.test.mjs`, `route.test.mjs` and `hook-routing.test.mjs`
-produces the same tier, model, effort and reason as before. The fresh-history rule is the one intended change; it
-lands as a separate commit with its own tests.
+Invariant test: a golden decision snapshot, generated from 1.5.1 and committed before the refactor, over a scenario
+matrix of `decide`, `chooseRoute` and `continueRoute`. Existing tests change only in call signatures.
+
+### Fresh history (own PR, after Phase 0)
+
+`decide` receives `historyMeasured` through the facts. Before the first measured reply, upgrades and downgrades need
+one vote instead of a streak; mass thresholds, the cash gate, escalation and holds are unchanged. The golden snapshot
+changes only in fresh-history scenarios.
 
 ### Phase 1: ask, show, record (`shadow` default)
 
@@ -392,9 +415,13 @@ lands as a separate commit with its own tests.
 
 ### Phase 2: switch (`on`)
 
-The lateral rule in `chooseRoute`, the Phase 2 defaults, and docs: `configuration.md`, `user-guide.md`,
+The lateral rule in `chooseRoute`, the default overrides of §3.1, and docs: `configuration.md`, `user-guide.md`,
 `architecture.md`, `native-router.md`, the README classifier table, the CHANGELOG, and regenerated SVGs
 (`npm run docs:images`).
+
+Phases 1 and 2 land as one PR: Phase 1 alone would ship a mode whose overrides do nothing. Inside that PR the work
+splits after a contracts commit (types, `ACTIVITIES`, config schema): classifier stack, switching policy, observed
+activity and stats, UI; then the hook wiring and docs.
 
 ## 10. Tests
 
@@ -416,13 +443,11 @@ The lateral rule in `chooseRoute`, the Phase 2 defaults, and docs: `configuratio
 
 | Phase | Release | Default | Exit criteria |
 | --- | --- | --- | --- |
-| 0 | 1.5.x | — | Invariant tests green; no behaviour change apart from fresh history |
-| 1 | 1.6 | `shadow` | p95 classifier latency up by ≤ 150 ms for Jev; probe accuracy and tool agreement known per classifier |
-| 2 | 1.7 | `on`, opt-in | Two weeks of shadow: tool agreement ≥ 80% on `code` vs `ops`/`explore`; would-route estimate negative; median activity switches per session known |
-| 3 | 1.8 | `on` by default | Phase 2 shows no rise in tool-error escalations after activity downgrades |
+| 0 | 1.6.0 | — | Golden snapshot green; no behaviour change apart from fresh history |
+| 1–2 | 1.6.0 | `shadow`; `on` opt-in | Gate green; live sessions in `shadow` and `on` show the activity, the would-route readout and a lateral switch without a rejected request |
+| 3 | later minor | `on` by default | Two weeks of shadow: tool agreement ≥ 80% on `code` vs `ops`/`explore`; would-route estimate negative; p95 Jev latency up by ≤ 150 ms; no rise in tool-error escalations after activity downgrades |
 
-If Jev's latency or accuracy fails phase 1, `activityRouting` defaults to `off` for that classifier and the pane says
-why.
+If shadow data shows Jev's latency or accuracy failing, a patch release sets `activityRouting` to `off` by default.
 
 ## 12. Risks and open questions
 
@@ -437,4 +462,4 @@ why.
 - **Horizon units.** See §5.4.
 - **Slash commands and skills.** Does `turn.start` see `/commit` or the expanded prompt? If the raw command, a small
   built-in map (`/commit` → `ops`) could skip the classifier. Deferred until checked.
-- **Rollback.** 1.5 rejects the new keys; see §3.
+- **Rollback.** 1.5 rejects the new keys, including `policy.activityMass`; see §3.
