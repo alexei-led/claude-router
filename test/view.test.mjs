@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { initialView, responseMetrics } from '../lib/view.mjs';
+import { CLEARED_READINGS, initialView, responseMetrics } from '../lib/view.mjs';
 
 const usage = (input, read, write) => ({
   model: 'claude-haiku-4-5',
@@ -10,9 +10,9 @@ const usage = (input, read, write) => ({
   output_tokens: 7,
 });
 
-test('responseMetrics sums the input counters and appends the reading with its tier', () => {
-  const view = { ...initialView('claude-sonnet-5-5'), history: [10], tiers: ['low'] };
-  assert.deepEqual(responseMetrics(view, { usage: usage(1, 2, 3) }, 'micro'), {
+test('responseMetrics sums the input counters and appends the reading with its tier and activity', () => {
+  const view = { ...initialView('claude-sonnet-5-5'), history: [10], tiers: ['low'], activities: ['code'] };
+  assert.deepEqual(responseMetrics(view, { usage: usage(1, 2, 3) }, 'micro', 'ops'), {
     actualModel: 'claude-haiku-4-5',
     cacheRead: 2,
     cacheWrite: 3,
@@ -20,6 +20,7 @@ test('responseMetrics sums the input counters and appends the reading with its t
     outputTokens: 7,
     history: [10, 6],
     tiers: ['low', 'micro'],
+    activities: ['code', 'ops'],
   });
 });
 
@@ -30,7 +31,7 @@ test('responseMetrics keeps the trend when a counter is missing', () => {
   ]) {
     const metrics = responseMetrics({ history: [1], tiers: ['low'] }, response, 'low');
     assert.equal(metrics.inputTokens, null, name);
-    assert.equal('history' in metrics || 'tiers' in metrics, false, name);
+    assert.equal('history' in metrics || 'tiers' in metrics || 'activities' in metrics, false, name);
   }
 });
 
@@ -42,4 +43,24 @@ test('responseMetrics keeps the last 30 readings, history and tiers in step', ()
   assert.equal(metrics.history.at(-1), 100);
   assert.equal(metrics.tiers.length, 30);
   assert.equal(metrics.tiers.at(-1), null);
+  assert.equal(metrics.activities.length, 1);
+  assert.equal(metrics.activities.at(-1), null);
+});
+
+test('responseMetrics starts the activity strip for a view saved before 1.6', () => {
+  const view = { history: [1, 2], tiers: ['low', 'low'] };
+  assert.deepEqual(responseMetrics(view, { usage: usage(3, 0, 0) }, 'low', 'code').activities, ['code']);
+});
+
+test('a classifier switch clears its activity readings with its tier readings', () => {
+  const view = {
+    ...initialView('claude-sonnet-5-5'),
+    adviceChoice: 'low',
+    activityChoice: 'code',
+    activityProbabilities: { code: 0.8 },
+    wouldRoute: { activity: 'code', tier: 'low', model: 'claude-sonnet-5-5', effort: 'medium', reason: 'x' },
+  };
+  const cleared = { ...view, ...CLEARED_READINGS };
+  for (const key of ['adviceChoice', 'activityChoice', 'activityProbabilities', 'wouldRoute'])
+    assert.equal(cleared[key], null, key);
 });

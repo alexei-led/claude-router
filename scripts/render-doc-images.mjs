@@ -4,10 +4,11 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { renderBand } from '../lib/band.mjs';
 import { loadConfig } from '../lib/config.mjs';
-import { renderPanel } from '../lib/panel.mjs';
+import { renderPanel, routeDraftOf } from '../lib/panel.mjs';
 
 const OUT = fileURLToPath(new URL('../docs', import.meta.url));
 const config = { ...loadConfig(), nativePath: '~/.claude/router.json' };
+const activitiesOn = { ...config, activityRouting: 'on' };
 const element = (type) => (props) => ({ type, props });
 const elements = { Box: element('Box'), Text: element('Text'), Button: element('Button'), Select: element('Select') };
 const noop = () => {};
@@ -124,6 +125,11 @@ const base = {
     392_000, 395_000, 396_000, 398_000, 399_000, 401_000, 402_400,
   ],
   tiers: [...'llllllddllllhhhhhhhh'].map((c) => ({ l: 'low', d: 'medium', h: 'high' })[c]),
+  activities: [...'eeccoocceeppcccccccc'].map((c) => ({ c: 'code', e: 'explore', o: 'ops', p: 'plan' })[c]),
+  activity: 'code',
+  activityChoice: 'code',
+  activityProbabilities: { code: 0.84, debug: 0.08, plan: 0.05, uncertain: 0.03 },
+  wouldRoute: { activity: 'code', tier: 'high', model: 'claude-opus-5-5', effort: 'xhigh', reason: 'jump' },
   pendingPin: null,
   comparison: null,
   health: { failures: 0, pausedUntil: 0 },
@@ -173,6 +179,7 @@ const states = [
       actualModel: 'claude-haiku-5-5',
       effort: 'high',
       reason: 'no-advice',
+      activity: null,
       error: 'missing-key',
       credentials: {
         jev: 'missing-key',
@@ -190,11 +197,39 @@ const states = [
     { ...base, mode: 'manual', reason: 'model selected manually', nativeModel: 'claude-sonnet-5-5' },
     false,
   ],
+  [
+    'Activity routing on: an ops turn at low moves to the cheaper route',
+    {
+      ...base,
+      tier: 'low',
+      selectedModel: 'claude-haiku-5-5',
+      actualModel: 'claude-haiku-5-5',
+      effort: 'high',
+      activity: 'ops',
+      reason: 'activity-down',
+      estimate: null,
+    },
+    false,
+    activitiesOn,
+  ],
+  [
+    'Activity routing in shadow: the label is shown, the tier route still runs',
+    {
+      ...base,
+      tier: 'low',
+      selectedModel: 'claude-haiku-5-5',
+      actualModel: 'claude-haiku-5-5',
+      effort: 'high',
+      reason: 'same-tier',
+      estimate: null,
+    },
+    false,
+  ],
 ];
 let y = 30;
 const parts = [];
-for (const [caption, view, hover] of states) {
-  const tree = renderBand(elements, config, view, usage, { columns: COLUMNS }, actions);
+for (const [caption, view, hover, bandConfig = config] of states) {
+  const tree = renderBand(elements, bandConfig, view, usage, { columns: COLUMNS }, actions);
   const lines = lay(tree, { hover });
   parts.push(`<text class="cap" x="20" y="${y}">${esc(caption)}</text>`);
   parts.push(
@@ -207,7 +242,7 @@ writeFileSync(
   `${OUT}/router-band.svg`,
   svg({
     title: 'The Router band above the Claude Code prompt',
-    desc: 'Five band states drawn by the router code: routed to high, two rows with the hover row, a pending pin, a missing classifier key, and routing off.',
+    desc: 'Seven band states drawn by the router code: routed to high, two rows with the hover row, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and an activity label in shadow.',
     body: parts.join('\n'),
     w: Math.ceil(COLUMNS * CW + 48),
     h: y - 14,
@@ -227,7 +262,7 @@ function pane(view, title, desc, file, paneConfig = config) {
 pane(
   base,
   'Router pane, Now tab',
-  'The current route with its reason, classifier support per tier with pin buttons, the last 20 replies colored by tier, and context, cache and cost.',
+  'The current route with its activity and reason, classifier support per tier with pin buttons, the last 20 replies colored by tier and lettered by activity, and context, cache and cost.',
   'router-pane-now.svg',
 );
 pane(
@@ -235,14 +270,14 @@ pane(
     ...base,
     tab: 'routing',
     routeDraft: {
+      ...routeDraftOf(config, {}),
       routes: { ...config.routes, medium: { model: 'sonnet', effort: 'xhigh' } },
-      baselineTier: 'low',
-      base: { routes: config.routes, baselineTier: 'low' },
+      activities: { ...config.activities, code: { ...config.activities.code, high: { model: 'opus', effort: 'max' } } },
     },
     configPath: '~/.claude/router.json',
   },
   'Router pane, Routing tab',
-  'Model and effort per tier with prices and windows, the baseline tier, how the policy prices each step up, the policy controls, and the unsaved router.json change with Save and Discard.',
+  'Model and effort per tier with prices and windows, the baseline tier, how the policy prices each step up, the activity matrix and overrides, the policy controls, and the unsaved router.json changes with Save and Discard.',
   'router-pane-routing.svg',
 );
 pane(

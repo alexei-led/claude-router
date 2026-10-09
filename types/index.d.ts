@@ -78,6 +78,11 @@ declare module 'claude-code' {
   interface RouterRoutes {
     routes: Record<RouterTier, RouterRoute>;
     baselineTier: RouterTier;
+    // The Routing tab's activity edits; a draft without them edits none. A null cell is a removed override.
+    activities?: Partial<
+      Record<RouterActivity, Partial<Record<RouterTier, { model?: string; effort?: string | null } | null>>>
+    >;
+    activityRouting?: RouterActivityMode;
   }
   interface RouterView {
     phase: 'ready' | 'choosing' | 'routed' | 'manual' | 'unavailable';
