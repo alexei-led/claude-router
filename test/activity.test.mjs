@@ -35,22 +35,53 @@ test('compareRoutes orders by output price, then effort; a session effort or an 
   const unpriced = loadConfig({
     userFile: {
       models: {
-        mini: { id: 'mini-1', input: 1, cacheRead: 0.1, contextWindow: 200_000, billing: 'plan', efforts: [] },
+        mini: {
+          id: 'mini-1',
+          input: 1,
+          cacheRead: 0.1,
+          contextWindow: 200_000,
+          billing: 'plan',
+          efforts: ['low', 'high'],
+        },
       },
     },
   });
-  for (const [name, config, a, b, expected] of [
+  for (const [name, config, a, b, expected, sent] of [
     ['a dearer model', ON, { model: 'sonnet', effort: 'low' }, { model: 'haiku', effort: 'max' }, 1],
     ['a cheaper model', ON, { model: 'haiku', effort: 'high' }, { model: 'sonnet', effort: 'medium' }, -1],
     ['a higher effort', ON, { model: 'opus', effort: 'xhigh' }, { model: 'opus', effort: 'medium' }, 1],
     ['the same route', ON, { model: 'sonnet', effort: 'medium' }, { model: 'sonnet', effort: 'medium' }, 0],
     ['two session efforts', ON, { model: 'sonnet', effort: null }, { model: 'sonnet' }, 0],
     [
-      'a session effort against a set one',
+      'a session effort against a set one, with no effort sent',
       ON,
       { model: 'sonnet', effort: null },
       { model: 'sonnet', effort: 'low' },
       null,
+    ],
+    [
+      'a session effort is the effort sent',
+      ON,
+      { model: 'sonnet', effort: null },
+      { model: 'sonnet', effort: 'low' },
+      1,
+      'high',
+    ],
+    [
+      'a session effort equal to the one set',
+      ON,
+      { model: 'opus', effort: null },
+      { model: 'opus', effort: 'medium' },
+      0,
+      'medium',
+    ],
+    [
+      'a numeric effort sent against a set one',
+      ON,
+      { model: 'opus', effort: null },
+      { model: 'opus', effort: 'medium' },
+      null,
+      32_000,
     ],
     ['a model without an output price', unpriced, { model: 'mini' }, { model: 'haiku', effort: 'high' }, null],
     [
@@ -61,7 +92,7 @@ test('compareRoutes orders by output price, then effort; a session effort or an 
       1,
     ],
   ])
-    assert.equal(compareRoutes(config, a, b), expected, name);
+    assert.equal(compareRoutes(config, a, b, sent), expected, name);
 });
 
 // One turn in `on` from the cell (tier, activity) with its route warm. `choice` is the tier advice; `label` the
@@ -81,8 +112,8 @@ function turn({
   state = initialState(),
   pin = null,
   noAdvice = false,
+  effort = 'medium',
 }) {
-  const effort = 'medium';
   const running = resolveRoute(config, tier, activity);
   const models = warm
     ? { [routeCacheKey(config, running, effort)]: { lastAt: WARM, prefixTokens: tokens + output } }
@@ -144,6 +175,18 @@ const docsFlat = loadConfig({
 });
 const sessionEffort = loadConfig({
   userFile: { activityRouting: 'on', activities: { code: { low: { model: 'haiku', effort: null } } } },
+});
+const planSession = loadConfig({
+  userFile: { activityRouting: 'on', activities: { plan: { high: { effort: null } } } },
+});
+const unpricedCode = loadConfig({
+  userFile: {
+    activityRouting: 'on',
+    models: {
+      mini: { id: 'mini-1', input: 1, cacheRead: 0.1, contextWindow: 200_000, billing: 'plan', efforts: [] },
+    },
+    activities: { code: { low: { model: 'mini' } } },
+  },
 });
 
 test('the activity decision: (route now, tier advice, activity advice, cache, context) → route and reason', () => {
@@ -264,9 +307,41 @@ test('the activity decision: (route now, tier advice, activity advice, cache, co
       ['medium', null, 'activity-pending', OPUS, 'medium'],
     ],
     [
-      'a route that cannot be ordered waits',
+      'a session-effort override orders by the effort sent',
       { config: sessionEffort, label: labelOf('code') },
       ['low', null, 'activity-pending', HAIKU, 'high'],
+    ],
+    [
+      'a session-effort override running the request already sent stays',
+      { config: sessionEffort, label: labelOf('code'), effort: 'high' },
+      ['low', 'code', 'same-tier', HAIKU, 'high'],
+    ],
+    [
+      'uncertain leaves a session-effort override for the base route',
+      { config: planSession, tier: 'high', activity: 'plan', label: labelOf('uncertain') },
+      ['high', null, 'activity-up', OPUS, 'xhigh'],
+    ],
+    [
+      'uncertain leaves an override the router cannot order',
+      { config: unpricedCode, activity: 'code', label: labelOf('uncertain') },
+      ['low', null, 'activity-up', HAIKU, 'high'],
+    ],
+    [
+      'a label for an override the router cannot order needs the upgrade bar',
+      { config: unpricedCode, label: labelOf('code', 0.7) },
+      ['low', null, 'activity-pending', HAIKU, 'high'],
+    ],
+    [
+      'escalation counts the effort sent for a session-effort override',
+      {
+        config: planSession,
+        tier: 'medium',
+        activity: 'plan',
+        label: labelOf('plan'),
+        failure: { signature: 'boom' },
+        effort: 'xhigh',
+      },
+      ['high', 'plan', 'escalation', OPUS, 'xhigh'],
     ],
   ]) {
     const { decision } = turn(setup);
