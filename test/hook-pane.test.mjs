@@ -655,3 +655,18 @@ test('Reset activity stats during a turn completion is not undone by that turn',
     shadow: { differs: 0, turns: 0 },
   });
 });
+
+test('Reset routes keeps pending activity edits and the mode', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-routing');
+  await press(h, 'activity-mode', 'on');
+  await press(h, 'activity-model-code-low', 'opus');
+  await press(h, 'reset-routes');
+  assert.equal(h.view().notice, 'Routes already at defaults.');
+  await press(h, 'save-routing');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
+    activities: { code: { low: { model: 'opus', effort: 'medium' } } },
+    activityRouting: 'on',
+  });
+});

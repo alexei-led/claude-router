@@ -667,10 +667,12 @@ function paneActions($, router, view) {
       });
     },
     discardRouting: () => updateView($, router, { routeDraft: null, tuning: null, tuningBase: null, notice: null }),
+    // Routes only: pending activity edits and the mode stay in the draft.
     resetRoutes: () =>
       loadDefaults(
         {
           routeDraft: {
+            ...routeDraftOf(router.config, router.view ?? view),
             ...structuredClone({ routes: DEFAULTS.routes, baselineTier: DEFAULTS.baselineTier }),
             base: routeDraftOf(router.config, {}).base,
           },
