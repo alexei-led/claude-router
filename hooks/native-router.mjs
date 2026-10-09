@@ -477,7 +477,7 @@ async function recordActivity($, router, turn) {
         shadow: turn.mode === 'shadow',
       }),
     });
-    const { run, ended } = advanceRun(router.run, turn.label);
+    const { run, ended } = advanceRun(router.run, turn.answer);
     router.run = run;
     const resets = router.statsResets;
     const store = readStore(await $.store.get(STORE_KEY));

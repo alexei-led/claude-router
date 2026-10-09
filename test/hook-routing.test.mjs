@@ -509,6 +509,19 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   assert.deepEqual(reloaded.preferences.get(STATS).confusion, { code: { code: 1 }, ops: { ops: 3 } });
 });
 
+test('with activity routing on, a turn without an activity answer keeps the activity but ends the run', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
+  h.model('claude-sonnet-5-5');
+  answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }), jevResponse('low', LOW, 0));
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
+  await turn(h, 't2', 'claude-sonnet-5-5', ['Edit']);
+  assert.equal(h.loop().lastActivity, 'code');
+  assert.deepEqual(h.view().activities, ['code', 'code']);
+  assert.deepEqual(h.preferences.get(STATS).runs, { code: [1, 0, 0, 0, 0] });
+});
+
 test('shadow asks and shows what on would do, and never changes the routed model', async () => {
   const h = harness(JEV_KEY);
   const bodies = answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
