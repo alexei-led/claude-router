@@ -82,7 +82,7 @@ The classifier's activity agrees with the turn when the bucket is one it allows:
 | `ops`     | `ops`                  |
 | `docs`    | `docs`                 |
 
-Agreement is a weak check. It tells `ops` from `code` from `explore` well. It cannot tell `plan` from `review`, and it says nothing about whether the route was good enough. It does catch the costly mistake, a cheap route on a coding turn. The Usage tab shows the session's count as `Agreement`, over the turns that had an activity. The counts kept across sessions hold the classifier's raw answer, `uncertain` and no answer included, against the bucket. They are not shown in the pane.
+Agreement is a weak check. It tells `ops` from `code` from `explore` well. It cannot tell `plan` from `review`, and it says nothing about whether the route was good enough. It does catch the costly mistake, a cheap route on a coding turn. The Usage tab shows the session's count as `Agreement`, over the turns where the classifier gave an activity at or above `activityMass`, in `on` too when the route kept another activity. The counts kept across sessions hold the classifier's raw answer, `uncertain` and no answer included, against the bucket. They are not shown in the pane.
 
 ### Activity probe set
 

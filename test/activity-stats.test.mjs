@@ -16,6 +16,7 @@ import { ACTIVITIES, DEFAULTS } from '../lib/config.mjs';
 
 const turn = (extra = {}) => ({
   activity: 'code',
+  answer: 'code',
   observed: 'code',
   requests: 3,
   inputTokens: 1000,
@@ -69,17 +70,19 @@ test('a session accumulates turns, requests and tokens per activity, and none wi
   });
 });
 
-test('session agreement counts only turns with a predicted activity', () => {
+test('session agreement compares the classifier answer, not the route label, and skips turns without one', () => {
   let session = emptySession();
-  for (const [activity, observed] of [
-    ['code', 'code'],
-    ['code', 'ops'],
-    ['explore', 'talk'],
-    [null, 'code'],
-    [null, 'talk'],
+  for (const [activity, answer, observed] of [
+    ['code', 'code', 'code'],
+    ['code', 'code', 'ops'],
+    ['explore', 'explore', 'talk'],
+    ['code', 'ops', 'ops'],
+    ['code', null, 'code'],
+    [null, null, 'code'],
+    [null, null, 'talk'],
   ])
-    session = recordTurn(session, turn({ activity, observed }));
-  assert.deepEqual(session.agreement, { matched: 2, total: 3 });
+    session = recordTurn(session, turn({ activity, answer, observed }));
+  assert.deepEqual(session.agreement, { matched: 3, total: 4 });
 });
 
 test('session switches and shadow counters add up', () => {
@@ -282,7 +285,7 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       advice('ops', 0.81),
       sonnet,
       { ...haiku, activity: 'ops', reason: 'activity-down' },
-      { label: 'ops', predicted: 'ops', switched: 'activity', lateral: 'taken', wouldDiffer: null },
+      { answer: 'ops', label: 'ops', predicted: 'ops', switched: 'activity', lateral: 'taken', wouldDiffer: null },
     ],
     [
       'on: a refused move keeps the route',
@@ -290,7 +293,7 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       advice('ops', 0.81),
       sonnet,
       { ...sonnet, activity: 'code', reason: 'activity-pending' },
-      { label: 'code', predicted: 'ops', switched: null, lateral: 'refused', wouldDiffer: null },
+      { answer: 'ops', label: 'code', predicted: 'ops', switched: null, lateral: 'refused', wouldDiffer: null },
     ],
     [
       'on: a tier move',
@@ -298,7 +301,7 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       advice('code', 0.9),
       haiku,
       { ...opus, activity: 'code', reason: 'upgrade' },
-      { label: 'code', predicted: 'code', switched: 'tier', lateral: null, wouldDiffer: null },
+      { answer: 'code', label: 'code', predicted: 'code', switched: 'tier', lateral: null, wouldDiffer: null },
     ],
     [
       'on: an effort change is a switch',
@@ -306,7 +309,7 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       null,
       sonnet,
       { ...sonnet, effort: 'high', activity: null, reason: 'context-fit' },
-      { label: null, predicted: null, switched: 'tier', lateral: null, wouldDiffer: null },
+      { answer: null, label: null, predicted: null, switched: 'tier', lateral: null, wouldDiffer: null },
     ],
     [
       'on: a pin is no switch',
@@ -314,7 +317,7 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       null,
       haiku,
       { ...opus, activity: null, reason: 'pinned', pinned: true },
-      { label: null, predicted: null, switched: null, lateral: null, wouldDiffer: null },
+      { answer: null, label: null, predicted: null, switched: null, lateral: null, wouldDiffer: null },
     ],
     [
       'shadow: the accepted label and what on would do',
@@ -322,7 +325,7 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       advice('code', 0.7),
       haiku,
       { ...haiku, activity: null, reason: 'hold', wouldRoute: { ...sonnet, activity: 'code', reason: 'activity-up' } },
-      { label: 'code', predicted: 'code', switched: null, lateral: 'taken', wouldDiffer: true },
+      { answer: 'code', label: 'code', predicted: 'code', switched: null, lateral: 'taken', wouldDiffer: true },
     ],
     [
       'shadow: a weak label is none, the same route does not differ',
@@ -330,7 +333,7 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       advice('code', 0.5),
       null,
       { ...haiku, activity: null, reason: 'hold', wouldRoute: { ...haiku, activity: null, reason: 'hold' } },
-      { label: null, predicted: 'code', switched: null, lateral: null, wouldDiffer: false },
+      { answer: null, label: null, predicted: 'code', switched: null, lateral: null, wouldDiffer: false },
     ],
     [
       'shadow: uncertain is predicted but not a label',
@@ -338,7 +341,7 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       advice('uncertain', 0.9),
       haiku,
       { ...haiku, activity: null, reason: 'hold', wouldRoute: null },
-      { label: null, predicted: 'uncertain', switched: null, lateral: null, wouldDiffer: false },
+      { answer: null, label: null, predicted: 'uncertain', switched: null, lateral: null, wouldDiffer: false },
     ],
     [
       'off: nothing',
@@ -346,7 +349,7 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       null,
       haiku,
       { ...haiku, activity: null, reason: 'hold', wouldRoute: null },
-      { label: null, predicted: null, switched: null, lateral: null, wouldDiffer: null },
+      { answer: null, label: null, predicted: null, switched: null, lateral: null, wouldDiffer: null },
     ],
   ])
     assert.deepEqual(turnActivity(config(mode), answer, previous, decision), { mode, ...expected }, name);

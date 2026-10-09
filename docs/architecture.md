@@ -108,7 +108,7 @@ When a turn completes, the Mod labels it from the tool calls the assistant made 
 
 Two stores hold counts:
 
-- **Session**: `activityStats` in the view, reset when the session ends. It has turns, requests and tokens per activity, switches by tier and by activity, tool agreement, and the shadow readout. The label counted is the one the turn used: the applied activity in `on`, the answer that cleared `activityMass` in `shadow`. The view also keeps an `activities` array aligned with the last 30 replies.
+- **Session**: `activityStats` in the view, reset when the session ends. It has turns, requests and tokens per activity, switches by tier and by activity, tool agreement, and the shadow readout. The label counted per activity is the one the turn used: the applied activity in `on`, the answer that cleared `activityMass` in `shadow`. Tool agreement always compares the answer that cleared `activityMass`, so it measures the classifier in both modes. The view also keeps an `activities` array aligned with the last 30 replies.
 - **Across sessions**: one `$.store` key, `activity:stats:v1`. It holds a confusion matrix of the classifier's raw answer (including `uncertain` and `none`) against the observed bucket, run lengths per activity in five buckets, lateral switches taken and refused, and shadow turns and differences. The key set is fixed, so the size is bounded. A stored value with any other shape is read as empty. The open run is written when the session ends. **Reset activity stats** clears both stores.
 
 Nothing is recorded with `activityRouting: off`. Stats run inside a guard: a failed transcript read or store access loses that turn's counts and never fails the turn. A turn from a session that has since changed is dropped.

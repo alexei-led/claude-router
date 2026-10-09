@@ -464,6 +464,7 @@ async function recordActivity($, router, turn) {
     await updateView($, router, {
       activityStats: recordTurn(view.activityStats ?? emptySession(), {
         activity: turn.label,
+        answer: turn.answer,
         observed,
         requests: turn.requests,
         inputTokens: turn.inputTokens,
