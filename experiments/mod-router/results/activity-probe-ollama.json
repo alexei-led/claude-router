@@ -1,0 +1,42 @@
+{
+  "classifier": "ollama",
+  "model": "qwen3.5:9b",
+  "api": "ollama",
+  "date": "2026-10-09T23:38:57.057Z",
+  "probes": 70,
+  "answered": 70,
+  "accuracy": 0.9428571428571428,
+  "labels": ["code", "debug", "explore", "plan", "review", "ops", "docs", "uncertain", "none"],
+  "confusion": {
+    "code": {
+      "code": 9,
+      "review": 1
+    },
+    "debug": {
+      "debug": 7,
+      "ops": 2,
+      "explore": 1
+    },
+    "explore": {
+      "explore": 10
+    },
+    "plan": {
+      "plan": 10
+    },
+    "review": {
+      "review": 10
+    },
+    "ops": {
+      "ops": 10
+    },
+    "docs": {
+      "docs": 10
+    }
+  },
+  "latencyMs": {
+    "p50": 2986,
+    "p95": 3483,
+    "deadline": 5000
+  },
+  "errors": {}
+}
