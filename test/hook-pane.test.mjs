@@ -537,3 +537,71 @@ test('two presses on one drawn pane open and close help again', async () => {
   await help.onPress();
   assert.equal(h.view().help, false);
 });
+
+test('activity edits join the routing draft: Save writes them with the mode, and Undo removes them', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-routing');
+  await press(h, 'activity-mode', 'on');
+  await press(h, 'activity-model-code-low', 'opus');
+  await press(h, 'activity-remove-ops-medium');
+  await press(h, 'activity-add', 'review.high');
+  await press(h, 'activity-effort-review-high', 'max');
+  await press(h, 'save-routing');
+  assert.match(h.view().notice, /^Saved: 4 routing changes\./);
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
+    activities: {
+      code: { low: { model: 'opus', effort: 'medium' } },
+      review: { high: { model: 'opus', effort: 'max' } },
+      ops: { medium: { model: 'opus', effort: 'medium' } },
+    },
+    activityRouting: 'on',
+  });
+  assert.equal(h.view().routeDraft, null);
+  await press(h, 'undo');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+});
+
+test('a pending activity edit survives another pane write and saves later', async () => {
+  const h = harness();
+  await start(h);
+  await press(h, 'tab-routing');
+  await press(h, 'activity-model-code-low', 'opus');
+  await press(h, 'tab-classifier');
+  await press(h, 'timeoutMs', '500');
+  assert.deepEqual(h.view().routeDraft.activities.code.low, { model: 'opus', effort: 'medium' });
+  await press(h, 'tab-routing');
+  await press(h, 'save-routing');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
+    classifiers: { jev: { timeoutMs: 500 } },
+    activities: { code: { low: { model: 'opus', effort: 'medium' } } },
+  });
+});
+
+test('Reset activity stats clears the session counts and the saved ones', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key' });
+  h.http(async () => ({
+    ok: true,
+    status: 200,
+    headers: {},
+    text: JSON.stringify(
+      jevResponse('low', { micro: 0, low: 0.95, medium: 0.05, high: 0, uncertain: 0 }, 0, { code: 0.9, ops: 0.1 }),
+    ),
+  }));
+  await start(h);
+  await drain(h.step(step));
+  await h.event('turn.complete', { turnId: 't1' });
+  assert.equal(h.view().activityStats.byActivity.code.turns, 1);
+  assert.equal(h.preferences.get('activity:stats:v1').shadow.turns, 1);
+  await press(h, 'tab-usage');
+  await press(h, 'reset-activity-stats');
+  assert.equal(h.view().activityStats, null);
+  assert.equal(h.view().notice, 'Activity stats reset.');
+  assert.deepEqual(h.preferences.get('activity:stats:v1'), {
+    version: 1,
+    confusion: {},
+    runs: {},
+    lateral: { taken: 0, refused: 0 },
+    shadow: { differs: 0, turns: 0 },
+  });
+});

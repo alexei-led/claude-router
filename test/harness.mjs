@@ -286,3 +286,16 @@ export const band = async (h, props = {}) => {
 export const CLEF_FLASH_ANSWER = readFileSync(new URL('./fixtures/clef-flash-response.json', import.meta.url), 'utf8');
 
 export const CLOUDFLARE_KEYS = { cloudflare_api_token: 'synthetic-token', cloudflare_account_id: 'acct-1' };
+
+// A classifier answering each request with the next of `answers`, the last one repeating. Returns the request bodies.
+export function answering(h, ...answers) {
+  const bodies = [];
+  h.http(async (_url, init) => {
+    bodies.push(JSON.parse(init.body));
+    const answer = answers[Math.min(bodies.length, answers.length) - 1];
+    return { ok: true, status: 200, text: JSON.stringify(answer), headers: {} };
+  });
+  return bodies;
+}
+
+export const JEV_KEY = { typesafe_api_key: 'synthetic-key' };
