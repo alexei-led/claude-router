@@ -118,6 +118,51 @@ test('a one-tier switch needs two consecutive votes with enough mass', () => {
   }
 });
 
+test('before the first measured reply one vote moves up or down; the mass bars and the cash gate still apply', () => {
+  const haikuMetered = loadConfig({ userFile: { models: { haiku: { billing: 'credits', input: 10 } } } });
+  const history = (historyMeasured, options) => ({ ...facts(options), historyMeasured });
+  const up = advice('medium', { medium: 0.9, low: 0.1 });
+  const down = advice('low', { low: 0.95, high: 0.05 });
+  for (const [name, cfg, f, vote, expected] of [
+    ['fresh upgrade', config, history(false, { lastRoute: 'low' }), up, ['medium', 'upgrade']],
+    ['fresh downgrade', config, history(false, { lastRoute: 'high' }), down, ['low', 'downgrade']],
+    ['measured upgrade', config, history(true, { lastRoute: 'low' }), up, ['low', 'upgrade-pending']],
+    ['measured downgrade', config, history(true, { lastRoute: 'high' }), down, ['high', 'downgrade-pending']],
+    ['history state not given', config, facts({ lastRoute: 'low' }), up, ['low', 'upgrade-pending']],
+    [
+      'fresh upgrade below the mass bar',
+      config,
+      history(false, { lastRoute: 'low' }),
+      advice('medium', { medium: 0.6, low: 0.4 }),
+      ['low', 'upgrade-pending'],
+    ],
+    [
+      'fresh downgrade below the mass bar',
+      config,
+      history(false, { lastRoute: 'high' }),
+      advice('low', { low: 0.6, high: 0.4 }),
+      ['high', 'downgrade-pending'],
+    ],
+    [
+      'fresh upgrade to a cold credits model above the cap',
+      metered,
+      history(false, { lastRoute: 'low', tokens: 300_000 }),
+      up,
+      ['low', 'cash-gate'],
+    ],
+    [
+      'fresh downgrade to a cold credits model above the cap',
+      haikuMetered,
+      history(false, { lastRoute: 'high', tokens: 300_000, servedBy: 'claude-opus-5-5', effort: 'xhigh' }),
+      advice('low', { low: 0.99 }),
+      ['high', 'cash-gate'],
+    ],
+  ]) {
+    const [d] = runTurns(f, [vote], initialState(), cfg);
+    assert.deepEqual([d.tier, d.reason], expected, name);
+  }
+});
+
 test('a two-tier jump with high mass switches at once', () => {
   const [d] = runTurns(facts(), [advice('high', { high: 0.96 })]);
   assert.equal(d.reason, 'jump');

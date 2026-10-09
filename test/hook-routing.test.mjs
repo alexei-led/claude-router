@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { band, CONFIG, drain, harness, start, step, substituted, TINY_ROUTER, texts } from './harness.mjs';
+import { jevResponse } from './helpers.mjs';
 
 test('frozen native state reads do not restore consumed pins or drop first response usage', async () => {
   const h = harness();
@@ -104,6 +105,28 @@ test('a fresh process restoring the same conversation keeps an explicit Manual b
   assert.equal(resumed.view().mode, 'manual');
   assert.equal(resumed.view().pendingPin, null);
   assert.equal(resumed.requests[0].model, step.model);
+});
+
+test('the first turn of a session switches on one classifier answer', async () => {
+  for (const [model, answer, expected] of [
+    [
+      'claude-haiku-5-5',
+      jevResponse('medium', { micro: 0, low: 0.05, medium: 0.95, high: 0, uncertain: 0 }),
+      ['claude-opus-5-5', 'medium', 'upgrade'],
+    ],
+    [
+      'claude-opus-5-5',
+      jevResponse('micro', { micro: 0.999, low: 0.001, medium: 0, high: 0, uncertain: 0 }),
+      ['claude-haiku-5-5', 'medium', 'downgrade'],
+    ],
+  ]) {
+    const h = harness({ typesafe_api_key: 'synthetic-key' });
+    h.model(model);
+    h.http(async () => ({ ok: true, status: 200, text: JSON.stringify(answer), headers: {} }));
+    await start(h);
+    await drain(h.step({ ...step, model }));
+    assert.deepEqual([h.requests[0].model, h.requests[0].effort, h.loop().decision.reason], expected, model);
+  }
 });
 
 test('a fresh session starts Auto on a model some tier routes to and Manual on any other', async () => {
