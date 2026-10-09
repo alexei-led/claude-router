@@ -601,6 +601,27 @@ test('a failing stats store or transcript never breaks a turn', async () => {
   await h.event('session.end', { reason: 'clear' });
 });
 
+test('a turn finishing while the session changes records nothing into the new session', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-haiku-5-5', ['Edit']);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  let release;
+  h.messages(() => new Promise((resolve) => (release = () => resolve([user('Next.'), assistant('done', ['Edit'])]))));
+  const completing = h.event('turn.complete', { turnId: 't2' });
+  for (let i = 0; i < 100 && !release; i += 1) await Promise.resolve();
+  await h.event('session.end', { reason: 'clear' });
+  h.clear('s2');
+  await h.event('session.start', { cwd: '/fixture' });
+  release();
+  await completing;
+  assert.equal(h.view().activityStats, null);
+  assert.deepEqual(h.preferences.get(STATS).confusion, { code: { code: 1 } });
+  assert.deepEqual(h.preferences.get(STATS).runs, { code: [1, 0, 0, 0, 0] });
+});
+
 test('with activity routing on, a continuation that falls back to the native model drops the activity label', async () => {
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));

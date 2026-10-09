@@ -463,6 +463,8 @@ async function recordActivity($, router, turn) {
     if (start < 0) return;
     const observed = observedActivity(messages, start);
     const view = router.view ?? (await readView($, router));
+    // The session may have changed during the reads; this turn is not the new session's.
+    if ((await $.session.id()) !== turn.sessionId) return;
     await updateView($, router, {
       activityStats: recordTurn(view.activityStats ?? emptySession(), {
         activity: turn.label,
