@@ -547,6 +547,14 @@ test('withActivities writes only the cells and mode that differ from the default
       {},
       [['low', 'code', { model: 'sonnet', effort: 'medium' }]],
     ],
+    [
+      'a model switched away and back keeps a partial cell as written',
+      { activities: { code: { medium: { model: 'sonnet' } } } },
+      (d, c) =>
+        editActivity(editActivity(d, c, 'code', 'medium', 'model', 'opus'), c, 'code', 'medium', 'model', 'sonnet'),
+      null,
+      [['medium', 'code', { model: 'sonnet', effort: 'medium' }]],
+    ],
     ['a mode other than the default', {}, (d) => ({ ...d, activityRouting: 'on' }), { activityRouting: 'on' }, []],
     ['the default mode is no key', { activityRouting: 'off' }, (d) => ({ ...d, activityRouting: 'shadow' }), {}, []],
   ]) {
