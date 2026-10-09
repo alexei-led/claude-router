@@ -196,6 +196,7 @@ test('observedActivity labels a finished turn from its tool calls, first match w
     ['read-only pipeline', [step(bash('cd lib && grep -rn "a;b" . | head -20'))], 'read'],
     ['stderr redirect', [step(bash('ls missing 2>&1'), bash('find . -name x 2>/dev/null'))], 'read'],
     ['a pattern with > inside quotes', [step(bash("rg '=>' lib"))], 'read'],
+    ['a write in the background', [step(bash('ls & rm -rf build'))], 'ops'],
     ['output redirect', [step(bash('cat a > b'))], 'ops'],
     ['append redirect', [step(bash('ls >> out.txt'))], 'ops'],
     ['read piped into a writer', [step(bash('cat a | tee b'))], 'ops'],
