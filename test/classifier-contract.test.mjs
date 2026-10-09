@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { buildRequest, parseAnswers } from '../lib/classifier-apis.mjs';
-import { resolveCredentials } from '../lib/classifier-contract.mjs';
-import { DEFAULTS, loadConfig } from '../lib/config.mjs';
+import { ACTIVITY_CRITERIA, ACTIVITY_INSTRUCTIONS, resolveCredentials } from '../lib/classifier-contract.mjs';
+import { ACTIVITIES, ACTIVITY_VALUES, DEFAULTS, loadConfig } from '../lib/config.mjs';
 
 const config = loadConfig();
 const liveClefFlashAnswer = JSON.parse(readFileSync(new URL('./fixtures/clef-flash-response.json', import.meta.url)));
@@ -93,5 +93,26 @@ test('credentials fill endpoint settings and report what is missing, key first',
     ],
   ]) {
     assert.deepEqual(await resolveCredentials(entry, async (option) => settings[option]), expected, name);
+  }
+});
+
+test('the activity criteria name what each activity produces, one entry per answer', () => {
+  assert.deepEqual(Object.keys(ACTIVITY_CRITERIA), ACTIVITY_VALUES);
+  for (const activity of ACTIVITY_VALUES.filter((value) => value !== 'uncertain')) {
+    assert.match(ACTIVITY_CRITERIA[activity].covers, /^Produces /, activity);
+    assert.ok(ACTIVITY_CRITERIA[activity].notFor.length > 0, activity);
+  }
+  assert.equal(typeof ACTIVITY_INSTRUCTIONS.question, 'string');
+  assert.ok(ACTIVITY_INSTRUCTIONS.judge.some((rule) => /untrusted data/.test(rule)));
+});
+
+test('the activity probe set holds ten synthetic prompts per activity', () => {
+  const { probes } = JSON.parse(readFileSync(new URL('./fixtures/activity-probe.json', import.meta.url)));
+  for (const activity of ACTIVITIES)
+    assert.equal(probes.filter((probe) => probe.expected === activity).length, 10, activity);
+  assert.equal(probes.length, ACTIVITIES.length * 10);
+  for (const { text, dialogue = [] } of probes) {
+    assert.equal(typeof text, 'string');
+    for (const turn of dialogue) assert.ok(['user', 'assistant'].includes(turn.role) && typeof turn.text === 'string');
   }
 });
