@@ -309,6 +309,11 @@ test('the activity decision: (route now, tier advice, activity advice, cache, co
       ['medium', 'ops', 'activity-down', SONNET, 'medium'],
     ],
     [
+      'a fresh history moves down without the cache economics',
+      { tier: 'medium', label: labelOf('ops'), tokens: 150_000, warm: false, measured: false },
+      ['medium', 'ops', 'activity-down', SONNET, 'medium'],
+    ],
+    [
       'a cheaper move does not pay back at a large context',
       { tier: 'medium', label: labelOf('ops'), tokens: 150_000 },
       ['medium', null, 'activity-pending', OPUS, 'medium'],
