@@ -465,6 +465,9 @@ async function recordActivity($, router, turn) {
     const view = router.view ?? (await readView($, router));
     // The session may have changed during the reads; this turn is not the new session's.
     if ((await $.session.id()) !== turn.sessionId) return;
+    // Advanced before any further await, so a session change meanwhile cannot carry this run into the new session.
+    const { run, ended } = advanceRun(router.run, turn.answer);
+    router.run = run;
     await updateView($, router, {
       activityStats: recordTurn(view.activityStats ?? emptySession(), {
         activity: turn.label,
@@ -479,8 +482,6 @@ async function recordActivity($, router, turn) {
         shadow: turn.mode === 'shadow',
       }),
     });
-    const { run, ended } = advanceRun(router.run, turn.answer);
-    router.run = run;
     const resets = router.statsResets;
     const store = readStore(await $.store.get(STORE_KEY));
     // Writing counts read before a reset would bring them back; this turn's are lost instead.
