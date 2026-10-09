@@ -1,0 +1,40 @@
+{
+  "classifier": "clef",
+  "model": "clef",
+  "api": "system-one",
+  "date": "2026-10-09T23:06:34.604Z",
+  "probes": 70,
+  "answered": 70,
+  "accuracy": 0.9857142857142858,
+  "labels": ["code", "debug", "explore", "plan", "review", "ops", "docs", "uncertain", "none"],
+  "confusion": {
+    "code": {
+      "code": 9,
+      "review": 1
+    },
+    "debug": {
+      "debug": 10
+    },
+    "explore": {
+      "explore": 10
+    },
+    "plan": {
+      "plan": 10
+    },
+    "review": {
+      "review": 10
+    },
+    "ops": {
+      "ops": 10
+    },
+    "docs": {
+      "docs": 10
+    }
+  },
+  "latencyMs": {
+    "p50": 444,
+    "p95": 883,
+    "deadline": 3000
+  },
+  "errors": {}
+}
