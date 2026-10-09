@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.1 (2026-10-09)
+
+### Changed
+
+- The band and pane name the mode **Routing on** and **Routing off**, not Auto and Manual. The footer reads `routing off`. The commands `/router auto` and `/router off` are unchanged.
+- In the pane, the mode buttons use the hotkeys `o` (Routing on) and `f` (Routing off). They were `a` and `m`.
+- A fresh session on a model no tier routes to starts with routing off, and the band says why: `Sonnet 5.5 is not a routing tier`. The note stays until the mode changes.
+- The **Routing off** button sits on the band line while routing is on. It was reachable only on hover.
+- The model-change toast reads `Model changed: old → new · reason`.
+- The band uses the design prototype's colors: tier chips, filled buttons, an accent color while a turn is classified. Yellow is reserved for warnings.
+
 ## 1.5.0 (2026-10-08)
 
 Two classifiers are new: OpenAI and a local Ollama model. Jev stays the default, and nothing changes until you select one of the new classifiers.

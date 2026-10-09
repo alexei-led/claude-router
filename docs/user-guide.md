@@ -9,7 +9,7 @@ claude plugin marketplace add alexei-led/claude-router
 claude plugin install router@alexei-led-claude-router
 ```
 
-Start with the full baseline model so Auto mode has a known starting point:
+Start with the full baseline model so routing has a known starting point:
 
 ```sh
 claude --model claude-haiku-5-5
@@ -24,7 +24,7 @@ In Claude Code:
    - **OpenAI**: an OpenAI API key. The prompt text goes to OpenAI.
    - **Ollama**: no credential. Run `ollama serve` and pull the model; the prompt text stays on this machine.
 3. To use another classifier, open the pane's **Classifier** tab and select its row. See [Choose the classifier](#choose-the-classifier).
-4. Check the band above the prompt: `▂▄▆█ Auto · ready`. On a model that no tier routes to, the session starts in Manual; run `/router auto` to route.
+4. Check the band above the prompt: `Routing on · ready`. On a model that no tier routes to, the session starts with routing off and the band says why; run `/router auto` to route.
 
 Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers optional settings and migrations.
 
@@ -32,7 +32,7 @@ Keys are stored as sensitive plugin options. Do not paste them into a model conv
 
 Router draws one line above the prompt. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures, then context and cache, then the reason. The tier and model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
 
-![Five band states: routed to high, two rows with the hover row, a pending pin, a missing classifier key, and Manual mode](router-band.svg)
+![Five band states: routed to high, two rows with the hover row, a pending pin, a missing classifier key, and routing off](router-band.svg)
 
 Read the first line of the picture from left to right:
 
@@ -42,19 +42,19 @@ Read the first line of the picture from left to right:
 - **Classifier support**: what the active classifier, such as Jev or Clef Flash, gave the switch against the bar the policy required.
 - **ctx** and **cache**: context use and cache reuse on the last reply. They turn yellow at 60% context and red at 80%.
 
-| Band shows                                  | Meaning                                                                               |
-| ------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `Auto · ready`                              | Auto mode is ready for a new turn.                                                    |
-| `choosing for this turn…`                   | The classifier and local policy are running. The spinner says `Choosing model`.       |
-| `⏵ next turn: high ✕`                       | A pin is set. **✕** cancels it.                                                       |
-| `⚠ Jev: no API key · keeping model`         | The active classifier lacks a setting. **Set up** opens the secure plugin dialog.     |
-| `⚠ Clef: no account ID · keeping model`     | Clef has its API token but no Cloudflare account ID. **Set up** opens the dialog.     |
-| `⚠ Jev timed out · keeping model`           | The classifier failed: timed out, unreachable, rejected the key, or paused.           |
-| `○ Router off · keeping …`                  | Manual mode. **Auto** resumes routing. The footer also shows `router off`.            |
-| `✕ Router unavailable`                      | Nothing routes: an old Claude Code or leftover v0.8 settings. **Fix** opens the pane. |
-| `○ Router · subagents keep their own model` | You are viewing a subagent's transcript, which Router does not route.                 |
+| Band shows                                  | Meaning                                                                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `Routing on · ready`                        | Routing is on and ready for a new turn.                                                                                  |
+| `choosing for this turn…`                   | The classifier and local policy are running. The spinner says `Choosing model`.                                          |
+| `⏵ next turn: high ✕`                       | A pin is set. **✕** cancels it.                                                                                          |
+| `⚠ Jev: no API key · keeping model`         | The active classifier lacks a setting. **Set up** opens the secure plugin dialog.                                        |
+| `⚠ Clef: no account ID · keeping model`     | Clef has its API token but no Cloudflare account ID. **Set up** opens the dialog.                                        |
+| `⚠ Jev timed out · keeping model`           | The classifier failed: timed out, unreachable, rejected the key, or paused.                                              |
+| `○ Routing off · every turn uses …`         | Routing is off: Claude's model answers every turn. **Routing on** turns it back on. The footer also shows `routing off`. |
+| `✕ Routing unavailable`                     | Nothing routes: an old Claude Code or leftover v0.8 settings. **Fix** opens the pane.                                    |
+| `○ Router · subagents keep their own model` | You are viewing a subagent's transcript, which Router does not route.                                                    |
 
-Hover over the band for a second row: pin a tier for the next turn, switch to Manual, or show two rows. The two-row band adds a strip of recent replies colored by tier, the switch count, the switch tax, and the cache saving. Router remembers that choice across sessions. When Router changes the model between turns, a toast shows the old and new model and the reason. A pin does not raise one, and neither does a change of effort alone.
+The band's **Routing off** button turns routing off, and **Routing on** turns it back on. Hover over the band for a second row: pin a tier for the next turn, or show two rows. The two-row band adds a strip of recent replies colored by tier, the switch count, the switch tax, and the cache saving. Router remembers that choice across sessions. When Router changes the model between turns, a toast reads `Model changed: old → new · reason`. A pin does not raise one, and neither does a change of effort alone.
 
 The band steps aside while a survey needs the space.
 
@@ -79,7 +79,7 @@ The **Routing** tab edits the routes and the policy. In the picture, `medium` wa
 | 3 Classifier | The classifier rows with their credentials state, the active classifier's deadline and health, and the credentials each classifier needs.                         |
 | 4 Usage      | Claude-reported cost, context and cache detail, input per reply, quota, and configured-price estimates.                                                           |
 
-**Auto** and **Manual** stay at the top of every tab. **?** shows what the estimates leave out.
+**Routing on** and **Routing off** stay at the top of every tab. **?** shows what the estimates leave out.
 
 ### Save and undo changes
 
@@ -96,7 +96,7 @@ Every write applies from the next turn and can be undone. **Undo** (`u`) puts ba
 - **Context** compares the larger available context reading with the routed model's configured window. The router reserves 20% of that window. Values can be unknown when Claude does not provide the needed estimate.
 - **Cache** reuse is cache-read tokens divided by the last response's input counters.
 - **Classifier support**, such as **Jev support**, is the probability the classifier gave each tier on the last classified turn. The line under it compares the support for a switch with the bar the policy required, and shows the estimated switch tax.
-- **Replies** colors each of the last 30 main-conversation replies by the tier that served it. A dot marks a reply the router did not choose, such as one in Manual mode.
+- **Replies** colors each of the last 30 main-conversation replies by the tier that served it. A dot marks a reply the router did not choose, such as one with routing off.
 - **Input per reply** scales the last 30 input sizes from the lowest to the highest reading. It is a scale comparison, not a forecast.
 - **Cache read benefit** is a configured-price estimate for cached reads before write costs. It is not a measured saving.
 - **Next-turn difference** compares the candidate with the current model under five-minute and one-hour cache-write scenarios. A negative number means the candidate is estimated to cost less for that request.
@@ -106,17 +106,17 @@ There is no router-side spend or savings ledger. The pane does not include class
 
 ## Change routing
 
-| Command or action                        | Result                                                                      |
-| ---------------------------------------- | --------------------------------------------------------------------------- |
-| `/router`                                | Open the pane.                                                              |
-| `/router auto`                           | Resume automatic routing.                                                   |
-| `/router off`                            | Enter Manual mode and preserve Claude's selected model.                     |
-| `/router pin <micro\|low\|medium\|high>` | Pin the next turn and its tool continuations. Auto must already be enabled. |
-| `/model <name>`                          | Select a model and enter Manual mode. Use `/router auto` to resume.         |
-| **Auto** / **Manual**                    | The same as `/router auto` and `/router off`.                               |
-| **pin** on the Now tab                   | Pin that tier for the next turn. Auto must already be enabled.              |
+| Command or action                        | Result                                                                            |
+| ---------------------------------------- | --------------------------------------------------------------------------------- |
+| `/router`                                | Open the pane.                                                                    |
+| `/router auto`                           | Resume automatic routing.                                                         |
+| `/router off`                            | Turn routing off and keep Claude's selected model.                                |
+| `/router pin <micro\|low\|medium\|high>` | Pin the next turn and its tool continuations. Routing on must already be enabled. |
+| `/model <name>`                          | Select a model and turn routing off. Use `/router auto` to turn it back on.       |
+| **Routing on** / **Routing off**         | The same as `/router auto` and `/router off`.                                     |
+| **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.              |
 
-A pin does not change the next turn after the pinned turn finishes. A fresh session on a model that one of the tiers routes to starts in Auto. A fresh session on any other model starts in Manual. `/clear` starts the new session in Auto. Resuming a saved session restores its saved Auto or Manual mode.
+A pin does not change the next turn after the pinned turn finishes. A fresh session on a model that one of the tiers routes to starts with routing on. A fresh session on any other model starts with routing off. `/clear` starts the new session with routing on. Resuming a saved session restores its saved routing on or off.
 
 ## Edit routes and policy
 
@@ -198,7 +198,7 @@ To stop routing for a session, run `/router off`. To stop loading the Mod, run `
 | Status says `no API key` or `no API token`  | The active classifier's plugin option is unset or unavailable to this process.   | Select **Set up** in the pane, or run `/plugin configure router`. Save the option and start a new turn.                                                            |
 | Status says `no account ID`                 | Clef or Clef Flash is active without the Cloudflare account ID.                  | Run `/plugin configure router` and save the Cloudflare account ID.                                                                                                 |
 | Route stays on the current model            | The classifier timed out, failed, is paused, or network policy refused it.       | Read the status band and the pane header. Network policy refusal is not bypassed.                                                                                  |
-| `/model` changed but routing stopped        | Choosing a model enters Manual mode.                                             | Run `/router auto` to resume automatic routing.                                                                                                                    |
+| `/model` changed but routing stopped        | Choosing a model turns routing off.                                              | Run `/router auto` to turn routing back on.                                                                                                                        |
 | Router reports invalid configuration        | `router.json` is invalid, or project/local settings redirect the router profile. | Inspect `router.json`, remove project/local `HOME` or `CLAUDE_CONFIG_DIR` overrides, or run the [migration command](configuration.md#convert-an-older-routerjson). |
 | Router says old settings need migration     | `router.json` still contains v0.8 gateway keys or the 1.1 `jev` section.         | Run the [migration command](configuration.md#convert-an-older-routerjson).                                                                                         |
 | `⚠ OpenAI rejected the key · keeping model` | The OpenAI key is wrong, revoked, or lacks access to `gpt-6-luna`.               | Run `/plugin configure router` and save a valid OpenAI API key.                                                                                                    |

@@ -32,7 +32,7 @@ test('the band yields to a survey and says subagents keep their model', async ()
   assert.match((await band(h, { view: { agentId: 'a1' } })).line, /subagents keep their own model/);
 });
 
-test('the band offers Auto in Manual mode and a key button without a key', async () => {
+test('the band offers Routing on in Manual mode and a key button without a key', async () => {
   const h = harness();
   await start(h);
   await drain(h.step(step));
@@ -42,7 +42,7 @@ test('the band offers Auto in Manual mode and a key button without a key', async
   assert.equal(h.commandCalls(), 1);
   await h.event('command.run', { command: 'router', args: 'off' });
   view = await band(h);
-  assert.match(view.line, /Router off · keeping Haiku 5\.5/);
+  assert.match(view.line, /Routing off · every turn uses Haiku 5\.5/);
   await view.controls.find((node) => node.key === 'band-auto').onPress();
   assert.equal(h.view().mode, 'auto');
 });
@@ -72,7 +72,7 @@ test('a route change raises one toast with the old and new model; a pin does not
   await h.event('turn.start', { turnId: 't2', text: 'Next.' });
   await drain(h.step({ ...step, turnId: 't2' }));
   assert.equal(h.toasts.length, 1);
-  assert.match(h.toasts[0], /^Opus 5\.5 · xhigh → Haiku 5\.5 · high — /);
+  assert.match(h.toasts[0], /^Model changed: Opus 5\.5 · xhigh → Haiku 5\.5 · high · /);
 });
 
 test('the spinner says Choosing model only while the classifier runs', async () => {
@@ -94,12 +94,12 @@ test('the spinner says Choosing model only while the classifier runs', async () 
   );
 });
 
-test('the footer labels paused routing', async () => {
+test('the footer labels routing off', async () => {
   const h = harness();
   await start(h);
   assert.deepEqual((await h.component('SessionMode', { modes: ['focus'] })).props.modes, ['focus']);
   await h.event('command.run', { command: 'router', args: 'off' });
-  assert.deepEqual((await h.component('SessionMode', { modes: ['focus'] })).props.modes, ['focus', 'router off']);
+  assert.deepEqual((await h.component('SessionMode', { modes: ['focus'] })).props.modes, ['focus', 'routing off']);
 });
 
 test('a narrow band never exceeds its width: optional parts drop, then the route is cut', async () => {

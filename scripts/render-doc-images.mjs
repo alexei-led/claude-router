@@ -17,8 +17,10 @@ const COLORS = { cyan: '#5fafd7', yellow: '#d7af5f', green: '#87d787', red: '#e0
 const FG = '#d0d0d0';
 const DIM = '#7c7c7c';
 const ACCENT = '#87afff';
+const INK = '#0d1016';
+const BUTTON = '#2e3340';
 
-// Layout: a node becomes lines of runs; each run is { text, fill, bold }.
+// Layout: a node becomes lines of runs; each run is { text, fill, bold, bg }, bg being a chip behind the text.
 const width = (line) => line.reduce((n, r) => n + [...r.text].length, 0);
 const pad = (lines, w) =>
   lines.map((line) => (width(line) < w ? [...line, { text: ' '.repeat(w - width(line)) }] : line));
@@ -27,12 +29,13 @@ function lay(node, { hover }) {
   const { type, props } = node;
   if (type === 'Text') {
     const fill = props.dimColor ? DIM : (COLORS[props.color] ?? props.color ?? FG);
-    return [[{ text: props.children ?? '', fill, bold: props.bold }]];
+    return [[{ text: props.children ?? '', fill, bold: props.bold, bg: props.backgroundColor }]];
   }
   if (type === 'Button') {
     const text = props.plain ? props.label : `[ ${props.label} ]`;
-    const fill = props.variant === 'primary' ? ACCENT : props.dimColor ? DIM : FG;
-    return [[{ text, fill, bold: props.variant === 'primary' }]];
+    if (props.plain) return [[{ text, fill: props.dimColor ? DIM : FG }]];
+    if (props.variant === 'primary') return [[{ text, fill: INK, bold: true, bg: ACCENT }]];
+    return [[{ text, fill: props.dimColor ? DIM : FG, bg: BUTTON }]];
   }
   if (type === 'Select') {
     const picked = props.options.find((o) => o.value === props.value)?.label ?? props.value;
@@ -64,9 +67,16 @@ function runsSvg(lines, x0, y0) {
   lines.forEach((line, row) => {
     let col = 0;
     for (const run of line) {
+      const x = x0 + col * CW;
+      const width = [...run.text].length * CW;
+      if (run.bg && run.text.trim()) {
+        out.push(
+          `<rect x="${x.toFixed(1)}" y="${y0 + row * LH - 14}" width="${width.toFixed(1)}" height="18" rx="4" fill="${run.bg}"/>`,
+        );
+      }
       if (run.text.trim()) {
         out.push(
-          `<text x="${(x0 + col * CW).toFixed(1)}" y="${y0 + row * LH}" fill="${run.fill ?? FG}"${run.bold ? ' font-weight="700"' : ''} xml:space="preserve">${esc(run.text)}</text>`,
+          `<text x="${x.toFixed(1)}" y="${y0 + row * LH}" fill="${run.fill ?? FG}"${run.bold ? ' font-weight="700"' : ''} xml:space="preserve">${esc(run.text)}</text>`,
         );
       }
       col += [...run.text].length;
@@ -134,8 +144,12 @@ const usage = {
 // ---- band states ----
 const COLUMNS = 112;
 const states = [
-  ['Auto: routed to the high tier on a clear jump', base, false],
-  ['Two rows, with the hover row shown: recent replies by tier, pins, Manual', { ...base, bandDetail: true }, true],
+  ['Routing on: routed to the high tier on a clear jump', base, false],
+  [
+    'Two rows, with the hover row shown: recent replies by tier, pins, Routing off',
+    { ...base, bandDetail: true },
+    true,
+  ],
   [
     'A pin waits for the next turn; ✕ cancels it',
     {
@@ -151,7 +165,7 @@ const states = [
     false,
   ],
   [
-    'No classifier key: Router keeps the model and offers Set up',
+    'No classifier key: routing keeps the model and offers Set up',
     {
       ...base,
       tier: 'low',
@@ -172,7 +186,7 @@ const states = [
     false,
   ],
   [
-    'Manual: /model chose the model; Auto resumes routing',
+    'Routing off: /model chose the model; Routing on resumes routing',
     { ...base, mode: 'manual', reason: 'model selected manually', nativeModel: 'claude-sonnet-5-5' },
     false,
   ],
@@ -193,7 +207,7 @@ writeFileSync(
   `${OUT}/router-band.svg`,
   svg({
     title: 'The Router band above the Claude Code prompt',
-    desc: 'Five band states drawn by the router code: routed to high, two rows with the hover row, a pending pin, a missing classifier key, and Manual mode.',
+    desc: 'Five band states drawn by the router code: routed to high, two rows with the hover row, a pending pin, a missing classifier key, and routing off.',
     body: parts.join('\n'),
     w: Math.ceil(COLUMNS * CW + 48),
     h: y - 14,

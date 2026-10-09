@@ -55,17 +55,23 @@ const plain = (priority, ...texts) => ({ priority, parts: texts.map((text) => ({
 
 test('an unavailable router names the cause, or the gateway leftovers, beside Fix', () => {
   for (const [error, expected] of [
-    ['bad router.json', '✕ Router unavailablebad router.json[Fix]'],
-    [GATEWAY_SETTINGS, '✕ Router unavailablev0.8 gateway settings remain[Fix]'],
-    [null, '✕ Router unavailableunknown error[Fix]'],
+    ['bad router.json', '✕ Routing unavailablebad router.json[Fix]'],
+    [GATEWAY_SETTINGS, '✕ Routing unavailablev0.8 gateway settings remain[Fix]'],
+    [null, '✕ Routing unavailableunknown error[Fix]'],
   ])
     assert.equal(line(bandSegments(DEFAULTS, { mode: 'auto', phase: 'unavailable', error }, null, actions)), expected);
 });
 
-test('a turn being classified shows a dim meter and the classifier deadline', () => {
+test('a manual band that fits keeps Routing on, the control that turns routing back on', () => {
+  const view = { mode: 'manual', phase: 'manual', nativeModel: 'claude-sonnet-5-5', reason: 'model selected manually' };
+  const parts = fitSegments(bandSegments(DEFAULTS, view, null, actions), 70).flatMap((s) => s.parts);
+  assert.ok(parts.some((p) => p.button?.label === 'Routing on'));
+});
+
+test('a turn being classified shows an accent meter and the classifier deadline', () => {
   const segments = bandSegments(DEFAULTS, { mode: 'auto', phase: 'choosing', tier: 'medium' }, null, actions);
   assert.equal(line(segments), '▂▄▆█ choosing for this turn…Jev · 1.5 s deadline');
-  assert.ok(segments[0].parts.slice(0, 4).every((p) => p.style.dimColor));
+  assert.ok(segments[0].parts.slice(0, 4).every((p) => p.style.color && !p.style.dimColor));
 });
 
 test('a narrow band drops the highest priority first, the later one on a tie', () => {

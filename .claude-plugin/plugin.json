@@ -1,7 +1,7 @@
 {
   "name": "router",
   "displayName": "Router",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Model and effort routing for the main conversation, advised by a prompt classifier (Jev, Clef, Clef Flash, OpenAI or local Ollama). Preserves subagent model choices.",
   "author": {
     "name": "Alexei Ledenev",

@@ -12,21 +12,21 @@ The default tiers are defined in [Configuration](configuration.md#built-in-defau
 
 ## Controls and session modes
 
-| Control              | Behavior                                                                |
-| -------------------- | ----------------------------------------------------------------------- |
-| `/router`            | Open the pane. Without a UI surface, print short status.                |
-| `/router auto`       | Enable automatic routing.                                               |
-| `/router off`        | Enter Manual mode and preserve Claude's selected model.                 |
-| `/router pin <tier>` | Pin the next turn and tool continuations. Auto must already be enabled. |
-| `/model <name>`      | Select a model and enter Manual mode. `/router auto` resumes routing.   |
+| Control              | Behavior                                                                      |
+| -------------------- | ----------------------------------------------------------------------------- |
+| `/router`            | Open the pane. Without a UI surface, print short status.                      |
+| `/router auto`       | Enable automatic routing.                                                     |
+| `/router off`        | Turn routing off and keep Claude's selected model.                            |
+| `/router pin <tier>` | Pin the next turn and tool continuations. Routing on must already be enabled. |
+| `/model <name>`      | Select a model and turn routing off. `/router auto` turns it back on.         |
 
 The pane's **Set up** and **Credentials → Edit** buttons open Claude Code's secure plugin configuration. Claude Code refuses `$.command.run` from inside a `command.run` hook, so the Mod starts that dialog from a timer after the press returns.
 
-Mode belongs to a Claude Code session. Clear starts a new session in Auto. Resume restores the saved mode for that session. A new or forked session has a new ID: it starts in Auto on a model that one of the tiers routes to and in Manual on any other model, as a fresh launch does. A pin applies to one logical turn, then the prior Auto incumbent resumes. A history reset clears votes and cache evidence; the current turn keeps its route, pin and any native fallback.
+Mode belongs to a Claude Code session. Clear starts a new session with routing on. Resume restores the saved mode for that session. A new or forked session has a new ID: it starts with routing on for a model that one of the tiers routes to and with routing off for any other model, as a fresh launch does. A pin applies to one logical turn, then the prior route resumes. A history reset clears votes and cache evidence; the current turn keeps its route, pin and any native fallback.
 
 ## Router pane
 
-The status band is one line above the prompt: a tier meter, the route, a short reason, classifier support, and context and cache use. Segments drop by priority when the band is narrow. Hovering reveals pins, Manual, and a two-row view. The band yields to surveys and does not describe subagent transcripts. A model change between turns raises a toast. A pin, or a step that changes only the effort, such as `medium` to `high` on the defaults, raises none. While the classifier runs, the turn's spinner says `Choosing model`. In Manual mode or when routing is unavailable, the prompt footer carries `router off` or `router unavailable`. The **Router** button opens the pane. The pane has four tabs, Now, Routing, Classifier, and Usage, with Auto and Manual on every tab. The [user guide](user-guide.md#open-the-router-pane) describes each tab.
+The status band is one line above the prompt: a tier meter, the route, a short reason, classifier support, and context and cache use. Segments drop by priority when the band is narrow. A **Routing off** button sits on the band while routing is on, and hovering reveals pins and a two-row view. A fresh session on a model no tier routes to shows `<model> is not a routing tier` on the band until the mode changes. The band yields to surveys and does not describe subagent transcripts. A model change between turns raises a toast. A pin, or a step that changes only the effort, such as `medium` to `high` on the defaults, raises none. While the classifier runs, the turn's spinner says `Choosing model`. In Manual mode or when routing is unavailable, the prompt footer carries `routing off` or `routing unavailable`. The **Router** button opens the pane. The pane has four tabs, Now, Routing, Classifier, and Usage, with Routing on and Routing off on every tab. The [user guide](user-guide.md#open-the-router-pane) describes each tab.
 
 | Reading                      | Meaning and limits                                                                                                                    |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |

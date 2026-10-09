@@ -371,7 +371,7 @@ test('Manual mode shows no pin buttons', async () => {
   await press(h, 'manual');
   const pane = await h.render();
   assert.ok(!controls(pane).some((node) => node.key.startsWith('pin-')));
-  assert.ok(texts(pane).some((line) => /Pins need Auto/.test(line)));
+  assert.ok(texts(pane).some((line) => /Pins need routing on/.test(line)));
 });
 
 test('a classifier row switches at once, Undo from any tab returns to the previous one, and a switch clears the old health', async () => {

@@ -123,6 +123,23 @@ test('a fresh session starts Auto on a model some tier routes to and Manual on a
   }
 });
 
+test('a fresh session on a model no tier routes to says why routing starts off, until the mode changes', async () => {
+  const h = harness();
+  h.model('claude-sonnet-5-5');
+  await start(h);
+  const line = (await band(h)).line;
+  assert.match(line, /Routing off · every turn uses Sonnet 5\.5/);
+  assert.match(line, /Sonnet 5\.5 is not a routing tier/);
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  assert.doesNotMatch((await band(h)).line, /not a routing tier/);
+});
+
+test('a fresh session on a tier model shows no start reason', async () => {
+  const h = harness();
+  await start(h);
+  assert.doesNotMatch((await band(h)).line, /not a routing tier/);
+});
+
 test('a band drawn before session start does not decide the start mode', async () => {
   const h = harness();
   h.model('claude-fable-5-1');
@@ -362,8 +379,8 @@ test('the router command opens the pane, switches modes and pins, with no setup 
   const h = harness();
   await start(h);
   assert.deepEqual(await h.event('command.run', { command: 'router', args: '' }), {});
-  assert.match((await h.event('command.run', { command: 'router', args: 'off' })).text, /Manual/);
-  assert.match((await h.event('command.run', { command: 'router', args: 'auto' })).text, /Auto/);
+  assert.match((await h.event('command.run', { command: 'router', args: 'off' })).text, /^Routing off:/);
+  assert.match((await h.event('command.run', { command: 'router', args: 'auto' })).text, /^Routing on\./);
   assert.equal(h.commandCalls(), 0);
   assert.deepEqual(await h.event('command.run', { command: 'router', args: 'setup' }), {});
   assert.equal(h.commandCalls(), 0);

@@ -22,6 +22,7 @@ import {
   GATEWAY_CLEANUP,
   GATEWAY_SETTINGS,
   missingCredentials,
+  NOT_A_TIER_REASON,
 } from '../lib/display.mjs';
 import { clip } from '../lib/facts.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
@@ -95,11 +96,18 @@ async function modeOf($, router, fallback = 'auto') {
   }
 }
 
-// A saved preference wins; a fresh session starts Auto on a model some tier routes to and Manual on any other.
+// A saved preference wins; a fresh session starts with routing on for a model some tier routes to, and off for any other.
 async function startMode($, router, model) {
   const mode = await modeOf($, router, tierForModel(router.config, model) === null ? 'manual' : 'auto');
   router.modes.set(await $.session.id(), mode);
   return mode;
+}
+
+// A fresh Manual start on a non-tier model gets a reason the band can show; a saved mode carries none.
+async function startView($, router, model) {
+  const fresh = (await modeOf($, router, null)) === null;
+  const mode = await startMode($, router, model);
+  return fresh && mode === 'manual' ? { mode, reason: NOT_A_TIER_REASON } : { mode };
 }
 
 async function rememberMode($, mode) {
@@ -133,7 +141,7 @@ async function changeMode($, router, mode) {
     mode,
     pendingPin: null,
     phase: view.phase === 'unavailable' ? 'unavailable' : mode === 'manual' ? 'manual' : 'ready',
-    reason: mode === 'manual' ? 'routing paused' : 'ready',
+    reason: mode === 'manual' ? 'routing off' : 'ready',
     ...(!saved ? { notice: 'Mode changed for this session. Resume preference could not be saved.' } : {}),
   });
 }
@@ -142,7 +150,7 @@ async function setPin($, router, tier) {
   const view = router.view ?? (await readView($, router));
   if (view.phase === 'unavailable') return `Routing unavailable: ${view.error}.`;
   const mode = await modeOf($, router, view.mode);
-  if (mode === 'manual') return 'Routing is paused. Select Auto before pinning a turn.';
+  if (mode === 'manual') return 'Routing is off. Turn routing on before pinning a turn.';
   await updateView($, router, { pendingPin: tier });
   return `${tier} pinned for the next turn and its tool continuations.`;
 }
@@ -223,7 +231,7 @@ async function saveConfig($, path, change) {
 function detailText(config, view) {
   const missing = missingCredentials(config, view, config.classifier);
   return [
-    `Router — ${view.mode === 'auto' ? 'Auto' : 'Manual'}`,
+    `Router — routing ${view.mode === 'auto' ? 'on' : 'off'}`,
     `Native model: ${view.nativeModel}`,
     `Selected: ${view.selectedModel ?? 'not selected'}`,
     `Observed: ${view.actualModel ?? 'no response yet'}`,
@@ -232,7 +240,7 @@ function detailText(config, view) {
     `Context: ${view.contextKnown ? `${view.contextTokens} tokens (estimate)` : 'unknown'}`,
     `Observed cache: ${view.cacheRead ?? 'unknown'} read, ${view.cacheWrite ?? 'unknown'} written tokens`,
     view.pendingPin ? `Next turn pin: ${view.pendingPin}` : 'No next-turn pin.',
-    'Auto enables routing. Manual preserves Claude’s model. Pins serve one turn only.',
+    'Routing on picks a model for each turn. Routing off keeps Claude’s model. Pins serve one turn only.',
     'Cache lifetime is an estimate. Claude’s cost ledger owns session totals.',
     ...(view.error === GATEWAY_SETTINGS ? GATEWAY_CLEANUP : []),
   ].join('\n');
@@ -562,7 +570,7 @@ export function register(on, options) {
         Boolean(base?.includes('127.0.0.1:43170') || base?.includes('localhost:43170'));
       await updateView($, router, {
         nativeModel: model,
-        mode: await startMode($, router, model),
+        ...(await startView($, router, model)),
         phase: gateway || !supported ? 'unavailable' : 'ready',
         error: !supported ? 'requires Claude Code 2.1.289 or newer' : gateway ? GATEWAY_SETTINGS : null,
         ...(sameClassifier ? {} : CLEARED_READINGS),
@@ -608,7 +616,7 @@ export function register(on, options) {
     const [action, tier] = e.args.trim().split(/\s+/);
     if (action === 'auto' || action === 'off') {
       await changeMode($, router, action === 'auto' ? 'auto' : 'manual');
-      return { text: action === 'auto' ? 'Auto routing enabled.' : 'Manual mode: Claude’s model is preserved.' };
+      return { text: action === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
     }
     if (action === 'pin')
       return { text: TIERS.includes(tier) ? await setPin($, router, tier) : `Choose ${TIERS.join(', ')}.` };
@@ -771,9 +779,9 @@ export function register(on, options) {
     const view = await readView($, router);
     const label =
       view.phase === 'unavailable'
-        ? 'router unavailable'
+        ? 'routing unavailable'
         : (await modeOf($, router, view.mode)) === 'manual'
-          ? 'router off'
+          ? 'routing off'
           : null;
     return label ? next({ ...e, props: { ...e.props, modes: [...e.props.modes, label] } }) : next(e);
   });

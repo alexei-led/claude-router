@@ -38,11 +38,11 @@ sequenceDiagram
   participant API as Anthropic
   Dev->>Code: Prompt
   Code->>Mod: Main or subagent step
-  alt Main conversation in Auto
+  alt Main conversation, routing on
     Mod->>Cls: Bounded prompt and dialogue
     Cls-->>Mod: Tier advice
     Mod-->>Code: Selected model and effort
-  else Manual or subagent
+  else Routing off or subagent
     Mod-->>Code: Original model and effort
   end
   Code->>API: Native request and tools
@@ -70,7 +70,7 @@ claude plugin marketplace add alexei-led/claude-router
 claude plugin install router@alexei-led-claude-router
 ```
 
-Start Claude Code on the full baseline model, for example `claude --model claude-haiku-5-5`. Run `/plugin configure router` and save the key. For any other classifier, save its credentials, or run `ollama serve` with a pulled model, then pick the classifier on the pane's Classifier tab. A new session on a model that one of the tiers routes to starts in Auto; on another model it starts in Manual, and `/router auto` turns routing on.
+Start Claude Code on the full baseline model, for example `claude --model claude-haiku-5-5`. Run `/plugin configure router` and save the key. For any other classifier, save its credentials, or run `ollama serve` with a pulled model, then pick the classifier on the pane's Classifier tab. A new session on a model that one of the tiers routes to starts with routing on; on another model it starts with routing off and says why, and `/router auto` turns routing on.
 
 Claude Code updates the plugin at startup when auto-update is on for this marketplace. Otherwise run `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`.
 
@@ -86,7 +86,7 @@ claude --plugin-dir "$PWD" --model claude-haiku-5-5
 
 In Claude Code, run `/plugin configure router` and save your classifier key in the sensitive plugin option. The Mod adds its status band and `/router` pane. No status-line setup or gateway environment variables are needed.
 
-Run `/router` to open the pane: route status, per-tier controls, tuning, and usage. Run `/model` to select a model and enter Manual mode, and `/router auto` to resume. For controls, metrics, tuning, and troubleshooting, see the [user guide](docs/user-guide.md).
+Run `/router` to open the pane: route status, per-tier controls, tuning, and usage. Run `/model` to select a model and turn routing off, and `/router auto` to turn it back on. For controls, metrics, tuning, and troubleshooting, see the [user guide](docs/user-guide.md).
 
 Before a push, run the same checks as CI. `npm run setup` installs Biome and TypeScript into `tools/`; the plugin root keeps no lockfile, so Claude Code installs nothing with the plugin. `npm run validate` and `npm run test:plugin` need the `claude` CLI: they load the Mod in the Claude Code engine, which refuses some faults that lint and unit tests miss.
 
