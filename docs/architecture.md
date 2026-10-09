@@ -1,6 +1,6 @@
 # Architecture
 
-Claude Code owns the model request. The router Mod asks the active classifier (Jev by default; Cloudflare's Clef or Clef Flash; OpenAI; or a local Ollama model) for tier advice, applies local routing policy, and changes only the next main-conversation step's model and effort. Every subagent step passes through with Claude's model selection unchanged.
+Claude Code owns the model request. The router Mod asks the active classifier (Jev by default; Cloudflare's Clef or Clef Flash; OpenAI; or a local Ollama model) for tier advice and, unless `activityRouting` is `off`, the turn's activity, applies local routing policy, and changes only the next main-conversation step's model and effort. Every subagent step passes through with Claude's model selection unchanged.
 
 ## Request flow
 
@@ -16,7 +16,7 @@ sequenceDiagram
     Code->>Mod: turn.start and turn.step
     alt Main conversation, routing on
         Mod->>Cls: Current prompt and bounded dialogue
-        Cls-->>Mod: Tier advice
+        Cls-->>Mod: Tier and activity advice
         Note over Mod: Apply votes, context fit, cache costs and failure rules
         Mod-->>Code: Forward model and effort
     else Routing off, subagent, or unavailable
@@ -34,24 +34,37 @@ The active classifier receives only the current prompt and up to six recent user
 
 Each classifier names its wire protocol, `api`, and `classifier-apis.mjs` holds one adapter per protocol. `system-one` (Jev, Clef, Clef Flash) sends the typed `state` and `questions` request and reads `answers.route`; Cloudflare's REST API wraps that answer in `{ result, success, errors }`, which the parser unwraps. `openai-decisions` (OpenAI) sends the state as `input` text and reads a `choice` answer plus a `predicate` for the continuation. `ollama` asks for one letter with thinking off and reads the log-probability of each letter from the top 20 candidates. A letter's probability is its share of the letters found there; a letter missing from the list counts as zero. The Ollama adapter asks no continuation question, so `continuation` is null there. Every adapter returns the same advice shape, so the routing policy is unchanged.
 
+The advice also carries `activity`: `{ choice, probabilities }` over the seven activities and `uncertain`, or null. Each protocol asks for it differently:
+
+| Protocol           | How the activity is asked                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `system-one`       | A third question, `activity`, of type `choice` in the same request.                                                                              |
+| `openai-decisions` | A second `choice` in `questions`, named `activity`.                                                                                              |
+| `ollama`           | A second request after the route answer, with the same system message and state prefix so Ollama can reuse its cache. Letters A to H, one token. |
+
+The activity is optional at every layer. An adapter reads a missing, malformed, or unknown activity answer as `activity: null` and keeps the strict parsing of the route answer. With `activityRouting: off` no adapter builds the activity question, so the request bodies are the ones 1.5 sent; a fixture test checks this. The criteria and instructions live in `classifier-contract.mjs` beside the tier ones, and name each activity by what the turn produces. The classifier criteria keep showing the base route of each tier, not the activity overrides: the tier question is about difficulty.
+
 Claude Code builds each request for the model the Mod selects, so no request rewriting is needed: Haiku 4.5 got its own thinking mode and a 32K output cap. On Claude Code 2.1.289, a billed chain of pinned turns (Opus, Haiku 4.5, Sonnet at `xhigh`, Sonnet, Haiku 4.5) used a tool on every turn over the previous models' history, and no request was rejected. Sonnet and Opus accepted histories above 589K input tokens. These checks cover tested requests. They do not prove every Claude Code feature combination.
 
 ## Responsibilities
 
-| Component                                             | Responsibility                                                                                                  |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| [Native hooks](../hooks/native-router.mjs)            | Turn identity, controls, lifecycle, per-step rewrites, response observation, pane actions, and every host call. |
-| [Classifier contract](../lib/classifier-contract.mjs) | Route criteria and instructions shared by every protocol, credentials and endpoint filling, and retry rules.    |
-| [Classifier APIs](../lib/classifier-apis.mjs)         | One adapter per wire protocol: request payload, answer validation, and the shared advice shape.                 |
-| [Classifier client](../lib/classifier-client.mjs)     | Classifier HTTP, deadline, in-flight admission, and circuit breaker.                                            |
-| [Router controller](../lib/route.mjs)                 | Context fit, model identity, engine fallback, cache observations, and one-turn pins.                            |
-| [Policy](../lib/policy.mjs)                           | Tier votes, escalation, and switching gates.                                                                    |
-| [Costs](../lib/cost.mjs)                              | Cache uncertainty bounds and switching estimates.                                                               |
-| [Router view](../lib/view.mjs)                        | The view's initial shape and the usage readings each reply adds to it.                                          |
-| [Config file](../lib/config-file.mjs)                 | Pane writes to `router.json`: the validated rewrite and what Undo restores.                                     |
-| [Panel](../lib/panel.mjs)                             | Tabbed pane: route status, tier pins, the route editor, tuning, and usage.                                      |
-| [Router band](../lib/band.mjs)                        | Status band segments fitted to the band's width, and route-change toasts.                                       |
-| Claude Code                                           | API requests, tools, authentication, stream output, and usage ledger.                                           |
+| Component                                             | Responsibility                                                                                                   |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| [Native hooks](../hooks/native-router.mjs)            | Turn identity, controls, lifecycle, per-step rewrites, response observation, pane actions, and every host call.  |
+| [Classifier contract](../lib/classifier-contract.mjs) | Route criteria and instructions shared by every protocol, credentials and endpoint filling, and retry rules.     |
+| [Classifier APIs](../lib/classifier-apis.mjs)         | One adapter per wire protocol: request payload, answer validation, and the shared advice shape.                  |
+| [Classifier client](../lib/classifier-client.mjs)     | Classifier HTTP, deadline, in-flight admission, and circuit breaker.                                             |
+| [Router controller](../lib/route.mjs)                 | Context fit, model identity, engine fallback, cache observations, one-turn pins, and the tier-and-activity cell. |
+| [Activity rules](../lib/activity.mjs)                 | Which activity applies, how two routes compare, and when a route change inside a tier is worth it.               |
+| [Activity stats](../lib/activity-stats.mjs)           | Session and stored activity counts, the tool-agreement table, and the per-turn record.                           |
+| [Facts](../lib/facts.mjs)                             | The turn's facts for policy, and the bucket of a finished turn from its tool calls.                              |
+| [Policy](../lib/policy.mjs)                           | Tier votes, escalation, and switching gates, for routes as well as tiers.                                        |
+| [Costs](../lib/cost.mjs)                              | Cache uncertainty bounds and switching estimates.                                                                |
+| [Router view](../lib/view.mjs)                        | The view's initial shape and the usage readings each reply adds to it.                                           |
+| [Config file](../lib/config-file.mjs)                 | Pane writes to `router.json`: the validated rewrite and what Undo restores.                                      |
+| [Panel](../lib/panel.mjs)                             | Tabbed pane: route status, tier pins, the route editor, tuning, and usage.                                       |
+| [Router band](../lib/band.mjs)                        | Status band segments fitted to the band's width, and route-change toasts.                                        |
+| Claude Code                                           | API requests, tools, authentication, stream output, and usage ledger.                                            |
 
 Every function that takes the engine interface `$` lives in the hooks module: the engine does not follow `$` across an import, so the modules in `lib/` stay pure.
 
@@ -67,17 +80,44 @@ A move to a smaller context window needs a main-response measurement from the cu
 
 An explicit context-window failure marks that model ineligible until the next history reset. An engine fallback suspends rewriting for the rest of the turn. The router does not retry an Anthropic request.
 
+## Activity routing
+
+The router decides on a *cell*: a tier and an activity. The route is `{ ...routes[tier], ...activities[activity][tier] }`; the (model, effort) pair, not the label, is what Claude Code receives and what owns a cache. Two cells that resolve to the same route never switch.
+
+`chooseRoute` runs one decision per logical turn:
+
+1. **Pin.** A pinned tier wins, with no activity: the pin's tier route.
+2. **Activity.** Only in `on`; `off` and `shadow` use none for the route they apply. With no advice, the incumbent's activity stays. On a continuation (advice `continuation` at or above `continuationMass`), the advice's activity applies only if its route at the incumbent tier is stronger than the running route, so a task can move from `explore` up to `code` but a weaker label never takes over. Otherwise the activity with probability at least `activityMass` applies; below that, or for `uncertain`, there is none and the tier's base route is used.
+3. **Tier.** The tier policy runs as before, with every candidate tier priced at its route for the activity and the incumbent at the route it runs. Repeated tool errors move to the lowest tier above whose route is stronger than the running one. With no activity that is one tier up, as in 1.5. If no tier above helps, nothing escalates and the failure signature is kept.
+4. **Lateral move.** If the tier stays and the route would change, `lateralMove` decides. Routes order by configured output price, then effort; routes that cannot be ordered do not switch. A stronger route needs the activity's probability to clear the upgrade bar for its switching tax (a base route with no activity counts as probability 1). A cheaper route needs its downgrade tax to be paid back within `downgradeHorizonTurns`. The cash gate applies to both. The result is `activity-up`, `activity-down`, `activity-pending` (stay on the running route and its activity), `cash-gate`, or `hold`. While an escalation hold lasts, only a stronger route may be taken. One vote is enough: an activity is a fact about the turn, not a noisy estimate. If the tier changes, the tier gates have already priced the new route, and no lateral rule applies.
+5. **Fit.** Context fit and model availability resolve through `route(tier, activity)`. A fallback tries the last cell, the native model's cell, then each tier with the activity.
+
+`activityRouting: shadow` runs the decision twice. The applied one uses no activity, so it is the 1.5 decision. The second runs as `on` and is kept only as `decision.wouldRoute`, shown on the pane and counted in the stats. It never changes a route. A tool continuation keeps the turn's route and activity.
+
+At session start the incumbent is the session's model. `cellForModel` looks for it in the base routes, baseline first, and only with `activityRouting: on` in the activity overrides too, so a session that starts on an override route keeps its cell until the classifier says otherwise.
+
 ## State and controls
 
 `$.state` stores route decisions, response observations, and UI state for the active session. Version-checked writes reject stale turn results. A private in-memory view merges state writes during one dispatch because state reads are frozen for that dispatch.
 
 Clear, branch, rewind, and committed compaction clear cache evidence and votes. A turn in progress keeps its route, pin, and any engine fallback. `/clear` starts the new session with routing on. A fresh session on a model that a configured tier routes to starts with routing on. A fresh session on any other model starts with routing off, and the band names the reason. Session start sets the mode; the band and pane only read it, even when they draw first. Resume restores the selected session's saved mode. Hot reload retains valid `$.state`. Running `/model` turns routing off, including an explicit choice of the baseline. `/router auto` resumes routing. `/router off` also turns routing off. Pins apply to the next turn and its tool continuations. The prior route resumes afterward.
 
+### Observed activity and stats
+
+When a turn completes, the Mod labels it from the tool calls the assistant made after the prompt: `code` for an edit to a non-doc path, `docs` for edits only to doc paths, `ops` for a Bash command that is not read-only, `read` for other tool use, and `talk` for none. `facts.mjs` reads tool names and file paths; it keeps no text. [Evaluation](evaluation.md#tool-agreement) explains how this is compared with the classifier's answer.
+
+Two stores hold counts:
+
+- **Session**: `activityStats` in the view, reset when the session ends. It has turns, requests and tokens per activity, switches by tier and by activity, tool agreement, and the shadow readout. The label counted is the one the turn used: the applied activity in `on`, the answer that cleared `activityMass` in `shadow`. The view also keeps an `activities` array aligned with the last 30 replies.
+- **Across sessions**: one `$.store` key, `activity:stats:v1`. It holds a confusion matrix of the classifier's raw answer (including `uncertain` and `none`) against the observed bucket, run lengths per activity in five buckets, lateral switches taken and refused, and shadow turns and differences. The key set is fixed, so the size is bounded. A stored value with any other shape is read as empty. The open run is written when the session ends. **Reset activity stats** clears both stores.
+
+Nothing is recorded with `activityRouting: off`. Stats run inside a guard: a failed transcript read or store access loses that turn's counts and never fails the turn. A turn from a session that has since changed is dropped.
+
 Subagent events pass directly to Claude Code. They do not create classifier requests or change main-conversation metrics. This is the selected scope because Mods do not expose whether a subagent model was explicit or inherited.
 
 ## Classifier deadline and failure handling
 
-Each advice attempt has a total deadline, including any transient retry: 1,500 ms for Jev, 3,000 ms for Clef, Clef Flash and OpenAI, and 5,000 ms for Ollama by default. Ollama's first call after its model unloads can exceed that while the model loads. A timeout does not retry. `Retry-After` is honored only when it fits the remaining budget. Three launched failures pause the classifier for 60 seconds. Missing-key, missing-account, busy, and paused skips do not count as failures. Each classifier has its own failure count, pause, and in-flight slot. A turn that started under one classifier finishes with it, even if the pane switches meanwhile. Switching the classifier, or starting a session with another one, starts the new one from a clean count.
+Each advice attempt has a total deadline, including any transient retry: 1,500 ms for Jev, 3,000 ms for Clef, Clef Flash and OpenAI, and 5,000 ms for Ollama by default. Ollama's first call after its model unloads can exceed that while the model loads. A timeout does not retry. `Retry-After` is honored only when it fits the remaining budget. Three launched failures pause the classifier for 60 seconds. Missing-key, missing-account, busy, and paused skips do not count as failures. The Ollama activity request is a second call inside the same deadline and the same in-flight slot. It is sent only when the route answer parsed and at least 300 ms remain, gets one attempt and no retry, and a timeout or error there returns the route advice with `activity: null`. It counts as no failure and never opens a pause. Each classifier has its own failure count, pause, and in-flight slot. A turn that started under one classifier finishes with it, even if the pane switches meanwhile. Switching the classifier, or starting a session with another one, starts the new one from a clean count.
 
 The pinned host API does not expose a per-request abort option for `$.http.fetch`. The Mod returns to the incumbent at its own deadline and blocks another advice request while that wire call remains pending. Claude Code's observed host timeout is about 30 seconds. Recorded reload and unload checks closed pending sockets after 24.7 and 28.5 seconds. Replacement closed one after 31.6 seconds. These runs do not show immediate per-call cancellation. A plugin network-policy refusal degrades routing and is never bypassed with a subprocess.
 

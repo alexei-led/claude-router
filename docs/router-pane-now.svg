@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 594 496" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 594 572" role="img" aria-labelledby="title desc">
   <title id="title">Router pane, Now tab</title>
-  <desc id="desc">The current route with its reason, classifier support per tier with pin buttons, the last 20 replies colored by tier, and context, cache and cost.</desc>
+  <desc id="desc">The current route with its activity and reason, classifier support per tier with pin buttons, the last 20 replies colored by tier and lettered by activity, and context, cache and cost.</desc>
   <style>
     text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; }
     .cap { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; fill: #9a988f; }
   </style>
-  <rect width="594" height="496" rx="8" fill="#1c1c1c"/>
-<rect x="10" y="10" width="574" height="476" rx="6" fill="none" stroke="#3f5f8f"/>
+  <rect width="594" height="572" rx="8" fill="#1c1c1c"/>
+<rect x="10" y="10" width="574" height="552" rx="6" fill="none" stroke="#3f5f8f"/>
 <text x="24.0" y="34" fill="#5fafd7" font-weight="700" xml:space="preserve">ROUTING · on</text>
 <text x="141.0" y="34" fill="#87d787" xml:space="preserve">Jev ready · 347 ms</text>
 <rect x="24.0" y="39" width="109.2" height="18" rx="4" fill="#87afff"/>
@@ -24,75 +24,101 @@
 <text x="297.0" y="72" fill="#d0d0d0" xml:space="preserve">[ Usage ]</text>
 <rect x="375.0" y="58" width="39.0" height="18" rx="4" fill="#2e3340"/>
 <text x="375.0" y="72" fill="#d0d0d0" xml:space="preserve">[ ? ]</text>
-<text x="24.0" y="110" fill="#d0d0d0" xml:space="preserve">Now    </text>
-<text x="78.6" y="110" fill="#e0708a" font-weight="700" xml:space="preserve">▌high  </text>
-<text x="133.2" y="110" fill="#d0d0d0" xml:space="preserve">Opus 5.5 · xhigh</text>
-<text x="24.0" y="129" fill="#d0d0d0" xml:space="preserve">Why    </text>
-<text x="78.6" y="129" fill="#d0d0d0" xml:space="preserve">clear need for a stronger model</text>
-<text x="24.0" y="167" fill="#5fafd7" font-weight="700" xml:space="preserve">TIERS · next turn</text>
-<text x="24.0" y="186" fill="#7c7c7c" xml:space="preserve">  tier    route                 Jev support</text>
-<text x="24.0" y="205" fill="#e0708a" font-weight="700" xml:space="preserve">▶ </text>
-<text x="39.6" y="205" fill="#e0708a" font-weight="700" xml:space="preserve">high    </text>
-<text x="102.0" y="205" fill="#d0d0d0" xml:space="preserve">Opus 5.5 · xhigh      </text>
-<text x="273.6" y="205" fill="#e0708a" xml:space="preserve">█████████░</text>
-<text x="351.6" y="205" fill="#d0d0d0" xml:space="preserve">  88%  </text>
-<rect x="406.2" y="191" width="54.6" height="18" rx="4" fill="#2e3340"/>
-<text x="406.2" y="205" fill="#d0d0d0" xml:space="preserve">[ pin ]</text>
-<text x="39.6" y="224" fill="#d7af5f" font-weight="700" xml:space="preserve">medium  </text>
-<text x="102.0" y="224" fill="#d0d0d0" xml:space="preserve">Opus 5.5 · medium     </text>
-<text x="273.6" y="224" fill="#d7af5f" xml:space="preserve">█░░░░░░░░░</text>
-<text x="351.6" y="224" fill="#d0d0d0" xml:space="preserve">   7%  </text>
-<rect x="406.2" y="210" width="54.6" height="18" rx="4" fill="#2e3340"/>
-<text x="406.2" y="224" fill="#d0d0d0" xml:space="preserve">[ pin ]</text>
-<text x="39.6" y="243" fill="#5f9fe0" font-weight="700" xml:space="preserve">low     </text>
-<text x="102.0" y="243" fill="#d0d0d0" xml:space="preserve">Haiku 5.5 · high      </text>
-<text x="273.6" y="243" fill="#5f9fe0" xml:space="preserve">░░░░░░░░░░</text>
-<text x="351.6" y="243" fill="#d0d0d0" xml:space="preserve">   3%  </text>
+<text x="24.0" y="110" fill="#d0d0d0" xml:space="preserve">Now       </text>
+<text x="102.0" y="110" fill="#e0708a" font-weight="700" xml:space="preserve">▌high  </text>
+<text x="156.6" y="110" fill="#d0d0d0" xml:space="preserve">Opus 5.5 · xhigh</text>
+<text x="24.0" y="129" fill="#d0d0d0" xml:space="preserve">Activity  </text>
+<text x="102.0" y="129" fill="#d0d0d0" xml:space="preserve">code 84%</text>
+<text x="164.4" y="129" fill="#7c7c7c" xml:space="preserve">   debug 8% · plan 5%</text>
+<text x="24.0" y="148" fill="#d0d0d0" xml:space="preserve">Why       </text>
+<text x="102.0" y="148" fill="#d0d0d0" xml:space="preserve">clear need for a stronger model</text>
+<text x="24.0" y="167" fill="#d0d0d0" xml:space="preserve">Route     </text>
+<text x="102.0" y="167" fill="#d0d0d0" xml:space="preserve">high + code would use Opus 5.5 · xhigh (shadow; same route)</text>
+<text x="24.0" y="205" fill="#5fafd7" font-weight="700" xml:space="preserve">TIERS · next turn</text>
+<text x="24.0" y="224" fill="#7c7c7c" xml:space="preserve">  tier    route                 Jev support</text>
+<text x="24.0" y="243" fill="#e0708a" font-weight="700" xml:space="preserve">▶ </text>
+<text x="39.6" y="243" fill="#e0708a" font-weight="700" xml:space="preserve">high    </text>
+<text x="102.0" y="243" fill="#d0d0d0" xml:space="preserve">Opus 5.5 · xhigh      </text>
+<text x="273.6" y="243" fill="#e0708a" xml:space="preserve">█████████░</text>
+<text x="351.6" y="243" fill="#d0d0d0" xml:space="preserve">  88%  </text>
 <rect x="406.2" y="229" width="54.6" height="18" rx="4" fill="#2e3340"/>
 <text x="406.2" y="243" fill="#d0d0d0" xml:space="preserve">[ pin ]</text>
-<text x="39.6" y="262" fill="#5fd7af" font-weight="700" xml:space="preserve">micro   </text>
-<text x="102.0" y="262" fill="#d0d0d0" xml:space="preserve">Haiku 5.5 · medium    </text>
-<text x="273.6" y="262" fill="#5fd7af" xml:space="preserve">░░░░░░░░░░</text>
-<text x="351.6" y="262" fill="#d0d0d0" xml:space="preserve">   2%  </text>
+<text x="39.6" y="262" fill="#d7af5f" font-weight="700" xml:space="preserve">medium  </text>
+<text x="102.0" y="262" fill="#d0d0d0" xml:space="preserve">Opus 5.5 · medium     </text>
+<text x="273.6" y="262" fill="#d7af5f" xml:space="preserve">█░░░░░░░░░</text>
+<text x="351.6" y="262" fill="#d0d0d0" xml:space="preserve">   7%  </text>
 <rect x="406.2" y="248" width="54.6" height="18" rx="4" fill="#2e3340"/>
 <text x="406.2" y="262" fill="#d0d0d0" xml:space="preserve">[ pin ]</text>
-<text x="24.0" y="281" fill="#7c7c7c" xml:space="preserve">  switch needs 82% · Jev gave 88% up · tax ≈ $0.48</text>
-<text x="24.0" y="300" fill="#7c7c7c" xml:space="preserve">  Pins serve the next turn only.</text>
-<text x="24.0" y="338" fill="#5fafd7" font-weight="700" xml:space="preserve">REPLIES · last 20</text>
-<text x="39.6" y="357" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
-<text x="47.4" y="357" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
-<text x="55.2" y="357" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
-<text x="63.0" y="357" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
-<text x="70.8" y="357" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
-<text x="78.6" y="357" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
-<text x="86.4" y="357" fill="#d7af5f" font-weight="700" xml:space="preserve">█</text>
-<text x="94.2" y="357" fill="#d7af5f" font-weight="700" xml:space="preserve">█</text>
-<text x="102.0" y="357" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
-<text x="109.8" y="357" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
-<text x="117.6" y="357" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
-<text x="125.4" y="357" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
-<text x="133.2" y="357" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
-<text x="141.0" y="357" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
-<text x="148.8" y="357" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
-<text x="156.6" y="357" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
-<text x="164.4" y="357" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
-<text x="172.2" y="357" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
-<text x="180.0" y="357" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
-<text x="187.8" y="357" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
-<text x="195.6" y="357" fill="#7c7c7c" xml:space="preserve">  3 switches</text>
-<text x="39.6" y="376" fill="#5fd7af" font-weight="700" xml:space="preserve">■ </text>
-<text x="55.2" y="376" fill="#d0d0d0" xml:space="preserve">micro  </text>
-<text x="109.8" y="376" fill="#5f9fe0" font-weight="700" xml:space="preserve">■ </text>
-<text x="125.4" y="376" fill="#d0d0d0" xml:space="preserve">low  </text>
-<text x="164.4" y="376" fill="#d7af5f" font-weight="700" xml:space="preserve">■ </text>
-<text x="180.0" y="376" fill="#d0d0d0" xml:space="preserve">medium  </text>
-<text x="242.4" y="376" fill="#e0708a" font-weight="700" xml:space="preserve">■ </text>
-<text x="258.0" y="376" fill="#d0d0d0" xml:space="preserve">high  </text>
-<text x="24.0" y="414" fill="#87d787" xml:space="preserve">Context  ██████░░░░░░░░░░  40%  ~402.9K / 1.00M</text>
-<text x="24.0" y="433" fill="#87d787" xml:space="preserve">Cache    ████████████████ 100%  reused on the last reply</text>
-<text x="24.0" y="452" fill="#d0d0d0" xml:space="preserve">Cost     $18.003 </text>
-<text x="156.6" y="452" fill="#7c7c7c" xml:space="preserve">by Claude</text>
-<text x="226.8" y="452" fill="#d0d0d0" xml:space="preserve"> · cache saved ≈ $1.52</text>
-<rect x="24.0" y="457" width="70.2" height="18" rx="4" fill="#2e3340"/>
-<text x="24.0" y="471" fill="#d0d0d0" xml:space="preserve">[ Close ]</text>
+<text x="39.6" y="281" fill="#5f9fe0" font-weight="700" xml:space="preserve">low     </text>
+<text x="102.0" y="281" fill="#d0d0d0" xml:space="preserve">Haiku 5.5 · high      </text>
+<text x="273.6" y="281" fill="#5f9fe0" xml:space="preserve">░░░░░░░░░░</text>
+<text x="351.6" y="281" fill="#d0d0d0" xml:space="preserve">   3%  </text>
+<rect x="406.2" y="267" width="54.6" height="18" rx="4" fill="#2e3340"/>
+<text x="406.2" y="281" fill="#d0d0d0" xml:space="preserve">[ pin ]</text>
+<text x="39.6" y="300" fill="#5fd7af" font-weight="700" xml:space="preserve">micro   </text>
+<text x="102.0" y="300" fill="#d0d0d0" xml:space="preserve">Haiku 5.5 · medium    </text>
+<text x="273.6" y="300" fill="#5fd7af" xml:space="preserve">░░░░░░░░░░</text>
+<text x="351.6" y="300" fill="#d0d0d0" xml:space="preserve">   2%  </text>
+<rect x="406.2" y="286" width="54.6" height="18" rx="4" fill="#2e3340"/>
+<text x="406.2" y="300" fill="#d0d0d0" xml:space="preserve">[ pin ]</text>
+<text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">  switch needs 82% · Jev gave 88% up · tax ≈ $0.48</text>
+<text x="24.0" y="338" fill="#7c7c7c" xml:space="preserve">  Pins serve the next turn only.</text>
+<text x="24.0" y="376" fill="#5fafd7" font-weight="700" xml:space="preserve">REPLIES · last 20</text>
+<text x="39.6" y="395" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
+<text x="47.4" y="395" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
+<text x="55.2" y="395" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
+<text x="63.0" y="395" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
+<text x="70.8" y="395" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
+<text x="78.6" y="395" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
+<text x="86.4" y="395" fill="#d7af5f" font-weight="700" xml:space="preserve">█</text>
+<text x="94.2" y="395" fill="#d7af5f" font-weight="700" xml:space="preserve">█</text>
+<text x="102.0" y="395" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
+<text x="109.8" y="395" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
+<text x="117.6" y="395" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
+<text x="125.4" y="395" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
+<text x="133.2" y="395" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
+<text x="141.0" y="395" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
+<text x="148.8" y="395" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
+<text x="156.6" y="395" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
+<text x="164.4" y="395" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
+<text x="172.2" y="395" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
+<text x="180.0" y="395" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
+<text x="187.8" y="395" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
+<text x="195.6" y="395" fill="#7c7c7c" xml:space="preserve">  3 switches</text>
+<text x="39.6" y="414" fill="#d0d0d0" xml:space="preserve">e</text>
+<text x="47.4" y="414" fill="#d0d0d0" xml:space="preserve">e</text>
+<text x="55.2" y="414" fill="#d0d0d0" xml:space="preserve">c</text>
+<text x="63.0" y="414" fill="#d0d0d0" xml:space="preserve">c</text>
+<text x="70.8" y="414" fill="#d0d0d0" xml:space="preserve">o</text>
+<text x="78.6" y="414" fill="#d0d0d0" xml:space="preserve">o</text>
+<text x="86.4" y="414" fill="#d0d0d0" xml:space="preserve">c</text>
+<text x="94.2" y="414" fill="#d0d0d0" xml:space="preserve">c</text>
+<text x="102.0" y="414" fill="#d0d0d0" xml:space="preserve">e</text>
+<text x="109.8" y="414" fill="#d0d0d0" xml:space="preserve">e</text>
+<text x="117.6" y="414" fill="#d0d0d0" xml:space="preserve">p</text>
+<text x="125.4" y="414" fill="#d0d0d0" xml:space="preserve">p</text>
+<text x="133.2" y="414" fill="#d0d0d0" xml:space="preserve">c</text>
+<text x="141.0" y="414" fill="#d0d0d0" xml:space="preserve">c</text>
+<text x="148.8" y="414" fill="#d0d0d0" xml:space="preserve">c</text>
+<text x="156.6" y="414" fill="#d0d0d0" xml:space="preserve">c</text>
+<text x="164.4" y="414" fill="#d0d0d0" xml:space="preserve">c</text>
+<text x="172.2" y="414" fill="#d0d0d0" xml:space="preserve">c</text>
+<text x="180.0" y="414" fill="#d0d0d0" xml:space="preserve">c</text>
+<text x="187.8" y="414" fill="#d0d0d0" xml:space="preserve">c</text>
+<text x="39.6" y="433" fill="#5fd7af" font-weight="700" xml:space="preserve">■ </text>
+<text x="55.2" y="433" fill="#d0d0d0" xml:space="preserve">micro  </text>
+<text x="109.8" y="433" fill="#5f9fe0" font-weight="700" xml:space="preserve">■ </text>
+<text x="125.4" y="433" fill="#d0d0d0" xml:space="preserve">low  </text>
+<text x="164.4" y="433" fill="#d7af5f" font-weight="700" xml:space="preserve">■ </text>
+<text x="180.0" y="433" fill="#d0d0d0" xml:space="preserve">medium  </text>
+<text x="242.4" y="433" fill="#e0708a" font-weight="700" xml:space="preserve">■ </text>
+<text x="258.0" y="433" fill="#d0d0d0" xml:space="preserve">high  </text>
+<text x="24.0" y="452" fill="#7c7c7c" xml:space="preserve">  c code  d debug  e explore  p plan  r review  o ops  w docs</text>
+<text x="24.0" y="490" fill="#87d787" xml:space="preserve">Context  ██████░░░░░░░░░░  40%  ~402.9K / 1.00M</text>
+<text x="24.0" y="509" fill="#87d787" xml:space="preserve">Cache    ████████████████ 100%  reused on the last reply</text>
+<text x="24.0" y="528" fill="#d0d0d0" xml:space="preserve">Cost     $18.003 </text>
+<text x="156.6" y="528" fill="#7c7c7c" xml:space="preserve">by Claude</text>
+<text x="226.8" y="528" fill="#d0d0d0" xml:space="preserve"> · cache saved ≈ $1.52</text>
+<rect x="24.0" y="533" width="70.2" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="547" fill="#d0d0d0" xml:space="preserve">[ Close ]</text>
 </svg>

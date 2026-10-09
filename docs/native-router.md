@@ -4,21 +4,24 @@ This guide describes the Mod shipped in the plugin. Claude Code 2.1.289 is the m
 
 ## Turn behavior
 
-At the first main step of a logical turn, the Mod reads recent message text and asks the active classifier (Jev, Clef, Clef Flash, OpenAI, or Ollama) for a tier. It applies local policy and saves the route. Tool continuations reuse that route. Before each continuation, context fit is checked again. A large tool result can move the step to a model with a larger window.
+At the first main step of a logical turn, the Mod reads recent message text and asks the active classifier (Jev, Clef, Clef Flash, OpenAI, or Ollama) for a tier, and for the turn's activity unless `activityRouting` is `off`. It applies local policy and saves the route. Tool continuations reuse that route. Before each continuation, context fit is checked again. A large tool result can move the step to a model with a larger window.
 
 The classifier receives the current prompt and at most six preceding user or assistant text messages. Each item is limited to 1,200 characters. It does not receive system messages, tool inputs, or tool results. Claude Code's Anthropic credentials never enter the classifier request. Jev, Clef, Clef Flash, and OpenAI receive the text on their services; Ollama receives it on this machine. [Configuration](configuration.md#classifiers) lists each host.
 
 The default tiers are defined in [Configuration](configuration.md#built-in-defaults). Policy uses vote hysteresis, repeated tool errors, context fit, model availability, and switching-cost estimates. The [architecture](architecture.md#request-flow) explains the event boundary and failure handling.
 
+The activity is what the turn produces: `code`, `debug`, `explore`, `plan`, `review`, `ops`, or `docs`. A route is the tier's route with the activity's override on top. In `shadow`, the default, the router shows and records the activity and what `on` would route, and keeps the tier route. In `on` it applies the overrides. The activity question reuses the same prompt and dialogue; no other text is sent. With `off` the request is the one 1.5 sent. [Route by activity](user-guide.md#route-by-activity) explains the modes, and [Configuration](configuration.md#activity-routing) the matrix.
+
 ## Controls and session modes
 
-| Control              | Behavior                                                                      |
-| -------------------- | ----------------------------------------------------------------------------- |
-| `/router`            | Open the pane. Without a UI surface, print short status.                      |
-| `/router auto`       | Enable automatic routing.                                                     |
-| `/router off`        | Turn routing off and keep Claude's selected model.                            |
-| `/router pin <tier>` | Pin the next turn and tool continuations. Routing on must already be enabled. |
-| `/model <name>`      | Select a model and turn routing off. `/router auto` turns it back on.         |
+| Control                                | Behavior                                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `/router`                              | Open the pane. Without a UI surface, print short status.                                          |
+| `/router auto`                         | Enable automatic routing.                                                                         |
+| `/router off`                          | Turn routing off and keep Claude's selected model.                                                |
+| `/router pin <tier>`                   | Pin the next turn and tool continuations. Routing on must already be enabled.                     |
+| `/router activities <off\|shadow\|on>` | Set the activity routing mode. Written to `router.json` at once; **Undo** in the pane reverts it. |
+| `/model <name>`                        | Select a model and turn routing off. `/router auto` turns it back on.                             |
 
 The pane's **Set up** and **Credentials → Edit** buttons open Claude Code's secure plugin configuration. Claude Code refuses `$.command.run` from inside a `command.run` hook, so the Mod starts that dialog from a timer after the press returns.
 
@@ -26,29 +29,32 @@ Mode belongs to a Claude Code session. Clear starts a new session with routing o
 
 ## Router pane
 
-The status band is one line above the prompt: a tier meter, the route, a short reason, classifier support, and context and cache use. Segments drop by priority when the band is narrow. A **Routing off** button sits on the band while routing is on, and hovering reveals pins and a two-row view. A fresh session on a model no tier routes to shows `<model> is not a routing tier` on the band until the mode changes. The band yields to surveys and does not describe subagent transcripts. A model change between turns raises a toast. A pin, or a step that changes only the effort, such as `medium` to `high` on the defaults, raises none. While the classifier runs, the turn's spinner says `Choosing model`. In Manual mode or when routing is unavailable, the prompt footer carries `routing off` or `routing unavailable`. The **Router** button opens the pane. The pane has four tabs, Now, Routing, Classifier, and Usage, with Routing on and Routing off on every tab. The [user guide](user-guide.md#open-the-router-pane) describes each tab.
+The status band is one line above the prompt: a tier meter, the activity, the route, a short reason, classifier support, and context and cache use. Segments drop by priority when the band is narrow: classifier support first, then context and cache, then the activity, then the reason. A **Routing off** button sits on the band while routing is on, and hovering reveals pins and a two-row view. A fresh session on a model no tier routes to shows `<model> is not a routing tier` on the band until the mode changes. The band yields to surveys and does not describe subagent transcripts. A model change between turns raises a toast. A pin, or a step that changes only the effort, such as `medium` to `high` on the defaults, raises none. While the classifier runs, the turn's spinner says `Choosing model`. In Manual mode or when routing is unavailable, the prompt footer carries `routing off` or `routing unavailable`. The **Router** button opens the pane. The pane has four tabs, Now, Routing, Classifier, and Usage, with Routing on and Routing off on every tab. The [user guide](user-guide.md#open-the-router-pane) describes each tab.
 
-| Reading                      | Meaning and limits                                                                                                                    |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Now / Served                 | The requested model and effort. **Served** appears only when the engine answered with another model. Actual effort is not reported.   |
-| Classifier support           | Per-tier probabilities from the last classification, and the switch bar the policy required. Pins and skipped calls leave it empty.   |
-| Replies                      | The tier that served each of the last 30 main-conversation replies; a dot where the router did not choose.                            |
-| Cost                         | Claude Code's native usage value. A plan's list-price estimates are not subscription cash charges.                                    |
-| Context bar                  | Maximum available observed and local estimated context, compared with the routed model's window. The fit rule reserves 20%.           |
-| Observed / estimated input   | Claude's local context reading and the router's best current context estimate. `unknown` blocks a move to a smaller window.           |
-| Cache reuse                  | Last response's cache-read tokens divided by its reported input counters.                                                             |
-| Cache read / written; Output | Response usage counters. Cache warmth does not prove a particular TTL.                                                                |
-| Input per reply              | Up to 30 observed main-conversation input sizes, scaled from the lowest to the highest reading.                                       |
-| Classifier header            | Active classifier state and elapsed time. Missing-key, missing-account, busy, and paused skips have no network latency reading.       |
-| Next-turn difference         | Configured-price range for the suggested tier versus the incumbent on the next request. Negative means estimated lower cost.          |
-| Conservative payback         | Conditional later-turn estimate based on configured cache prices, future reads, and the last output size. It is not measured savings. |
-| Cache read benefit           | Estimated price difference for observed cache reads before cache writes. It is not net savings.                                       |
+| Reading                      | Meaning and limits                                                                                                                                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Now / Served                 | The requested model and effort. **Served** appears only when the engine answered with another model. Actual effort is not reported.                                                                                                        |
+| Classifier support           | Per-tier probabilities from the last classification, and the switch bar the policy required. Pins and skipped calls leave it empty.                                                                                                        |
+| Activity                     | The classifier's activity choice with its share and the two next-best answers. Empty with routing off, a pin, or no answer.                                                                                                                |
+| Route (activity)             | With `on`: the route for the tier and activity, marked `(override)` with the base route beside it, or `(base)`. With `shadow`: what `on` would use, and the route in use (`shadow; same route` when they agree).                           |
+| Replies                      | The tier that served each of the last 30 main-conversation replies; a dot where the router did not choose. A second row of letters names each reply's activity: `c` code, `d` debug, `e` explore, `p` plan, `r` review, `o` ops, `w` docs. |
+| Activity stats (Usage)       | Counts for this session: turns, requests and share per activity; switches by tier and by activity; tool agreement; in `shadow`, turns `on` would route differently. Counts only, no dollar figures.                                        |
+| Cost                         | Claude Code's native usage value. A plan's list-price estimates are not subscription cash charges.                                                                                                                                         |
+| Context bar                  | Maximum available observed and local estimated context, compared with the routed model's window. The fit rule reserves 20%.                                                                                                                |
+| Observed / estimated input   | Claude's local context reading and the router's best current context estimate. `unknown` blocks a move to a smaller window.                                                                                                                |
+| Cache reuse                  | Last response's cache-read tokens divided by its reported input counters.                                                                                                                                                                  |
+| Cache read / written; Output | Response usage counters. Cache warmth does not prove a particular TTL.                                                                                                                                                                     |
+| Input per reply              | Up to 30 observed main-conversation input sizes, scaled from the lowest to the highest reading.                                                                                                                                            |
+| Classifier header            | Active classifier state and elapsed time. Missing-key, missing-account, busy, and paused skips have no network latency reading.                                                                                                            |
+| Next-turn difference         | Configured-price range for the suggested tier versus the incumbent on the next request. Negative means estimated lower cost.                                                                                                               |
+| Conservative payback         | Conditional later-turn estimate based on configured cache prices, future reads, and the last output size. It is not measured savings.                                                                                                      |
+| Cache read benefit           | Estimated price difference for observed cache reads before cache writes. It is not net savings.                                                                                                                                            |
 
 There is no router-owned cost ledger or cumulative savings counter. Classifier charges are not included. See [Evaluation](evaluation.md) for what the available trace can support.
 
 ## Routing and classifier settings
 
-The Routing tab edits each tier's model alias and effort, the baseline tier, and three policy controls as one draft. The draft does not affect the active turn, survives a tab change or closing the pane, and is dropped at a new session. **Save** validates the whole file with the same loader the Mod starts with, writes `router.json` for future turns, and keeps unrelated keys. A route or policy value equal to the built-in default is removed from the file, so later default changes still reach it. The Classifier tab writes the classifier choice and its deadline at once. **Undo** reverts the settings the last pane write changed, from any tab, until the next write or a new session.
+The Routing tab edits each tier's model alias and effort, the baseline tier, the activity overrides and mode, and three policy controls as one draft. The draft does not affect the active turn, survives a tab change or closing the pane, and is dropped at a new session. **Save** validates the whole file with the same loader the Mod starts with, writes `router.json` for future turns, and keeps unrelated keys. A route, activity override, or policy value equal to the built-in default is removed from the file, so later default changes still reach it. The Classifier tab writes the classifier choice and its deadline at once. **Undo** reverts the settings the last pane write changed, from any tab, until the next write or a new session.
 
 | Control          | Values in the pane                 | Effect                                                                                   |
 | ---------------- | ---------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -57,6 +63,8 @@ The Routing tab edits each tier's model alias and effort, the baseline tier, and
 | Payback horizon  | 1, 3, 5, 10 turns                  | Later turns included in downgrade economics.                                             |
 | Credits cap      | $0.50, $1, $2, $5                  | Largest estimated cold write on a `credits` model.                                       |
 
+Under the routes, **ACTIVITIES** shows the effective matrix of the draft: one row per distinct set of cells, `·` where a cell uses the tier's route, and the count of distinct routes, each its own cache. Until the mode is `on` the count carries `once activity routing is on`. **OVERRIDES** starts with the `off · shadow · on` selector. Each override is a row with a model, an effort, and **remove**, and a selector adds one for a free activity and tier. A removed built-in override is saved as the tier's own route, because a file that only omitted it would get the built-in back. Yellow notes flag an override equal to its tier's route, one stronger than the tier above, and one that adds a cache. **Reset routes to defaults** resets the routes only. The Usage tab's **Reset activity stats** clears the session counts and the counts kept across sessions.
+
 The classifier section lists every configured classifier as a row with its service host and whether its key and endpoint settings are complete. Selecting a row writes `classifier` to `router.json` at once, or removes it for the default, through the same validation, and resets the new classifier's failure count. A turn already being classified finishes with its own classifier; its readings stay off the pane. **Undo** returns to the previous classifier. The deadline saves at once too, and a built-in classifier's default deadline is written as no override. **Sends** names the host that receives prompt text.
 
 The pane refuses to write through a symlink. A failed validation names the setting and leaves the file unchanged. New model aliases and the other supported fields need an edit to the active profile's `router.json`.
@@ -64,6 +72,7 @@ The pane refuses to write through a symlink. A failed validation names the setti
 ## Safety and failure states
 
 - A missing key or account ID, a classifier failure, or a policy refusal keeps the current model. Network refusal is never bypassed with a helper process.
+- A missing, malformed, or timed-out activity answer routes the turn by tier alone. It does not count as a classifier failure. Activity statistics are written inside a guard: a failed store read or write loses that turn's counts and never fails a turn.
 - Three launched classifier failures open a 60-second pause for that classifier. One in-flight request is allowed per classifier in each active Mod instance. Pending host HTTP work blocks another request until it settles.
 - A `router.json` with v0.8 gateway keys or the 1.1 `jev` section marks the router unavailable until the [migration command](configuration.md#convert-an-older-routerjson) converts it.
 - Unsupported Claude Code versions and leftover v0.8 gateway settings (the `jev-router` model or the `127.0.0.1:43170` base URL) mark the router unavailable. `/router` lists the settings to remove. A local gateway does not run as part of this Mod.
