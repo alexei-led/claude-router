@@ -194,9 +194,14 @@ test('the activity decision: (route now, tier advice, activity advice, cache, co
       ['medium', null, 'activity-up', OPUS, 'medium'],
     ],
     [
-      'no activity answer returns to the base route',
+      'a tier answer without an activity answer keeps the running route',
       { tier: 'medium', activity: 'ops' },
-      ['medium', null, 'activity-up', OPUS, 'medium'],
+      ['medium', 'ops', 'same-tier', SONNET, 'medium'],
+    ],
+    [
+      'a missing activity answer does not move a coding session down',
+      { activity: 'code' },
+      ['low', 'code', 'same-tier', SONNET, 'medium'],
     ],
     [
       'tier and activity change together',

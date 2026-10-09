@@ -69,7 +69,7 @@ The classifier also names the activity of a turn: what the turn produces. `activ
 | `shadow`          | The default. Asks, shows the activity, records stats, and computes what `on` would run. The tier routes still run. |
 | `on`              | Applies the `activities` overrides below.                                                                          |
 
-The seven activities are `code`, `debug`, `explore`, `plan`, `review`, `ops`, and `docs`. The classifier may also answer `uncertain`. In `on`, an activity applies only when its probability is at least `policy.activityMass`. Below that, on `uncertain`, or when the classifier answers the tier but not the activity, the turn goes back to its tier's route, if the move passes the cache checks. When the classifier gives no answer at all, the running route stays. In `off` and `shadow`, the tier route runs.
+The seven activities are `code`, `debug`, `explore`, `plan`, `review`, `ops`, and `docs`. The classifier may also answer `uncertain`. In `on`, an activity applies only when its probability is at least `policy.activityMass`. Below that, or on `uncertain`, the turn goes back to its tier's route, if the move passes the cache checks. When the classifier gives no activity answer, or no answer at all, the running activity and its route stay. In `off` and `shadow`, the tier route runs.
 
 `activities` maps an activity to a tier to a route override. An override may set `model`, `effort`, or both. A field it leaves out comes from the tier's route:
 
@@ -112,7 +112,7 @@ Switch the mode with `/router activities off|shadow|on`, or with the selector at
 
 ## Classifiers
 
-`classifier` names the active entry of `classifiers`. Each entry names its wire protocol in `api`: `system-one` for Jev, Clef and Clef Flash, `openai-decisions` for OpenAI, and `ollama` for a local Ollama server. Every protocol is converted to the same advice, so the routing policy does not change with the classifier. Unless `activityRouting` is `off`, each one is also asked for the turn's [activity](#activity-routing); the answer is optional, and a missing or malformed one leaves the tier route in force. Cloudflare wraps the System One answer in `{ result, success, errors }`; Router reads both forms.
+`classifier` names the active entry of `classifiers`. Each entry names its wire protocol in `api`: `system-one` for Jev, Clef and Clef Flash, `openai-decisions` for OpenAI, and `ollama` for a local Ollama server. Every protocol is converted to the same advice, so the routing policy does not change with the classifier. Unless `activityRouting` is `off`, each one is also asked for the turn's [activity](#activity-routing); the answer is optional, and a missing or malformed one keeps the activity already running. Cloudflare wraps the System One answer in `{ result, success, errors }`; Router reads both forms.
 
 | `classifier` | Endpoint                                                                                                 | Request `model` | Key option             | `timeoutMs` |
 | ------------ | -------------------------------------------------------------------------------------------------------- | --------------- | ---------------------- | ----------: |
