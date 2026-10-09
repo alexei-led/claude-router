@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { extractFacts as factsFromRequest } from '../lib/facts.mjs';
+import { extractFacts as factsFromRequest, observedActivity } from '../lib/facts.mjs';
 import { assistant, body, memory, toolResult, user } from './helpers.mjs';
 
 const CONTEXT = { recentTurns: 4, maxTextChars: 30 };
@@ -155,4 +155,94 @@ test('a history that ends with the assistant keeps it as the last turn', () => {
   const facts = factsFromRequest(body([user('go'), assistant('LAST-ASSISTANT')]), memory(), CONTEXT);
   assert.equal(facts.turns.at(-1).text, 'LAST-ASSISTANT');
   assert.equal(facts.prompt, '');
+});
+
+const step = (...calls) => ({
+  role: 'assistant',
+  content: [
+    { type: 'text', text: 'ok' },
+    ...calls.map(([name, input]) => ({ type: 'tool_use', id: 't', name, input })),
+  ],
+});
+const edit = (path, name = 'Edit') => [name, { file_path: path }];
+const bash = (command) => ['Bash', { command }];
+
+test('observedActivity labels a finished turn from its tool calls, first match wins', () => {
+  for (const [name, calls, expected] of [
+    ['no tools', [], 'talk'],
+    ['edit of source', [step(edit('/repo/lib/a.mjs'))], 'code'],
+    ['write of a new file', [step(edit('/repo/src/new.ts', 'Write'))], 'code'],
+    ['multi-edit', [step(edit('/repo/a.go', 'MultiEdit'))], 'code'],
+    ['notebook edit', [step(['NotebookEdit', { notebook_path: '/repo/a.ipynb' }])], 'code'],
+    ['edit without a path', [step(['Edit', {}])], 'code'],
+    ['markdown only', [step(edit('/repo/README.md'))], 'docs'],
+    ['mdx, rst and txt', [step(edit('/r/a.MDX'), edit('/r/b.rst'), edit('/r/c.txt'))], 'docs'],
+    ['a file under docs/', [step(edit('/repo/docs/diagram.svg'))], 'docs'],
+    ['a docs-like name is not docs/', [step(edit('/repo/mydocs/a.mjs'), edit('/repo/lib/docs.mjs'))], 'code'],
+    ['docs then source', [step(edit('/repo/README.md')), step(edit('/repo/lib/a.mjs'))], 'code'],
+    ['source then docs', [step(edit('/repo/lib/a.mjs')), step(edit('/repo/README.md'))], 'code'],
+    ['edit and Bash', [step(bash('npm test'), edit('/repo/lib/a.mjs'))], 'code'],
+    ['docs edit and Bash', [step(bash('git commit -m x'), edit('/repo/CHANGELOG.md'))], 'docs'],
+    ['test runner', [step(bash('npm test'))], 'ops'],
+    ['git commit', [step(bash('git commit -am wip'))], 'ops'],
+    ['git push', [step(bash('git push origin main'))], 'ops'],
+    ['Bash with no command', [step(['Bash', {}])], 'ops'],
+    ['read-only commands', [step(bash('ls -la'), bash('cat a.txt'), bash('rg foo lib'), bash('head -5 a'))], 'read'],
+    [
+      'read-only git',
+      [step(bash('git status'), bash('git log --oneline'), bash('git diff'), bash('git show HEAD'))],
+      'read',
+    ],
+    ['read-only pipeline', [step(bash('cd lib && grep -rn "a;b" . | head -20'))], 'read'],
+    ['stderr redirect', [step(bash('ls missing 2>&1'), bash('find . -name x 2>/dev/null'))], 'read'],
+    ['a pattern with > inside quotes', [step(bash("rg '=>' lib"))], 'read'],
+    ['output redirect', [step(bash('cat a > b'))], 'ops'],
+    ['append redirect', [step(bash('ls >> out.txt'))], 'ops'],
+    ['read piped into a writer', [step(bash('cat a | tee b'))], 'ops'],
+    ['read then a write in a list', [step(bash('ls; rm -rf build'))], 'ops'],
+    ['command substitution', [step(bash('cat $(echo a)'))], 'ops'],
+    ['find with -exec', [step(bash('find . -name x -exec rm {} +'))], 'ops'],
+    ['find with -delete', [step(bash('find . -name x -delete'))], 'ops'],
+    ['git add is not read-only', [step(bash('git add -A'))], 'ops'],
+    ['read-only Bash and a test run', [step(bash('ls')), step(bash('npm test'))], 'ops'],
+    ['Read, Grep, Glob', [step(['Read', {}], ['Grep', {}], ['Glob', {}])], 'read'],
+    ['web tools', [step(['WebFetch', {}], ['WebSearch', {}], ['ToolSearch', {}])], 'read'],
+    ['subagent and MCP tools', [step(['Task', {}], ['mcp__docs__search', {}])], 'read'],
+    ['subagent beside an edit', [step(['Agent', {}], edit('/repo/a.py'))], 'code'],
+  ]) {
+    const messages = [user('go'), ...calls.flatMap((c) => [c, toolResult('ok')]), assistant('done')];
+    assert.equal(observedActivity(messages, 0), expected, name);
+  }
+});
+
+test('observedActivity reads only the calls after the turn prompt', () => {
+  const messages = [
+    user('first'),
+    step(edit('/repo/a.mjs')),
+    toolResult('ok'),
+    assistant('done'),
+    user('second'),
+    step(['Read', {}]),
+    toolResult('ok'),
+    assistant('done'),
+  ];
+  assert.equal(observedActivity(messages, 0), 'code');
+  assert.equal(observedActivity(messages, 4), 'read');
+  assert.equal(observedActivity(messages, 7), 'talk');
+  assert.equal(observedActivity(messages, -1), 'code');
+});
+
+test('observedActivity ignores system messages, user tool results and malformed content', () => {
+  const messages = [
+    user('go'),
+    system('hook', [{ type: 'tool_use', name: 'Edit', input: { file_path: 'a.mjs' } }]),
+    { role: 'user', content: 'plain string' },
+    { role: 'assistant', content: 'plain string' },
+    null,
+    { role: 'assistant' },
+    step(['Edit', null]),
+  ];
+  assert.equal(observedActivity(messages, 0), 'code');
+  assert.equal(observedActivity(messages.slice(0, -1), 0), 'talk');
+  assert.equal(observedActivity([], 0), 'talk');
 });
