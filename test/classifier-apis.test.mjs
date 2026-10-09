@@ -237,6 +237,12 @@ for (const [name, activity] of [
   ['an unknown choice', { type: 'choice', choice: 'deploy', probabilities: { ops: 1 } }],
   ['the route values', { type: 'choice', choice: 'low', probabilities: { low: 1 } }],
   ['no probabilities', { type: 'choice', choice: 'ops' }],
+  ['empty probabilities', { type: 'choice', choice: 'ops', probabilities: {} }],
+  ['a null probability', { type: 'choice', choice: 'ops', probabilities: { ops: null } }],
+  ['a text probability', { type: 'choice', choice: 'ops', probabilities: { ops: '0.9' } }],
+  ['all-zero probabilities', { type: 'choice', choice: 'ops', probabilities: { ops: 0, code: 0 } }],
+  ['no probability for its choice', { type: 'choice', choice: 'ops', probabilities: { code: 0.9 } }],
+  ['a zero probability for its choice', { type: 'choice', choice: 'ops', probabilities: { ops: 0, code: 0.9 } }],
 ]) {
   test(`an activity answer that is ${name} reads as null and keeps the route`, () => {
     const jev = parseAnswers(configFor('jev', 'on'), jevWith(activity));
@@ -301,6 +307,7 @@ test('the Ollama activity answer maps letters A to H to the activities', () => {
 for (const [name, body] of [
   ['no logprobs', { message: { content: 'A' } }],
   ['only words', ollamaAnswer([['The', 0.9]])],
+  ['no mass on its letter', ollamaAnswer([['A', 0]])],
   ['not an object', 'A'],
 ]) {
   test(`an Ollama activity answer with ${name} reads as null`, () => {
