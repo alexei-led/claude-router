@@ -348,6 +348,27 @@ test('repeated failure escalates one tier and holds, once per signature', () => 
   assert.equal(turns[0].tier, 'medium');
 });
 
+test('escalation goes where escalateTo points; with no target the failure is not consumed', () => {
+  const failing = facts({ lastRoute: 'low', failure: { signature: 'sig', index: 9 } });
+  const vote = advice('low', { low: 1 });
+  for (const [name, escalateTo, tier, reason, signature] of [
+    ['one tier up by default', undefined, 'medium', 'escalation', 'sig'],
+    ['a chosen tier', () => 'high', 'high', 'escalation', 'sig'],
+    ['no tier helps', () => null, 'low', 'same-tier', null],
+  ]) {
+    const d = decide({
+      config,
+      facts: failing,
+      advice: vote,
+      state: initialState(),
+      baseline: 'low',
+      now: NOW,
+      escalateTo,
+    });
+    assert.deepEqual([d.tier, d.reason, d.state.escalatedSignature], [tier, reason, signature], name);
+  }
+});
+
 test('fitTier climbs past models whose window the context would overflow', () => {
   const cases = [
     { tier: 'micro', tokens: 100_000, want: 'micro' },

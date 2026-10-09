@@ -1,0 +1,385 @@
+{
+  "description": "Synthetic activity probe set (plan \u00a78.3): ten prompts per activity, weighted to boundary cases. No real user text.",
+  "probes": [
+    {
+      "text": "Fix the deploy script: it uses the wrong region variable.",
+      "expected": "code"
+    },
+    {
+      "text": "Make the failing test in billing_test.go pass. The fixture date is off by one day.",
+      "expected": "code"
+    },
+    {
+      "text": "Add a --dry-run flag to the migrate command.",
+      "expected": "code"
+    },
+    {
+      "text": "Write unit tests for the retry backoff in lib/http.mjs.",
+      "expected": "code"
+    },
+    {
+      "text": "Bump express to 5.x and update the middleware signatures that changed.",
+      "expected": "code"
+    },
+    {
+      "text": "Review this diff and fix whatever you find.",
+      "dialogue": [
+        {
+          "role": "user",
+          "text": "Here is my change to the session cache."
+        },
+        {
+          "role": "assistant",
+          "text": "I see the diff. What would you like me to do with it?"
+        }
+      ],
+      "expected": "code"
+    },
+    {
+      "text": "Fix it and commit.",
+      "dialogue": [
+        {
+          "role": "user",
+          "text": "The parser drops the last line when the file has no trailing newline."
+        },
+        {
+          "role": "assistant",
+          "text": "The cause is the split on '\\n' discarding a final segment without a newline."
+        }
+      ],
+      "expected": "code"
+    },
+    {
+      "text": "Add a Terraform module for the S3 bucket with versioning on.",
+      "expected": "code"
+    },
+    {
+      "text": "yes, do it",
+      "dialogue": [
+        {
+          "role": "user",
+          "text": "The config loader is a mess."
+        },
+        {
+          "role": "assistant",
+          "text": "I can split loadConfig into parse and validate functions and move the defaults into their own module. Want me to do that?"
+        }
+      ],
+      "expected": "code"
+    },
+    {
+      "text": "Rename UserService to AccountService everywhere and fix the imports.",
+      "expected": "code"
+    },
+    {
+      "text": "Why does the auth test fail on CI but pass locally?",
+      "expected": "debug"
+    },
+    {
+      "text": "This stack trace keeps showing up in prod: TypeError: Cannot read properties of undefined (reading 'id') at handler.js:42. What's going on?",
+      "expected": "debug"
+    },
+    {
+      "text": "The checkout test is flaky, about one run in ten. Find out why.",
+      "expected": "debug"
+    },
+    {
+      "text": "The API got 3x slower after yesterday's deploy. Figure out what changed.",
+      "expected": "debug"
+    },
+    {
+      "text": "Deploy failed with exit code 137 and nothing in the logs. What happened?",
+      "expected": "debug"
+    },
+    {
+      "text": "why is memory growing in the worker process?",
+      "expected": "debug"
+    },
+    {
+      "text": "go ahead",
+      "dialogue": [
+        {
+          "role": "user",
+          "text": "The nightly job sometimes writes duplicate rows."
+        },
+        {
+          "role": "assistant",
+          "text": "I'd like to trace where the duplicates come from: check the retry path and the idempotency key. Shall I investigate?"
+        }
+      ],
+      "expected": "debug"
+    },
+    {
+      "text": "The build passes but the binary crashes on start with a segfault. Dig into it.",
+      "expected": "debug"
+    },
+    {
+      "text": "Users report being logged out randomly. Here are the logs from one session: token refresh 401, then retry 200, then 401.",
+      "expected": "debug"
+    },
+    {
+      "text": "Why does the test fail?",
+      "dialogue": [
+        {
+          "role": "user",
+          "text": "I just ran npm test."
+        },
+        {
+          "role": "assistant",
+          "text": "One test failed: 'renders the empty state' expected 1 element, got 0."
+        }
+      ],
+      "expected": "debug"
+    },
+    {
+      "text": "Explain how the request pipeline in server/ handles retries.",
+      "expected": "explore"
+    },
+    {
+      "text": "Where do we set the cache TTL for sessions?",
+      "expected": "explore"
+    },
+    {
+      "text": "What does the --frozen-lockfile flag do in pnpm?",
+      "expected": "explore"
+    },
+    {
+      "text": "Which libraries could we use to parse TOML in Node? Just list the options with their trade-offs in a sentence each.",
+      "expected": "explore"
+    },
+    {
+      "text": "How many users signed up last week according to the events table?",
+      "expected": "explore"
+    },
+    {
+      "text": "What is the difference between the two queue implementations in lib/?",
+      "expected": "explore"
+    },
+    {
+      "text": "Read the Stripe webhooks docs and tell me which events fire on a refund.",
+      "expected": "explore"
+    },
+    {
+      "text": "Find every place that calls the legacy billing endpoint.",
+      "expected": "explore"
+    },
+    {
+      "text": "Can you explain what this regex matches? ^(?!.*--)[a-z0-9-]{3,63}$",
+      "expected": "explore"
+    },
+    {
+      "text": "sure, show me",
+      "dialogue": [
+        {
+          "role": "user",
+          "text": "How does auth work here?"
+        },
+        {
+          "role": "assistant",
+          "text": "Auth uses signed cookies validated in middleware/auth.ts. Want me to walk through the validation path?"
+        }
+      ],
+      "expected": "explore"
+    },
+    {
+      "text": "Design a cache invalidation scheme across three services with strict consistency requirements.",
+      "expected": "plan"
+    },
+    {
+      "text": "Break the payment migration into tasks we can ship one PR at a time.",
+      "expected": "plan"
+    },
+    {
+      "text": "Should we use Postgres or DynamoDB for the audit log? We need 7-year retention and point queries by user.",
+      "expected": "plan"
+    },
+    {
+      "text": "Write a spec for the rate limiter: per-tenant limits, bursts, and how we surface 429s.",
+      "expected": "plan"
+    },
+    {
+      "text": "How long would it take to move the frontend from webpack to Vite? Rough estimate with the risky parts.",
+      "expected": "plan"
+    },
+    {
+      "text": "Propose an architecture for offline sync in the mobile app.",
+      "expected": "plan"
+    },
+    {
+      "text": "What's the best way to structure the monorepo before we add the second service?",
+      "expected": "plan"
+    },
+    {
+      "text": "yes, let's plan it",
+      "dialogue": [
+        {
+          "role": "user",
+          "text": "We need multi-region failover."
+        },
+        {
+          "role": "assistant",
+          "text": "Before writing code we should decide on active-active vs active-passive and the data replication model. Want a plan?"
+        }
+      ],
+      "expected": "plan"
+    },
+    {
+      "text": "Compare three approaches to feature flags for us and recommend one.",
+      "expected": "plan"
+    },
+    {
+      "text": "Outline the steps to deprecate the v1 API without breaking current clients.",
+      "expected": "plan"
+    },
+    {
+      "text": "Review PR #482.",
+      "expected": "review"
+    },
+    {
+      "text": "Look over this diff for security problems before I merge it.",
+      "expected": "review"
+    },
+    {
+      "text": "Audit the auth middleware for anything that could let a request skip the token check.",
+      "expected": "review"
+    },
+    {
+      "text": "Is this function correct? function median(xs) { xs.sort(); return xs[xs.length / 2]; }",
+      "expected": "review"
+    },
+    {
+      "text": "Check my migration for anything that could lock the users table for long.",
+      "expected": "review"
+    },
+    {
+      "text": "Review the changes on this branch against main and list issues by severity.",
+      "expected": "review"
+    },
+    {
+      "text": "Give me feedback on the error handling in lib/client.mjs.",
+      "expected": "review"
+    },
+    {
+      "text": "please review",
+      "dialogue": [
+        {
+          "role": "user",
+          "text": "I finished the refactor of the scheduler."
+        },
+        {
+          "role": "assistant",
+          "text": "Great. Should I review the scheduler changes before you open the PR?"
+        }
+      ],
+      "expected": "review"
+    },
+    {
+      "text": "Does this Dockerfile follow best practices? Point out problems, don't change it.",
+      "expected": "review"
+    },
+    {
+      "text": "Review the test coverage of the payments module: what important cases are missing?",
+      "expected": "review"
+    },
+    {
+      "text": "Deploy the fix to staging.",
+      "expected": "ops"
+    },
+    {
+      "text": "Run the tests and tell me if anything fails.",
+      "expected": "ops"
+    },
+    {
+      "text": "Commit and push.",
+      "expected": "ops"
+    },
+    {
+      "text": "Open a PR for this branch with the usual template.",
+      "expected": "ops"
+    },
+    {
+      "text": "Rebase on main and resolve nothing, just tell me if there are conflicts.",
+      "expected": "ops"
+    },
+    {
+      "text": "Restart the dev database container.",
+      "expected": "ops"
+    },
+    {
+      "text": "Run terraform plan for the prod workspace.",
+      "expected": "ops"
+    },
+    {
+      "text": "Install the dependencies and run the linter.",
+      "expected": "ops"
+    },
+    {
+      "text": "yes, run it",
+      "dialogue": [
+        {
+          "role": "user",
+          "text": "Is the build green?"
+        },
+        {
+          "role": "assistant",
+          "text": "I haven't checked yet. Want me to run the build and the test suite?"
+        }
+      ],
+      "expected": "ops"
+    },
+    {
+      "text": "Check the CI status of the last three runs on main.",
+      "expected": "ops"
+    },
+    {
+      "text": "Update the README with the new install steps.",
+      "expected": "docs"
+    },
+    {
+      "text": "Write a commit message for the staged changes.",
+      "expected": "docs"
+    },
+    {
+      "text": "Add a CHANGELOG entry for the retry fix.",
+      "expected": "docs"
+    },
+    {
+      "text": "Write the PR description for this branch.",
+      "expected": "docs"
+    },
+    {
+      "text": "Add doc comments to the public functions in lib/cost.mjs.",
+      "expected": "docs"
+    },
+    {
+      "text": "Document the configuration options in docs/configuration.md.",
+      "expected": "docs"
+    },
+    {
+      "text": "Write a short migration guide for users moving from v1 to v2.",
+      "expected": "docs"
+    },
+    {
+      "text": "yes, write it up",
+      "dialogue": [
+        {
+          "role": "user",
+          "text": "We decided on active-passive failover."
+        },
+        {
+          "role": "assistant",
+          "text": "Shall I write the decision up as an ADR in docs/adr?"
+        }
+      ],
+      "expected": "docs"
+    },
+    {
+      "text": "Fix the typos in the contributing guide.",
+      "expected": "docs"
+    },
+    {
+      "text": "Turn these notes into a runbook for on-call: restart order, health checks, rollback.",
+      "expected": "docs"
+    }
+  ]
+}

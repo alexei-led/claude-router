@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import {
+  activityDetailLines,
   bar,
   classifierStatus,
   credentialsNeeded,
@@ -162,4 +163,26 @@ test('the credentials list groups classifiers that need the same settings', () =
     credentialsNeeded(loadConfig({ userFile: { classifiers: { proxy } } })),
     `Jev, Proxy: API key · ${needs}`,
   );
+});
+
+test('/router without a UI surface names the activity and its route, and nothing in off', () => {
+  const haiku = { tier: 'low', selectedModel: 'claude-haiku-5-5', effort: 'high' };
+  const ops = { activity: 'ops', activityChoice: 'ops', activityProbabilities: { ops: 0.81, code: 0.1 } };
+  const wouldRoute = { activity: 'code', tier: 'low', model: 'claude-sonnet-5-5', effort: 'medium', reason: 'x' };
+  for (const [mode, view, expected] of [
+    ['on', { ...haiku, ...ops }, ['Activity: ops (81%)', 'Route: low + ops → Haiku 5.5 · high (base)']],
+    [
+      'shadow',
+      { ...haiku, activity: 'code', activityChoice: 'code', activityProbabilities: { code: 0.7 }, wouldRoute },
+      ['Activity: code (70%)', 'Route: low + code would use Sonnet 5.5 · medium (shadow; using Haiku 5.5 · high)'],
+    ],
+    [
+      'on',
+      { ...haiku, activityChoice: 'uncertain', activityProbabilities: { uncertain: 0.5 } },
+      ['Activity: uncertain (50%)', 'Route: low → Haiku 5.5 · high (base)'],
+    ],
+    ['shadow', { phase: 'ready' }, ['Activity: none yet']],
+    ['off', { ...haiku, ...ops }, []],
+  ])
+    assert.deepEqual(activityDetailLines({ ...DEFAULTS, activityRouting: mode }, view), expected, `${mode}`);
 });

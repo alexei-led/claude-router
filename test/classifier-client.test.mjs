@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { parseAnswers } from '../lib/classifier-apis.mjs';
 import { ClassifierClient } from '../lib/classifier-client.mjs';
-import { RETRY_DELAY_MS } from '../lib/classifier-contract.mjs';
+import { ACTIVITY_STEP_MIN_MS, RETRY_DELAY_MS } from '../lib/classifier-contract.mjs';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { jevResponse } from './helpers.mjs';
 
@@ -260,4 +260,125 @@ test('malformed responses reveal no provider text and invalid probability shapes
       () => parseAnswers(DEFAULTS, { answers: { route: { type: 'choice', choice: 'medium', probabilities } } }),
       /malformed/,
     );
+});
+
+const ollamaTimeout = DEFAULTS.classifiers.ollama.timeoutMs;
+const localAnswer = (name) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
+const routeAnswer = localAnswer('ollama-route-response.json');
+const activityAnswer = localAnswer('ollama-activity-response.json');
+const local = (text) => ({ ok: true, status: 200, text, headers: {} });
+const never = () => new Promise(() => {});
+
+// Ollama input whose route request answers at once and whose activity request is `step(body)`.
+function ollamaInput(timing, step, activityRouting = 'shadow') {
+  const bodies = [];
+  const args = {
+    ...input(timing, async (_url, init) => {
+      bodies.push(JSON.parse(init.body));
+      return bodies.length === 1 ? local(routeAnswer) : step();
+    }),
+    config: loadConfig({ userFile: { classifier: 'ollama', activityRouting } }),
+    apiKey: null,
+  };
+  return { args, bodies };
+}
+
+test('Ollama asks the activity in a second request and returns both answers', async () => {
+  const timing = clock();
+  const client = new ClassifierClient({ now: timing.now });
+  const { args, bodies } = ollamaInput(timing, async () => local(activityAnswer));
+  const result = await client.ask(args);
+  assert.equal(result.error, null);
+  assert.equal(result.advice.choice, 'medium');
+  assert.equal(result.advice.activity.choice, 'code');
+  assert.equal(bodies.length, 2);
+  assert.match(bodies[1].messages[1].content, /Which activity/);
+});
+
+test('with activity routing off Ollama sends one request and reads no activity', async () => {
+  const timing = clock();
+  const client = new ClassifierClient({ now: timing.now });
+  const { args, bodies } = ollamaInput(timing, async () => local(activityAnswer), 'off');
+  const result = await client.ask(args);
+  assert.equal(result.advice.activity, null);
+  assert.equal(bodies.length, 1);
+});
+
+test('an Ollama activity step that times out keeps the route advice, counts no failure, and holds the slot', async () => {
+  const timing = clock();
+  const client = new ClassifierClient({ now: timing.now });
+  let finish;
+  const { args } = ollamaInput(
+    timing,
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const pending = client.ask(args);
+  await flush();
+  await timing.advance(ollamaTimeout);
+  const result = await pending;
+  assert.equal(result.error, null);
+  assert.equal(result.advice.choice, 'medium');
+  assert.equal(result.advice.activity, null);
+  assert.deepEqual(client.snapshot(), { failures: 0, pausedUntil: 0 });
+  assert.equal((await client.ask(args)).error, 'busy');
+  finish(local(activityAnswer));
+  await flush();
+  assert.equal((await client.ask(ollamaInput(timing, async () => local(activityAnswer)).args)).error, null);
+});
+
+for (const [name, step] of [
+  ['a transport error', async () => Promise.reject(new Error('connect ECONNREFUSED 127.0.0.1:11434'))],
+  ['an HTTP error', async () => ({ ok: false, status: 500, text: '', headers: {} })],
+  ['text that is not JSON', async () => local('A')],
+  ['an answer with no letters', async () => local(JSON.stringify({ logprobs: [{ top_logprobs: [] }] }))],
+]) {
+  test(`an Ollama activity step with ${name} reads as no activity, without a retry or a failure`, async () => {
+    const timing = clock();
+    const client = new ClassifierClient({ now: timing.now, health: { failures: 2 } });
+    const { args, bodies } = ollamaInput(timing, step);
+    const result = await client.ask(args);
+    assert.equal(result.error, null);
+    assert.equal(result.advice.choice, 'medium');
+    assert.equal(result.advice.activity, null);
+    assert.equal(bodies.length, 2);
+    assert.equal(client.snapshot().failures, 0);
+  });
+}
+
+for (const [left, asked] of [
+  [ACTIVITY_STEP_MIN_MS - 1, false],
+  [ACTIVITY_STEP_MIN_MS, true],
+]) {
+  test(`with ${left} ms of the deadline left the activity step is ${asked ? 'sent' : 'skipped'}`, async () => {
+    const timing = clock();
+    const client = new ClassifierClient({ now: timing.now });
+    let requests = 0;
+    const pending = client.ask({
+      ...ollamaInput(timing).args,
+      request: async () =>
+        ++requests === 1 ? timing.sleep(ollamaTimeout - left).then(() => local(routeAnswer)) : local(activityAnswer),
+    });
+    await flush();
+    await timing.advance(ollamaTimeout - left);
+    const result = await pending;
+    assert.equal(result.error, null);
+    assert.equal(requests, asked ? 2 : 1);
+    assert.equal(result.advice.activity?.choice ?? null, asked ? 'code' : null);
+  });
+}
+
+test('abort during the Ollama activity step cancels and counts no failure', async () => {
+  const timing = clock();
+  const client = new ClassifierClient({ now: timing.now });
+  const controller = new AbortController();
+  const { args, bodies } = ollamaInput(timing, never);
+  const pending = client.ask({ ...args, signal: controller.signal });
+  await flush();
+  assert.equal(bodies.length, 2);
+  controller.abort();
+  assert.deepEqual(await pending, { advice: null, error: 'cancelled' });
+  assert.equal(client.snapshot().failures, 0);
 });

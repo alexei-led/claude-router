@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { band, CONFIG, drain, harness, start, step, substituted, TINY_ROUTER, texts } from './harness.mjs';
-import { jevResponse } from './helpers.mjs';
+import {
+  answering,
+  band,
+  CONFIG,
+  drain,
+  harness,
+  JEV_KEY,
+  press,
+  start,
+  step,
+  substituted,
+  TINY_ROUTER,
+  texts,
+} from './harness.mjs';
+import { assistant, jevResponse, user } from './helpers.mjs';
 
 test('frozen native state reads do not restore consumed pins or drop first response usage', async () => {
   const h = harness();
@@ -423,4 +436,227 @@ test('a 1.1 router.json makes routing unavailable and points to the migration sc
   await start(h);
   assert.equal(h.view().phase, 'unavailable');
   assert.match(h.view().error, /migrate-config\.mjs/);
+});
+
+const LOW = { micro: 0, low: 0.95, medium: 0.05, high: 0, uncertain: 0 };
+const STATS = 'activity:stats:v1';
+
+// One whole turn on the session's `model`: its prompt, a routed step, then turn.complete over a transcript where the
+// assistant called `tools`.
+async function turn(h, turnId, model, tools = []) {
+  await h.event('turn.start', { turnId, text: 'Next.' });
+  h.messages(async () => [user('Next.')]);
+  await drain(h.step({ ...step, turnId, model }));
+  h.messages(async () => [user('Next.'), assistant('done', tools)]);
+  await h.event('turn.complete', { turnId });
+}
+
+const reply = { turns: 1, requests: 1, inputTokens: 1100, outputTokens: 10 };
+
+test('with activity routing on, an ops turn moves from Sonnet to Haiku inside its tier and records it', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
+  h.model('claude-sonnet-5-5');
+  answering(
+    h,
+    jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+  );
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
+  assert.equal(h.view().mode, 'auto');
+  assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-sonnet-5-5', 'medium']);
+  let line = (await band(h)).line;
+  assert.match(line, / low code → Sonnet 5\.5 · medium/);
+  assert.match(line, /ctx \d+% · cache \d+%/);
+  await turn(h, 't2', 'claude-sonnet-5-5', ['Bash']);
+  assert.deepEqual([h.requests[1].model, h.requests[1].effort], ['claude-haiku-5-5', 'high']);
+  assert.deepEqual([h.loop().decision.reason, h.loop().lastActivity], ['activity-down', 'ops']);
+  assert.equal(h.toasts.length, 1);
+  assert.match(h.toasts[0], /^Model changed: Sonnet 5\.5 · medium → Haiku 5\.5 · high · ops/);
+  line = (await band(h)).line;
+  assert.match(line, / low ops → Haiku 5\.5 · high/);
+  assert.match(line, /↘ ops/);
+  assert.deepEqual(h.view().activities, ['code', 'ops']);
+  assert.deepEqual(h.view().activityStats, {
+    byActivity: { code: reply, ops: reply },
+    switches: { tier: 0, activity: 1 },
+    agreement: { matched: 2, total: 2 },
+    shadow: { differs: 0, turns: 0 },
+  });
+  assert.deepEqual(h.preferences.get(STATS), {
+    version: 1,
+    confusion: { code: { code: 1 }, ops: { ops: 1 } },
+    runs: { code: [1, 0, 0, 0, 0] },
+    lateral: { taken: 1, refused: 0 },
+    shadow: { differs: 0, turns: 0 },
+  });
+
+  await h.event('session.end', { reason: 'clear' });
+  assert.deepEqual(h.preferences.get(STATS).runs, { code: [1, 0, 0, 0, 0], ops: [1, 0, 0, 0, 0] });
+  h.clear('s2');
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't3', 'claude-sonnet-5-5', ['Bash']);
+  assert.deepEqual(h.view().activities, ['ops']);
+  assert.deepEqual(h.view().activityStats.byActivity, { ops: reply });
+
+  const reloaded = harness(JEV_KEY, h.preferences);
+  reloaded.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
+  answering(reloaded, jevResponse('low', LOW, 0, { ops: 0.9 }));
+  await reloaded.event('session.start', { cwd: '/fixture' });
+  await turn(reloaded, 't1', 'claude-haiku-5-5', ['Bash']);
+  assert.deepEqual(reloaded.view().activityStats.byActivity, { ops: reply });
+  assert.deepEqual(reloaded.preferences.get(STATS).confusion, { code: { code: 1 }, ops: { ops: 3 } });
+});
+
+test('with activity routing on, a turn without an activity answer keeps the activity but ends the run', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
+  h.model('claude-sonnet-5-5');
+  answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }), jevResponse('low', LOW, 0));
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
+  await turn(h, 't2', 'claude-sonnet-5-5', ['Edit']);
+  assert.equal(h.loop().lastActivity, 'code');
+  assert.deepEqual(h.view().activities, ['code', 'code']);
+  assert.deepEqual(h.preferences.get(STATS).runs, { code: [1, 0, 0, 0, 0] });
+});
+
+test('shadow asks and shows what on would do, and never changes the routed model', async () => {
+  const h = harness(JEV_KEY);
+  const bodies = answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-haiku-5-5', ['Read']);
+  assert.ok(bodies[0].questions.activity);
+  assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-haiku-5-5', 'high']);
+  assert.equal(h.loop().lastActivity, null);
+  assert.deepEqual(h.toasts, []);
+  assert.equal(h.view().activity, 'code');
+  assert.equal(h.view().activityChoice, 'code');
+  assert.deepEqual(h.view().wouldRoute, {
+    activity: 'code',
+    tier: 'low',
+    model: 'claude-sonnet-5-5',
+    effort: 'medium',
+    reason: 'activity-up',
+  });
+  assert.match((await band(h)).line, / low code \(shadow\) → Haiku 5\.5 · high/);
+  assert.deepEqual(h.view().activityStats.shadow, { differs: 1, turns: 1 });
+  assert.deepEqual(h.view().activityStats.agreement, { matched: 0, total: 1 });
+  assert.deepEqual(h.preferences.get(STATS).shadow, { differs: 1, turns: 1 });
+  assert.deepEqual(h.preferences.get(STATS).confusion, { code: { read: 1 } });
+  h.surfaces([]);
+  const { text } = await h.event('command.run', { command: 'router', args: '' });
+  assert.match(text, /^Activity: code \(90%\)$/m);
+  assert.match(text, /^Route: low \+ code would use Sonnet 5\.5 · medium \(shadow; using Haiku 5\.5 · high\)$/m);
+});
+
+test('/router activities writes the mode to router.json, off stops the question, and Undo restores it', async () => {
+  const h = harness(JEV_KEY);
+  const bodies = answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-haiku-5-5');
+  assert.ok(bodies[0].questions.activity);
+  const command = async (args) => (await h.event('command.run', { command: 'router', args })).text;
+  assert.equal(await command('activities later'), 'Choose activities off, shadow, on.');
+  assert.equal(await command('activities shadow'), 'Activity routing is already shadow.');
+  assert.equal(await command('activities off'), 'Saved: activity routing shadow → off. Applies from the next turn.');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { activityRouting: 'off' });
+  await turn(h, 't2', 'claude-haiku-5-5');
+  assert.equal(bodies.length, 2);
+  assert.equal(bodies[1].questions.activity, undefined);
+  assert.equal(h.view().activity, null);
+  assert.equal(h.view().activityStats.byActivity.code.turns, 1);
+  assert.equal(h.view().activityStats.byActivity.none, undefined);
+  await press(h, 'undo');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+  await turn(h, 't3', 'claude-haiku-5-5');
+  assert.ok(bodies[2].questions.activity);
+});
+
+test('a failing stats store or transcript never breaks a turn', async () => {
+  const saved = new Map();
+  const store = {
+    get: (key) => {
+      if (key === STATS) throw new Error('store down');
+      return saved.get(key);
+    },
+    set: (key, value) => {
+      if (key === STATS) throw new Error('store down');
+      return saved.set(key, value);
+    },
+  };
+  const h = harness(JEV_KEY, store);
+  answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-haiku-5-5', ['Edit']);
+  assert.equal(h.requests[0].model, 'claude-haiku-5-5');
+  assert.equal(h.view().activityStats.byActivity.code.turns, 1);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  h.messages(() => Promise.reject(new Error('transcript gone')));
+  await h.event('turn.complete', { turnId: 't2' });
+  assert.equal(h.requests.length, 2);
+  assert.equal(h.view().activityStats.byActivity.code.turns, 1);
+  await h.event('session.end', { reason: 'clear' });
+});
+
+test('a turn finishing while the session changes records nothing into the new session', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-haiku-5-5', ['Edit']);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  let release;
+  h.messages(() => new Promise((resolve) => (release = () => resolve([user('Next.'), assistant('done', ['Edit'])]))));
+  const completing = h.event('turn.complete', { turnId: 't2' });
+  for (let i = 0; i < 100 && !release; i += 1) await Promise.resolve();
+  await h.event('session.end', { reason: 'clear' });
+  h.clear('s2');
+  await h.event('session.start', { cwd: '/fixture' });
+  release();
+  await completing;
+  assert.equal(h.view().activityStats, null);
+  assert.deepEqual(h.preferences.get(STATS).confusion, { code: { code: 1 } });
+  assert.deepEqual(h.preferences.get(STATS).runs, { code: [1, 0, 0, 0, 0] });
+});
+
+test('a session ending while a turn writes its stats leaves no run in the new session', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-haiku-5-5', ['Edit']);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  h.messages(async () => [user('Next.'), assistant('done', ['Edit'])]);
+  const set = h.$.state.set;
+  let release;
+  h.$.state.set = async (ref, value, options) => {
+    if (ref.key === 'view' && value.activityStats && !release) await new Promise((resolve) => (release = resolve));
+    return set(ref, value, options);
+  };
+  const completing = h.event('turn.complete', { turnId: 't2' });
+  for (let i = 0; i < 100 && !release; i += 1) await Promise.resolve();
+  h.$.state.set = set;
+  await h.event('session.end', { reason: 'clear' });
+  h.clear('s2');
+  await h.event('session.start', { cwd: '/fixture' });
+  release();
+  await completing;
+  await h.event('session.end', { reason: 'clear' });
+  assert.deepEqual(h.preferences.get(STATS).runs, { code: [0, 1, 0, 0, 0] });
+});
+
+test('with activity routing on, a continuation that falls back to the native model drops the activity label', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
+  answering(h, jevResponse('low', LOW, 0, { code: 0.95, ops: 0.05 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('turn.start', { turnId: 't1', text: 'Next.' });
+  await drain(h.step(step));
+  assert.deepEqual([h.requests[0].model, h.view().activity], ['claude-sonnet-5-5', 'code']);
+  h.settings({ availableModels: ['haiku'] });
+  await drain(h.step({ ...step, index: 1, messageCount: 3 }));
+  assert.deepEqual([h.requests[1].model, h.view().tier, h.view().activity], ['claude-haiku-5-5', null, null]);
 });

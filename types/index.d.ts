@@ -1,6 +1,52 @@
 declare module 'claude-code' {
   type RouterTier = 'micro' | 'low' | 'medium' | 'high';
   type RouterCacheState = 'fresh' | 'unknown';
+  // What kind of work a turn does (ACTIVITIES in lib/config.mjs); 'uncertain' only as a classifier answer.
+  type RouterActivity = 'code' | 'debug' | 'explore' | 'plan' | 'review' | 'ops' | 'docs';
+  type RouterActivityAnswer = RouterActivity | 'uncertain';
+  type RouterActivityMode = 'off' | 'shadow' | 'on';
+  // A finished turn's bucket, read from its tool calls.
+  type RouterObserved = 'code' | 'docs' | 'ops' | 'read' | 'talk';
+  // Classifier output. `activity` is null when not asked, or missing, malformed or failed.
+  interface RouterAdvice {
+    choice: RouterTier | 'uncertain';
+    confidence: number;
+    probabilities: Record<RouterTier | 'uncertain', number>;
+    continuation: number | null;
+    activity?: {
+      choice: RouterActivityAnswer;
+      probabilities: Record<RouterActivityAnswer, number>;
+    } | null;
+  }
+  // What `on` would do, computed in `shadow`. `model` is a model id, as `decision.model`.
+  interface RouterWouldRoute {
+    activity: RouterActivity | null;
+    tier: RouterTier | null;
+    model: string;
+    effort: string | number | null;
+    reason: string;
+  }
+  interface RouterActivityCounts {
+    turns: number;
+    requests: number;
+    inputTokens: number;
+    outputTokens: number;
+  }
+  // Per-session activity stats; 'none' counts turns without an applied or accepted activity.
+  interface RouterActivitySession {
+    byActivity: Partial<Record<RouterActivity | 'none', RouterActivityCounts>>;
+    switches: { tier: number; activity: number };
+    agreement: { matched: number; total: number };
+    shadow: { differs: number; turns: number };
+  }
+  // Cross-session counts under store key 'activity:stats:v1'. `runs` buckets run lengths 1, 2, 3, 4, 5+.
+  interface RouterActivityStore {
+    version: 1;
+    confusion: Partial<Record<RouterActivityAnswer | 'none', Partial<Record<RouterObserved, number>>>>;
+    runs: Partial<Record<RouterActivity, [number, number, number, number, number]>>;
+    lateral: { taken: number; refused: number };
+    shadow: { differs: number; turns: number };
+  }
   interface RouterComparison {
     candidate: RouterTier;
     incumbent: RouterTier;
@@ -32,6 +78,11 @@ declare module 'claude-code' {
   interface RouterRoutes {
     routes: Record<RouterTier, RouterRoute>;
     baselineTier: RouterTier;
+    // The Routing tab's activity edits; a draft without them edits none. A null cell is a removed override.
+    activities?: Partial<
+      Record<RouterActivity, Partial<Record<RouterTier, { model?: string; effort?: string | null } | null>>>
+    >;
+    activityRouting?: RouterActivityMode;
   }
   interface RouterView {
     phase: 'ready' | 'choosing' | 'routed' | 'manual' | 'unavailable';
@@ -59,8 +110,16 @@ declare module 'claude-code' {
     estimate?: RouterEstimate | null;
     comparison?: RouterComparison | null;
     probabilities?: Partial<Record<RouterTier | 'uncertain', number>> | null;
+    // The turn's activity: the applied one in 'on', the classifier's accepted label in 'shadow'.
+    activity?: RouterActivity | null;
+    activityChoice?: RouterActivityAnswer | null;
+    activityProbabilities?: Partial<Record<RouterActivityAnswer, number>> | null;
+    wouldRoute?: RouterWouldRoute | null;
     history?: number[];
     tiers?: (RouterTier | null)[];
+    // Aligned with `history` and `tiers`.
+    activities?: (RouterActivity | null)[];
+    activityStats?: RouterActivitySession | null;
     configPath?: string | null;
     tuning?: Partial<RouterTuning> | null;
     tuningBase?: RouterTuning | null;
@@ -80,6 +139,10 @@ declare module 'claude-code' {
   }
   interface RouterLoop {
     lastRoute: RouterTier;
+    // The activity of the route running now; absent in loops saved before 1.6.
+    lastActivity?: RouterActivity | null;
+    // Shadow mode only: the cell and policy state `on` would run with, so each would-route continues the last one.
+    would?: { lastRoute: RouterTier; lastActivity: RouterActivity | null; state: RouterPolicyState } | null;
     state: RouterPolicyState;
     models: Record<string, { lastAt: number; prefixTokens: number }>;
     resolutions: Record<string, string>;
@@ -103,6 +166,9 @@ declare module 'claude-code' {
       effort: string | number | null;
       estimate?: RouterEstimate | null;
       comparison?: RouterComparison | null;
+      // The applied activity; `wouldRoute` is set only in shadow mode.
+      activity?: RouterActivity | null;
+      wouldRoute?: RouterWouldRoute | null;
       pinned: boolean;
       requestedPin: RouterTier | null;
     } | null;

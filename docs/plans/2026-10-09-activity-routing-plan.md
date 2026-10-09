@@ -83,7 +83,7 @@ route(tier, activity) = { ...routes[tier], ...activities[activity]?.[tier] }
 ```
 
 An override is sparse: a missing activity, a missing tier, or a missing field inherits from the tier's route. With no
-overrides, every route is today's. `activity = null` (off, uncertain, failed) resolves to the tier's route.
+overrides, every route is today's. `activity = null` (off, uncertain) resolves to the tier's route; a failed activity step keeps A0 (§5.2).
 
 The **route**, the (model, effort) pair, is what Claude Code receives and what owns a cache. Labels never decide on
 their own: if a new activity resolves to the route already running, nothing switches.
@@ -188,7 +188,7 @@ R0 = route running now (native model at session start), T0 = its tier, A0 = its 
 
 1. pin            → tier = pin, activity = null (base route of the pinned tier). Done.
 2. activity A:
-     no advice                                   → A0
+     no advice, or no activity answer            → A0
      continuation                                → advice.activity if route(T0, it) is stronger than R0, else A0
      P(advice.activity) ≥ policy.activityMass   → advice.activity
      otherwise (uncertain, low mass)             → null

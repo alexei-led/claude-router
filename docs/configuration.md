@@ -1,6 +1,6 @@
 # Configuration
 
-The router works with its built-in defaults. Configure the key of the active classifier to enable advice. Change `router.json` only when you need to change the classifier, routes, model prices, cache assumptions, or policy.
+The router works with its built-in defaults. Configure the key of the active classifier to enable advice. Change `router.json` only when you need to change the classifier, routes, activity routing, model prices, cache assumptions, or policy.
 
 ## Key and profile settings
 
@@ -59,9 +59,60 @@ Default model settings:
 
 Prices are configured list-price inputs for estimates. They are not a subscription bill or a claim of savings. Haiku 5.5 prices are for prompts up to 100,000 tokens; above that Anthropic charges more, so estimates run low there. A model with `"efforts": []` receives no effort field. A route in `router.json` without an `effort` takes the effort of that tier's default route. To keep the session effort, clamped to what the model supports, set `"effort": null`, for example `"routes": { "high": { "model": "opus", "effort": null } }`. A 1.3 file whose `low` route had no `effort` kept the session effort; in 1.4 it runs at `high` until you add `"effort": null`.
 
+## Activity routing
+
+The classifier also names the activity of a turn: what the turn produces. `activityRouting` decides what the router does with it.
+
+| `activityRouting` | Behavior                                                                                                           |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `off`             | Asks nothing new. The classifier requests are the ones 1.5 sent, and routes are exactly the tier routes.           |
+| `shadow`          | The default. Asks, shows the activity, records stats, and computes what `on` would run. The tier routes still run. |
+| `on`              | Applies the `activities` overrides below.                                                                          |
+
+The seven activities are `code`, `debug`, `explore`, `plan`, `review`, `ops`, and `docs`. The classifier may also answer `uncertain`. In `on`, an activity applies only when its probability is at least `policy.activityMass`. Below that, or on `uncertain`, the turn goes back to its tier's route, if the move passes the cache checks. When the classifier gives no usable activity answer, the running activity stays and the tier answer still applies. When it gives no answer at all, the running route stays. In `off` and `shadow`, the tier route runs.
+
+`activities` maps an activity to a tier to a route override. An override may set `model`, `effort`, or both. A field it leaves out comes from the tier's route:
+
+```
+route(tier, activity) = { ...routes[tier], ...activities[activity][tier] }
+```
+
+The built-in overrides ship with 1.6 and run only with `activityRouting: "on"`. Cells marked `·` have no override:
+
+| Activity                          | `micro` | `low`           | `medium`        | `high` |
+| --------------------------------- | ------- | --------------- | --------------- | ------ |
+| `code`, `debug`, `plan`, `review` | `·`     | Sonnet · medium | `·`             | `·`    |
+| `docs`                            | `·`     | Sonnet · medium | Sonnet · medium | `·`    |
+| `ops`, `explore`                  | `·`     | `·`             | Sonnet · medium | `·`    |
+
+At `low`, `ops` and `explore` keep Haiku at `high`: they are the cheap cases the `low` route is for. Coding is where Haiku 5.5 trails most (Terminal-Bench 4.0: Haiku 39.2%, Sonnet 70.6%). On knowledge and terminal tasks Sonnet 5.5 matched Opus 5.5 (GDPval-AA 1844 against 1846; Terminal-Bench 70.6% against 66.4%). These are vendor benchmarks at max or xhigh effort, not measurements of this router, and they are not a claim of equal quality. Every override uses Sonnet at `medium`, the one pair the four base routes do not use, so activity routing adds one cache.
+
+A user file merges over these overrides one field at a time, as `routes` does. This sets only the effort of the built-in `code` override at `low`, so the cell runs Sonnet at `high`, and adds a new override at `high`:
+
+```json
+{
+  "activityRouting": "on",
+  "activities": {
+    "code": { "low": { "effort": "high" }, "high": { "effort": "max" } }
+  }
+}
+```
+
+- `effort: null` keeps the session effort, as in `routes`.
+- A cell cannot be `null`. To drop a built-in override, set it to the tier's route, for example `"ops": { "medium": { "model": "opus", "effort": "medium" } }`. The pane writes this for you when you remove an override.
+- An override applies to whatever the tier's route is. If you move `routes.low` to Opus, the built-in `code` override at `low` still runs Sonnet. Set it to match, or remove it.
+- Unknown activities and tiers, unknown model aliases, and invalid efforts make the file invalid, like any other invalid setting. The pane refuses to save one and names it, such as `activities.code.low.model is not in models`.
+- Each distinct (model, effort) pair is its own cache. The Routing tab counts them.
+
+`policy.activityMass` (default `0.6`) is the lowest probability at which an activity applies. It has not been tuned on any classifier. Probabilities differ between classifiers, so recalibrate it from the [probe set](evaluation.md#activity-probe-set) if you change classifier.
+
+Switch the mode with `/router activities off|shadow|on`, or with the selector at the top of the Routing tab's OVERRIDES section. The command writes `router.json` at once; the selector joins the Routing draft and writes on **Save**. Choosing `shadow`, the default, removes the key from the file.
+
+**Rollback.** Router 1.5 rejects unknown keys and makes routing unavailable. Before you install 1.5 again, remove `activities`, `activityRouting`, and `policy.activityMass` from `router.json`. The pane writes them when you set the mode to `off` or `on`, or edit or remove an override.
+
 ## Classifiers
 
-`classifier` names the active entry of `classifiers`. Each entry names its wire protocol in `api`: `system-one` for Jev, Clef and Clef Flash, `openai-decisions` for OpenAI, and `ollama` for a local Ollama server. Every protocol is converted to the same advice, so the routing policy does not change with the classifier. Cloudflare wraps the System One answer in `{ result, success, errors }`; Router reads both forms.
+`classifier` names the active entry of `classifiers`. Each entry names its wire protocol in `api`: `system-one` for Jev, Clef and Clef Flash, `openai-decisions` for OpenAI, and `ollama` for a local Ollama server. Every protocol is converted to the same advice, so the routing policy does not change with the classifier. Unless `activityRouting` is `off`, each one is also asked for the turn's [activity](#activity-routing); the answer is optional, and a missing or malformed one keeps the activity already running. Cloudflare wraps the System One answer in `{ result, success, errors }`; Router reads both forms.
 
 | `classifier` | Endpoint                                                                                                 | Request `model` | Key option             | `timeoutMs` |
 | ------------ | -------------------------------------------------------------------------------------------------------- | --------------- | ---------------------- | ----------: |
@@ -96,9 +147,9 @@ You can add an entry for another service that speaks one of the three protocols.
 }
 ```
 
-The active classifier receives the current prompt and recent dialogue, as described in the [architecture](architecture.md#request-flow). Give a Cloudflare token Workers AI permissions only. The routing policy thresholds were tuned against Jev; another classifier's probabilities can place the same prompt differently.
+The active classifier receives the current prompt and recent dialogue, as described in the [architecture](architecture.md#request-flow). Give a Cloudflare token Workers AI permissions only. The routing policy thresholds were tuned against Jev, and `activityMass` against none; another classifier's probabilities can place the same prompt differently.
 
-To check a classifier outside Claude Code, run `node scripts/probe-classifier.mjs [classifier]` from a checkout. It reads `router.json` and the upper-case variables `TYPESAFE_API_KEY`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `OPENAI_API_KEY` from the environment or `./.env`; it does not read plugin options or the `CLAUDE_PLUGIN_OPTION_*` names. It sends the router's real request, and prints the status, latency, and parsed answer. It never prints the key or the full endpoint.
+To check a classifier outside Claude Code, run `node scripts/probe-classifier.mjs [classifier]` from a checkout. It reads `router.json` and the upper-case variables `TYPESAFE_API_KEY`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `OPENAI_API_KEY` from the environment or `./.env`; it does not read plugin options or the `CLAUDE_PLUGIN_OPTION_*` names. It sends the router's real request, and prints the status, latency, and parsed answer. It never prints the key or the full endpoint. `node scripts/probe-activity.mjs [classifier]` does the same for the activity question with the [probe set](evaluation.md#activity-probe-set).
 
 ### OpenAI
 
@@ -106,7 +157,7 @@ To check a classifier outside Claude Code, run `node scripts/probe-classifier.mj
 
 ### Ollama
 
-`ollama` needs no key and keeps the text on this machine. Run `ollama serve`, pull the model named in `model`, and select the classifier. `model` is any tag you have pulled, such as `qwen3.5:9b`; change it under `classifiers.ollama.model`. The endpoint must stay on `localhost`, `127.0.0.1`, or `[::1]`, so a server on another machine on your network is not reachable through this entry. Each request turns thinking off. If Ollama rejects that setting for a model, the request fails and the router keeps the baseline. Ollama unloads an idle model after its keep-alive period, and the first request after that can exceed `timeoutMs` while the model loads; the router then keeps the baseline for that turn.
+`ollama` needs no key and keeps the text on this machine. Run `ollama serve`, pull the model named in `model`, and select the classifier. `model` is any tag you have pulled, such as `qwen3.5:9b`; change it under `classifiers.ollama.model`. The endpoint must stay on `localhost`, `127.0.0.1`, or `[::1]`, so a server on another machine on your network is not reachable through this entry. Each request turns thinking off. The activity is a second request, sent after the route answer parses and only when at least 300 ms of the deadline remain; if it fails, the turn keeps the running activity and the classifier is not counted as failed. If Ollama rejects that setting for a model, the request fails and the router keeps the baseline. Ollama unloads an idle model after its keep-alive period, and the first request after that can exceed `timeoutMs` while the model loads; the router then keeps the baseline for that turn.
 
 ## Optional `router.json`
 
@@ -121,36 +172,39 @@ Start with the setting you need and leave the rest at defaults. For example, req
 
 The Mod validates the whole file. Unknown keys and invalid values make routing unavailable with a general configuration error. Retired gateway keys and the 1.1 `jev` section trigger a migration instruction. The migration command reports an invalid setting path and does not print its value.
 
-| Section            | Supported fields                                                                     | Defaults                                                 |
-| ------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| `baselineTier`     | `micro`, `low`, `medium`, `high`                                                     | `low`                                                    |
-| `routes.<tier>`    | `model`, optional `effort` (a level, or `null` for the session effort)               | As in the route table above                              |
-| `models.<alias>`   | `id`, `input`, optional `output`, `cacheRead`, `contextWindow`, `billing`, `efforts` | Three defaults above                                     |
-| `cache`            | `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms |
-| `policy`           | Fields below                                                                         | Values below                                             |
-| `classifier`       | An id in `classifiers`                                                               | `jev`                                                    |
-| `classifiers.<id>` | `label`, `api`, `endpoint`, `model`, `keyOption`, `timeoutMs`                        | [Classifiers](#classifiers) above                        |
-| `context`          | `recentTurns`, `maxTextChars`                                                        | `6`, `1200`                                              |
+| Section                        | Supported fields                                                                     | Defaults                                                 |
+| ------------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| `baselineTier`                 | `micro`, `low`, `medium`, `high`                                                     | `low`                                                    |
+| `routes.<tier>`                | `model`, optional `effort` (a level, or `null` for the session effort)               | As in the route table above                              |
+| `activityRouting`              | `off`, `shadow`, `on`                                                                | `shadow`                                                 |
+| `activities.<activity>.<tier>` | optional `model` and `effort`, as in `routes`                                        | The overrides in [Activity routing](#activity-routing)   |
+| `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, `contextWindow`, `billing`, `efforts` | Three defaults above                                     |
+| `cache`                        | `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms |
+| `policy`                       | Fields below                                                                         | Values below                                             |
+| `classifier`                   | An id in `classifiers`                                                               | `jev`                                                    |
+| `classifiers.<id>`             | `label`, `api`, `endpoint`, `model`, `keyOption`, `timeoutMs`                        | [Classifiers](#classifiers) above                        |
+| `context`                      | `recentTurns`, `maxTextChars`                                                        | `6`, `1200`                                              |
 
 Policy defaults:
 
-| Field                   | Default | Meaning                                                                                            |
-| ----------------------- | ------: | -------------------------------------------------------------------------------------------------- |
-| `upgradeVotes`          |     `2` | Consecutive supporting votes before an upgrade; one before a history's first measured reply.       |
-| `upgradeBase`           |  `0.75` | Minimum probability mass required for an upgrade.                                                  |
-| `upgradeSlope`          |  `0.15` | Maximum increase to the upgrade bar from estimated switching cost.                                 |
-| `upgradePivotUsd`       |   `0.5` | Cost scale used by the upgrade bar. Must be positive.                                              |
-| `jumpConfidence`        |  `0.95` | Support for a two-tier jump without waiting for votes.                                             |
-| `downgradeVotes`        |     `2` | Consecutive supporting votes before a downgrade; one before a history's first measured reply.      |
-| `downgradeMass`         |   `0.9` | Minimum probability mass required for a downgrade.                                                 |
-| `downgradeSlope`        |  `0.08` | Maximum increase to the downgrade bar from estimated switching cost.                               |
-| `downgradePivotUsd`     |   `0.5` | Cost scale used by the downgrade bar. Must be positive.                                            |
-| `downgradeHorizonTurns` |     `5` | Later turns included in a downgrade payback estimate.                                              |
-| `continuationMass`      |   `0.7` | Advice probability that keeps the current route for a continuation.                                |
-| `escalationHoldTurns`   |     `2` | Turns held after a repeated tool error escalates the route.                                        |
-| `cashCapUsd`            |     `2` | Maximum estimated cold cache write for a `credits` model. It does not cap output or session spend. |
+| Field                   | Default | Meaning                                                                                                   |
+| ----------------------- | ------: | --------------------------------------------------------------------------------------------------------- |
+| `upgradeVotes`          |     `2` | Consecutive supporting votes before an upgrade; one before a history's first measured reply.              |
+| `upgradeBase`           |  `0.75` | Minimum probability mass required for an upgrade.                                                         |
+| `upgradeSlope`          |  `0.15` | Maximum increase to the upgrade bar from estimated switching cost.                                        |
+| `upgradePivotUsd`       |   `0.5` | Cost scale used by the upgrade bar. Must be positive.                                                     |
+| `jumpConfidence`        |  `0.95` | Support for a two-tier jump without waiting for votes.                                                    |
+| `downgradeVotes`        |     `2` | Consecutive supporting votes before a downgrade; one before a history's first measured reply.             |
+| `downgradeMass`         |   `0.9` | Minimum probability mass required for a downgrade.                                                        |
+| `downgradeSlope`        |  `0.08` | Maximum increase to the downgrade bar from estimated switching cost.                                      |
+| `downgradePivotUsd`     |   `0.5` | Cost scale used by the downgrade bar. Must be positive.                                                   |
+| `downgradeHorizonTurns` |     `5` | Later turns included in a downgrade payback estimate.                                                     |
+| `continuationMass`      |   `0.7` | Advice probability that keeps the current route for a continuation.                                       |
+| `escalationHoldTurns`   |     `2` | Turns held after a repeated tool error escalates the route.                                               |
+| `cashCapUsd`            |     `2` | Maximum estimated cold cache write for a `credits` model. It does not cap output or session spend.        |
+| `activityMass`          |   `0.6` | Minimum probability for the classifier's activity to apply. Not tuned on any classifier. Not in the pane. |
 
-The pane writes a subset of these settings. The **Routing** tab sets `routes`, `baselineTier`, `policy.downgradeVotes`, `policy.downgradeHorizonTurns`, and `policy.cashCapUsd` in one save: it writes only values that differ from the defaults and removes the rest. The **Classifier** tab sets `classifier` and the active classifier's `timeoutMs` at once. **Undo** reverts the settings the last pane write changed. Each save validates the whole file, keeps other keys, and applies from the next turn. A failed check names the setting and leaves the file unchanged. The pane refuses to write through a symlink. Model aliases and the other settings require a direct edit.
+The pane writes a subset of these settings. The **Routing** tab sets `routes`, `baselineTier`, `activities`, `activityRouting`, `policy.downgradeVotes`, `policy.downgradeHorizonTurns`, and `policy.cashCapUsd` in one save: it writes only values that differ from the defaults and removes the rest. `/router activities <mode>` writes `activityRouting` at once, with **Undo**. The **Classifier** tab sets `classifier` and the active classifier's `timeoutMs` at once. **Undo** reverts the settings the last pane write changed. Each save validates the whole file, keeps other keys, and applies from the next turn. A failed check names the setting and leaves the file unchanged. The pane refuses to write through a symlink. Model aliases and the other settings require a direct edit.
 
 Native cache freshness is unknown after 270 seconds or after a history reset. Claude usage does not report the cache TTL. The policy evaluates price bounds for five-minute and one-hour writes, but the one-hour case is not observed fact. See the [architecture](architecture.md#cache-and-cost) for the estimate rules.
 

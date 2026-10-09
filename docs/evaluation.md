@@ -2,7 +2,7 @@
 
 The native Mod has no measured savings result. The pane reports Claude's own usage and configured-price scenarios. It does not maintain a counterfactual bill or a cumulative savings total.
 
-This page separates an older gateway experiment from a shadow replay of native policy. Neither result measures answer quality or proves lower real spend.
+This page separates an older gateway experiment from a shadow replay of native policy. Neither result measures answer quality or proves lower real spend. [Activity routing](#activity-routing) adds two checks of the activity label, with no savings result either.
 
 ## Historical gateway experiment
 
@@ -51,6 +51,57 @@ node --test experiments/mod-router/scripts/trace-eval.test.mjs
 ```
 
 The script writes aggregate counts, reason histograms, route transitions, and shadow estimates. It excludes prompts, session identifiers, agent names, error text, headers, keys, and filesystem paths from the result. It reads the local profile log and writes the JSON result file.
+
+## Activity routing
+
+Activity routing has no measured result. The replay above predates it and covers tiers only. The pane counts turns, requests, switches, and the turns `on` would route differently, and it shows no dollar figure for them. Two checks look at the classifier's activity label.
+
+### Tool agreement
+
+Each finished turn is labelled from the tools the assistant used, locally and at no cost. Only the bucket and counts are kept; no text or path is stored.
+
+| Observed bucket | Rule, first match                                                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code`          | An edit tool (`Edit`, `Write`, `MultiEdit`, `NotebookEdit`) on a path that is not a doc path                                                |
+| `docs`          | Edits only to paths ending `.md`, `.mdx`, `.rst`, or `.txt`, or under a `docs/` directory                                                   |
+| `ops`           | A Bash command that is not read-only                                                                                                        |
+| `read`          | Other tool use: reads, searches, web fetches, and Bash commands that only read, such as `ls`, `grep`, `cat`, or `git status` and `git diff` |
+| `talk`          | No tool calls                                                                                                                               |
+
+A Bash command counts as read-only only when every command in the pipeline or list is on a short list of readers. Redirects, command substitution, and `find` with `-exec` or `-delete` are not read-only, and neither is any command the list does not name.
+
+The classifier's activity agrees with the turn when the bucket is one it allows:
+
+| Activity  | Allowed buckets        |
+| --------- | ---------------------- |
+| `code`    | `code`                 |
+| `debug`   | `code`, `ops`, `read`  |
+| `explore` | `read`, `talk`         |
+| `plan`    | `talk`, `read`, `docs` |
+| `review`  | `read`, `talk`         |
+| `ops`     | `ops`                  |
+| `docs`    | `docs`                 |
+
+Agreement is a weak check. It tells `ops` from `code` from `explore` well. It cannot tell `plan` from `review`, and it says nothing about whether the route was good enough. It does catch the costly mistake, a cheap route on a coding turn. The Usage tab shows the session's count as `Agreement`, over the turns where the classifier gave an activity at or above `activityMass`, in `on` too when the route kept another activity. The counts kept across sessions hold the classifier's raw answer, `uncertain` and no answer included, against the bucket. They are not shown in the pane.
+
+### Activity probe set
+
+`test/fixtures/activity-probe.json` holds 70 synthetic prompts, ten for each activity, weighted to the boundary cases: "fix the deploy script" against "deploy the fix", "why does the test fail" against "make the test pass", short replies after a dialogue, and a review followed by a fix. It holds no real user text.
+
+```sh
+node scripts/probe-activity.mjs [classifier]
+```
+
+The script sends each prompt to one classifier as the router would ask it, with activity routing forced to `shadow`. It reads credentials as `probe-classifier.mjs` does and needs a classifier you can reach. The run is billed on a paid classifier, and it is run by hand, not in CI. It writes accuracy, an expected-by-answered confusion matrix, p50 and p95 latency against the classifier's deadline, and error counts to `experiments/mod-router/results/activity-probe-<classifier>.json`. For Ollama the latency covers both requests. It never prints a key.
+
+Two probe results are checked in, both run on 2026-10-10 against the live Cloudflare API with the synthetic set above:
+
+| Classifier |  Correct | p50 latency | p95 latency | Result file                                                                                          |
+| ---------- | -------: | ----------: | ----------: | ---------------------------------------------------------------------------------------------------- |
+| Clef       | 69 of 70 |      444 ms |      883 ms | [`activity-probe-clef.json`](../experiments/mod-router/results/activity-probe-clef.json)             |
+| Clef Flash | 69 of 70 |      470 ms |      874 ms | [`activity-probe-clef-flash.json`](../experiments/mod-router/results/activity-probe-clef-flash.json) |
+
+They measure the label on synthetic prompts, not routing quality or savings. Jev, OpenAI and Ollama have no probe result yet. The pane shows no probe accuracy. `policy.activityMass` was not tuned on any classifier; run the probe before you trust it with a new one.
 
 ## Historical method and limits
 

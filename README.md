@@ -9,21 +9,21 @@ The Mod changes only the model and effort in Claude Code's turn hook. Claude Cod
 
 ## Supported classifiers
 
-The active classifier is asked once per logical turn. Pick one on the pane's **Classifier** tab or in `router.json`; only the active one receives prompt text.
+The active classifier is asked once per logical turn, for the tier and for the turn's activity. Pick one on the pane's **Classifier** tab or in `router.json`; only the active one receives prompt text.
 
-| Classifier | Service                                    | Credential                                  | Prompt text goes to          |
-| ---------- | ------------------------------------------ | ------------------------------------------- | ---------------------------- |
-| Jev        | [typesafe.ai](https://typesafe.ai)         | Jev API key                                 | typesafe.ai                  |
-| Clef       | Cloudflare Workers AI, 27B                 | Cloudflare API token and account ID         | Cloudflare                   |
-| Clef Flash | Cloudflare Workers AI, 9B                  | Cloudflare API token and account ID         | Cloudflare                   |
-| OpenAI     | OpenAI, `gpt-6-luna` (public beta)         | OpenAI API key                              | OpenAI (`api.openai.com`)    |
-| Ollama     | A local [Ollama](https://ollama.com) model | None                                        | Stays on this machine        |
+| Classifier | Service                                    | Credential                          | Prompt text goes to       | How it is asked for the activity                                      |
+| ---------- | ------------------------------------------ | ----------------------------------- | ------------------------- | --------------------------------------------------------------------- |
+| Jev        | [typesafe.ai](https://typesafe.ai)         | Jev API key                         | typesafe.ai               | A third `choice` question in the same request                         |
+| Clef       | Cloudflare Workers AI, 27B                 | Cloudflare API token and account ID | Cloudflare                | The same                                                              |
+| Clef Flash | Cloudflare Workers AI, 9B                  | Cloudflare API token and account ID | Cloudflare                | The same                                                              |
+| OpenAI     | OpenAI, `gpt-6-luna` (public beta)         | OpenAI API key                      | OpenAI (`api.openai.com`) | A second `choice` in `questions`, in the same request                 |
+| Ollama     | A local [Ollama](https://ollama.com) model | None                                | Stays on this machine     | A second request: letters A to H, one token, if 300 ms or more remain |
 
 Jev is the default. [Configuration](docs/configuration.md#classifiers) gives the endpoints, timeouts, and how to add another service that speaks one of the supported protocols.
 
-![The Router band above the Claude Code prompt in five states](docs/router-band.svg)
+![The Router band above the Claude Code prompt in seven states](docs/router-band.svg)
 
-The band above the prompt shows the tier, model, and reason for each turn. `/router` opens a pane to pin a tier, edit the model and effort of each tier, and tune the policy. See the [user guide](docs/user-guide.md#read-the-status-band).
+The band above the prompt shows the tier, activity, model, and reason for each turn. `/router` opens a pane to pin a tier, edit the model and effort of each tier, and tune the policy. See the [user guide](docs/user-guide.md#read-the-status-band).
 
 The router needs Claude Code 2.1.289 or newer. Current savings are not measured. The panel shows Claude's reported usage and configured-price scenarios, not a savings total. See the [evaluation](docs/evaluation.md).
 
@@ -60,6 +60,8 @@ The active classifier labels a new logical turn once. Tool continuations keep th
 | `high`   | Opus 5.5      | `xhigh`  |
 
 These are routing defaults. They do not claim equal model quality. [Configuration](docs/configuration.md#built-in-defaults) gives the published results behind them and the `router.json` lines that restore the 1.3 Sonnet ladder.
+
+Activity routing adds a second label: what the turn produces (`code`, `debug`, `explore`, `plan`, `review`, `ops`, or `docs`). A route is then picked by tier and activity, so a `low` coding turn can run on Sonnet 5.5 while a `low` git turn stays on Haiku 5.5. It ships in `shadow` mode: the band and pane show the activity and what it would route, and the tier routes still run. Opt in with `/router activities on`. The label is optional: on `uncertain` or a weak label the tier route is used, when the activity answer fails the running activity stays and the tier answer still applies, and when the classifier fails the running route stays. See [Route by activity](docs/user-guide.md#route-by-activity), and [Evaluation](docs/evaluation.md#activity-routing) for how it is checked. Its default overrides rest on published vendor results, not measured savings.
 
 ## Install
 

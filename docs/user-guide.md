@@ -30,15 +30,15 @@ Keys are stored as sensitive plugin options. Do not paste them into a model conv
 
 ## Read the status band
 
-Router draws one line above the prompt. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures, then context and cache, then the reason. The tier and model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
+Router draws one line above the prompt. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures, then context and cache, then the activity, then the reason. The tier and model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
 
-![Five band states: routed to high, two rows with the hover row, a pending pin, a missing classifier key, and routing off](router-band.svg)
+![Seven band states: routed to high, two rows with the hover row, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and an activity label in shadow](router-band.svg)
 
 Read the first line of the picture from left to right:
 
 - **Tier meter** `▂▄▆█`: one bar per tier, lit up to the current tier in its color, like signal strength.
-- **Tier and model**: the route for this turn. **fallback** means Claude Code answered with another model.
-- **Reason**: one or two words with a direction, such as `↑ jump`, `↓ downgrade`, `= fits`, or `… waiting to go down`.
+- **Tier, activity, and model**: the route for this turn. The activity, such as `code →`, sits between the tier and the model; see [Route by activity](#route-by-activity). **fallback** means Claude Code answered with another model.
+- **Reason**: one or two words with a direction, such as `↑ jump`, `↓ downgrade`, `= fits`, or `… waiting to go down`. An activity move reads `↗ code` or `↘ ops`, and a refused one `… ops: not worth a switch`.
 - **Classifier support**: what the active classifier, such as Jev or Clef Flash, gave the switch against the bar the policy required.
 - **ctx** and **cache**: context use and cache reuse on the last reply. They turn yellow at 60% context and red at 80%.
 
@@ -64,20 +64,20 @@ Tool continuations do not trigger another classification. Subagent choices remai
 
 Run `/router` or select **Router** above the prompt. Without a UI surface, as in `claude -p`, `/router` prints a short status instead. The pane has four tabs. Select a tab or press its digit while the pane has focus.
 
-![The Now tab: the route and reason, classifier support per tier with pin buttons, recent replies by tier, and context, cache and cost](router-pane-now.svg)
+![The Now tab: the route, the activity and its alternatives, the reason, classifier support per tier with pin buttons, recent replies by tier and activity, and context, cache and cost](router-pane-now.svg)
 
-The **Now** tab answers "what runs next turn, and why". The ladder lists the tiers from strongest to cheapest with the route each one uses. The bar is the support the classifier gave that tier on the last turn. The line under the ladder compares the support for a switch with the bar the policy required and shows the estimated switch tax. **pin** forces that tier for the next turn only.
+The **Now** tab answers "what runs next turn, and why". The ladder lists the tiers from strongest to cheapest with the route each one uses. The bar is the support the classifier gave that tier on the last turn. The line under the ladder compares the support for a switch with the bar the policy required and shows the estimated switch tax. **pin** forces that tier for the next turn only. The **Activity** and **Route** lines under the route are covered in [Route by activity](#route-by-activity).
 
-![The Routing tab: model and effort per tier, the baseline tier, how each step up is priced, the policy controls, and the unsaved router.json change with Save and Discard](router-pane-routing.svg)
+![The Routing tab: model and effort per tier, the baseline tier, how each step up is priced, the activity matrix and overrides, the policy controls, and the unsaved router.json changes with Save and Discard](router-pane-routing.svg)
 
-The **Routing** tab edits the routes and the policy. In the picture, `medium` was changed to Sonnet 5.5 at `xhigh`: the tier shows **●**, the tab reads **Routing ●**, the switch-cost lines now price `medium → high` as a model change, and the status bar lists the one `router.json` line that **Save** will write. [Edit routes and policy](#edit-routes-and-policy) explains the controls.
+The **Routing** tab edits the routes, the activity overrides, and the policy. In the picture, `medium` was changed to Sonnet 5.5 at `xhigh`: the tier shows **●**, the tab reads **Routing ●**, the switch-cost lines now price `medium → high` as a model change, and the status bar lists the `router.json` lines that **Save** will write. The same picture shows the activity matrix and overrides, with a `code` override at `high` added. [Edit routes and policy](#edit-routes-and-policy) explains the controls.
 
-| Tab          | What it shows                                                                                                                                                     |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 Now        | The current tier, model, and reason; the classifier's support for each tier with a **pin** button; the last 30 replies by tier; context and cache.                |
-| 2 Routing    | The model and effort for each tier, the baseline tier, the cache cost of each step up; downgrade votes, payback horizon, and credits cap; the `router.json` path. |
-| 3 Classifier | The classifier rows with their credentials state, the active classifier's deadline and health, and the credentials each classifier needs.                         |
-| 4 Usage      | Claude-reported cost, context and cache detail, input per reply, quota, and configured-price estimates.                                                           |
+| Tab          | What it shows                                                                                                                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Now        | The current tier, model, activity, and reason; the classifier's support for each tier with a **pin** button; the last 30 replies by tier and activity; context and cache.                            |
+| 2 Routing    | The model and effort for each tier, the baseline tier, the cache cost of each step up; the activity matrix and overrides; downgrade votes, payback horizon, and credits cap; the `router.json` path. |
+| 3 Classifier | The classifier rows with their credentials state, the active classifier's deadline and health, and the credentials each classifier needs.                                                            |
+| 4 Usage      | Claude-reported cost, context and cache detail, input per reply, quota, activity counts for this session, and configured-price estimates.                                                            |
 
 **Routing on** and **Routing off** stay at the top of every tab. **?** shows what the estimates leave out.
 
@@ -96,7 +96,7 @@ Every write applies from the next turn and can be undone. **Undo** (`u`) puts ba
 - **Context** compares the larger available context reading with the routed model's configured window. The router reserves 20% of that window. Values can be unknown when Claude does not provide the needed estimate.
 - **Cache** reuse is cache-read tokens divided by the last response's input counters.
 - **Classifier support**, such as **Jev support**, is the probability the classifier gave each tier on the last classified turn. The line under it compares the support for a switch with the bar the policy required, and shows the estimated switch tax.
-- **Replies** colors each of the last 30 main-conversation replies by the tier that served it. A dot marks a reply the router did not choose, such as one with routing off.
+- **Replies** colors each of the last 30 main-conversation replies by the tier that served it. A dot marks a reply the router did not choose, such as one with routing off. When activity routing is on or in shadow, a row of letters under the strip names each reply's activity: `c` code, `d` debug, `e` explore, `p` plan, `r` review, `o` ops, `w` docs.
 - **Input per reply** scales the last 30 input sizes from the lowest to the highest reading. It is a scale comparison, not a forecast.
 - **Cache read benefit** is a configured-price estimate for cached reads before write costs. It is not a measured saving.
 - **Next-turn difference** compares the candidate with the current model under five-minute and one-hour cache-write scenarios. A negative number means the candidate is estimated to cost less for that request.
@@ -104,17 +104,63 @@ Every write applies from the next turn and can be undone. **Undo** (`u`) puts ba
 
 There is no router-side spend or savings ledger. The pane does not include classifier charges. Claude's native `/cost` is the source for its reported API cost.
 
+## Route by activity
+
+A tier says how hard the work is. The activity says what kind of work it is. The classifier names it for each new turn, by what the turn produces:
+
+| Activity  | The turn produces                                               |
+| --------- | --------------------------------------------------------------- |
+| `code`    | Changed code or config, including tests                         |
+| `debug`   | A found cause: failing tests, stack traces, "why does X..."     |
+| `explore` | An answer: explain code, find where something happens, research |
+| `plan`    | A decision or plan: design, task breakdown, trade-offs          |
+| `review`  | Findings about existing code: a PR, a diff, an audit            |
+| `ops`     | Executed commands: git, builds, test runs, CI, deploys          |
+| `docs`    | Prose for people: README, docs, comments, commit messages       |
+
+A mixed turn such as "fix it and commit" takes the hardest part, here `code`. The router then picks the route by tier and activity. With activity routing on and the default overrides, a `low` coding turn runs on Sonnet 5.5 at `medium`, while a `low` git turn stays on Haiku 5.5 at `high`. [Configuration](configuration.md#activity-routing) has the full matrix and how to change it.
+
+The mode decides what happens with the label:
+
+| Mode     | What the router does                                                                                                               |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `off`    | Asks nothing new. The routes are the tier routes.                                                                                  |
+| `shadow` | The default. Shows the activity, records the stats, and works out what `on` would run. The tier route still runs; nothing changes. |
+| `on`     | Applies the activity overrides. This is opt-in: run `/router activities on`.                                                       |
+
+In `shadow` you can see what `on` would do before you switch it on. The band marks the label `(shadow)` and dims it, and the **Now** tab says `low + code would use Sonnet 5.5 · medium (shadow; using Haiku 5.5 · high)`, or `same route` when both agree. In `on` the **Now** tab reads `low + code → Sonnet 5.5 · medium (override)` with the tier's base route next to it, or `(base)` when the cell has no override.
+
+How the router moves inside a tier:
+
+- It compares routes, not labels. If the new activity resolves to the route already running, nothing switches.
+- A move to a stronger route needs the classifier's support, as an upgrade between tiers does. A move to a cheaper one must pay back its cache write within the payback horizon. One vote is enough for either, because the activity is a fact about this turn.
+- An activity applies only when the classifier gives it at least 60% probability (`policy.activityMass`). Below that, or on `uncertain`, the turn goes back to its tier's route, if the move passes the same checks. Tool continuations inside a turn keep the turn's route. When the classifier sees a new prompt as a continuation of the task, the activity may only move to a stronger route: `explore` can become `code`, but not the other way. Ollama does not answer the continuation question, so this rule does not apply to it.
+- A pinned turn uses the pin's tier route and shows no activity.
+- When the classifier gives no answer at all (a timeout, a failure, a pause, or a missing key), the running route stays. When it answers the tier but gives no usable activity, only the running activity stays: the tier answer still applies, so the turn can change tier and keeps its activity there. In `shadow` and `off` the tier route always runs, as in 1.5.
+- A fresh session starts with routing on when the session model is a tier's route. With activity routing `on`, a model that only an activity override uses also counts: Sonnet 5.5 on the defaults. In `off` and `shadow` it does not.
+
+The band's activity label appears only when the activity applies, so a weak or `uncertain` answer shows none. The two-row band and the **Replies** strip show the activities of recent replies.
+
+### Read the activity on the pane
+
+- **Now**: the **Activity** line names the classifier's choice with its share and the two next-best answers, such as `code 84%   debug 8% · plan 5%`. The **Route** line shows the route the cell resolves to. **Replies** has a letter row under the strip.
+- **Routing**: the **ACTIVITIES** matrix shows the effective routes per tier, with `·` where a cell uses the tier's route, and counts the distinct routes, because each is its own cache. **OVERRIDES** lists each override with a model, an effort, and **remove**, plus a selector to add one and the mode selector. Edits join the routing draft: **Save** and **Discard** apply as for routes. Yellow notes flag an override with no effect (`same as base`), one stronger than the tier above, and one that adds a cache.
+- **Usage**: **ACTIVITY · this session** lists turns, requests, and share per activity, the switches split by tier and by activity, and **Agreement**, how often the tools a turn used fit the classifier's activity (see [Evaluation](evaluation.md#tool-agreement)). In `shadow` the **Shadow** line counts how many turns `on` would have routed differently. **Reset activity stats** clears the session counts and the counts kept across sessions. These are counts, not dollar figures.
+
+`/router` without a UI surface adds an `Activity: ops (81%)` line and the resolved route.
+
 ## Change routing
 
-| Command or action                        | Result                                                                            |
-| ---------------------------------------- | --------------------------------------------------------------------------------- |
-| `/router`                                | Open the pane.                                                                    |
-| `/router auto`                           | Resume automatic routing.                                                         |
-| `/router off`                            | Turn routing off and keep Claude's selected model.                                |
-| `/router pin <micro\|low\|medium\|high>` | Pin the next turn and its tool continuations. Routing on must already be enabled. |
-| `/model <name>`                          | Select a model and turn routing off. Use `/router auto` to turn it back on.       |
-| **Routing on** / **Routing off**         | The same as `/router auto` and `/router off`.                                     |
-| **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.              |
+| Command or action                        | Result                                                                                                    |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `/router`                                | Open the pane.                                                                                            |
+| `/router auto`                           | Resume automatic routing.                                                                                 |
+| `/router off`                            | Turn routing off and keep Claude's selected model.                                                        |
+| `/router pin <micro\|low\|medium\|high>` | Pin the next turn and its tool continuations. Routing on must already be enabled.                         |
+| `/router activities <off\|shadow\|on>`   | Set the [activity routing](#route-by-activity) mode. Saved to `router.json` at once; **Undo** reverts it. |
+| `/model <name>`                          | Select a model and turn routing off. Use `/router auto` to turn it back on.                               |
+| **Routing on** / **Routing off**         | The same as `/router auto` and `/router off`.                                                             |
+| **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.                                      |
 
 A pin does not change the next turn after the pinned turn finishes. A fresh session on a model that one of the tiers routes to starts with routing on. A fresh session on any other model starts with routing off. `/clear` starts the new session with routing on. Resuming a saved session restores its saved routing on or off.
 
@@ -122,7 +168,7 @@ A pin does not change the next turn after the pinned turn finishes. A fresh sess
 
 On the **Routing** tab, pick a model and an effort for any tier. The model list comes from the aliases in `router.json` `models`, limited by the `availableModels` setting. `session` keeps the effort Claude Code sends. A model without effort levels, such as a custom one with `"efforts": []`, shows `none`.
 
-Changed tiers show **●**. **Reset routes to defaults** (`r`) loads the built-in routes into the draft; **Save** then removes your route overrides from `router.json`.
+Changed tiers and overrides show **●**. **Reset routes to defaults** (`r`) loads the built-in routes into the draft; **Save** then removes your route overrides from `router.json`.
 
 **Switch cost** reads the draft from the bottom tier up and shows how the policy prices each step. A model change is priced as a cold cache write. An effort change on the same model is also priced as a new messages cache; whether the API actually keeps the cache across an effort change is not measured. Two identical tiers make that step change nothing.
 
@@ -160,7 +206,7 @@ Select a row to switch. The choice is written to `router.json` at once and appli
 - **Health** shows recent failures or a pause. **Sends** names the service that receives prompt text.
 - **Credentials** lists what each classifier needs, such as `Jev: API key · Clef, Clef Flash: API token, account ID · OpenAI: API key · Ollama: no key needed`. **Edit** opens Claude Code's secure plugin configuration, where you enter them.
 
-**Sends** names the service that receives the prompt and recent dialogue. With Clef or Clef Flash that is Cloudflare, not typesafe.ai; with OpenAI it is OpenAI; with Ollama it stays on this machine. Give the Cloudflare token Workers AI permissions only.
+With `shadow` or `on`, the activity question goes in the same request as the tier question (Ollama makes a second call), with the same text and nothing more. **Sends** names the service that receives the prompt and recent dialogue. With Clef or Clef Flash that is Cloudflare, not typesafe.ai; with OpenAI it is OpenAI; with Ollama it stays on this machine. Give the Cloudflare token Workers AI permissions only.
 
 The routing policy thresholds were tuned against Jev's probabilities. Clef's, OpenAI's, and Ollama's probabilities have not been compared with Jev's, so the same prompt can switch tiers at a different point. Watch **Classifier support** for a few sessions before you rely on a new classifier.
 

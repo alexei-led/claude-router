@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 594 686" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 813 1123" role="img" aria-labelledby="title desc">
   <title id="title">Router pane, Routing tab</title>
-  <desc id="desc">Model and effort per tier with prices and windows, the baseline tier, how the policy prices each step up, the policy controls, and the unsaved router.json change with Save and Discard.</desc>
+  <desc id="desc">Model and effort per tier with prices and windows, the baseline tier, how the policy prices each step up, the activity matrix and overrides, the policy controls, and the unsaved router.json changes with Save and Discard.</desc>
   <style>
     text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; }
     .cap { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; fill: #9a988f; }
   </style>
-  <rect width="594" height="686" rx="8" fill="#1c1c1c"/>
-<rect x="10" y="10" width="574" height="666" rx="6" fill="none" stroke="#3f5f8f"/>
+  <rect width="813" height="1123" rx="8" fill="#1c1c1c"/>
+<rect x="10" y="10" width="793" height="1103" rx="6" fill="none" stroke="#3f5f8f"/>
 <text x="24.0" y="34" fill="#5fafd7" font-weight="700" xml:space="preserve">ROUTING · on</text>
 <text x="141.0" y="34" fill="#87d787" xml:space="preserve">Jev ready · 347 ms</text>
 <rect x="24.0" y="39" width="109.2" height="18" rx="4" fill="#87afff"/>
@@ -63,32 +63,103 @@
 <rect x="24.0" y="324" width="218.4" height="18" rx="4" fill="#2e3340"/>
 <text x="24.0" y="338" fill="#d0d0d0" xml:space="preserve">[ Reset routes to defaults ]</text>
 <text x="24.0" y="357" fill="#7c7c7c" xml:space="preserve">A new model ID needs router.json → models: price, window, efforts.</text>
-<text x="24.0" y="395" fill="#5fafd7" font-weight="700" xml:space="preserve">POLICY</text>
-<text x="70.8" y="395" fill="#7c7c7c" xml:space="preserve"> · applies next turn · edit, then Save</text>
-<text x="24.0" y="414" fill="#d0d0d0" xml:space="preserve">Votes to go down</text>
-<text x="180.0" y="414" fill="#d0d0d0" xml:space="preserve">2 ▾</text>
-<text x="289.2" y="414" fill="#7c7c7c" xml:space="preserve">agreeing turns before cheaper</text>
-<text x="24.0" y="433" fill="#d0d0d0" xml:space="preserve">Payback horizon</text>
-<text x="180.0" y="433" fill="#d0d0d0" xml:space="preserve">5 turns ▾</text>
-<text x="289.2" y="433" fill="#7c7c7c" xml:space="preserve">a switch repays its cache</text>
-<text x="24.0" y="452" fill="#d0d0d0" xml:space="preserve">Credits cap</text>
-<text x="180.0" y="452" fill="#d0d0d0" xml:space="preserve">$2.00 ▾</text>
-<text x="289.2" y="452" fill="#7c7c7c" xml:space="preserve">max cold write on credits</text>
-<rect x="24.0" y="457" width="218.4" height="18" rx="4" fill="#2e3340"/>
-<text x="24.0" y="471" fill="#d0d0d0" xml:space="preserve">[ Reset policy to defaults ]</text>
-<text x="24.0" y="509" fill="#5fafd7" font-weight="700" xml:space="preserve">CONFIG</text>
-<text x="24.0" y="528" fill="#d0d0d0" xml:space="preserve">File     ~/.claude/router.json  </text>
-<rect x="273.6" y="514" width="62.4" height="18" rx="4" fill="#2e3340"/>
-<text x="273.6" y="528" fill="#d0d0d0" xml:space="preserve">[ copy ]</text>
-<text x="24.0" y="547" fill="#7c7c7c" xml:space="preserve">Main conversation only. Subagents keep their own model.</text>
-<text x="24.0" y="585" fill="#7c7c7c" xml:space="preserve">router.json changes:</text>
-<text x="24.0" y="604" fill="#e06c6c" xml:space="preserve">- routes.medium                  Opus 5.5 · medium</text>
-<text x="24.0" y="623" fill="#87d787" xml:space="preserve">+ routes.medium                  Sonnet 5.5 · xhigh</text>
-<text x="24.0" y="642" fill="#d7af5f" xml:space="preserve">● 1 unsaved routing change  </text>
-<rect x="242.4" y="628" width="62.4" height="18" rx="4" fill="#87afff"/>
-<text x="242.4" y="642" fill="#0d1016" font-weight="700" xml:space="preserve">[ Save ]</text>
-<rect x="312.6" y="628" width="85.8" height="18" rx="4" fill="#2e3340"/>
-<text x="312.6" y="642" fill="#d0d0d0" xml:space="preserve">[ Discard ]</text>
-<rect x="24.0" y="647" width="70.2" height="18" rx="4" fill="#2e3340"/>
-<text x="24.0" y="661" fill="#d0d0d0" xml:space="preserve">[ Close ]</text>
+<text x="24.0" y="395" fill="#5fafd7" font-weight="700" xml:space="preserve">ACTIVITIES · routing shadow</text>
+<text x="273.6" y="395" fill="#7c7c7c" xml:space="preserve">micro    low      medium   high     </text>
+<text x="24.0" y="414" fill="#d0d0d0" xml:space="preserve">  base                          H·med    H·high   S·xh     O·xh     </text>
+<text x="24.0" y="433" fill="#d0d0d0" xml:space="preserve">  code                          ·        S·med    ·        O·max    </text>
+<text x="24.0" y="452" fill="#d0d0d0" xml:space="preserve">  debug plan review             ·        S·med    ·        ·        </text>
+<text x="24.0" y="471" fill="#d0d0d0" xml:space="preserve">  explore ops                   ·        ·        S·med    ·        </text>
+<text x="24.0" y="490" fill="#d0d0d0" xml:space="preserve">  docs                          ·        S·med    S·med    ·        </text>
+<text x="24.0" y="509" fill="#7c7c7c" xml:space="preserve">  6 distinct routes = 6 caches once activity routing is on</text>
+<text x="24.0" y="547" fill="#5fafd7" font-weight="700" xml:space="preserve">OVERRIDES</text>
+<text x="94.2" y="547" fill="#7c7c7c" xml:space="preserve"> · applies next turn · edit, then Save</text>
+<text x="24.0" y="566" fill="#d0d0d0" xml:space="preserve">Activity routing: shadow ▾</text>
+<text x="242.4" y="566" fill="#7c7c7c" xml:space="preserve">asks and shows what on would do; tier routes run</text>
+<text x="24.0" y="585" fill="#d0d0d0" xml:space="preserve">code</text>
+<text x="102.0" y="585" fill="#5f9fe0" font-weight="700" xml:space="preserve">low</text>
+<text x="164.4" y="585" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 ▾</text>
+<text x="273.6" y="585" fill="#d0d0d0" xml:space="preserve">medium ▾</text>
+<rect x="382.8" y="571" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="382.8" y="585" fill="#d0d0d0" xml:space="preserve">[ remove ]</text>
+<text x="24.0" y="604" fill="#d0d0d0" xml:space="preserve">code</text>
+<text x="102.0" y="604" fill="#e0708a" font-weight="700" xml:space="preserve">high</text>
+<text x="164.4" y="604" fill="#d0d0d0" xml:space="preserve">Opus 5.5 ▾</text>
+<text x="273.6" y="604" fill="#d0d0d0" xml:space="preserve">max ▾</text>
+<text x="367.2" y="604" fill="#d7af5f" xml:space="preserve">●</text>
+<rect x="382.8" y="590" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="382.8" y="604" fill="#d0d0d0" xml:space="preserve">[ remove ]</text>
+<text x="460.8" y="604" fill="#d7af5f" xml:space="preserve">  new (model, effort) pair: one more cache</text>
+<text x="24.0" y="623" fill="#d0d0d0" xml:space="preserve">debug</text>
+<text x="102.0" y="623" fill="#5f9fe0" font-weight="700" xml:space="preserve">low</text>
+<text x="164.4" y="623" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 ▾</text>
+<text x="273.6" y="623" fill="#d0d0d0" xml:space="preserve">medium ▾</text>
+<rect x="382.8" y="609" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="382.8" y="623" fill="#d0d0d0" xml:space="preserve">[ remove ]</text>
+<text x="24.0" y="642" fill="#d0d0d0" xml:space="preserve">explore</text>
+<text x="102.0" y="642" fill="#d7af5f" font-weight="700" xml:space="preserve">medium</text>
+<text x="164.4" y="642" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 ▾</text>
+<text x="273.6" y="642" fill="#d0d0d0" xml:space="preserve">medium ▾</text>
+<rect x="382.8" y="628" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="382.8" y="642" fill="#d0d0d0" xml:space="preserve">[ remove ]</text>
+<text x="24.0" y="661" fill="#d0d0d0" xml:space="preserve">plan</text>
+<text x="102.0" y="661" fill="#5f9fe0" font-weight="700" xml:space="preserve">low</text>
+<text x="164.4" y="661" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 ▾</text>
+<text x="273.6" y="661" fill="#d0d0d0" xml:space="preserve">medium ▾</text>
+<rect x="382.8" y="647" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="382.8" y="661" fill="#d0d0d0" xml:space="preserve">[ remove ]</text>
+<text x="24.0" y="680" fill="#d0d0d0" xml:space="preserve">review</text>
+<text x="102.0" y="680" fill="#5f9fe0" font-weight="700" xml:space="preserve">low</text>
+<text x="164.4" y="680" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 ▾</text>
+<text x="273.6" y="680" fill="#d0d0d0" xml:space="preserve">medium ▾</text>
+<rect x="382.8" y="666" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="382.8" y="680" fill="#d0d0d0" xml:space="preserve">[ remove ]</text>
+<text x="24.0" y="699" fill="#d0d0d0" xml:space="preserve">ops</text>
+<text x="102.0" y="699" fill="#d7af5f" font-weight="700" xml:space="preserve">medium</text>
+<text x="164.4" y="699" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 ▾</text>
+<text x="273.6" y="699" fill="#d0d0d0" xml:space="preserve">medium ▾</text>
+<rect x="382.8" y="685" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="382.8" y="699" fill="#d0d0d0" xml:space="preserve">[ remove ]</text>
+<text x="24.0" y="718" fill="#d0d0d0" xml:space="preserve">docs</text>
+<text x="102.0" y="718" fill="#5f9fe0" font-weight="700" xml:space="preserve">low</text>
+<text x="164.4" y="718" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 ▾</text>
+<text x="273.6" y="718" fill="#d0d0d0" xml:space="preserve">medium ▾</text>
+<rect x="382.8" y="704" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="382.8" y="718" fill="#d0d0d0" xml:space="preserve">[ remove ]</text>
+<text x="24.0" y="737" fill="#d0d0d0" xml:space="preserve">docs</text>
+<text x="102.0" y="737" fill="#d7af5f" font-weight="700" xml:space="preserve">medium</text>
+<text x="164.4" y="737" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 ▾</text>
+<text x="273.6" y="737" fill="#d0d0d0" xml:space="preserve">medium ▾</text>
+<rect x="382.8" y="723" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="382.8" y="737" fill="#d0d0d0" xml:space="preserve">[ remove ]</text>
+<text x="24.0" y="756" fill="#d0d0d0" xml:space="preserve">add an override… ▾</text>
+<text x="24.0" y="794" fill="#5fafd7" font-weight="700" xml:space="preserve">POLICY</text>
+<text x="70.8" y="794" fill="#7c7c7c" xml:space="preserve"> · applies next turn · edit, then Save</text>
+<text x="24.0" y="813" fill="#d0d0d0" xml:space="preserve">Votes to go down</text>
+<text x="180.0" y="813" fill="#d0d0d0" xml:space="preserve">2 ▾</text>
+<text x="289.2" y="813" fill="#7c7c7c" xml:space="preserve">agreeing turns before cheaper</text>
+<text x="24.0" y="832" fill="#d0d0d0" xml:space="preserve">Payback horizon</text>
+<text x="180.0" y="832" fill="#d0d0d0" xml:space="preserve">5 turns ▾</text>
+<text x="289.2" y="832" fill="#7c7c7c" xml:space="preserve">a switch repays its cache</text>
+<text x="24.0" y="851" fill="#d0d0d0" xml:space="preserve">Credits cap</text>
+<text x="180.0" y="851" fill="#d0d0d0" xml:space="preserve">$2.00 ▾</text>
+<text x="289.2" y="851" fill="#7c7c7c" xml:space="preserve">max cold write on credits</text>
+<rect x="24.0" y="856" width="218.4" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="870" fill="#d0d0d0" xml:space="preserve">[ Reset policy to defaults ]</text>
+<text x="24.0" y="908" fill="#5fafd7" font-weight="700" xml:space="preserve">CONFIG</text>
+<text x="24.0" y="927" fill="#d0d0d0" xml:space="preserve">File     ~/.claude/router.json  </text>
+<rect x="273.6" y="913" width="62.4" height="18" rx="4" fill="#2e3340"/>
+<text x="273.6" y="927" fill="#d0d0d0" xml:space="preserve">[ copy ]</text>
+<text x="24.0" y="946" fill="#7c7c7c" xml:space="preserve">Main conversation only. Subagents keep their own model.</text>
+<text x="24.0" y="984" fill="#7c7c7c" xml:space="preserve">router.json changes:</text>
+<text x="24.0" y="1003" fill="#e06c6c" xml:space="preserve">- routes.medium                  Opus 5.5 · medium</text>
+<text x="24.0" y="1022" fill="#87d787" xml:space="preserve">+ routes.medium                  Sonnet 5.5 · xhigh</text>
+<text x="24.0" y="1041" fill="#e06c6c" xml:space="preserve">- activities.code.high           no override</text>
+<text x="24.0" y="1060" fill="#87d787" xml:space="preserve">+ activities.code.high           Opus 5.5 · max</text>
+<text x="24.0" y="1079" fill="#d7af5f" xml:space="preserve">● 2 unsaved routing changes  </text>
+<rect x="250.2" y="1065" width="62.4" height="18" rx="4" fill="#87afff"/>
+<text x="250.2" y="1079" fill="#0d1016" font-weight="700" xml:space="preserve">[ Save ]</text>
+<rect x="320.4" y="1065" width="85.8" height="18" rx="4" fill="#2e3340"/>
+<text x="320.4" y="1079" fill="#d0d0d0" xml:space="preserve">[ Discard ]</text>
+<rect x="24.0" y="1084" width="70.2" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="1098" fill="#d0d0d0" xml:space="preserve">[ Close ]</text>
 </svg>

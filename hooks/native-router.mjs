@@ -1,15 +1,29 @@
+import {
+  advanceRun,
+  emptySession,
+  emptyStore,
+  readStore,
+  recordStore,
+  recordTurn,
+  STORE_KEY,
+  turnActivity,
+} from '../lib/activity-stats.mjs';
 import { renderBand, switchToast } from '../lib/band.mjs';
 import { ClassifierClient } from '../lib/classifier-client.mjs';
 import { resolveCredentials } from '../lib/classifier-contract.mjs';
 import {
+  ACTIVITY_MODES,
   activeClassifier,
   DEFAULTS,
+  editActivity,
+  effectiveActivities,
   effectiveRoutes,
   loadConfig,
   MIGRATION_HINT,
   supportedVersion,
   TIERS,
   tuningOf,
+  withActivities,
   withClassifier,
   withClassifierTimeout,
   withRoutes,
@@ -17,6 +31,7 @@ import {
 } from '../lib/config.mjs';
 import { changedLeaves, notSaved, restored, rewrittenConfig } from '../lib/config-file.mjs';
 import {
+  activityDetailLines,
   classifierStatus,
   classifierTimed,
   GATEWAY_CLEANUP,
@@ -24,7 +39,7 @@ import {
   missingCredentials,
   NOT_A_TIER_REASON,
 } from '../lib/display.mjs';
-import { clip } from '../lib/facts.mjs';
+import { clip, observedActivity, promptIndex } from '../lib/facts.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
 import {
   cellForModel,
@@ -39,7 +54,7 @@ import {
   prepareLoop,
   resetHistory,
 } from '../lib/route.mjs';
-import { CLEARED_READINGS, healthOf, initialView, responseMetrics } from '../lib/view.mjs';
+import { CLEARED_READINGS, continuationView, healthOf, initialView, responseMetrics } from '../lib/view.mjs';
 
 // The engine follows $ only into functions declared in this file, never across an import: every helper that takes $
 // lives here, and the pure parts live in lib/.
@@ -68,6 +83,12 @@ function createRouter(options) {
     turnControllers: new Map(),
     view: null,
     modes: new Map(),
+    // Each routed turn's activity record until turn.complete adds it to the stats, and the session's open run of
+    // one activity, flushed to the store when it ends.
+    turnActivities: new Map(),
+    run: null,
+    // Bumped by Reset activity stats, so a store write that read the counts before the reset skips.
+    statsResets: 0,
   };
 }
 
@@ -155,6 +176,37 @@ async function setPin($, router, tier) {
   return `${tier} pinned for the next turn and its tool continuations.`;
 }
 
+// `/router [auto|off|pin <tier>|activities <mode>]`; with no action, the pane, or the status text without a surface.
+async function routerCommand($, router, args) {
+  const [action, value] = args.trim().split(/\s+/);
+  if (action === 'auto' || action === 'off') {
+    await changeMode($, router, action === 'auto' ? 'auto' : 'manual');
+    return { text: action === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
+  }
+  if (action === 'pin')
+    return { text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.` };
+  if (action === 'activities')
+    return {
+      text: ACTIVITY_MODES.includes(value)
+        ? await setActivityRouting($, router, value)
+        : `Choose activities ${ACTIVITY_MODES.join(', ')}.`,
+    };
+  const storedView = await readView($, router);
+  const view = { ...storedView, mode: await modeOf($, router, storedView.mode) };
+  if (!(await $.session.surfaces()).length) return { text: detailText(router.config, view) };
+  await openPane($, router);
+  return {};
+}
+
+// `/router activities <mode>`: the pane's write, so the file keeps the rest and Undo in the pane restores it.
+async function setActivityRouting($, router, mode) {
+  const view = router.view ?? (await readView($, router));
+  if (view.phase === 'unavailable') return `Routing unavailable: ${view.error}.`;
+  if (mode === router.config.activityRouting) return `Activity routing is already ${mode}.`;
+  await paneActions($, router, view).activityRouting(mode);
+  return router.view.notice;
+}
+
 // The environment variables that stand in for a classifier option: its upper-case name, then the one Claude Code
 // exports for a plugin option. Spelled out because $.env.get takes literal names only. Cases: CLASSIFIER_OPTIONS.
 async function envSettingOf($, name) {
@@ -236,6 +288,7 @@ function detailText(config, view) {
     `Selected: ${view.selectedModel ?? 'not selected'}`,
     `Observed: ${view.actualModel ?? 'no response yet'}`,
     `Reason: ${view.reason}`,
+    ...activityDetailLines(config, view),
     view.error || missing ? classifierStatus(config, view.error ?? missing) : `${activeClassifier(config).label} ready`,
     `Context: ${view.contextKnown ? `${view.contextTokens} tokens (estimate)` : 'unknown'}`,
     `Observed cache: ${view.cacheRead ?? 'unknown'} read, ${view.cacheWrite ?? 'unknown'} written tokens`,
@@ -348,6 +401,8 @@ async function decideTurn($, router, e, signal, step) {
     if (!written.isSet || controller.signal.aborted) return null;
     if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
       $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
+    const activity = turnActivity(cfg, result.advice, previous, selected.decision);
+    router.turnActivities.set(e.turnId, { ...activity, sessionId, requests: 0, inputTokens: 0, outputTokens: 0 });
     await updateView($, router, {
       phase: 'routed',
       selectedModel: selected.decision.model,
@@ -355,6 +410,7 @@ async function decideTurn($, router, e, signal, step) {
       tier: selected.decision.tier,
       effort: selected.decision.effort,
       reason: selected.decision.reason,
+      activity: activity.label,
       contextTokens: context.tokens,
       contextKnown: context.known,
       comparison: selected.decision.comparison,
@@ -368,6 +424,9 @@ async function decideTurn($, router, e, signal, step) {
             adviceChoice: result.advice?.choice ?? null,
             probabilities: result.advice?.probabilities ?? null,
             estimate: selected.decision.estimate ?? null,
+            activityChoice: activity.predicted,
+            activityProbabilities: result.advice?.activity?.probabilities ?? null,
+            wouldRoute: selected.decision.wouldRoute ?? null,
           }
         : {}),
     });
@@ -377,6 +436,76 @@ async function decideTurn($, router, e, signal, step) {
     router.controllers.delete(controller);
     if (router.turnControllers.get(e.turnId) === controller) router.turnControllers.delete(e.turnId);
   }
+}
+
+// A routed reply's metrics in the view, labelled with the turn's activity when its tier served it, and added to the
+// turn's activity record.
+async function publishReply($, router, turnId, response, tier) {
+  const turn = router.turnActivities.get(turnId);
+  const metrics = responseMetrics(router.view, response, tier, tier ? (turn?.label ?? null) : null);
+  await updateView($, router, metrics);
+  if (turn)
+    router.turnActivities.set(turnId, {
+      ...turn,
+      requests: turn.requests + 1,
+      inputTokens: turn.inputTokens + (metrics.inputTokens ?? 0),
+      outputTokens: turn.outputTokens + (metrics.outputTokens ?? 0),
+    });
+}
+
+// A finished turn's activity stats: the session counts in the view and the counts kept across sessions. Stats never
+// break a turn: a failed read or write loses this turn's counts only.
+async function recordActivity($, router, turn) {
+  try {
+    if ((await $.session.id()) !== turn.sessionId) return;
+    const messages = await $.session.messages({ as: 'api' });
+    const start = promptIndex(messages);
+    if (start < 0) return;
+    const observed = observedActivity(messages, start);
+    const view = router.view ?? (await readView($, router));
+    // The session may have changed during the reads; this turn is not the new session's.
+    if ((await $.session.id()) !== turn.sessionId) return;
+    // Advanced before any further await, so a session change meanwhile cannot carry this run into the new session.
+    const { run, ended } = advanceRun(router.run, turn.answer);
+    router.run = run;
+    await updateView($, router, {
+      activityStats: recordTurn(view.activityStats ?? emptySession(), {
+        activity: turn.label,
+        answer: turn.answer,
+        observed,
+        requests: turn.requests,
+        inputTokens: turn.inputTokens,
+        outputTokens: turn.outputTokens,
+        tierSwitches: turn.switched === 'tier' ? 1 : 0,
+        activitySwitches: turn.switched === 'activity' ? 1 : 0,
+        wouldDiffer: turn.wouldDiffer,
+        shadow: turn.mode === 'shadow',
+      }),
+    });
+    const resets = router.statsResets;
+    const store = readStore(await $.store.get(STORE_KEY));
+    // Writing counts read before a reset would bring them back; this turn's are lost instead.
+    if (router.statsResets !== resets) return;
+    await $.store.set(
+      STORE_KEY,
+      recordStore(store, {
+        predicted: turn.predicted,
+        observed,
+        runEnded: ended,
+        lateral: turn.lateral,
+        wouldDiffer: turn.wouldDiffer,
+      }),
+    );
+  } catch {}
+}
+
+// The session's open run ends with it; without this flush it is never counted.
+async function flushRun($, run) {
+  try {
+    const store = readStore(await $.store.get(STORE_KEY));
+    const ended = { predicted: null, observed: null, runEnded: run, lateral: null, wouldDiffer: null };
+    await $.store.set(STORE_KEY, recordStore(store, ended));
+  } catch {}
 }
 
 // The pane's handlers. `view` is the view the pane was drawn from; a handler reads `router.view` first, which holds
@@ -390,6 +519,18 @@ function paneActions($, router, view) {
       notice: null,
     });
   };
+  const editCell = (activity, tier, kind, value) =>
+    updateView($, router, {
+      routeDraft: editActivity(
+        routeDraftOf(router.config, router.view ?? view),
+        router.config,
+        activity,
+        tier,
+        kind,
+        value,
+      ),
+      notice: null,
+    });
   // Every pane save adopts the file as written, which may name another classifier than before: a hand edit
   // meanwhile, or a row press. Then the new classifier starts clean and the old one's readings leave the view;
   // an unavailable reason stays.
@@ -410,7 +551,10 @@ function paneActions($, router, view) {
   // follows the file, and the file becomes what the draft compares against, so picking a value the write replaced
   // counts as a change again.
   const rebased = ({ routeDraft, tuning, tuningBase }) => {
-    const routes = routeDraft && effectiveRoutes(routeDraft, router.config);
+    const routes = routeDraft && {
+      ...effectiveRoutes(routeDraft, router.config),
+      ...effectiveActivities(routeDraft, router.config),
+    };
     const edited = Object.entries(tuning ?? {}).filter(([key, value]) => value !== tuningBase?.[key]);
     return {
       routeDraft: routes ? { ...routes, base: routeDraftOf(router.config, {}).base } : null,
@@ -489,17 +633,49 @@ function paneActions($, router, view) {
       return write(
         `${changes} routing change${changes === 1 ? '' : 's'}`,
         (file) => {
-          const routed = routeDraft ? withRoutes(file, routeDraft) : file;
+          // withActivities reads the routes withRoutes wrote: a removed built-in override is saved as its tier's route.
+          const routed = routeDraft ? withActivities(withRoutes(file, routeDraft), routeDraft) : file;
           return edited.length ? withTuning(routed, { ...base, ...after }, base) : routed;
         },
         { routeDraft: null, tuning: null, tuningBase: null },
       );
     },
+    activityMode: (mode) =>
+      updateView($, router, {
+        routeDraft: { ...routeDraftOf(router.config, router.view ?? view), activityRouting: mode },
+        notice: null,
+      }),
+    activityModel: (activity, tier, alias) => editCell(activity, tier, 'model', alias),
+    activityEffort: (activity, tier, effort) => editCell(activity, tier, 'effort', effort),
+    addActivity: (activity, tier) => editCell(activity, tier, 'add'),
+    removeActivity: (activity, tier) => editCell(activity, tier, 'remove'),
+    // `/router activities <mode>`: the mode alone, saved at once like a classifier press, with Undo.
+    activityRouting: (mode) => {
+      const from = router.config.activityRouting;
+      if (mode === from) return undefined;
+      return write(`activity routing ${from} → ${mode}`, (file) =>
+        withActivities(file, { base: { activityRouting: from }, activityRouting: mode }),
+      );
+    },
+    resetActivityStats: async () => {
+      router.statsResets += 1;
+      router.run = null;
+      const cleared = await $.store
+        .set(STORE_KEY, emptyStore())
+        .then(() => true)
+        .catch(() => false);
+      await updateView($, router, {
+        activityStats: null,
+        notice: cleared ? 'Activity stats reset.' : 'Session activity stats reset. Saved stats could not be cleared.',
+      });
+    },
     discardRouting: () => updateView($, router, { routeDraft: null, tuning: null, tuningBase: null, notice: null }),
+    // Routes only: pending activity edits and the mode stay in the draft.
     resetRoutes: () =>
       loadDefaults(
         {
           routeDraft: {
+            ...routeDraftOf(router.config, router.view ?? view),
             ...structuredClone({ routes: DEFAULTS.routes, baselineTier: DEFAULTS.baselineTier }),
             base: routeDraftOf(router.config, {}).base,
           },
@@ -550,8 +726,8 @@ export function register(on, options) {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'router',
-      description: 'Open the Router pane, or switch routing: auto, off, pin <tier>.',
-      argumentHint: '[auto|off|pin <tier>]',
+      description: 'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>.',
+      argumentHint: '[auto|off|pin <tier>|activities off|shadow|on]',
       immediate: true,
     });
     const model = await $.session.model();
@@ -612,20 +788,7 @@ export function register(on, options) {
     return result;
   });
 
-  on('command.run', { command: 'router' }, async ($, e) => {
-    const [action, tier] = e.args.trim().split(/\s+/);
-    if (action === 'auto' || action === 'off') {
-      await changeMode($, router, action === 'auto' ? 'auto' : 'manual');
-      return { text: action === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
-    }
-    if (action === 'pin')
-      return { text: TIERS.includes(tier) ? await setPin($, router, tier) : `Choose ${TIERS.join(', ')}.` };
-    const storedView = await readView($, router);
-    const view = { ...storedView, mode: await modeOf($, router, storedView.mode) };
-    if (!(await $.session.surfaces()).length) return { text: detailText(router.config, view) };
-    await openPane($, router);
-    return {};
-  });
+  on('command.run', { command: 'router' }, ($, e) => routerCommand($, router, e.args));
 
   on('turn.start', (_$, e, next) => {
     router.turnConfigs.set(e.turnId, router.config);
@@ -694,14 +857,7 @@ export function register(on, options) {
         availableModels,
         effort: e.effort,
       });
-      await updateView($, router, {
-        selectedModel: loop.decision.model,
-        effort: loop.decision.effort,
-        tier: loop.decision.tier,
-        reason: loop.decision.reason,
-        contextTokens: context.tokens,
-        contextKnown: context.known,
-      });
+      await updateView($, router, continuationView(cfg, loop.decision, context));
     }
     const request = { ...e, model: loop.decision.model };
     if (loop.decision.effort === null) delete request.effort;
@@ -719,7 +875,7 @@ export function register(on, options) {
       const written = await $.state.set(ref, observed, { ifVersion: loopVersion });
       // A substituted reply is not the tier's: the strip and trend must not count it as one.
       const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
-      if (written.isSet) await updateView($, router, responseMetrics(router.view, response, tier));
+      if (written.isSet) await publishReply($, router, e.turnId, response, tier);
     }
     return response;
   });
@@ -735,6 +891,10 @@ export function register(on, options) {
     }
     router.prompts.delete(e.turnId);
     for (const key of router.decisions.keys()) if (key.includes(`:${e.turnId}:`)) router.decisions.delete(key);
+    // `off` asks nothing, so it records nothing.
+    const turn = router.turnActivities.get(e.turnId);
+    router.turnActivities.delete(e.turnId);
+    if (turn && turn.mode !== 'off') await recordActivity($, router, turn);
     return next(e);
   });
 
@@ -750,11 +910,15 @@ export function register(on, options) {
     return result;
   });
 
-  on('session.end', (_$, e, next) => {
+  on('session.end', async ($, e, next) => {
     for (const controller of router.controllers) controller.abort();
     router.decisions.clear();
     router.prompts.clear();
     router.turnConfigs.clear();
+    router.turnActivities.clear();
+    const run = router.run;
+    router.run = null;
+    if (run) await flushRun($, run);
     router.view = {
       ...initialView(router.view?.nativeModel ?? ''),
       mode: 'auto',

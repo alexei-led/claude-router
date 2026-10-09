@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import test from 'node:test';
-import { loadConfig, TIERS } from '../lib/config.mjs';
+import { ACTIVITIES, loadConfig, TIERS } from '../lib/config.mjs';
 import { decide, initialState } from '../lib/policy.mjs';
 import { chooseRoute, continueRoute, emptyLoop } from '../lib/route.mjs';
 import { advice, T0 } from './helpers.mjs';
@@ -94,6 +94,7 @@ function scenario(config, s) {
     resolutions = {},
     factsRoute = lastRoute,
     nativeModel = NATIVE,
+    activity,
   } = s;
   const state =
     s.state ?? (prior ? { ...initialState(), turn: 1, votes: [{ tier: choice, turn: 1 }] } : initialState());
@@ -109,6 +110,7 @@ function scenario(config, s) {
   const loop = {
     ...emptyLoop(config, nativeModel),
     lastRoute,
+    lastActivity: null,
     state,
     models,
     resolutions,
@@ -130,7 +132,14 @@ function scenario(config, s) {
     turnKey: 't',
     historyMeasured,
   };
-  const input = { facts, advice: noAdvice ? null : adviceFor(choice, shape, continuation), pin, nativeModel, now: NOW };
+  const tierAdvice = noAdvice ? null : adviceFor(choice, shape, continuation);
+  const input = {
+    facts,
+    advice: tierAdvice && activity ? { ...tierAdvice, activity } : tierAdvice,
+    pin,
+    nativeModel,
+    now: NOW,
+  };
   return { loop, input: { ...input, contextKnown, availableModels } };
 }
 
@@ -139,13 +148,14 @@ const record = (loop) => {
   return { tier, reason, model, effort, votes: state.votes.length, estimate, comparison, lastRoute: loop.lastRoute };
 };
 
-function routed(configName, s) {
-  const config = CONFIGS[configName];
-  const { loop, input } = scenario(config, s);
-  return record(chooseRoute(config, loop, input));
-}
-
-function scenarios() {
+// `configs` and `activity` (an activity answer added to every advice) run the same scenarios in another mode; `view`
+// reads each resulting loop.
+function scenarios({ configs = CONFIGS, activity, view = record } = {}) {
+  const routed = (configName, s) => {
+    const config = configs[configName];
+    const { loop, input } = scenario(config, { ...s, activity });
+    return view(chooseRoute(config, loop, input));
+  };
   const out = {};
   const add = (name, value) => {
     assert.ok(!Object.hasOwn(out, name), name);
@@ -327,23 +337,23 @@ function scenarios() {
         ['grown-unknown', { contextTokens: 600_000, contextKnown: false }],
         ['unavailable', { contextTokens: 20_000, contextKnown: true, availableModels: ['sonnet'] }],
       ]) {
-        const config = CONFIGS[configName];
-        const { loop, input } = scenario(config, { lastRoute: 'low', choice: tier, pin: tier });
+        const config = configs[configName];
+        const { loop, input } = scenario(config, { lastRoute: 'low', choice: tier, pin: tier, activity });
         const chosen = chooseRoute(config, loop, input);
         add(
           `${configName} continue pin-${tier} ${label}`,
-          record(continueRoute(config, chosen, { nativeModel: NATIVE, effort: 'medium', ...extra })),
+          view(continueRoute(config, chosen, { nativeModel: NATIVE, effort: 'medium', ...extra })),
         );
       }
   // The session model a fresh loop starts from.
   for (const configName of ['defaults', 'mixed'])
     for (const model of ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-haiku-4-5', 'gpt-x'])
-      add(`${configName} empty-loop ${model}`, { lastRoute: emptyLoop(CONFIGS[configName], model).lastRoute });
+      add(`${configName} empty-loop ${model}`, { lastRoute: emptyLoop(configs[configName], model).lastRoute });
   // decide() on its own, with the default costs.
   for (const lastRoute of TIERS)
     for (const choice of TIERS) {
-      const config = CONFIGS.defaults;
-      const { input } = scenario(config, { lastRoute, choice, prior: true, cache: 'both', tokens: 150_000 });
+      const config = configs.defaults;
+      const { input } = scenario(config, { lastRoute, choice, prior: true, cache: 'both', tokens: 150_000, activity });
       const state = { ...initialState(), turn: 1, votes: [{ tier: choice, turn: 1 }] };
       const d = decide({ config, facts: input.facts, advice: input.advice, state, baseline: 'low', now: NOW });
       add(`decide ${lastRoute}->${choice}`, {
@@ -373,4 +383,43 @@ test('the golden scenarios are the same set as recorded', () => {
 
 test('every golden scenario decides the same tier, reason, model, effort, estimate and comparison', () => {
   for (const [name, expected] of Object.entries(golden)) assert.deepEqual(current[name], expected, name);
+});
+
+const inMode = (activityRouting, extra = () => ({})) =>
+  Object.fromEntries(Object.entries(CONFIGS).map(([name, c]) => [name, { ...c, activityRouting, ...extra(c) }]));
+const label = (choice) => ({ choice, probabilities: { [choice]: 0.9, uncertain: 0.1 } });
+const LABELS = ['code', 'ops', 'docs', 'explore', 'uncertain'].map(label);
+
+test('off ignores the activity answer and decides as recorded', () => {
+  for (const activity of LABELS) {
+    const off = normalize(scenarios({ configs: inMode('off'), activity }));
+    for (const [name, expected] of Object.entries(golden))
+      assert.deepEqual(off[name], expected, `${activity.choice}: ${name}`);
+  }
+});
+
+test('shadow applies the recorded decision and reports exactly what on applies', () => {
+  const route = ({ decision }) => {
+    const { activity = null, tier, model, effort, reason } = decision;
+    return { activity, tier, model, effort, reason };
+  };
+  for (const activity of LABELS) {
+    const shadow = normalize(scenarios({ configs: inMode('shadow'), activity }));
+    for (const [name, expected] of Object.entries(golden))
+      assert.deepEqual(shadow[name], expected, `${activity.choice}: ${name}`);
+    const would = scenarios({ configs: inMode('shadow'), activity, view: (loop) => loop.decision.wouldRoute });
+    const on = scenarios({ configs: inMode('on'), activity, view: route });
+    // A tool continuation may refit the applied route; wouldRoute describes the turn's first request.
+    for (const name of Object.keys(on).filter((n) => !n.includes(' continue ')))
+      assert.deepEqual(would[name], on[name], `${activity.choice}: ${name}`);
+  }
+});
+
+test('on with overrides equal to the base routes decides as recorded: equal routes never switch', () => {
+  const flat = (c) => ({ activities: Object.fromEntries(ACTIVITIES.map((a) => [a, { ...c.routes }])) });
+  for (const activity of LABELS) {
+    const on = normalize(scenarios({ configs: inMode('on', flat), activity }));
+    for (const [name, expected] of Object.entries(golden))
+      assert.deepEqual(on[name], expected, `${activity.choice}: ${name}`);
+  }
 });
