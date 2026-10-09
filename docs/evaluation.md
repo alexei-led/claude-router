@@ -94,7 +94,7 @@ node scripts/probe-activity.mjs [classifier]
 
 The script sends each prompt to one classifier as the router would ask it, with activity routing forced to `shadow`. It reads credentials as `probe-classifier.mjs` does and needs a classifier you can reach. The run is billed on a paid classifier, and it is run by hand, not in CI. It writes accuracy, an expected-by-answered confusion matrix, p50 and p95 latency against the classifier's deadline, and error counts to `experiments/mod-router/results/activity-probe-<classifier>.json`. For Ollama the latency covers both requests. It never prints a key.
 
-Three probe results are checked in, all run on 2026-10-10 with the synthetic set above: Clef and Clef Flash against the live Cloudflare API, Ollama with `qwen3.5:9b` on an Apple-silicon laptop:
+Three probe results are checked in, all run on 2026-10-10 with the synthetic set above: Clef and Clef Flash against the live Cloudflare API, Ollama with `qwen3.5:9b` on an Apple M2 Pro laptop:
 
 | Classifier |  Correct | p50 latency | p95 latency | Result file                                                                                          |
 | ---------- | -------: | ----------: | ----------: | ---------------------------------------------------------------------------------------------------- |
