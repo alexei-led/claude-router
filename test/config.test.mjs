@@ -2,12 +2,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import {
+  ACTIVITIES,
+  ACTIVITY_MODES,
+  ACTIVITY_VALUES,
   activeClassifier,
   CLASSIFIER_OPTIONS,
   DEFAULTS,
   loadConfig,
   resolveRoute,
   supportedVersion,
+  TIERS,
   tuningOf,
   withClassifier,
   withClassifierTimeout,
@@ -120,6 +124,31 @@ for (const [name, userFile, message] of [
   ['a negative ttl', { cache: { ttlMs: { '1h': -1 } } }, /cache\.ttlMs\.1h/],
   ['a negative warm margin', { cache: { warmMarginMs: -1 } }, /cache\.warmMarginMs/],
   ['zero recent turns', { context: { recentTurns: 0 } }, /context\.recentTurns/],
+  ['an unknown activity', { activities: { write: { low: { model: 'sonnet' } } } }, /activities\.write/],
+  ['uncertain as an activity', { activities: { uncertain: {} } }, /activities\.uncertain/],
+  ['an unknown activity tier', { activities: { code: { ultra: {} } } }, /activities\.code\.ultra/],
+  ['an unknown override key', { activities: { code: { low: { effrt: 'max' } } } }, /activities\.code\.low\.effrt/],
+  ['an activity that is not an object', { activities: { code: 'sonnet' } }, /activities\.code must be an object/],
+  ['an override that is not an object', { activities: { code: { low: 'sonnet' } } }, /activities\.code\.low must/],
+  ['a __proto__ activity', fromDisk('{"activities": {"__proto__": {}}}'), /activities\.__proto__/],
+  [
+    'an override to an unknown model',
+    { activities: { ops: { low: { model: 'gpt' } } } },
+    /activities\.ops\.low\.model/,
+  ],
+  [
+    'an override to an inherited property',
+    { activities: { ops: { low: { model: 'toString' } } } },
+    /activities\.ops\.low\.model/,
+  ],
+  [
+    'an override with a bad effort',
+    { activities: { code: { high: { effort: 'ultra' } } } },
+    /activities\.code\.high\.effort/,
+  ],
+  ['an unknown activity mode', { activityRouting: 'auto' }, /activityRouting must be one of off, shadow, on/],
+  ['activityMass above 1', { policy: { activityMass: 1.5 } }, /policy\.activityMass/],
+  ['a negative activityMass', { policy: { activityMass: -0.1 } }, /policy\.activityMass/],
   ['fractional text chars', { context: { maxTextChars: 1.5 } }, /context\.maxTextChars/],
 ]) {
   test(`strict router.json rejects ${name} instead of ignoring it`, () => {
@@ -141,6 +170,9 @@ test('error messages name the field, never the value', () => {
   for (const userFile of [
     { routes: { high: { model: 'secret-model' } } },
     { routes: { high: { model: 'opus', effort: 'secret-effort' } } },
+    { activities: { code: { low: { model: 'secret-model' } } } },
+    { activities: { code: { low: { effort: 'secret-effort' } } } },
+    { activityRouting: 'secret-mode' },
   ]) {
     assert.throws(
       () => loadConfig({ userFile }),
@@ -378,6 +410,77 @@ test('the default micro and low routes are Haiku at their own effort whatever th
         effort,
         `${tier} ${session}`,
       );
+  }
+});
+
+test('activity routing defaults to shadow with the plan matrix of Sonnet overrides', () => {
+  const config = loadConfig();
+  assert.deepEqual(ACTIVITY_VALUES, [...ACTIVITIES, 'uncertain']);
+  assert.deepEqual(ACTIVITY_MODES, ['off', 'shadow', 'on']);
+  assert.equal(config.activityRouting, 'shadow');
+  assert.equal(config.policy.activityMass, 0.6);
+  const sonnet = { model: 'sonnet', effort: 'medium' };
+  assert.deepEqual(config.activities, {
+    code: { low: sonnet },
+    debug: { low: sonnet },
+    explore: { medium: sonnet },
+    plan: { low: sonnet },
+    review: { low: sonnet },
+    ops: { medium: sonnet },
+    docs: { low: sonnet, medium: sonnet },
+  });
+});
+
+test('resolveRoute applies the default overrides and keeps the base route without an activity', () => {
+  const config = loadConfig();
+  for (const [tier, activity, expected] of [
+    ['low', 'code', { model: 'sonnet', effort: 'medium' }],
+    ['low', 'ops', { model: 'haiku', effort: 'high' }],
+    ['medium', 'docs', { model: 'sonnet', effort: 'medium' }],
+    ['high', 'code', { model: 'opus', effort: 'xhigh' }],
+    ['micro', 'docs', { model: 'haiku', effort: 'medium' }],
+    ...TIERS.map((tier) => [tier, null, DEFAULTS.routes[tier]]),
+  ]) {
+    assert.deepEqual(resolveRoute(config, tier, activity), expected, `${tier} ${activity}`);
+  }
+});
+
+test('a user override merges per field over the built-in one', () => {
+  const config = loadConfig({
+    userFile: {
+      activityRouting: 'on',
+      activities: {
+        code: { low: { effort: 'high' }, high: { effort: 'max' } },
+        review: { low: { model: 'opus' } },
+        docs: { low: { effort: null } },
+      },
+    },
+  });
+  assert.equal(config.activityRouting, 'on');
+  for (const [tier, activity, expected] of [
+    ['low', 'code', { model: 'sonnet', effort: 'high' }],
+    ['high', 'code', { model: 'opus', effort: 'max' }],
+    ['low', 'review', { model: 'opus', effort: 'medium' }],
+    ['low', 'docs', { model: 'sonnet', effort: null }],
+    ['medium', 'docs', { model: 'sonnet', effort: 'medium' }],
+    ['low', 'debug', { model: 'sonnet', effort: 'medium' }],
+  ]) {
+    assert.deepEqual(resolveRoute(config, tier, activity), expected, `${tier} ${activity}`);
+  }
+});
+
+test('the documented activities example loads in every mode', () => {
+  for (const activityRouting of ACTIVITY_MODES) {
+    const config = loadConfig({
+      userFile: {
+        activityRouting,
+        activities: {
+          code: { high: { effort: 'max' } },
+          review: { low: { model: 'opus', effort: 'medium' } },
+        },
+      },
+    });
+    assert.equal(config.activityRouting, activityRouting);
   }
 });
 
