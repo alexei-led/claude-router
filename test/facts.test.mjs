@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { extractFacts as factsFromRequest, observedActivity } from '../lib/facts.mjs';
+import { extractFacts as factsFromRequest, observedActivity, promptIndex } from '../lib/facts.mjs';
 import { assistant, body, memory, toolResult, user } from './helpers.mjs';
 
 const CONTEXT = { recentTurns: 4, maxTextChars: 30 };
@@ -246,4 +246,17 @@ test('observedActivity ignores system messages, user tool results and malformed 
   assert.equal(observedActivity(messages, 0), 'code');
   assert.equal(observedActivity(messages.slice(0, -1), 0), 'talk');
   assert.equal(observedActivity([], 0), 'talk');
+});
+
+test('promptIndex finds the last user prompt, past tool results and system messages', () => {
+  for (const [name, messages, expected] of [
+    ['empty', [], -1],
+    ['prompt only', [user('go')], 0],
+    ['string prompt', [{ role: 'user', content: 'go' }, assistant('ok')], 0],
+    ['a finished tool turn', [user('a'), assistant('ok'), user('b'), step(['Read', {}]), toolResult('ok')], 2],
+    ['system after the prompt', [user('a'), system('hook'), step(['Read', {}]), toolResult('ok'), assistant('ok')], 0],
+    ['tool results only', [toolResult('ok'), assistant('ok')], -1],
+    ['malformed entries', [null, user('a'), { role: 'user' }], 2],
+  ])
+    assert.equal(promptIndex(messages), expected, name);
 });

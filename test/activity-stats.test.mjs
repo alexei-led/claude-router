@@ -10,8 +10,9 @@ import {
   readStore,
   recordStore,
   recordTurn,
+  turnActivity,
 } from '../lib/activity-stats.mjs';
-import { ACTIVITIES } from '../lib/config.mjs';
+import { ACTIVITIES, DEFAULTS } from '../lib/config.mjs';
 
 const turn = (extra = {}) => ({
   activity: 'code',
@@ -266,4 +267,87 @@ test('a run closed by advanceRun feeds the store', () => {
     store = recordStore(store, { predicted, observed: 'ops', runEnded: step.ended, lateral: null, wouldDiffer: null });
   }
   assert.deepEqual(store.runs, { ops: [0, 0, 1, 0, 0] });
+});
+
+test('turnActivity labels a routed turn per mode and names what moved the route', () => {
+  const config = (activityRouting) => ({ ...DEFAULTS, activityRouting });
+  const advice = (choice, mass) => ({ activity: { choice, probabilities: { [choice]: mass } } });
+  const sonnet = { model: 'claude-sonnet-5-5', effort: 'medium', tier: 'low' };
+  const haiku = { model: 'claude-haiku-5-5', effort: 'high', tier: 'low' };
+  const opus = { model: 'claude-opus-5-5', effort: 'medium', tier: 'medium' };
+  for (const [name, mode, answer, previous, decision, expected] of [
+    [
+      'on: a lateral move down',
+      'on',
+      advice('ops', 0.81),
+      sonnet,
+      { ...haiku, activity: 'ops', reason: 'activity-down' },
+      { label: 'ops', predicted: 'ops', switched: 'activity', lateral: 'taken', wouldDiffer: null },
+    ],
+    [
+      'on: a refused move keeps the route',
+      'on',
+      advice('ops', 0.81),
+      sonnet,
+      { ...sonnet, activity: 'code', reason: 'activity-pending' },
+      { label: 'code', predicted: 'ops', switched: null, lateral: 'refused', wouldDiffer: null },
+    ],
+    [
+      'on: a tier move',
+      'on',
+      advice('code', 0.9),
+      haiku,
+      { ...opus, activity: 'code', reason: 'upgrade' },
+      { label: 'code', predicted: 'code', switched: 'tier', lateral: null, wouldDiffer: null },
+    ],
+    [
+      'on: an effort change is a switch',
+      'on',
+      null,
+      sonnet,
+      { ...sonnet, effort: 'high', activity: null, reason: 'context-fit' },
+      { label: null, predicted: null, switched: 'tier', lateral: null, wouldDiffer: null },
+    ],
+    [
+      'on: a pin is no switch',
+      'on',
+      null,
+      haiku,
+      { ...opus, activity: null, reason: 'pinned', pinned: true },
+      { label: null, predicted: null, switched: null, lateral: null, wouldDiffer: null },
+    ],
+    [
+      'shadow: the accepted label and what on would do',
+      'shadow',
+      advice('code', 0.7),
+      haiku,
+      { ...haiku, activity: null, reason: 'hold', wouldRoute: { ...sonnet, activity: 'code', reason: 'activity-up' } },
+      { label: 'code', predicted: 'code', switched: null, lateral: 'taken', wouldDiffer: true },
+    ],
+    [
+      'shadow: a weak label is none, the same route does not differ',
+      'shadow',
+      advice('code', 0.5),
+      null,
+      { ...haiku, activity: null, reason: 'hold', wouldRoute: { ...haiku, activity: null, reason: 'hold' } },
+      { label: null, predicted: 'code', switched: null, lateral: null, wouldDiffer: false },
+    ],
+    [
+      'shadow: uncertain is predicted but not a label',
+      'shadow',
+      advice('uncertain', 0.9),
+      haiku,
+      { ...haiku, activity: null, reason: 'hold', wouldRoute: null },
+      { label: null, predicted: 'uncertain', switched: null, lateral: null, wouldDiffer: false },
+    ],
+    [
+      'off: nothing',
+      'off',
+      null,
+      haiku,
+      { ...haiku, activity: null, reason: 'hold', wouldRoute: null },
+      { label: null, predicted: null, switched: null, lateral: null, wouldDiffer: null },
+    ],
+  ])
+    assert.deepEqual(turnActivity(config(mode), answer, previous, decision), { mode, ...expected }, name);
 });
