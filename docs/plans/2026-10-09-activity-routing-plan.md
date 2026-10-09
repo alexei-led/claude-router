@@ -198,14 +198,25 @@ R0 = route running now (native model at session start), T0 = its tier, A0 = its 
      T == T0, R1 stronger    → switch if P(A) ≥ the upgrade bar for this tax (same formula as tiers)   'activity-up'
      T == T0, R1 cheaper     → switch if the downgrade economics pay back within the horizon         'activity-down'
      otherwise               → stay on R0, keep A0                                                     'activity-pending'
+   With A = null (a new task with no usable activity), P(A) counts as 1: returning to the base route needs no
+   evidence, only the cash gate and, when cheaper, the economics.
+5. Every lateral switch (T == T0) passes the cash gate for R1, as tier switches do; blocked → stay, 'cash-gate'.
+6. While an escalation hold lasts (step 3 returned 'hold'), only a stronger R1 may be taken; a cheaper one stays,
+   'hold'. A hold protects the stronger route it bought.
 ```
+
+Modes: `off` never asks, so A is always null and step 4 reduces to today's decision. `shadow` runs the decision with
+A = null for the route it applies, and runs it again with the advice's activity for the "would route" readout and
+stats only. `on` applies the decision with A.
 
 Lateral moves need **one vote**, not a streak: an activity is a fact about this turn, not a noisy complexity estimate,
 and a single `ops` turn would never get a second one. The economics already cover what votes protect against.
 
 Other rules:
 
-- **Escalation** after repeated tool errors moves the tier up and keeps the activity.
+- **Escalation** after repeated tool errors keeps the activity and moves to the lowest tier above T0 whose
+  route(t, A) is stronger than R0. When no tier above gives a stronger route, there is no escalation and the failure
+  signature is not consumed: with the defaults, `low` and `medium` docs are both Sonnet, so docs escalates to `high`.
 - **Context fit** resolves windows through `route(t, A)`.
 - **Model unavailable** falls back through the same chain as today, with resolved routes.
 - **Fresh history** (session start, `/clear`, committed compaction, rewind): tier and activity moves skip the vote
@@ -272,14 +283,15 @@ of several requests each. Calibrate from §8 stats before Phase 3.
 ### 7.3 Now tab
 
 ```
-Now        ▌low  Haiku 5.5 · high
-Activity   ops 81%   code 9% · explore 6%
-Why        ops runs on Haiku 5.5 at low, and the cache write pays back in ~2 requests
-Route      low + ops → Haiku 5.5 · high   (override)        base: Sonnet 5.5 · medium
+Now        ▌low  Sonnet 5.5 · medium
+Activity   code 81%   ops 9% · explore 6%
+Why        code at low runs on Sonnet 5.5
+Route      low + code → Sonnet 5.5 · medium   (override)        base: Haiku 5.5 · high
 ```
 
 The tier ladder and its support bars stay. In `shadow`, the Route line reads
-`low + ops would use Haiku 5.5 · high (shadow; using Sonnet 5.5 · medium)`.
+`low + code would use Sonnet 5.5 · medium (shadow; using Haiku 5.5 · high)`. A cell without an override reads
+`low + ops → Haiku 5.5 · high (base)`.
 
 ### 7.4 Routing tab
 
@@ -428,9 +440,9 @@ activity and stats, UI; then the hook wiring and docs.
 | Level | What |
 | --- | --- |
 | Config | Valid and invalid `activities` (path in the message), field inheritance, `withActivities` strips defaults, `cellForModel` and the start mode with overrides |
-| Contract | Per protocol: build includes the question only when the mode is not `off`; parse with a valid, missing, malformed or unknown activity → route intact, `activity` null; fixtures next to the existing `*-response.json` |
+| Contract | Per protocol: build includes the question only when the mode is not `off`; parse a valid activity → `activity` set; a missing, malformed or unknown one → route intact, `activity` null; fixtures next to the existing `*-response.json` |
 | Client | Ollama: route OK and activity times out → partial advice, no failure counted; deadline floor skips step 2 |
-| Policy | Table-driven (R0, tier advice, activity advice, cache state, context) → (route, reason): same route despite a label change; continuation up allowed, down refused; uncertain → base; tier and activity change together; escalation keeps the activity; pin ignores it; fresh history skips votes; a cheaper move refused at large context and taken at small |
+| Policy | Table-driven (R0, tier advice, activity advice, cache state, context) → (route, reason): same route despite a label change; continuation up allowed, down refused; uncertain → base, up or down, with P = 1; tier and activity change together; escalation keeps the activity and skips tiers whose route is not stronger (docs: low → high), and keeps the signature when none is; a lateral move to a credits model above the cash cap is blocked; a hold refuses a cheaper lateral move and allows a stronger one; pin ignores the activity; fresh history skips votes; a cheaper move refused at large context and taken at small |
 | Invariants | `off` ≡ 1.5 decisions over all existing scenarios; `shadow` never changes a route; equal routes never switch |
 | Observed | `observedActivity` buckets on synthetic histories: doc vs code paths, Bash ops vs tests, read-only, no tools |
 | Hook | Activity reaches the view, toast and stats; stats survive reload; reset on a new session |
