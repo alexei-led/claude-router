@@ -54,7 +54,7 @@ import {
   prepareLoop,
   resetHistory,
 } from '../lib/route.mjs';
-import { CLEARED_READINGS, healthOf, initialView, responseMetrics } from '../lib/view.mjs';
+import { CLEARED_READINGS, continuationView, healthOf, initialView, responseMetrics } from '../lib/view.mjs';
 
 // The engine follows $ only into functions declared in this file, never across an import: every helper that takes $
 // lives here, and the pure parts live in lib/.
@@ -854,14 +854,7 @@ export function register(on, options) {
         availableModels,
         effort: e.effort,
       });
-      await updateView($, router, {
-        selectedModel: loop.decision.model,
-        effort: loop.decision.effort,
-        tier: loop.decision.tier,
-        reason: loop.decision.reason,
-        contextTokens: context.tokens,
-        contextKnown: context.known,
-      });
+      await updateView($, router, continuationView(cfg, loop.decision, context));
     }
     const request = { ...e, model: loop.decision.model };
     if (loop.decision.effort === null) delete request.effort;

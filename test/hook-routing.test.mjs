@@ -587,3 +587,16 @@ test('a failing stats store or transcript never breaks a turn', async () => {
   assert.equal(h.view().activityStats.byActivity.code.turns, 1);
   await h.event('session.end', { reason: 'clear' });
 });
+
+test('with activity routing on, a continuation that falls back to the native model drops the activity label', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
+  answering(h, jevResponse('low', LOW, 0, { code: 0.95, ops: 0.05 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('turn.start', { turnId: 't1', text: 'Next.' });
+  await drain(h.step(step));
+  assert.deepEqual([h.requests[0].model, h.view().activity], ['claude-sonnet-5-5', 'code']);
+  h.settings({ availableModels: ['haiku'] });
+  await drain(h.step({ ...step, index: 1, messageCount: 3 }));
+  assert.deepEqual([h.requests[1].model, h.view().tier, h.view().activity], ['claude-haiku-5-5', null, null]);
+});

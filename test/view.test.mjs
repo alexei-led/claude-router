@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CLEARED_READINGS, initialView, responseMetrics } from '../lib/view.mjs';
+import { CLEARED_READINGS, continuationView, initialView, responseMetrics } from '../lib/view.mjs';
 
 const usage = (input, read, write) => ({
   model: 'claude-haiku-4-5',
@@ -63,4 +63,21 @@ test('a classifier switch clears its activity readings with its tier readings', 
   const cleared = { ...view, ...CLEARED_READINGS };
   for (const key of ['adviceChoice', 'activityChoice', 'activityProbabilities', 'wouldRoute'])
     assert.equal(cleared[key], null, key);
+});
+
+test('continuationView carries the activity of the route only in on', () => {
+  const decision = {
+    model: 'claude-sonnet-5-5',
+    effort: null,
+    tier: null,
+    reason: 'model-unavailable',
+    activity: null,
+  };
+  const context = { tokens: 1000, known: true };
+  for (const [mode, expected] of [
+    ['on', null],
+    ['shadow', undefined],
+    ['off', undefined],
+  ])
+    assert.equal(continuationView({ activityRouting: mode }, decision, context).activity, expected, mode);
 });
