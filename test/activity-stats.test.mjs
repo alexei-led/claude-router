@@ -87,7 +87,7 @@ test('session switches and shadow counters add up', () => {
     { tierSwitches: 1, shadow: true, wouldDiffer: true },
     { activitySwitches: 2, shadow: true, wouldDiffer: false },
     { shadow: true, wouldDiffer: null },
-    { tierSwitches: 1, activitySwitches: 1 },
+    { tierSwitches: 1, activitySwitches: 1, wouldDiffer: true },
   ])
     session = recordTurn(session, turn(extra));
   assert.deepEqual(session.switches, { tier: 2, activity: 3 });
