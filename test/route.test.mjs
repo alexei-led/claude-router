@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import {
+  cellForModel,
   chooseRoute,
   continueRoute,
   emptyLoop,
@@ -332,4 +333,77 @@ test('isNativeFallback: a model the router neither saw nor chose is an engine fa
     ['nothing known yet', {}, 'claude-opus-5-5', false],
   ])
     assert.equal(isNativeFallback(loop, served), fallback, name);
+});
+
+test('cellForModel searches base routes first, and activity overrides only in on mode', () => {
+  const custom = { userFile: { activities: { review: { high: { model: 'sonnet', effort: 'max' } } } } };
+  for (const [mode, id, file, expected] of [
+    ['off', 'claude-sonnet-5-5', {}, null],
+    ['shadow', 'claude-sonnet-5-5', {}, null],
+    ['on', 'claude-sonnet-5-5', {}, { tier: 'low', activity: 'code' }],
+    ['on', model, {}, { tier: 'low', activity: null }],
+    ['on', 'claude-opus-5-5', {}, { tier: 'medium', activity: null }],
+    ['on', 'gpt-x', {}, null],
+    ['on', 'claude-sonnet-5-5', { baselineTier: 'high', ...custom.userFile }, { tier: 'high', activity: 'review' }],
+  ]) {
+    const config = loadConfig({ userFile: { ...file, activityRouting: mode } });
+    assert.deepEqual(cellForModel(config, id), expected, `${mode} ${id}`);
+    const loop = emptyLoop(config, id);
+    assert.deepEqual(
+      [loop.lastRoute, loop.lastActivity],
+      [expected?.tier ?? config.baselineTier, expected?.activity ?? null],
+      `${mode} ${id} loop`,
+    );
+  }
+});
+
+test('a tool continuation keeps the activity and fits the context through its route', () => {
+  const config = loadConfig({
+    userFile: { activityRouting: 'on', models: { tiny }, activities: { code: { low: { model: 'tiny' } } } },
+  });
+  const decision = { tier: 'low', activity: 'code', reason: 'activity-up', model: tiny.id, effort: null };
+  const loop = { ...emptyLoop(config, model), decision };
+  const go = (contextTokens) =>
+    continueRoute(config, loop, { nativeModel: model, contextTokens, contextKnown: true, effort: 'medium' }).decision;
+  assert.deepEqual(go(20_000), decision);
+  const grown = go(300_000);
+  assert.deepEqual(
+    [grown.tier, grown.activity, grown.model, grown.effort, grown.reason],
+    ['medium', 'code', 'claude-opus-5-5', 'medium', 'context-fit'],
+  );
+  const unavailable = continueRoute(config, loop, {
+    nativeModel: model,
+    contextTokens: 20_000,
+    contextKnown: true,
+    availableModels: ['sonnet'],
+    effort: 'medium',
+  }).decision;
+  assert.deepEqual([unavailable.tier, unavailable.activity, unavailable.model], [null, null, model]);
+});
+
+test("a route the context outgrows moves up the activity's routes; an unknown context returns to the running cell", () => {
+  const config = loadConfig({
+    userFile: { activityRouting: 'on', models: { tiny }, activities: { code: { low: { model: 'tiny' } } } },
+  });
+  const label = { choice: 'code', probabilities: { code: 0.95, uncertain: 0.05 } };
+  const loop = observeResponse(emptyLoop(config, model), {
+    usage: usage(),
+    requestedModel: model,
+    effort: 'medium',
+    now,
+  });
+  const large = { facts: nativeFacts(config, loop, { ...context, contextTokens: 300_000 }) };
+  for (const [name, overrides, expected] of [
+    ['fits', {}, ['low', 'code', 'activity-up', 'claude-haiku-4-5']],
+    ['too large for the override', large, ['medium', 'code', 'context-fit', 'claude-opus-5-5']],
+    ['unknown context', { contextKnown: false }, ['low', null, 'context-unknown', model]],
+  ]) {
+    const vote = adviceOf('low', { low: 0.99 });
+    const { decision } = chooseRoute(
+      config,
+      loop,
+      input(loop, { advice: { ...vote, activity: label }, ...overrides }, config),
+    );
+    assert.deepEqual([decision.tier, decision.activity, decision.reason, decision.model], expected, name);
+  }
 });
