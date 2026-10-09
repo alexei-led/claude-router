@@ -605,3 +605,53 @@ test('Reset activity stats clears the session counts and the saved ones', async 
     shadow: { differs: 0, turns: 0 },
   });
 });
+
+test('Reset activity stats during a turn completion is not undone by that turn', async () => {
+  const STORE = 'activity:stats:v1';
+  const earlier = {
+    version: 1,
+    confusion: { code: { code: 4 } },
+    runs: {},
+    lateral: { taken: 2, refused: 1 },
+    shadow: { differs: 3, turns: 7 },
+  };
+  let gate = null;
+  const preferences = new (class extends Map {
+    get(key) {
+      if (key !== STORE || !gate) return super.get(key);
+      const { promise, resolve } = Promise.withResolvers();
+      gate.resolve = resolve;
+      gate.reached();
+      return promise;
+    }
+  })([[STORE, earlier]]);
+  const h = harness({ typesafe_api_key: 'synthetic-key' }, preferences);
+  h.http(async () => ({
+    ok: true,
+    status: 200,
+    headers: {},
+    text: JSON.stringify(
+      jevResponse('low', { micro: 0, low: 0.95, medium: 0.05, high: 0, uncertain: 0 }, 0, { code: 0.9, ops: 0.1 }),
+    ),
+  }));
+  await start(h);
+  await drain(h.step(step));
+  const reached = Promise.withResolvers();
+  gate = { reached: reached.resolve };
+  const completing = h.event('turn.complete', { turnId: 't1' });
+  await reached.promise;
+  const read = gate;
+  gate = null;
+  await press(h, 'tab-usage');
+  await press(h, 'reset-activity-stats');
+  read.resolve(earlier);
+  await completing;
+  assert.equal(h.view().notice, 'Activity stats reset.');
+  assert.deepEqual(h.preferences.get(STORE), {
+    version: 1,
+    confusion: {},
+    runs: {},
+    lateral: { taken: 0, refused: 0 },
+    shadow: { differs: 0, turns: 0 },
+  });
+});

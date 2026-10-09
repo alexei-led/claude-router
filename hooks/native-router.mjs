@@ -87,6 +87,8 @@ function createRouter(options) {
     // one activity, flushed to the store when it ends.
     turnActivities: new Map(),
     run: null,
+    // Bumped by Reset activity stats, so a store write that read the counts before the reset skips.
+    statsResets: 0,
   };
 }
 
@@ -477,7 +479,10 @@ async function recordActivity($, router, turn) {
     });
     const { run, ended } = advanceRun(router.run, turn.label);
     router.run = run;
+    const resets = router.statsResets;
     const store = readStore(await $.store.get(STORE_KEY));
+    // Writing counts read before a reset would bring them back; this turn's are lost instead.
+    if (router.statsResets !== resets) return;
     await $.store.set(
       STORE_KEY,
       recordStore(store, {
@@ -650,6 +655,7 @@ function paneActions($, router, view) {
       );
     },
     resetActivityStats: async () => {
+      router.statsResets += 1;
       router.run = null;
       const cleared = await $.store
         .set(STORE_KEY, emptyStore())
