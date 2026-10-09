@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { bandSegments, fitSegments } from '../lib/band.mjs';
+import { bandSegments, fitSegments, switchToast } from '../lib/band.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
 import { GATEWAY_SETTINGS } from '../lib/display.mjs';
 
@@ -107,4 +107,107 @@ test('a cut keeps buttons whole and leaves a part too short to cut', () => {
     ],
   };
   assert.equal(line(fitSegments([segment], 20)), 'route k…[Details]!');
+});
+
+const activityBand = {
+  on: {
+    view: {
+      mode: 'auto',
+      phase: 'routed',
+      tier: 'low',
+      selectedModel: 'claude-sonnet-5-5',
+      effort: 'medium',
+      activity: 'code',
+      reason: 'activity-up',
+      estimate: { threshold: 0.79, upgradeMass: 0.82 },
+    },
+    label: 'code → ',
+    route: 'Sonnet 5.5 · medium',
+    reason: '↗ code',
+  },
+  shadow: {
+    view: {
+      mode: 'auto',
+      phase: 'routed',
+      tier: 'low',
+      selectedModel: 'claude-haiku-5-5',
+      effort: 'high',
+      activity: 'code',
+      reason: 'same-tier',
+      wouldRoute: {
+        activity: 'code',
+        tier: 'low',
+        model: 'claude-sonnet-5-5',
+        effort: 'medium',
+        reason: 'activity-up',
+      },
+    },
+    label: 'code (shadow) → ',
+    route: 'Haiku 5.5 · high',
+    reason: '= fits',
+  },
+};
+
+test('a narrow band drops the activity before the reason and keeps the tier and the route in use', () => {
+  for (const [mode, { view, label, route, reason }] of Object.entries(activityBand)) {
+    for (const [columns, activity, why] of [
+      [120, true, true],
+      [80, true, true],
+      [72, false, true],
+      [60, false, false],
+    ]) {
+      const config = { ...DEFAULTS, activityRouting: mode };
+      const kept = fitSegments(bandSegments(config, view, null, actions), columns - ROUTER_BUTTON_COLUMNS);
+      const parts = kept.flatMap((s) => s.parts);
+      const name = `${mode} at ${columns}`;
+      assert.ok(line(kept).length <= columns - ROUTER_BUTTON_COLUMNS, name);
+      assert.ok(line(kept).startsWith(`▂▄▆█ low ${activity ? label : ''}${route}`), name);
+      assert.equal(
+        parts.some((p) => p.text === reason),
+        why,
+        name,
+      );
+      const tag = parts.find((p) => p.text === label);
+      assert.equal(Boolean(tag), activity, name);
+      if (tag) assert.equal(tag.style.dimColor === true, mode === 'shadow', name);
+    }
+  }
+});
+
+test('routing off by activity shows no activity in the band', () => {
+  const config = { ...DEFAULTS, activityRouting: 'off' };
+  assert.ok(!line(bandSegments(config, activityBand.on.view, null, actions)).includes('code →'));
+});
+
+test('activity moves name their activity in the band and the switch toast', () => {
+  const config = { ...DEFAULTS, activityRouting: 'on' };
+  const routed = { mode: 'auto', phase: 'routed', tier: 'low', selectedModel: 'claude-haiku-5-5', effort: 'high' };
+  const reasonOf = (view) =>
+    bandSegments(config, { ...routed, ...view }, null, actions).find((s) => s.priority === 1 && s.parts[0].text)
+      ?.parts[0].text;
+  const probabilities = { ops: 0.81, code: 0.1 };
+  for (const [view, expected] of [
+    [{ reason: 'activity-up', activity: 'code' }, '↗ code'],
+    [{ reason: 'activity-down', activity: 'ops' }, '↘ ops'],
+    [{ reason: 'activity-down', activity: null }, '↘ base'],
+    [
+      { reason: 'activity-pending', activity: 'code', activityChoice: 'ops', activityProbabilities: probabilities },
+      '… ops: not worth a switch',
+    ],
+    [
+      { reason: 'activity-pending', activity: 'code', activityChoice: 'ops', activityProbabilities: { ops: 0.4 } },
+      '… base: not worth a switch',
+    ],
+  ])
+    assert.equal(reasonOf(view), expected, JSON.stringify(view));
+  const sonnet = { model: 'claude-sonnet-5-5', effort: 'medium' };
+  const haiku = { model: 'claude-haiku-5-5', effort: 'high' };
+  assert.equal(
+    switchToast(config, sonnet, { ...haiku, reason: 'activity-down', activity: 'ops' }, null),
+    'Model changed: Sonnet 5.5 · medium → Haiku 5.5 · high · ops',
+  );
+  assert.equal(
+    switchToast(config, haiku, { ...sonnet, reason: 'upgrade', activity: 'code' }, null),
+    'Model changed: Haiku 5.5 · high → Sonnet 5.5 · medium · upgrade',
+  );
 });
