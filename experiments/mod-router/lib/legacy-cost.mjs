@@ -8,10 +8,10 @@ export function cacheKey(modelId, effort) {
   return effort ? `${modelId}@${effort}` : modelId;
 }
 
-// The cache a request routed to `tier` uses. `sentEffort` is what Claude Code sent, for a route that keeps it.
-export function routeCacheKey(config, tier, sentEffort) {
-  const model = modelOf(config, tier);
-  return cacheKey(model.id, clampEffort(config.routes[tier].effort ?? sentEffort, model.efforts));
+// The cache a request on `route` uses. `sentEffort` is what Claude Code sent, for a route that keeps it.
+export function routeCacheKey(config, route, sentEffort) {
+  const model = modelOf(config, route);
+  return cacheKey(model.id, clampEffort(route.effort ?? sentEffort, model.efforts));
 }
 
 export function isWarm(modelState, now, cache) {
@@ -26,8 +26,8 @@ export function cacheState(modelState, now, cache) {
   return isWarm(modelState, now, cache) ? 'warm' : 'expired';
 }
 
-function modelOf(config, tier) {
-  return config.models[config.routes[tier].model];
+function modelOf(config, route) {
+  return config.models[route.model];
 }
 
 function ttlFor(config, alias, facts) {
@@ -35,11 +35,11 @@ function ttlFor(config, alias, facts) {
   return facts.lastRequest?.ttl ?? '5m';
 }
 
-// USD for the input side of one request routed to `tier` with `tokens` of context.
-export function inputCostUsd(config, tier, tokens, facts, now) {
-  const alias = config.routes[tier].model;
+// USD for the input side of one request on `route` with `tokens` of context.
+export function inputCostUsd(config, route, tokens, facts, now) {
+  const alias = route.model;
   const model = config.models[alias];
-  const state = facts.models[routeCacheKey(config, tier, facts.effort)];
+  const state = facts.models[routeCacheKey(config, route, facts.effort)];
   const reusable = isWarm(state, now, config.cache) ? Math.min(state.prefixTokens, tokens) : 0;
   const write = model.input * config.cache.writeMultiplier[ttlFor(config, alias, facts)];
   return (model.cacheRead * reusable + write * (tokens - reusable)) / 1e6;
@@ -56,10 +56,10 @@ export function nextContextTokens(facts) {
   return last ? last.tokens + last.outputTokens : 0;
 }
 
-export function switchingTaxUsd(config, candidateTier, incumbentTier, facts, now) {
+export function switchingTaxUsd(config, candidateRoute, incumbentRoute, facts, now) {
   const tokens = nextContextTokens(facts);
   return (
-    inputCostUsd(config, candidateTier, tokens, facts, now) - inputCostUsd(config, incumbentTier, tokens, facts, now)
+    inputCostUsd(config, candidateRoute, tokens, facts, now) - inputCostUsd(config, incumbentRoute, tokens, facts, now)
   );
 }
 
@@ -69,14 +69,14 @@ export function switchingTaxUsd(config, candidateTier, incumbentTier, facts, now
 // - nextTurnUsd: candidate minus incumbent for the next request, input at the current cache state plus output.
 // - laterTurnUsd: the same difference for each later turn, once both caches are warm.
 // - paybackTurns: 0 when the switch is cheaper at once, n when later turns repay it after n turns, null when never.
-export function shadowEconomics(config, candidateTier, incumbentTier, facts, now) {
-  const candidate = modelOf(config, candidateTier);
-  const incumbent = modelOf(config, incumbentTier);
+export function shadowEconomics(config, candidateRoute, incumbentRoute, facts, now) {
+  const candidate = modelOf(config, candidateRoute);
+  const incumbent = modelOf(config, incumbentRoute);
   if (candidate.output === undefined || incumbent.output === undefined) return null;
   const tokens = nextContextTokens(facts);
   const outputTokens = facts.lastRequest?.outputTokens ?? 0;
   const outputUsd = ((candidate.output - incumbent.output) * outputTokens) / 1e6;
-  const nextTurnUsd = switchingTaxUsd(config, candidateTier, incumbentTier, facts, now) + outputUsd;
+  const nextTurnUsd = switchingTaxUsd(config, candidateRoute, incumbentRoute, facts, now) + outputUsd;
   const laterTurnUsd = ((candidate.cacheRead - incumbent.cacheRead) * tokens) / 1e6 + outputUsd;
   let paybackTurns = null;
   if (nextTurnUsd <= 0 && laterTurnUsd <= 0) paybackTurns = 0;
@@ -86,9 +86,9 @@ export function shadowEconomics(config, candidateTier, incumbentTier, facts, now
 
 // A downgrade's tax over `turns` turns: the next one plus the later ones, output included. A missing or zero output
 // price is unknown, not free, so the tax then falls back to the next request's input alone.
-export function downgradeTaxUsd(config, candidateTier, incumbentTier, facts, now, turns) {
-  const priced = [candidateTier, incumbentTier].every((tier) => modelOf(config, tier).output > 0);
-  if (!priced) return Math.max(0, switchingTaxUsd(config, candidateTier, incumbentTier, facts, now));
-  const { nextTurnUsd, laterTurnUsd } = shadowEconomics(config, candidateTier, incumbentTier, facts, now);
+export function downgradeTaxUsd(config, candidateRoute, incumbentRoute, facts, now, turns) {
+  const priced = [candidateRoute, incumbentRoute].every((route) => modelOf(config, route).output > 0);
+  if (!priced) return Math.max(0, switchingTaxUsd(config, candidateRoute, incumbentRoute, facts, now));
+  const { nextTurnUsd, laterTurnUsd } = shadowEconomics(config, candidateRoute, incumbentRoute, facts, now);
   return Math.max(0, nextTurnUsd + (turns - 1) * laterTurnUsd);
 }

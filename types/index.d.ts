@@ -24,8 +24,13 @@ declare module 'claude-code' {
     horizon: number;
     cashCapUsd: number;
   }
+  // A model alias and the effort it runs at: what Claude Code receives and what owns a cache.
+  interface RouterRoute {
+    model: string;
+    effort?: string | null;
+  }
   interface RouterRoutes {
-    routes: Record<RouterTier, { model: string; effort?: string | null }>;
+    routes: Record<RouterTier, RouterRoute>;
     baselineTier: RouterTier;
   }
   interface RouterView {

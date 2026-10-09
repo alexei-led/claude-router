@@ -5,7 +5,7 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { loadConfig, rank, TIERS } from '../../../lib/config.mjs';
+import { loadConfig, rank, resolveRoute, TIERS } from '../../../lib/config.mjs';
 import * as nativeCosts from '../../../lib/cost.mjs';
 import { decide, fitTier, initialState } from '../../../lib/policy.mjs';
 import * as legacyCosts from '../lib/legacy-cost.mjs';
@@ -260,8 +260,8 @@ function run(config, facts, advice, state, now, costs) {
 
 function candidateCost(config, facts, candidate, incumbent, now, outputTokens) {
   const tokens = nativeCosts.nextContextTokens(facts);
-  const proposed = nativeCosts.inputBounds(config, candidate, tokens, facts, now);
-  const current = nativeCosts.inputBounds(config, incumbent, tokens, facts, now);
+  const proposed = nativeCosts.inputBounds(config, resolveRoute(config, candidate), tokens, facts, now);
+  const current = nativeCosts.inputBounds(config, resolveRoute(config, incumbent), tokens, facts, now);
   const output =
     ((config.models[aliasOf(config, candidate)].output - config.models[aliasOf(config, incumbent)].output) *
       outputTokens) /
@@ -346,7 +346,7 @@ function compare(sim, config, row, legacy, now) {
     const facts = nativeFactsAt(sim, bound);
     arms[bound] = { facts, outcome: run(config, facts, row.advice, sim.state, now, nativeCosts) };
   }
-  const keyOf = (tier) => nativeCosts.routeCacheKey(config, tier, sim.userEffort);
+  const keyOf = (tier) => nativeCosts.routeCacheKey(config, resolveRoute(config, tier), sim.userEffort);
   const stateOf = (tier) => sim.nativeModels[keyOf(tier)];
   const warm = (tier, bound) => {
     const entry = stateOf(tier);
