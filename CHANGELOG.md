@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.2 (2026-10-10)
+
+### Fixed
+
+- A Manual turn ends the watch behind **Escalations** (ACROSS SESSIONS). A turn that moved to a cheaper activity route and finished after routing was turned off mid-turn could count a later escalation against that move.
+
+### Added
+
+- More live evidence in `experiments/mod-router/results/activity-live-acceptance.json`: the Sonnet → Haiku → Sonnet → Opus chain with tool calls, Sonnet and Opus thinking blocks after a Haiku detour, and the `shadow` would-route line, with no API errors.
+
 ## 1.7.1 (2026-10-10)
 
 Readouts the activity routing plan asked for, and a record of the live checks behind 1.7.0.
