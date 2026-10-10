@@ -752,6 +752,20 @@ test('a session ending while a turn writes its stats leaves no run in the new se
   assert.deepEqual(h.preferences.get(STATS).runs, { code: [0, 1, 0, 0, 0] });
 });
 
+test('a Sonnet session limited to Sonnet keeps its effort on a turn the code cell was not chosen for', async () => {
+  const sonnet = 'claude-sonnet-5-5';
+  const h = harness(JEV_KEY);
+  h.settings({ availableModels: ['sonnet'] });
+  h.model(sonnet);
+  answering(h, jevResponse('low', LOW, 0, { explore: 0.95, code: 0.05 }));
+  await start(h);
+  await drain(h.step({ ...step, model: sonnet, effort: 'low' }));
+  assert.deepEqual(
+    [h.requests[0].model, h.requests[0].effort, h.view().tier, h.view().activity],
+    [sonnet, 'low', null, null],
+  );
+});
+
 test('with activity routing on, a continuation that falls back to the native model drops the activity label', async () => {
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));

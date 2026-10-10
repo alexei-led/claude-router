@@ -240,6 +240,41 @@ test('a denied pin uses an allowed native model', () => {
   assert.equal(result.decision.reason, 'model-unavailable');
 });
 
+test("a fallback to an unavailable route keeps the turn's activity or passes the session model through", () => {
+  const sonnet = 'claude-sonnet-5-5';
+  const withActivity = (choice, tier = 'low') => ({
+    ...adviceOf(tier, { [tier]: 0.95, medium: 0.05 }),
+    activity: { choice, probabilities: { [choice]: 0.95 } },
+  });
+  for (const [name, loop, overrides, expected] of [
+    ['no activity answer', emptyLoop(DEFAULTS, model), {}, [null, null, sonnet, 'medium', 'model-unavailable']],
+    ['a pin', emptyLoop(DEFAULTS, model), { pin: 'high' }, [null, null, sonnet, 'medium', 'model-unavailable']],
+    [
+      'another activity',
+      emptyLoop(DEFAULTS, sonnet),
+      { advice: withActivity('explore') },
+      [null, null, sonnet, 'medium', 'model-unavailable'],
+    ],
+    [
+      'the same activity',
+      emptyLoop(DEFAULTS, sonnet),
+      { advice: withActivity('code', 'high') },
+      ['low', 'code', sonnet, 'high', 'model-unavailable'],
+    ],
+  ]) {
+    const { decision } = chooseRoute(
+      DEFAULTS,
+      loop,
+      input(loop, { nativeModel: sonnet, availableModels: ['sonnet'], ...overrides }),
+    );
+    assert.deepEqual(
+      [decision.tier, decision.activity, decision.model, decision.effort, decision.reason],
+      expected,
+      name,
+    );
+  }
+});
+
 test('an unknown context also blocks smaller windows in the fallback search', () => {
   const loop = emptyLoop(SMALL_MICRO, model);
   const result = chooseRoute(SMALL_MICRO, loop, smallInput(loop, { contextKnown: false, availableModels: ['tiny'] }));

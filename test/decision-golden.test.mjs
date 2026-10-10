@@ -439,16 +439,11 @@ test('on with overrides equal to the base routes decides as recorded: equal rout
 });
 
 // `on`, the default, also finds the session model among the overrides (plan §6). Without an activity answer it decides
-// as recorded, except where that matters: a Sonnet session whose routes are unavailable falls back to the Sonnet cell
-// at Sonnet's route, and a Haiku session on routes without Haiku starts at the ops cell.
+// as recorded, except that a Haiku session on routes without Haiku starts at the ops cell. A fallback never takes the
+// Sonnet cell's `code` label for a turn without one.
 test('on without an activity answer decides as recorded, except where the session model is an override model', () => {
   const on = normalize(scenarios({ configs: inMode('on') }));
   const differs = Object.keys(golden).filter((name) => !isDeepStrictEqual(on[name], golden[name]));
-  const fallbacks = ['available-sonnet', 'available-default'].flatMap((label) =>
-    ['low->high', 'high->micro', 'low->high pinned', 'medium->micro pinned'].map((s) => `defaults ${label} ${s}`),
-  );
-  assert.deepEqual(differs, [...fallbacks, 'mixed empty-loop claude-haiku-5-5']);
-  for (const name of fallbacks)
-    assert.deepEqual([on[name].tier, on[name].model, on[name].effort], ['low', 'claude-sonnet-5-5', 'high'], name);
+  assert.deepEqual(differs, ['mixed empty-loop claude-haiku-5-5']);
   assert.equal(on['mixed empty-loop claude-haiku-5-5'].lastRoute, 'medium');
 });
