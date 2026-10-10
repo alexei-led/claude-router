@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { bandSegments } from '../lib/band.mjs';
 import { DEFAULTS, editActivity, loadConfig } from '../lib/config.mjs';
-import { TIER_COLOR } from '../lib/display.mjs';
+import { GATEWAY_CLEANUP, GATEWAY_SETTINGS, TIER_COLOR } from '../lib/display.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
 import { isSameModel } from '../lib/route.mjs';
 import { controls, ELEMENTS, texts } from './harness.mjs';
@@ -64,6 +64,22 @@ test('the pane header is one on/off pair that marks the current mode and keeps t
     assert.equal(lines[0], 'ROUTING', mode);
     assert.ok(lines.includes('  off keeps the /model choice'), mode);
     assert.ok(lines.includes('Jev ready'), mode);
+  }
+});
+
+test('while routing is unavailable the header says why and offers no on/off or pins', () => {
+  for (const [error, reason, cleanup] of [
+    ['requires Claude Code 2.1.289 or newer', 'requires Claude Code 2.1.289 or newer', false],
+    [GATEWAY_SETTINGS, 'v0.8 gateway settings remain', true],
+  ]) {
+    const tree = pane({ phase: 'unavailable', error, tier: null });
+    const lines = texts(tree);
+    assert.deepEqual(lines.slice(0, 5), ['ROUTING', '  ', 'unavailable', '  Claude’s model is kept', reason], reason);
+    assert.equal(lines.includes(GATEWAY_CLEANUP[0]), cleanup, reason);
+    assert.ok(!lines.some((line) => /Jev ready|keeping the model/.test(line)), reason);
+    assert.ok(lines.includes('  Pins need routing, which is unavailable.'), reason);
+    const keys = controls(tree).map((c) => c.key);
+    for (const key of ['auto', 'manual', 'pin-low']) assert.ok(!keys.includes(key), `${reason}: ${key}`);
   }
 });
 

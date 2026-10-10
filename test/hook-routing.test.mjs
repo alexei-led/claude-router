@@ -286,6 +286,22 @@ test('an unsupported Claude version leaves the native request unchanged', async 
   assert.equal(h.requests[0].effort, step.effort);
 });
 
+test('while routing is unavailable, /router says why and its on, off and activity commands change nothing', async () => {
+  const h = harness();
+  h.version('2.1.288');
+  await start(h);
+  const command = async (args) => (await h.event('command.run', { command: 'router', args })).text;
+  const why = 'Routing unavailable: requires Claude Code 2.1.289 or newer. Claude’s model is kept.';
+  const mode = h.preferences.get('mode:s1');
+  for (const args of ['auto', 'off', 'pin high', 'activities off']) assert.equal(await command(args), why, args);
+  assert.equal(h.preferences.get('mode:s1'), mode);
+  assert.equal(h.files.get(CONFIG), undefined);
+  h.surfaces([]);
+  const text = await command('');
+  assert.equal(text.split('\n')[0], why);
+  assert.doesNotMatch(text, /routing (on|off)/);
+});
+
 test('leftover v0.8 gateway settings pass requests through and name the keys to remove', async () => {
   const h = harness();
   h.env.set('ANTHROPIC_BASE_URL', 'http://127.0.0.1:43170');

@@ -39,6 +39,7 @@ import {
   missingCredentials,
   NOT_A_TIER_REASON,
   storeAgreementLine,
+  unavailableReason,
 } from '../lib/display.mjs';
 import { clip, observedActivity, promptIndex } from '../lib/facts.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
@@ -180,7 +181,7 @@ async function changeMode($, router, mode) {
 
 async function setPin($, router, tier) {
   const view = router.view ?? (await readView($, router));
-  if (view.phase === 'unavailable') return `Routing unavailable: ${view.error}.`;
+  if (view.phase === 'unavailable') return unavailableText(view);
   const mode = await modeOf($, router, view.mode);
   if (mode === 'manual') return 'Routing is off. Turn routing on before pinning a turn.';
   await updateView($, router, { pendingPin: tier });
@@ -191,6 +192,8 @@ async function setPin($, router, tier) {
 async function routerCommand($, router, args) {
   const [action, value] = args.trim().split(/\s+/);
   if (action === 'auto' || action === 'off') {
+    const view = router.view ?? (await readView($, router));
+    if (view.phase === 'unavailable') return { text: unavailableText(view) };
     await changeMode($, router, action === 'auto' ? 'auto' : 'manual');
     return { text: action === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
   }
@@ -212,7 +215,7 @@ async function routerCommand($, router, args) {
 // `/router activities <mode>`: the pane's write, so the file keeps the rest and Undo in the pane restores it.
 async function setActivityRouting($, router, mode) {
   const view = router.view ?? (await readView($, router));
-  if (view.phase === 'unavailable') return `Routing unavailable: ${view.error}.`;
+  if (view.phase === 'unavailable') return unavailableText(view);
   if (mode === router.config.activityRouting) return `Activity routing is already ${mode}.`;
   await paneActions($, router, view).activityRouting(mode);
   return router.view.notice;
@@ -291,7 +294,15 @@ async function saveConfig($, path, change) {
   }
 }
 
+const unavailableText = (view) => `Routing unavailable: ${unavailableReason(view)}. Claude’s model is kept.`;
+
 function detailText(config, view) {
+  if (view.phase === 'unavailable')
+    return [
+      unavailableText(view),
+      `Model: ${view.nativeModel}`,
+      ...(view.error === GATEWAY_SETTINGS ? GATEWAY_CLEANUP : []),
+    ].join('\n');
   const missing = missingCredentials(config, view, config.classifier);
   return [
     `Router — routing ${view.mode === 'auto' ? 'on' : 'off'}`,
@@ -307,7 +318,6 @@ function detailText(config, view) {
     view.pendingPin ? `Next turn pin: ${view.pendingPin}` : 'No next-turn pin.',
     'Routing on picks a model for each turn. Routing off keeps Claude’s model. Pins serve one turn only.',
     'Cache lifetime is an estimate. Claude’s cost ledger owns session totals.',
-    ...(view.error === GATEWAY_SETTINGS ? GATEWAY_CLEANUP : []),
   ].join('\n');
 }
 
