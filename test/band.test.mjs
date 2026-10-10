@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { bandSegments, fitSegments, switchToast } from '../lib/band.mjs';
+import { bandSegments, fitSegments, renderBand, switchToast } from '../lib/band.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
 import { GATEWAY_SETTINGS } from '../lib/display.mjs';
 
@@ -62,10 +62,87 @@ test('an unavailable router names the cause, or the gateway leftovers, beside Fi
     assert.equal(line(bandSegments(DEFAULTS, { mode: 'auto', phase: 'unavailable', error }, null, actions)), expected);
 });
 
-test('a manual band that fits keeps Routing on, the control that turns routing back on', () => {
-  const view = { mode: 'manual', phase: 'manual', nativeModel: 'claude-sonnet-5-5', reason: 'model selected manually' };
-  const parts = fitSegments(bandSegments(DEFAULTS, view, null, actions), 70).flatMap((s) => s.parts);
-  assert.ok(parts.some((p) => p.button?.label === 'Routing on'));
+const element = (type) => (props) => ({ type, props });
+const elements = { Box: element('Box'), Text: element('Text'), Button: element('Button') };
+const drawn = (node) => {
+  if (node.type === 'Text') return node.props.children;
+  if (node.type === 'Button') return node.props.plain ? node.props.label : `[ ${node.props.label} ]`;
+  return node.props.children.filter(Boolean).map(drawn).join('');
+};
+const buttonsOf = (node) =>
+  node.type === 'Button'
+    ? [node.props]
+    : node.type === 'Box'
+      ? node.props.children.filter(Boolean).flatMap(buttonsOf)
+      : [];
+
+const modeBands = {
+  auto: {
+    view: {
+      mode: 'auto',
+      phase: 'routed',
+      tier: 'high',
+      selectedModel: 'claude-opus-5-5',
+      effort: 'xhigh',
+      reason: 'jump',
+    },
+    reading: '▂▄▆█ high Opus 5.5 · xhigh',
+    control: { key: 'band-manual', label: 'Turn off', row: 'hover' },
+  },
+  manual: {
+    view: { mode: 'manual', phase: 'manual', nativeModel: 'claude-sonnet-5-5', reason: 'model selected manually' },
+    reading: '○ Routing off · ',
+    control: { key: 'band-auto', label: 'Turn on', row: 'main' },
+  },
+};
+
+test('each mode draws one mode control, on one row, and the band fits at 60, 80 and 120 columns', () => {
+  for (const [mode, { view, reading, control }] of Object.entries(modeBands)) {
+    for (const columns of [60, 80, 120]) {
+      const [main, , hover] = renderBand(elements, DEFAULTS, view, null, { columns }, actions).props.children;
+      const name = `${mode} at ${columns}`;
+      assert.ok(drawn(main).length <= columns, `${name}: ${drawn(main)}`);
+      assert.ok(drawn(hover).length <= columns, `${name}: ${drawn(hover)}`);
+      assert.ok(drawn(main).startsWith(reading), name);
+      if (mode === 'manual') assert.match(drawn(main), /Sonnet 5\.5/, name);
+      const modeButtons = (row) => buttonsOf(row).filter((b) => b.key === 'band-auto' || b.key === 'band-manual');
+      assert.deepEqual(
+        modeButtons(control.row === 'main' ? main : hover).map((b) => [b.key, b.label]),
+        [[control.key, control.label]],
+        name,
+      );
+      assert.deepEqual(modeButtons(control.row === 'main' ? hover : main), [], name);
+    }
+  }
+});
+
+test('the hover row drops its labels and the row choice before the pins, and keeps Turn off', () => {
+  const { view } = modeBands.auto;
+  for (const [columns, expected] of [
+    [120, 'pin next turn [ micro ] [ low ] [ medium ] [ high ]  routing on [ Turn off ]  [ 2 rows ]'],
+    [80, 'pin next turn [ micro ] [ low ] [ medium ] [ high ]  [ Turn off ]  [ 2 rows ]'],
+    [60, '[ micro ] [ low ] [ medium ] [ high ]  [ Turn off ]'],
+    [40, '[ Turn off ]'],
+  ])
+    assert.equal(
+      drawn(renderBand(elements, DEFAULTS, view, null, { columns }, actions).props.children[2]),
+      expected,
+      `${columns} columns`,
+    );
+});
+
+test('a narrow manual band drops the explanation before the model and keeps Turn on', () => {
+  const { view } = modeBands.manual;
+  for (const [columns, expected] of [
+    [80, '○ Routing off · every turn uses Sonnet 5.5 (/model)  ·  [ Turn on ]  Router'],
+    [60, '○ Routing off · Sonnet 5.5 (/model)  ·  [ Turn on ]  Router'],
+    [52, '○ Routing off · Sonnet 5.5  ·  [ Turn on ]  Router'],
+  ])
+    assert.equal(
+      drawn(renderBand(elements, DEFAULTS, view, null, { columns }, actions).props.children[0]),
+      expected,
+      `${columns} columns`,
+    );
 });
 
 test('a turn being classified shows an accent meter and the classifier deadline', () => {
@@ -153,8 +230,8 @@ test('a narrow band drops the activity before the reason and keeps the tier and 
     for (const [columns, activity, why] of [
       [120, true, true],
       [80, true, true],
-      [72, false, true],
-      [60, false, false],
+      [52, false, true],
+      [42, false, false],
     ]) {
       const config = { ...DEFAULTS, activityRouting: mode };
       const kept = fitSegments(bandSegments(config, view, null, actions), columns - ROUTER_BUTTON_COLUMNS);
