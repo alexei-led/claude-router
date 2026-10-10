@@ -256,6 +256,13 @@ test('the activities lead with the mode, and OVERRIDES says whether the override
     assert.equal(lines[lines.indexOf('ACTIVITIES') + 3], hint, mode);
     assert.equal(lines[lines.indexOf('OVERRIDES') + 1], state, mode);
   }
+  for (const [props, state] of [
+    [{ mode: 'manual' }, ' · not in use: routing is off'],
+    [{ phase: 'unavailable', error: 'invalid router configuration' }, ' · not in use: routing is unavailable'],
+  ]) {
+    const lines = texts(renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'routing', ...props }), null, actions));
+    assert.equal(lines[lines.indexOf('OVERRIDES') + 1], state, JSON.stringify(props));
+  }
 });
 
 test('override rows warn about no effect, a route above the next tier and a new cache', () => {
