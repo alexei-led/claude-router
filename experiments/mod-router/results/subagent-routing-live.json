@@ -1,0 +1,106 @@
+{
+  "scope": "Subagent routing in on mode, live: Claude Code 2.1.296, main model claude-sonnet-5-5, 2026-10-10, the router from the subagent-routing branch with subagentRouting on.",
+  "source": "A copy of the router with DEFAULTS.subagentRouting set to on (the profile router.json was left as it was), loaded with experiments/mod-router/spawn-probe as claude -p --model sonnet --setting-sources project,local --plugin-dir <router copy> --plugin-dir experiments/mod-router/spawn-probe, from spawn-probe/cwd. The probe ran beneath the router, so `sent` is the model the router passed on. `store` is the router's record under its subagents:v1:<session id> key afterwards.",
+  "findings": {
+    "routed": "L1: Explore (built-in, listed as haiku) was sent claude-haiku-5-5 and ran on it while the parent ran Sonnet.",
+    "classified": "L2: general-purpose (classify) was sent the classifier's standard pick, claude-sonnet-5-5, with no failure.",
+    "pinPassed": "L3: the project agent pinned (frontmatter model: sonnet) passed through as unlisted.",
+    "explicitPassed": "L4: an Agent call with model opus passed through as explicit and ran on Opus.",
+    "recorded": "The store counts both routed types under on, with core's estimated model priced against the routed one, and the two pass-throughs by reason."
+  },
+  "rows": [
+    {
+      "description": "L1 explore",
+      "subagentType": "Explore",
+      "provider": {
+        "plugin": "engine",
+        "tier": "core"
+      },
+      "sent": "claude-haiku-5-5",
+      "result": "claude-haiku-5-5",
+      "firstStepModel": "claude-haiku-5-5"
+    },
+    {
+      "description": "L2 gp",
+      "subagentType": "general-purpose",
+      "provider": {
+        "plugin": "engine",
+        "tier": "core"
+      },
+      "sent": "claude-sonnet-5-5",
+      "result": "claude-sonnet-5-5",
+      "firstStepModel": "claude-sonnet-5-5"
+    },
+    {
+      "description": "L3 pinned",
+      "subagentType": "pinned",
+      "provider": {
+        "plugin": "project",
+        "tier": "user"
+      },
+      "sent": null,
+      "result": "claude-sonnet-5-5",
+      "firstStepModel": "claude-sonnet-5-5"
+    },
+    {
+      "description": "L4 explicit",
+      "subagentType": "Explore",
+      "provider": {
+        "plugin": "engine",
+        "tier": "core"
+      },
+      "sent": "opus",
+      "result": "claude-opus-5-5",
+      "firstStepModel": "claude-opus-5-5"
+    }
+  ],
+  "store": {
+    "version": 1,
+    "since": 1791643685331,
+    "routed": {
+      "shadow": {},
+      "on": {
+        "Explore": {
+          "agents": 1,
+          "differs": 1,
+          "requests": 1,
+          "pricedRequests": 1,
+          "coreUsd": 0.025219,
+          "routedUsd": 0.00126095,
+          "respawns": 0,
+          "failures": 0,
+          "choices": {
+            "haiku": 1
+          }
+        },
+        "general-purpose": {
+          "agents": 1,
+          "differs": 0,
+          "requests": 1,
+          "pricedRequests": 1,
+          "coreUsd": 0.0331715,
+          "routedUsd": 0.0331715,
+          "respawns": 0,
+          "failures": 0,
+          "choices": {
+            "sonnet": 1
+          }
+        }
+      }
+    },
+    "passed": {
+      "unlisted": {
+        "agents": 1,
+        "requests": 1,
+        "pricedRequests": 1,
+        "usd": 0.005204
+      },
+      "explicit": {
+        "agents": 1,
+        "requests": 1,
+        "pricedRequests": 1,
+        "usd": 0.055538
+      }
+    }
+  }
+}

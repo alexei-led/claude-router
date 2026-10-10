@@ -247,7 +247,7 @@ test('the default overrides draw five distinct routes and warn about nothing', (
     '  code debug plan review        ·        S·high   ·        ·',
     '  explore docs                  ·        ·        ·        ·',
     '  ops                           ·        ·        H·high   ·',
-    '  5 distinct routes = 5 caches',
+    '  5 distinct routes · 3 caches',
   ]);
   for (const [activity, tiers] of Object.entries(DEFAULTS.activities))
     for (const tier of Object.keys(tiers)) assert.equal(rowWarnings(tree, activity, tier), '', `${activity} ${tier}`);
@@ -287,20 +287,25 @@ test('the activities lead with the mode, and OVERRIDES says whether the override
 });
 
 test('override rows warn about no effect, a route above the next tier and a new cache', () => {
-  const config = loadConfig();
-  let draft = routeDraftOf(config, {});
-  draft = editActivity(draft, config, 'code', 'high', 'add');
-  draft = editActivity(draft, config, 'review', 'low', 'effort', 'xhigh');
-  draft = editActivity(draft, config, 'review', 'low', 'model', 'opus');
-  draft = editActivity(draft, config, 'ops', 'low', 'effort', 'max');
-  const tree = routing(config, draft);
-  for (const [activity, tier, expected] of [
-    ['code', 'high', 'same as base: no effect'],
-    ['review', 'low', 'stronger than the tier above'],
-    ['ops', 'low', 'new (model, effort) pair: one more cache'],
-    ['code', 'low', ''],
-  ])
-    assert.equal(rowWarnings(tree, activity, tier), expected, `${activity} ${tier}`);
+  // A new effort on Haiku 5.5 is one more cache only where the provider caches each effort apart.
+  for (const [config, newEffort] of [
+    [loadConfig(), ''],
+    [{ ...loadConfig(), effortSplitsCache: true }, 'new (model, effort) pair: one more cache'],
+  ]) {
+    let draft = routeDraftOf(config, {});
+    draft = editActivity(draft, config, 'code', 'high', 'add');
+    draft = editActivity(draft, config, 'review', 'low', 'effort', 'xhigh');
+    draft = editActivity(draft, config, 'review', 'low', 'model', 'opus');
+    draft = editActivity(draft, config, 'ops', 'low', 'effort', 'max');
+    const tree = routing(config, draft);
+    for (const [activity, tier, expected] of [
+      ['code', 'high', 'same as base: no effect'],
+      ['review', 'low', 'stronger than the tier above'],
+      ['ops', 'low', newEffort],
+      ['code', 'low', ''],
+    ])
+      assert.equal(rowWarnings(tree, activity, tier), expected, `${activity} ${tier}`);
+  }
 });
 
 test('the routing draft lists activity edits and the mode in the router.json diff', () => {

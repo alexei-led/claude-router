@@ -61,10 +61,14 @@ export function harness(options = {}, preferences = new Map()) {
       },
     },
     fs: {
-      exists: async (path) => files.has(path),
+      exists: async (path) => files.has(path) || [...files.keys()].some((file) => file.startsWith(`${path}/`)),
       read: async (path) => files.get(path),
       stat: async (path) => ({ isLink: links.has(path) }),
       write: async (path, text) => files.set(path, text),
+      list: async (dir) =>
+        [...files.keys()]
+          .filter((path) => path.startsWith(`${dir}/`) && !path.slice(dir.length + 1).includes('/'))
+          .map((path) => ({ name: path.slice(dir.length + 1), kind: 'file' })),
     },
     command: {
       register: async () => ({}),
@@ -84,6 +88,7 @@ export function harness(options = {}, preferences = new Map()) {
       version: async () => ({ version }),
       model: async () => model,
       id: async () => sessionId,
+      cwd: async () => '/fixture/project',
       surfaces: async () => surfaces,
       messages: (...args) => messages(...args),
       usage: async () => usage,
@@ -109,24 +114,38 @@ export function harness(options = {}, preferences = new Map()) {
       resolve: () => ELEMENTS,
     },
   };
-  register(
-    (event, matcher, hook) =>
-      hooks.push({
-        event,
-        matcher: typeof matcher === 'function' ? null : matcher,
-        hook: typeof matcher === 'function' ? matcher : hook,
-      }),
-    options,
-  );
+  register((event, matcher, hook) => {
+    const entry = {
+      event,
+      matcher: typeof matcher === 'function' ? null : matcher,
+      hook: typeof matcher === 'function' ? matcher : hook,
+      onError: null,
+    };
+    hooks.push(entry);
+    // `.catch` answers in the hook's place when it throws, as the engine's handler does.
+    return {
+      catch: (fn) => {
+        entry.onError = fn;
+      },
+    };
+  }, options);
   function handler(event, input) {
-    return hooks.find(
+    const entry = hooks.find(
       (item) =>
         item.event === event &&
         (!item.matcher ||
           Object.entries(item.matcher).every(([key, value]) =>
             Array.isArray(value) ? value.includes(input[key]) : value === input[key],
           )),
-    )?.hook;
+    );
+    if (!entry?.onError) return entry?.hook;
+    return async ($, e, next) => {
+      try {
+        return await entry.hook($, e, next);
+      } catch {
+        return entry.onError($, e, next);
+      }
+    };
   }
   const next = (input) => input;
   next.signal = new AbortController().signal;
@@ -207,6 +226,19 @@ export function harness(options = {}, preferences = new Map()) {
       };
       send.signal = new AbortController().signal;
       return handler('turn.step', input)($, input, send);
+    },
+    // An agent.spawn dispatch: `result` (or `result(sent)`) is what core answers. Returns the hook's answer and the
+    // input it passed on, or null when it answered without next.
+    spawn: async (input, result = (sent) => ({ model: sent.model ?? input.parentModel, agentId: 'a1' })) => {
+      snapshot = new Map();
+      let sent = null;
+      const core = async (e) => {
+        sent = e;
+        return typeof result === 'function' ? result(e) : result;
+      };
+      core.signal = new AbortController().signal;
+      const answer = await handler('agent.spawn', input)($, input, core);
+      return { answer, sent };
     },
     clear: (id = 's2') => {
       state.clear();

@@ -140,6 +140,34 @@ declare module 'claude-code' {
     version: 1;
     since: number | null;
   }
+  // Subagent routing counts for one agent type in one mode (lib/subagents.mjs). `differs`: agents the decision moved off
+  // core's model; `choices`: agents by models key decided, or 'core'. USD over the priced requests.
+  interface RouterSubagentCounts {
+    agents: number;
+    differs: number;
+    requests: number;
+    pricedRequests: number;
+    coreUsd: number;
+    routedUsd: number;
+    respawns: number;
+    failures: number;
+    choices: Record<string, number>;
+  }
+  // Spawns that passed through for one reason, priced on the model they ran on.
+  interface RouterSubagentPassed {
+    agents: number;
+    requests: number;
+    pricedRequests: number;
+    usd: number;
+  }
+  // Kept across sessions, one per session under store key 'subagents:v1:<session id>' or their sum in the view, since
+  // the first agent after the last reset (ms).
+  interface RouterSubagentStore {
+    version: 1;
+    since: number | null;
+    routed: { shadow: Record<string, RouterSubagentCounts>; on: Record<string, RouterSubagentCounts> };
+    passed: Partial<Record<'fork' | 'explicit' | 'teammate' | 'workflow' | 'unlisted', RouterSubagentPassed>>;
+  }
   interface RouterView {
     phase: 'ready' | 'choosing' | 'routed' | 'manual' | 'unavailable';
     mode: 'auto' | 'manual';
@@ -185,6 +213,7 @@ declare module 'claude-code' {
     activityMetrics?: RouterActivityMetrics | null;
     savings?: RouterSavingsSession | null;
     savingsStore?: RouterSavingsStore | null;
+    subagentStore?: RouterSubagentStore | null;
     configPath?: string | null;
     tuning?: Partial<RouterTuning> | null;
     tuningBase?: RouterTuning | null;

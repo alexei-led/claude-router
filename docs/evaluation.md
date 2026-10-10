@@ -115,7 +115,7 @@ The Usage tab compares what routed replies cost with what the same tokens would 
 Method, per main reply that routing chose:
 
 - **Routed** prices the usage Claude reported (uncached input, cache read, cache write, output) on the model that served it.
-- **Yours** prices the same tokens on each model in `router.json` at the session effort, and the readout shows the one `/model` selects now, so a `/model` change shows the whole session against the new model. While this reply and the one before it ran on that model's route, it is the reply's own usage, so a session on your model differs by exactly $0.00. Otherwise each model keeps one cache that never switched: it reads the previous prompt, up to this one less its uncached input, inside the cache lifetime, unless a compaction shrank the history or the effort changed since, and never less than the API actually read; it writes the rest. Output tokens are the same. The totals kept across sessions price each reply against the model selected when it ran.
+- **Yours** prices the same tokens on each model in `router.json` at the session effort, and the readout shows the one `/model` selects now, so a `/model` change shows the whole session against the new model. While this reply and the one before it ran on that model's route, it is the reply's own usage, so a session on your model differs by exactly $0.00. Otherwise each model keeps one cache that never switched: it reads the previous prompt, up to this one less its uncached input, inside the cache lifetime, unless a compaction shrank the history or, on a model that keeps one cache per effort, the effort changed since, and never less than the API actually read; it writes the rest. Output tokens are the same. The totals kept across sessions price each reply against the model selected when it ran.
 - **Parts**: the served model on your cache against yours is the model price, under cheaper models when negative and stronger than yours when positive; routed against the served model on your cache is the cache the switches cost, never negative. They sum to the difference. The pane rounds to cents and gives the remainder only to a part that is not zero: a surplus to the switch part, else the stronger part, else the cheaper part toward $0.00; a shortfall comes off the stronger part, down to $0.00, then the cheaper part. The shown parts add up, none changes sign, and none appears from rounding alone.
 - **Prices**: `router.json` list prices through `ratesAt`, so Haiku 5.5 above 100,000 prompt tokens is priced at 5x. Claude Code reports no 5m/1h split to a Mod, so cache writes use the lifetime Claude Code 2.1.296 gives the main conversation by its own rule: one hour on a Claude plan unless an environment variable or the `promptCacheTtl` setting says otherwise, five minutes with an API key.
 
@@ -130,9 +130,45 @@ Limits:
 - Output length is held the same. A stronger model may write less, or finish in fewer tool steps; a cheaper one may need more. The readout cannot see either.
 - Answer quality is not measured. A saving bought with worse answers would read the same.
 - Your model's cache is simulated, and a five-minute session that the lifetime rule takes for one hour (a plan subscriber billed as overage) would read too much cache on your side.
-- A route that changes only the effort costs the same per token; it shows only its cache writes.
-- Subagents, classifier charges and replies with routing off are not counted. On a Claude plan the dollars stand for quota, not cash.
+- A route that changes only the effort costs the same per token. On Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 it shares your cache and reads $0.00; on a provider that caches each effort apart, it shows its cache writes.
+- Subagents (see [Subagent routing](#subagent-routing)), classifier charges and replies with routing off are not counted. On a Claude plan the dollars stand for quota, not cash.
 - The saved column keeps one record per session, so sessions finishing turns at the same moment both count. Claude Code's store has no atomic update, which leaves these gaps: the same session open in two Claude Code processes at once can lose one's turn; a turn finishing in another process during **Reset stats** can be lost; a session's total from before a reset comes back if its first saved reply has the same millisecond as the reset, or if the system clock moved back across the reset; and the activity counts across sessions are still one shared record, where two sessions finishing turns at the same moment can lose one turn's counts. The router reads every session's record at session start and when the pane opens, so that read grows with the number of sessions since the last reset.
+
+## Subagent routing
+
+Subagent routing has no measured result over time yet. It is `on` by default since 1.9; `shadow` makes and records the decision while the agent runs on the model Claude Code gives it. The Usage tab's **SUBAGENTS** section shows the counts kept across sessions since the last reset:
+
+- Per routed type and mode: agents; **moved**, the agents whose decided model differs from the one they ran on; requests per agent; respawns; the choices by model; classifier failures; and `core → routed`, the list price of the agents' tokens on core's model against the decided one.
+- **Not routed**, the spawns that passed through, by reason (`fork`, `workflow`, `explicit`, `teammate`, `unlisted`, `pinned`, `unknown`), priced on the model they ran on. This is the share of subagent spend that routing cannot reach.
+
+Method:
+
+- In `shadow`, `core` prices each reply on the model it ran on, and `routed` prices the same tokens on the decided model. A subagent starts with a cold cache on one model and keeps it, so its own token counts on another model are a fair counterfactual. `ratesAt` applies Haiku 5.5's 5x rate above 100,000 prompt tokens. Explore agents often pass that, so Haiku can cost more than its base price suggests.
+- In `on`, `routed` is the reply on the routed model and `core` the same tokens on core's model as the router estimates it: `CLAUDE_CODE_SUBAGENT_MODEL`, except for Explore and Plan without `CLAUDE_CODE_SUBAGENT_MODEL_FORCE`, else the parent's model.
+- Cache writes are priced at the subagent lifetime: five minutes unless `FORCE_PROMPT_CACHING_5M`, `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`, `subagentPromptCacheTtl` or `ENABLE_PROMPT_CACHING_1H` say otherwise, on a subscription too.
+- Shadow cannot see quality. The decided model never ran, so a retry or an escalation it would have caused is invisible. Two proxies are recorded in both modes, so an `on` period can be compared with the shadow baseline: requests per agent, and **respawns**, a spawn of the same type by the same parent within 10 minutes after one finished.
+
+Checks:
+
+- `test/subagents.test.mjs` covers each pass reason, the pin rule, the classify mapping, core's model estimate, the subagent lifetime, Haiku's long-context price, and the store's merge, reset and bad values. `test/hook-subagents.test.mjs` covers `shadow` (no change, decision recorded), `on` (the routed model), a fork, an explicit model, a teammate, a workflow agent and a pinned project agent (each passes), a classifier failure (core's model), parallel spawns, a spawn-path pause that leaves main routing alone, respawns, session end, Reset stats and the Usage tab.
+- `experiments/mod-router/results/agent-spawn-probe.json` records what Claude Code 2.1.296 does with a spawn's model, frontmatter and workflow agents.
+- `experiments/mod-router/results/subagent-routing-live.json` is a live `on` run on 2026-10-10 with Sonnet as the parent. Explore was sent Haiku and ran on it. general-purpose was classified `standard`. A pinned project agent and an explicit `opus` call passed through. The store counted each one.
+
+When to turn it `on`:
+
+- `routed` is below `core` for the routed types, by enough to matter;
+- the choices look right for the tasks: `light` for searches and reads, `heavy` rarely;
+- **Not routed** leaves enough routable spend to bother.
+
+With `on`, keep it if requests per agent and respawns per type stay no higher than in a `shadow` week. Otherwise go back to `shadow` and change `types` or `heavyMass`, or exclude a type with `null`.
+
+Limits:
+
+- Answer quality is not measured.
+- Workflow agents cannot be routed. In the maintainer's sessions they were 22 of 24 Opus subagents (`workflow-subagent-models.json`), so most inherited Opus spend there is out of reach. `CLAUDE_CODE_SUBAGENT_MODEL` is the lever for them.
+- `on` estimates core's model. It does not apply the family-alias rule or the `availableModels` substitution.
+- Respawns are a proxy. A parent may spawn the same type twice on purpose.
+- Records follow the savings records' storage, with the same gaps.
 
 ## Historical method and limits
 

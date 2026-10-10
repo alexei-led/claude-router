@@ -47,12 +47,14 @@ const CONFIGS = {
   }),
 };
 
-// The cache key a tier's route uses, written out here so the fixture does not lean on the code under test.
+// The cache key a tier's route uses, written out here so the fixture does not lean on the code under test: one cache
+// per effort, except on the models that keep one cache across efforts (code.claude.com/docs/en/prompt-caching).
+const EFFORT_SHARED = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-fable-5-1'];
 function keyOf(config, tier, sent) {
   const { model, effort } = config.routes[tier];
   const spec = config.models[model];
   const used = spec.efforts.length ? (effort ?? sent) : null;
-  return used ? `${spec.id}@${used}` : spec.id;
+  return used && !EFFORT_SHARED.includes(spec.id) ? `${spec.id}@${used}` : spec.id;
 }
 
 const SHAPES = {
@@ -331,9 +333,8 @@ function scenarios({ configs = CONFIGS, activity, view = record } = {}) {
         tokens: 150_000,
         resolutions: { 'claude-opus-5-5': 'claude-opus-5-5-20260101' },
         models: {
-          'claude-opus-5-5-20260101@xhigh': { lastAt: WARM, prefixTokens: 150_000 },
-          'claude-opus-5-5-20260101@medium': { lastAt: WARM, prefixTokens: 150_000 },
-          'claude-haiku-5-5@high': { lastAt: WARM, prefixTokens: 150_000 },
+          'claude-opus-5-5-20260101': { lastAt: WARM, prefixTokens: 150_000 },
+          'claude-haiku-5-5': { lastAt: WARM, prefixTokens: 150_000 },
         },
       }),
     );

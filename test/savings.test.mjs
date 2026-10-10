@@ -187,28 +187,44 @@ test('a compaction leaves your cache nothing to read, whether seen as a shrink o
   assert.equal(fresh.reply.yoursUsd, fresh.reply.routedUsd);
 });
 
-test('a new model or effort for your model starts its cache cold, whatever the old one had cached', () => {
-  const { state } = session(OPUS, [
-    [OPUS, { write: 40_000 }],
-    [HAIKU, { read: 40_000, write: 2_000 }],
-  ]);
-  const next = { usage: usage({ write: 45_000 }), served: HAIKU, ttl: '5m', now: 3 * MINUTE };
-  for (const yours of [SONNET, OPUS_MEDIUM]) {
-    const changed = compareReply(DEFAULTS, state, { ...next, yours });
-    assert.deepEqual(changed, compareReply(DEFAULTS, null, { ...next, yours }), yours.effort);
+const SPLIT = { ...DEFAULTS, effortSplitsCache: true };
+
+test('a new model for your model starts its cache cold, and so does a new effort where efforts split the cache', () => {
+  for (const config of [DEFAULTS, SPLIT]) {
+    const { state } = session(
+      OPUS,
+      [
+        [OPUS, { write: 40_000 }],
+        [HAIKU, { read: 40_000, write: 2_000 }],
+      ],
+      { config },
+    );
+    const next = { usage: usage({ write: 45_000 }), served: HAIKU, ttl: '5m', now: 3 * MINUTE };
+    const cold = (yours) => compareReply(config, null, { ...next, yours });
+    const changed = [SONNET, ...(config === SPLIT ? [OPUS_MEDIUM] : [])];
+    for (const yours of changed) assert.deepEqual(compareReply(config, state, { ...next, yours }), cold(yours));
+    const kept = [{ ...OPUS, model: 'claude-opus-5-5[1m]' }, ...(config === SPLIT ? [] : [OPUS_MEDIUM])];
+    for (const yours of kept)
+      assert.ok(compareReply(config, state, { ...next, yours }).reply.yoursUsd < cold(OPUS).reply.yoursUsd);
   }
-  const kept = compareReply(DEFAULTS, state, { ...next, yours: { ...OPUS, model: 'claude-opus-5-5[1m]' } });
-  assert.ok(kept.reply.yoursUsd < compareReply(DEFAULTS, null, { ...next, yours: OPUS }).reply.yoursUsd);
 });
 
-test('the same model at another effort is no price difference, only the cache its switch rewrote', () => {
-  const { replies } = session(OPUS, [
-    [OPUS, { write: 40_000 }],
-    [OPUS_MEDIUM, { write: 43_000 }],
-  ]);
-  const [, reply] = replies;
-  assert.deepEqual([reply.cheaperUsd, reply.strongerUsd], [0, 0]);
-  assert.ok(reply.switchUsd > 0);
+test('the same model at another effort is no price difference: your cache, or only the cache a split switch rewrote', () => {
+  const replies = (config) =>
+    session(
+      OPUS,
+      [
+        [OPUS, { write: 40_000 }],
+        [OPUS_MEDIUM, { write: 43_000 }],
+      ],
+      { config },
+    ).replies[1];
+  const split = replies(SPLIT);
+  assert.deepEqual([split.cheaperUsd, split.strongerUsd], [0, 0]);
+  assert.ok(split.switchUsd > 0);
+  const shared = replies(DEFAULTS);
+  assert.deepEqual([shared.cheaperUsd, shared.strongerUsd, shared.switchUsd], [0, 0, 0]);
+  assert.equal(shared.yoursUsd, shared.routedUsd);
 });
 
 test('Haiku above 100K prompt tokens prices every token at five times, your side included', () => {

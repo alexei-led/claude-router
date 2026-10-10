@@ -55,8 +55,9 @@ Why each row:
 - **`explore` and `docs`.** Moving them saved nothing in the replay. Haiku also scores lower on research
   benchmarks: 50.1% on Humanity's Last Exam with tools against 63.0% for Opus at `medium`. They keep the base routes.
 
-The matrix uses five routes on three models. The router counts each (model, effort) pair as its own cache, so this is
-one more than the base routes alone.
+The matrix uses five routes on three models. Opus 5.5, Sonnet 5.5 and Haiku 5.5 keep one cache across efforts, so the
+five routes use three caches, one more (Sonnet) than the base routes alone. On a provider that caches each effort apart,
+each (model, effort) pair is its own cache.
 
 ## Which model fits which work
 
@@ -237,8 +238,8 @@ Limits:
 - How well the classifier labels real turns. On 70 synthetic prompts, Jev and OpenAI labelled all 70 right; see
   [Evaluation](evaluation.md#activity-probe-set). The Usage tab's **Agreement** line checks your own turns against the
   tools they used.
-- Whether an effort change on the same model keeps the cache. We found only 6 cases. The router counts each
-  (model, effort) pair as its own cache.
+- Whether an effort change on the same model keeps the cache. We found only 6 cases. Claude Code's prompt-caching
+  docs say it does on the 5.5 models and Fable 5.1 with an API key or a subscription, and the router now prices it so.
 - How many requests a turn needs on each model.
 
 ## Sources

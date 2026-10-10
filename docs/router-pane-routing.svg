@@ -59,7 +59,7 @@
 <text x="164.4" y="300" fill="#d0d0d0" xml:space="preserve">model change: priced as a cold cache write</text>
 <text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">· </text>
 <text x="39.6" y="319" fill="#d0d0d0" xml:space="preserve">micro → low     </text>
-<text x="164.4" y="319" fill="#d0d0d0" xml:space="preserve">same model, new effort: priced as a new cache</text>
+<text x="164.4" y="319" fill="#d0d0d0" xml:space="preserve">same model, new effort: keeps its cache</text>
 <rect x="24.0" y="324" width="218.4" height="18" rx="4" fill="#2e3340"/>
 <text x="24.0" y="338" fill="#d0d0d0" xml:space="preserve">[ Reset routes to defaults ]</text>
 <text x="24.0" y="357" fill="#7c7c7c" xml:space="preserve">A new model ID needs router.json → models: price, window, efforts.</text>
@@ -73,7 +73,7 @@
 <text x="24.0" y="490" fill="#d0d0d0" xml:space="preserve">  debug plan review             ·        S·high   ·        ·        </text>
 <text x="24.0" y="509" fill="#d0d0d0" xml:space="preserve">  explore docs                  ·        ·        ·        ·        </text>
 <text x="24.0" y="528" fill="#d0d0d0" xml:space="preserve">  ops                           ·        ·        H·high   ·        </text>
-<text x="24.0" y="547" fill="#7c7c7c" xml:space="preserve">  6 distinct routes = 6 caches</text>
+<text x="24.0" y="547" fill="#7c7c7c" xml:space="preserve">  6 distinct routes · 3 caches</text>
 <text x="24.0" y="585" fill="#5fafd7" font-weight="700" xml:space="preserve">OVERRIDES</text>
 <text x="94.2" y="585" fill="#7c7c7c" xml:space="preserve"> · in use</text>
 <text x="24.0" y="604" fill="#d0d0d0" xml:space="preserve">code</text>
@@ -89,7 +89,6 @@
 <text x="367.2" y="623" fill="#d7af5f" xml:space="preserve">●</text>
 <rect x="382.8" y="609" width="78.0" height="18" rx="4" fill="#2e3340"/>
 <text x="382.8" y="623" fill="#d0d0d0" xml:space="preserve">[ remove ]</text>
-<text x="460.8" y="623" fill="#d7af5f" xml:space="preserve">  new (model, effort) pair: one more cache</text>
 <text x="24.0" y="642" fill="#d0d0d0" xml:space="preserve">debug</text>
 <text x="102.0" y="642" fill="#5f9fe0" font-weight="700" xml:space="preserve">low</text>
 <text x="164.4" y="642" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5 ▾</text>
@@ -135,7 +134,7 @@
 <text x="24.0" y="908" fill="#d0d0d0" xml:space="preserve">File     ~/.claude/router.json  </text>
 <rect x="273.6" y="894" width="62.4" height="18" rx="4" fill="#2e3340"/>
 <text x="273.6" y="908" fill="#d0d0d0" xml:space="preserve">[ copy ]</text>
-<text x="24.0" y="927" fill="#7c7c7c" xml:space="preserve">Main conversation only. Subagents keep their own model.</text>
+<text x="24.0" y="927" fill="#7c7c7c" xml:space="preserve">Subagents: on. Agents that pin no model get one at spawn, kept for every step.</text>
 <text x="24.0" y="965" fill="#7c7c7c" xml:space="preserve">router.json changes:</text>
 <text x="24.0" y="984" fill="#e06c6c" xml:space="preserve">- routes.medium                  Opus 5.5 · medium</text>
 <text x="24.0" y="1003" fill="#87d787" xml:space="preserve">+ routes.medium                  Sonnet 5.5 · xhigh</text>

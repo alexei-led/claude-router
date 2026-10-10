@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Subagent routing, on by default (`subagentRouting`: `off`, `shadow`, `on`). A subagent gets one model when it starts and keeps it for every step: Haiku for exploration, Opus for clearly hard tasks, Sonnet for the rest. The router reads each agent's definition and routes it when it names no model, says `model: inherit`, or sets the new frontmatter key `modelRouting: auto`; an agent that pins a model keeps it. The built-in Explore runs on Haiku, and Plan and general-purpose are classified. Forks, Agent calls that name a model, teammates and workflow agents keep their model. `subagents.types` overrides the rule per agent type. The active classifier now also receives the description and prompt of each routed subagent, as it receives main-turn prompts; set `"subagentRouting": "off"` to stop that. The Usage tab's new **SUBAGENTS** section shows, per type, what routing cost against the model Claude Code would have used, and what passed through and why. A classified spawn waits up to 3 seconds for the classifier; `shadow` records without changing models or delaying a spawn. Checked on Claude Code 2.1.293 and 2.1.296; unverified on older builds. See [Subagent routing](docs/configuration.md#subagent-routing).
+
+### Changed
+
+- An effort-only move on Opus 5.5, Sonnet 5.5, Haiku 5.5 or Fable 5.1, such as Opus at `medium` to `high`, is no longer priced as a cache write. These models keep one prompt cache across efforts with an API key or a Claude subscription, so the policy stops holding back moves that cost nothing, and Routing vs your model stops counting them as off your cache. On Amazon Bedrock, Google Cloud, Microsoft Foundry, a custom `ANTHROPIC_BASE_URL` or with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`, each effort still has its own cache.
+
 ## 1.8.0 (2026-10-10)
 
 ### Changed

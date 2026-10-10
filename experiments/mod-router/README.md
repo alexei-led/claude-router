@@ -2,7 +2,7 @@
 
 The production router now lives in [hooks/native-router.mjs](../../hooks/native-router.mjs). This directory contains isolated probes, reproducible CLI drivers and sanitized acceptance results. It is excluded from the shipped plugin.
 
-See the [architecture](../../docs/architecture.md), [configuration](../../docs/configuration.md) and [user guide](../../docs/user-guide.md) for the supported native setup. Main conversations are routed. Every subagent model choice passes through unchanged.
+See the [architecture](../../docs/architecture.md), [configuration](../../docs/configuration.md) and [user guide](../../docs/user-guide.md) for the supported native setup. Main conversations are routed per turn. Subagents get one model at spawn behind `subagentRouting`; `spawn-probe/` is the probe Mod behind `results/agent-spawn-probe.json`.
 
 ## Evidence
 

@@ -10,7 +10,7 @@ const facts = {
   effort: 'xhigh',
   lastRoute: 'medium',
   lastRequest: { tokens: 150_000, outputTokens: 1500 },
-  models: { 'claude-sonnet-5-5@xhigh': { prefixTokens: 148_000, lastAt: now } },
+  models: { 'claude-sonnet-5-5': { prefixTokens: 148_000, lastAt: now } },
 };
 const tiny = {
   id: 'claude-haiku-4-5',
@@ -39,21 +39,44 @@ test('native cache evidence is only a five-minute fresh estimate, never an infer
   assert.equal(native.cacheState({ prefixTokens: 100, lastAt: now + 1 }, now, DEFAULTS.cache), 'unknown');
 });
 
-test('cache identity preserves model snapshots and separates effective efforts', () => {
+test('cache identity preserves model snapshots and separates efforts only where they split the cache', () => {
   const config = loadConfig({
     userFile: {
       models: { haiku: { id: 'claude-haiku-5-5-20260101' } },
       routes: { low: { model: 'sonnet', effort: null } },
     },
   });
+  const split = (cfg) => ({ ...cfg, effortSplitsCache: true });
   const key = (cfg, tier, sent) => native.routeCacheKey(cfg, resolveRoute(cfg, tier), sent);
-  assert.equal(key(config, 'micro', 'xhigh'), 'claude-haiku-5-5-20260101@medium');
-  assert.equal(key(DEFAULTS, 'low', 'medium'), 'claude-haiku-5-5@high');
-  assert.equal(key(SONNET_MEDIUM, 'micro', 'xhigh'), 'claude-haiku-4-5');
-  assert.equal(key(config, 'medium', 'low'), 'claude-opus-5-5@medium');
-  assert.equal(key(SONNET_MEDIUM, 'medium', 'low'), 'claude-sonnet-5-5@xhigh');
-  assert.equal(key(config, 'low', 'medium'), 'claude-sonnet-5-5@medium');
-  assert.equal(key(config, 'low', 2000), 'claude-sonnet-5-5@2000');
+  for (const [cfg, tier, sent, shared, separate] of [
+    [config, 'micro', 'xhigh', 'claude-haiku-5-5-20260101', 'claude-haiku-5-5-20260101@medium'],
+    [DEFAULTS, 'low', 'medium', 'claude-haiku-5-5', 'claude-haiku-5-5@high'],
+    [SONNET_MEDIUM, 'micro', 'xhigh', 'claude-haiku-4-5', 'claude-haiku-4-5'],
+    [config, 'medium', 'low', 'claude-opus-5-5', 'claude-opus-5-5@medium'],
+    [SONNET_MEDIUM, 'medium', 'low', 'claude-sonnet-5-5', 'claude-sonnet-5-5@xhigh'],
+    [config, 'low', 'medium', 'claude-sonnet-5-5', 'claude-sonnet-5-5@medium'],
+    [config, 'low', 2000, 'claude-sonnet-5-5', 'claude-sonnet-5-5@2000'],
+  ]) {
+    assert.equal(key(cfg, tier, sent), shared, `${tier} ${sent}`);
+    assert.equal(key(split(cfg), tier, sent), separate, `${tier} ${sent} split`);
+  }
+});
+
+test('only the models that keep one cache across efforts share it, and never where the provider splits it', () => {
+  for (const [id, shares] of [
+    ['claude-opus-5-5', true],
+    ['claude-sonnet-5-5[1m]', true],
+    ['claude-haiku-5-5-20260101', true],
+    ['claude-fable-5-1', true],
+    ['claude-haiku-4-5', false],
+    ['claude-opus-5', false],
+    [undefined, false],
+  ]) {
+    assert.equal(native.effortSharesCache(DEFAULTS, id), shares, String(id));
+    assert.equal(native.effortSharesCache({ ...DEFAULTS, effortSplitsCache: true }, id), false, `${id} split`);
+  }
+  assert.equal(native.cacheKey(DEFAULTS, 'claude-haiku-4-5', 'high'), 'claude-haiku-4-5@high');
+  assert.equal(native.cacheKey(DEFAULTS, 'claude-haiku-5-5', null), 'claude-haiku-5-5');
 });
 
 test('bounds distinguish observed cached prefix from generated and uncached tokens', () => {
@@ -72,7 +95,7 @@ test('unknown TTL keeps an optimistic incumbent scenario and a cold candidate up
   near(estimate.nextTurnUsd, 0.2589);
   near(estimate.laterTurnUsd, -0.02265);
   assert.equal(estimate.paybackTurns, 12);
-  assert.equal(native.cacheState(facts.models['claude-sonnet-5-5@xhigh'], later, SONNET_MEDIUM.cache), 'unknown');
+  assert.equal(native.cacheState(facts.models['claude-sonnet-5-5'], later, SONNET_MEDIUM.cache), 'unknown');
 });
 
 test('the default policy accounts for bounded native switching costs', () => {

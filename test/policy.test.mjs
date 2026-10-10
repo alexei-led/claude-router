@@ -33,8 +33,9 @@ function facts({
   servedBy = 'claude-sonnet-5-5',
   effort = null,
   extraModels = {},
+  effortSplits = false,
 } = {}) {
-  const m = served(servedBy, { tokens, output, at: T0, effort });
+  const m = served(servedBy, { tokens, output, at: T0, effort, effortSplits });
   return {
     lastRoute,
     lastRequest: m.lastRequest,
@@ -58,6 +59,8 @@ function runTurns(f, advices, initial = initialState(), cfg = config) {
 }
 
 const metered = loadConfig({ userFile: { models: { opus: { billing: 'credits', input: 10 } } } });
+// A provider that gives each effort its own cache (effortSplitsCache, set by the hook from the session's provider).
+const split = (cfg) => ({ ...cfg, effortSplitsCache: true });
 
 test('mass helpers exclude uncertain', () => {
   const p = { micro: 0.1, low: 0.2, medium: 0.3, high: 0.3, uncertain: 0.1 };
@@ -217,44 +220,57 @@ test('a cold metered model above the cash cap is gated, which only a user-billed
   }
 });
 
-test('a metered model warm at the routed effort passes the cash gate; warm at another effort is still gated', () => {
-  const warm = served('claude-opus-5-5', { tokens: 300_000, ttl: '5m', at: T0, effort: 'xhigh' }).models;
-  const f = facts({ tokens: 300_000, extraModels: warm });
-  const [d] = runTurns(f, [advice('high', { high: 0.97 })], initialState(), metered);
-  assert.equal(d.reason, 'jump');
-  const otherEffort = served('claude-opus-5-5', { tokens: 300_000, ttl: '5m', at: T0, effort: 'high' }).models;
-  const [guarded] = runTurns(
-    facts({ tokens: 300_000, extraModels: otherEffort }),
-    [advice('high', { high: 0.97 })],
-    initialState(),
-    metered,
-  );
-  assert.equal(guarded.reason, 'cash-gate');
+test('a metered model warm at the routed effort passes the cash gate; warm at another effort is gated only where efforts split the cache', () => {
+  const warmAt = (effort, effortSplits) =>
+    facts({
+      tokens: 300_000,
+      effortSplits,
+      extraModels: served('claude-opus-5-5', { tokens: 300_000, ttl: '5m', at: T0, effort, effortSplits }).models,
+    });
+  const high = [advice('high', { high: 0.97 })];
+  for (const [effort, cfg, reason] of [
+    ['xhigh', split(metered), 'jump'],
+    ['high', split(metered), 'cash-gate'],
+    ['xhigh', metered, 'jump'],
+    ['high', metered, 'jump'],
+  ]) {
+    const [d] = runTurns(warmAt(effort, Boolean(cfg.effortSplitsCache)), high, initialState(), cfg);
+    assert.equal(d.reason, reason, `warm at ${effort}, efforts ${cfg.effortSplitsCache ? 'split' : 'shared'}`);
+  }
 });
 
-test('an effort-only upgrade between one model at two efforts pays the tax of rewriting the messages cache', () => {
+test('an effort-only upgrade between one model at two efforts pays the cache rewrite only where efforts split the cache', () => {
   const sonnetMedium = loadConfig({
     userFile: { routes: { low: { model: 'sonnet', effort: null }, medium: { model: 'sonnet', effort: 'xhigh' } } },
   });
   const f = facts({ lastRoute: 'low', tokens: 400_000 });
   const votes = [advice('medium', { medium: 0.8, low: 0.2 }), advice('medium', { medium: 0.8, low: 0.2 })];
-  const [, second] = runTurns(f, votes, initialState(), sonnetMedium);
-  assert.equal(second.reason, 'upgrade-pending');
-  assert.ok(second.estimate.taxUsd > 1.5);
-  assert.deepEqual(second.estimate.cache, { candidate: 'unknown', incumbent: 'fresh' });
+  const [, splitSecond] = runTurns(f, votes, initialState(), split(sonnetMedium));
+  assert.equal(splitSecond.reason, 'upgrade-pending');
+  assert.ok(splitSecond.estimate.taxUsd > 1.5);
+  assert.deepEqual(splitSecond.estimate.cache, { candidate: 'unknown', incumbent: 'fresh' });
+  const [, shared] = runTurns(f, votes, initialState(), sonnetMedium);
+  assert.equal(shared.reason, 'upgrade');
+  assert.deepEqual(shared.estimate.cache, { candidate: 'fresh', incumbent: 'fresh' });
+  assert.ok(Math.abs(shared.estimate.taxUsd) < 1e-9);
 });
 
-test('the default micro to low upgrade is effort-only on Haiku and pays its cache rewrite', () => {
-  const at = (tokens) => facts({ lastRoute: 'micro', tokens, servedBy: 'claude-haiku-5-5', effort: 'medium' });
+test('the default micro to low upgrade is effort-only on Haiku: free on a shared cache, a rewrite where efforts split it', () => {
+  const at = (tokens, effortSplits = false) =>
+    facts({ lastRoute: 'micro', tokens, servedBy: 'claude-haiku-5-5', effort: 'medium', effortSplits });
   const votes = [advice('low', { low: 0.8, micro: 0.2 }), advice('low', { low: 0.8, micro: 0.2 })];
-  const [, second] = runTurns(at(90_000), votes);
+  const [, second] = runTurns(at(90_000, true), votes, initialState(), split(config));
   assert.deepEqual([second.tier, second.reason], ['low', 'upgrade']);
   assert.deepEqual(second.estimate.cache, { candidate: 'unknown', incumbent: 'fresh' });
   assert.ok(second.estimate.taxUsd > 0);
   assert.ok(second.estimate.threshold > config.policy.upgradeBase);
   // Above 100K tokens Haiku 5.5 bills 5x, so the same rewrite costs enough to hold the upgrade.
-  const [, large] = runTurns(at(400_000), votes);
+  const [, large] = runTurns(at(400_000, true), votes, initialState(), split(config));
   assert.deepEqual([large.tier, large.reason], ['micro', 'upgrade-pending']);
+  // One cache for both efforts: nothing to rewrite, so the bar stays at its base even at 400K.
+  const [, shared] = runTurns(at(400_000), votes);
+  assert.deepEqual([shared.tier, shared.reason], ['low', 'upgrade']);
+  assert.equal(shared.estimate.threshold, config.policy.upgradeBase);
 });
 
 test('a downgrade to a candidate colder than the incumbent raises the bar by its cache write, as an upgrade tax does', () => {
