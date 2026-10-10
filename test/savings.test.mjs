@@ -5,6 +5,7 @@ import { resetHistory } from '../lib/route.mjs';
 import {
   addReplies,
   addReply,
+  compareModels,
   compareReply,
   EARLY_REPLIES,
   emptySavingsStore,
@@ -372,4 +373,14 @@ test('a model named after an Object method keeps its own session totals and ever
     [byModel.toString.replies, byModel.opus.replies, Object.keys(byModel)],
     [1, 1, ['toString', 'opus']],
   );
+});
+
+test('a reply that cannot be priced against your model, one named after an Object method, is no reply', () => {
+  const config = {
+    ...DEFAULTS,
+    models: { ...DEFAULTS.models, toString: { ...DEFAULTS.models.haiku, id: 'claude-toy-1' } },
+  };
+  const input = { usage: usage({ write: 1000 }), served: OPUS, effort: 'high', now: 0, yours: 'claude-toy-1' };
+  assert.equal(compareModels(config, {}, { ...input, ttl: 'never' }).reply, null);
+  assert.equal(compareModels(config, {}, { ...input, ttl: '1h' }).reply.routedUsd > 0, true);
 });

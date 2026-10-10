@@ -662,14 +662,14 @@ async function compareYours($, router, loop, response, servedEffort, nativeModel
   try {
     if (!response.usage?.model) return null;
     const view = router.view ?? (await readView($, router));
-    const compared = compareModels(cfg, loop.yoursBy ?? {}, {
+    return compareModels(cfg, loop.yoursBy ?? {}, {
       usage: response.usage,
       served: { model: response.usage.model, effort: servedEffort },
       effort: view.nativeEffort ?? null,
       ttl: await cacheTtlOf($),
       now: Date.now(),
+      yours: nativeModel,
     });
-    return { ...compared, reply: compared.replies[modelAlias(cfg, nativeModel)] ?? null };
   } catch {
     return null;
   }
