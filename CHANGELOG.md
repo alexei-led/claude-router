@@ -1,11 +1,11 @@
 # Changelog
 
-## Unreleased
+## 1.10.0 (2026-10-10)
 
 ### Changed
 
 - The pane has five tabs: Now, Routes, Policy, Classifier, Usage (`1`–`5`). The routing on/off pair and the classifier state share one top line.
-- **Routes** is one grid of tiers by activities: the **every turn** row holds each tier's model, and each activity's cell shows the model it runs there, `·` for the tier's model, `°` for a built-in default, **●** for an unsaved edit. Select a cell to edit it under the grid. The separate matrix and overrides list are gone. **remove** is now **Use tier model**, and **Restore default** puts a built-in override back. `5 distinct routes = 5 caches` is now `5 model setups in use`, with a sentence on why each setup costs a cache write. The effort option `session` reads `inherit`.
+- **Routes** is one grid of tiers by activities: the **every turn** row holds each tier's model, and each activity's cell shows the model it runs there, `·` for the tier's model, `°` for a built-in default, **●** for an unsaved edit. Select a cell to edit it under the grid. The separate matrix and overrides list are gone. **remove** is now **Use tier model**, and **Restore default** puts a built-in override back. `5 distinct routes · 3 caches` is now `3 prompt caches in use: one per model`, with a sentence on what a cold cache costs. The effort option `session` reads `inherit`.
 - **Policy** has the policy controls and the start tier (`baselineTier`), each inside its sentence, such as `Going down  after 2 ▾ agreeing turns`, with the default beside a changed value. The tab says when the credits cap has no effect. **Routes ●** or **Policy ●** marks the tab whose settings the draft changes; the `router.json` diff shows on those two tabs and a one-line count on the others.
 - **Now** leads with what runs next turn and why: `Next turn  ▌high  Opus 5.5 · xhigh`, the activity as a verb, and `Jev gave stronger tiers 88% (needs 82%) · switch ≈ $0.48` under **Why**. The letter row under the replies strip (`eeccoo…`) is gone; the replies per tier and per activity are counted instead, such as `coding 12 · exploring 4`.
 - **Classifier** lists the classifiers as columns to compare: where the prompt goes (`this machine` for Ollama), the activity probe and its p95 wait, and status. The deadline line shows the active classifier's p95 wait across sessions, in yellow when it is slower than the deadline. The counts kept across sessions moved here from Usage. The list of the credentials every classifier needs is gone; each row names what it lacks.
@@ -14,6 +14,16 @@
 ### Fixed
 
 - The Now picture in the docs said `0 switches` next to a strip with three tier changes; its sample now records what served each reply.
+
+## 1.9.0 (2026-10-10)
+
+### Added
+
+- Subagent routing, on by default (`subagentRouting`: `off`, `shadow`, `on`). A subagent gets one model when it starts and keeps it for every step: Haiku for exploration, Opus for clearly hard tasks, Sonnet for the rest. The router reads each agent's definition and routes it when it names no model, says `model: inherit`, or sets the new frontmatter key `modelRouting: auto`; an agent that pins a model keeps it. The built-in Explore runs on Haiku, and Plan and general-purpose are classified. Forks, Agent calls that name a model, teammates and workflow agents keep their model. `subagents.types` overrides the rule per agent type. The active classifier now also receives the description and prompt of each routed subagent, as it receives main-turn prompts; set `"subagentRouting": "off"` to stop that. The Usage tab's new **SUBAGENTS** section shows, per type, what routing cost against the model Claude Code would have used, and what passed through and why. A classified spawn waits up to 3 seconds for the classifier; `shadow` records without changing models or delaying a spawn. Checked on Claude Code 2.1.293 and 2.1.296; unverified on older builds. See [Subagent routing](docs/configuration.md#subagent-routing).
+
+### Changed
+
+- An effort-only move on Opus 5.5, Sonnet 5.5, Haiku 5.5 or Fable 5.1, such as Opus at `medium` to `high`, is no longer priced as a cache write. These models keep one prompt cache across efforts with an API key or a Claude subscription, so the policy stops holding back moves that cost nothing, and Routing vs your model stops counting them as off your cache. On Amazon Bedrock, Google Cloud, Microsoft Foundry, a custom `ANTHROPIC_BASE_URL` or with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`, each effort still has its own cache.
 
 ## 1.8.1 (2026-10-10)
 

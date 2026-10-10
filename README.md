@@ -5,11 +5,11 @@
 
 **A Claude Code Mod that chooses a model and effort for each main-conversation turn, advised by a prompt classifier: Jev, Cloudflare's Clef and Clef Flash, OpenAI, or a local Ollama model.**
 
-The Mod changes only the model and effort in Claude Code's turn hook. Claude Code sends the request, streams the reply, runs tools, and reports usage. The router does not proxy Anthropic traffic or start a local server; an Ollama classifier calls an Ollama server that you run. Subagent model choices pass through unchanged.
+The Mod changes only the model and effort in Claude Code's turn hook. Claude Code sends the request, streams the reply, runs tools, and reports usage. The router does not proxy Anthropic traffic or start a local server; an Ollama classifier calls an Ollama server that you run. Subagents get one model each when they start, chosen the same way: every agent whose definition names no model, says `model: inherit`, or sets `modelRouting: auto`. Their steps are never re-routed. See [Subagent routing](docs/configuration.md#subagent-routing).
 
 ## Supported classifiers
 
-The active classifier is asked once per logical turn, for the tier and for the turn's activity. Pick one on the pane's **Classifier** tab or in `router.json`; only the active one receives prompt text.
+The active classifier is asked once per logical turn, for the tier and for the turn's activity. Pick one on the pane's **Classifier** tab or in `router.json`; only the active one receives prompt text. With subagent routing `on` (the default) or `shadow`, it is also asked once per routed subagent, with the task's description and prompt; set `"subagentRouting": "off"` to keep that text local.
 
 | Classifier | Service                                    | Credential                          | Prompt text goes to       | How it is asked for the activity                                      |
 | ---------- | ------------------------------------------ | ----------------------------------- | ------------------------- | --------------------------------------------------------------------- |
@@ -37,12 +37,16 @@ sequenceDiagram
   participant Cls as Classifier
   participant API as Anthropic
   Dev->>Code: Prompt
+  opt Subagent spawn
+    Code->>Mod: agent.spawn
+    Mod-->>Code: One model for the agent (on), or none (shadow, off)
+  end
   Code->>Mod: Main or subagent step
   alt Main conversation, routing on
     Mod->>Cls: Bounded prompt and dialogue
     Cls-->>Mod: Tier advice
     Mod-->>Code: Selected model and effort
-  else Routing off or subagent
+  else Routing off or subagent step
     Mod-->>Code: Original model and effort
   end
   Code->>API: Native request and tools

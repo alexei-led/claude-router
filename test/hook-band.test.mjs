@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { band, controls, drain, harness, start, step, texts } from './harness.mjs';
+import { band, CONFIG, controls, drain, harness, start, step, texts } from './harness.mjs';
 
 test('the band shows the tier meter, route, reason and context after a routed reply', async () => {
   const h = harness();
@@ -25,11 +25,15 @@ test('a narrow band drops context and reason before the route', async () => {
   assert.doesNotMatch(line, /ctx|pinned/);
 });
 
-test('the band yields to a survey and says subagents keep their model', async () => {
+test('the band yields to a survey and says how a subagent got its model', async () => {
   const h = harness();
   await start(h);
   assert.equal((await band(h, { hasSurvey: true })).tree.component, 'AbovePrompt');
-  assert.match((await band(h, { view: { agentId: 'a1' } })).line, /subagents keep their own model/);
+  assert.match((await band(h, { view: { agentId: 'a1' } })).line, /subagent model chosen at spawn/);
+  const off = harness();
+  off.files.set(CONFIG, JSON.stringify({ subagentRouting: 'off' }));
+  await start(off);
+  assert.match((await band(off, { view: { agentId: 'a1' } })).line, /subagents keep their own model/);
 });
 
 test('the band offers Routing on in Manual mode and a key button without a key', async () => {

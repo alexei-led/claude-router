@@ -259,7 +259,7 @@ const editor = (tree) => {
   );
 };
 
-test('the Routes tab is one grid: the tiers’ own models on top, built-in overrides marked, five setups by default', () => {
+test('the Routes tab is one grid: the tiers’ own models on top, built-in overrides marked, one cache per model', () => {
   const tree = routesTab(DEFAULTS);
   assert.deepEqual(grid(tree), [
     '              micro           low             medium          high',
@@ -275,7 +275,16 @@ test('the Routes tab is one grid: the tiers’ own models on top, built-in overr
   ]);
   const lines = screen(tree);
   assert.ok(lines.includes('Select a cell to change its model and effort.'));
-  assert.ok(lines.some((line) => line.startsWith('5 model setups in use. Each setup (model + effort) keeps')));
+  assert.equal(
+    lines.find((l) => l.includes('prompt cache')),
+    '3 prompt caches in use: one per model; effort changes keep it. A switch to a',
+  );
+  // Where the provider caches each effort apart, each tier and override route is its own cache.
+  const split = screen(routesTab({ ...DEFAULTS, effortSplitsCache: true }));
+  assert.equal(
+    split.find((l) => l.includes('prompt cache')),
+    '5 prompt caches in use: one per model + effort. A switch to a cold cache',
+  );
   assert.ok(!lines.some((line) => line.startsWith('!')));
   // A narrow pane shortens the efforts and keeps a space between the cells.
   const narrow = grid(routesTab(DEFAULTS, null, {}, actions, { columns: 70 }));
@@ -332,8 +341,20 @@ test('a selected activity cell edits its model and effort, says what it is, and 
     '                      your override',
     '                      [ Use tier model: Haiku 5.5 · high ] [ Restore default: Sonnet 5.5 · high ]',
     '                      ! stronger than the tier above',
-    '                      ! a model setup only this cell uses: one more cache',
   ]);
+  // Opus at a new effort is one more cache only where the provider caches each effort apart.
+  const split = { ...config, effortSplitsCache: true };
+  assert.deepEqual(
+    editor(
+      routesTab(split, editActivity(routeDraftOf(split, {}), split, 'review', 'low', 'model', 'opus'), {
+        routeCell: 'review.low',
+      }),
+    ).slice(3),
+    [
+      '                      ! stronger than the tier above',
+      '                      ! a model + effort only this cell uses: one more cache',
+    ],
+  );
   assert.deepEqual(editor(routesTab(config, null, { routeCell: 'code.low' })), [
     'coding at low         sonnet ▾      high ▾',
     '                      built-in default',
@@ -629,7 +650,11 @@ test('the Usage tab shows this session by activity in each mode, and the counts 
     const { calls, actions: recorded } = recording();
     const lines = usageLines(mode, { activityStats, activityStore: STORE }, recorded);
     const at = lines.findIndex((l) => l.startsWith('BY ACTIVITY'));
-    assert.deepEqual(lines.slice(at, at + expected.length + 2), [...expected, ' ', 'CLAUDE READINGS'], name);
+    assert.deepEqual(
+      lines.slice(at, at + expected.length + 2),
+      [...expected, ' ', 'SUBAGENTS · across sessions'],
+      name,
+    );
     assert.ok(!lines.includes(ACROSS), `${name}: the counts across sessions are on the Classifier tab`);
     renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'usage' }), null, recorded);
     const tree = renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'usage' }), null, recorded);

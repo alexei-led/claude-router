@@ -1,0 +1,401 @@
+{
+  "scope": "What agent.spawn carries and which model a subagent runs on, by how its model was chosen. Claude Code 2.1.296, main model claude-haiku-5-5, 2026-10-10.",
+  "source": "experiments/mod-router/spawn-probe: a probe Mod that records each agent.spawn input and next() result, sets e.model when the description or prompt holds OVR:<model>, and records each agent loop's first turn.step model. Run from spawn-probe/cwd, whose .claude/agents defines pinned (model: sonnet), pinhaiku (model: haiku) and plain (no model), as SPAWN_PROBE_OUT=<file> claude -p --model haiku --plugin-dir experiments/mod-router/spawn-probe [--allowedTools Workflow] '<prompt naming the Agent calls, or the workflow script>'. tool_use_id and permissionMode are dropped from the rows.",
+  "findings": {
+    "fields": "Observed: tool_use_id, prompt, description, subagentType, provider, model (only when the Agent call or agent() passed one), parentModel, permissionMode, background, fork, workflow (workflow agents only). isTeammate, parentAgentId, name and cwd did not occur in these runs; they are in the build types.",
+    "hookBeatsFrontmatter": "A3: pinned (model: sonnet) ran on opus when the hook set opus.",
+    "frontmatterHidden": "A2: a frontmatter model never reaches e.model; only the result of next() shows it.",
+    "explicitShown": "A5, A6: the Agent tool model parameter arrives as e.model, and wins over frontmatter (A6).",
+    "hookBeatsEnv": "B2: with CLAUDE_CODE_SUBAGENT_MODEL=sonnet, the hook's opus won.",
+    "frontmatterBeatsEnv": "B3: pinhaiku (model: haiku) ran on haiku with CLAUDE_CODE_SUBAGENT_MODEL=sonnet.",
+    "exploreIgnoresEnv": "B4: Explore ran on the main model with CLAUDE_CODE_SUBAGENT_MODEL=sonnet; B5: the hook moved it to sonnet.",
+    "builtinProvider": "A4, A7: built-in Explore and general-purpose carry provider { plugin: engine, tier: core }.",
+    "workflowFires": "C1-C4: each workflow agent() raised agent.spawn with workflow { runId, agentIndex }; agent({ model }) arrived as e.model (C2).",
+    "workflowNotRewritable": "C3: the hook's opus was ignored; the agent ran on the main model.",
+    "budget": "next.budget.ms read 10000 in every hook, as HookBudget.ms in the types.",
+    "resultModel": "result.model is the full id the agent ran on: it equals the agent's first turn.step model in every row."
+  },
+  "rows": [
+    {
+      "scenario": "A",
+      "env": {},
+      "input": {
+        "prompt": "Reply ok",
+        "description": "A1 plain",
+        "subagentType": "plain",
+        "provider": {
+          "plugin": "project",
+          "tier": "user"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false
+      },
+      "hookSet": null,
+      "result": {
+        "model": "claude-haiku-5-5",
+        "agentId": "a72c74c6d480cde38"
+      },
+      "firstStepModel": "claude-haiku-5-5"
+    },
+    {
+      "scenario": "A",
+      "env": {},
+      "input": {
+        "prompt": "Reply ok",
+        "description": "A2 pinned",
+        "subagentType": "pinned",
+        "provider": {
+          "plugin": "project",
+          "tier": "user"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false
+      },
+      "hookSet": null,
+      "result": {
+        "model": "claude-sonnet-5-5",
+        "agentId": "a609a289415a6365b"
+      },
+      "firstStepModel": "claude-sonnet-5-5"
+    },
+    {
+      "scenario": "A",
+      "env": {},
+      "input": {
+        "prompt": "Reply ok",
+        "description": "A3 OVR:opus",
+        "subagentType": "pinned",
+        "provider": {
+          "plugin": "project",
+          "tier": "user"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false
+      },
+      "hookSet": "opus",
+      "result": {
+        "model": "claude-opus-5-5",
+        "agentId": "a5b88a00f6ec45f57"
+      },
+      "firstStepModel": "claude-opus-5-5"
+    },
+    {
+      "scenario": "A",
+      "env": {},
+      "input": {
+        "prompt": "Reply ok",
+        "description": "A4 explore",
+        "subagentType": "Explore",
+        "provider": {
+          "plugin": "engine",
+          "tier": "core"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false
+      },
+      "hookSet": null,
+      "result": {
+        "model": "claude-haiku-5-5",
+        "agentId": "a30c0a7acfb4aae28"
+      },
+      "firstStepModel": "claude-haiku-5-5"
+    },
+    {
+      "scenario": "A",
+      "env": {},
+      "input": {
+        "prompt": "Reply ok",
+        "description": "A5 explicit",
+        "subagentType": "plain",
+        "provider": {
+          "plugin": "project",
+          "tier": "user"
+        },
+        "model": "sonnet",
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false
+      },
+      "hookSet": null,
+      "result": {
+        "model": "claude-sonnet-5-5",
+        "agentId": "ad0a43efcd88ea507"
+      },
+      "firstStepModel": "claude-sonnet-5-5"
+    },
+    {
+      "scenario": "A",
+      "env": {},
+      "input": {
+        "prompt": "Reply ok",
+        "description": "A6 explicit",
+        "subagentType": "pinned",
+        "provider": {
+          "plugin": "project",
+          "tier": "user"
+        },
+        "model": "opus",
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false
+      },
+      "hookSet": null,
+      "result": {
+        "model": "claude-opus-5-5",
+        "agentId": "ac2e46e610c235a29"
+      },
+      "firstStepModel": "claude-opus-5-5"
+    },
+    {
+      "scenario": "A",
+      "env": {},
+      "input": {
+        "prompt": "Reply ok",
+        "description": "A7 gp",
+        "subagentType": "general-purpose",
+        "provider": {
+          "plugin": "engine",
+          "tier": "core"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false
+      },
+      "hookSet": null,
+      "result": {
+        "model": "claude-haiku-5-5",
+        "agentId": "a967b7210625a080f"
+      },
+      "firstStepModel": "claude-haiku-5-5"
+    },
+    {
+      "scenario": "B",
+      "env": {
+        "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+      },
+      "input": {
+        "prompt": "Reply ok",
+        "description": "B1 plain",
+        "subagentType": "plain",
+        "provider": {
+          "plugin": "project",
+          "tier": "user"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false
+      },
+      "hookSet": null,
+      "result": {
+        "model": "claude-sonnet-5-5",
+        "agentId": "a04720f298a37ab4a"
+      },
+      "firstStepModel": "claude-sonnet-5-5"
+    },
+    {
+      "scenario": "B",
+      "env": {
+        "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+      },
+      "input": {
+        "prompt": "Reply ok",
+        "description": "B2 OVR:opus",
+        "subagentType": "plain",
+        "provider": {
+          "plugin": "project",
+          "tier": "user"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false
+      },
+      "hookSet": "opus",
+      "result": {
+        "model": "claude-opus-5-5",
+        "agentId": "a462b75c7ffb3bc4f"
+      },
+      "firstStepModel": "claude-opus-5-5"
+    },
+    {
+      "scenario": "B",
+      "env": {
+        "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+      },
+      "input": {
+        "prompt": "Reply ok",
+        "description": "B3 pinhaiku",
+        "subagentType": "pinhaiku",
+        "provider": {
+          "plugin": "project",
+          "tier": "user"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false
+      },
+      "hookSet": null,
+      "result": {
+        "model": "claude-haiku-5-5",
+        "agentId": "a68092a1bf9542431"
+      },
+      "firstStepModel": "claude-haiku-5-5"
+    },
+    {
+      "scenario": "B",
+      "env": {
+        "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+      },
+      "input": {
+        "prompt": "Reply ok",
+        "description": "B4 explore",
+        "subagentType": "Explore",
+        "provider": {
+          "plugin": "engine",
+          "tier": "core"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false
+      },
+      "hookSet": null,
+      "result": {
+        "model": "claude-haiku-5-5",
+        "agentId": "a0d693ad07873cbc3"
+      },
+      "firstStepModel": "claude-haiku-5-5"
+    },
+    {
+      "scenario": "B",
+      "env": {
+        "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+      },
+      "input": {
+        "prompt": "Reply ok",
+        "description": "B5 OVR:sonnet",
+        "subagentType": "Explore",
+        "provider": {
+          "plugin": "engine",
+          "tier": "core"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false
+      },
+      "hookSet": "sonnet",
+      "result": {
+        "model": "claude-sonnet-5-5",
+        "agentId": "af86d7702b92fb874"
+      },
+      "firstStepModel": "claude-sonnet-5-5"
+    },
+    {
+      "scenario": "C",
+      "env": {},
+      "input": {
+        "prompt": "Reply ok. C1",
+        "description": "c1-plain",
+        "subagentType": "workflow-subagent",
+        "provider": {
+          "plugin": "engine",
+          "tier": "core"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false,
+        "workflow": {
+          "runId": "wf_c489363e-9f7",
+          "agentIndex": 1
+        }
+      },
+      "hookSet": null,
+      "result": {
+        "model": "claude-haiku-5-5",
+        "agentId": "a6c382c56ea63a93e"
+      },
+      "firstStepModel": "claude-haiku-5-5"
+    },
+    {
+      "scenario": "C",
+      "env": {},
+      "input": {
+        "prompt": "Reply ok. C2",
+        "description": "c2-model",
+        "subagentType": "workflow-subagent",
+        "provider": {
+          "plugin": "engine",
+          "tier": "core"
+        },
+        "model": "sonnet",
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false,
+        "workflow": {
+          "runId": "wf_c489363e-9f7",
+          "agentIndex": 2
+        }
+      },
+      "hookSet": null,
+      "result": {
+        "model": "claude-sonnet-5-5",
+        "agentId": "aa2f1ec360dd8f702"
+      },
+      "firstStepModel": "claude-sonnet-5-5"
+    },
+    {
+      "scenario": "C",
+      "env": {},
+      "input": {
+        "prompt": "Reply ok. C3 OVR:opus",
+        "description": "c3-ovr",
+        "subagentType": "workflow-subagent",
+        "provider": {
+          "plugin": "engine",
+          "tier": "core"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false,
+        "workflow": {
+          "runId": "wf_c489363e-9f7",
+          "agentIndex": 3
+        }
+      },
+      "hookSet": "opus",
+      "result": {
+        "model": "claude-haiku-5-5",
+        "agentId": "a779dca4e0bfbbbf1"
+      },
+      "firstStepModel": "claude-haiku-5-5"
+    },
+    {
+      "scenario": "C",
+      "env": {},
+      "input": {
+        "prompt": "Reply ok. C4",
+        "description": "c4-type",
+        "subagentType": "pinned",
+        "provider": {
+          "plugin": "project",
+          "tier": "user"
+        },
+        "parentModel": "claude-haiku-5-5",
+        "background": false,
+        "fork": false,
+        "workflow": {
+          "runId": "wf_c489363e-9f7",
+          "agentIndex": 4
+        }
+      },
+      "hookSet": null,
+      "result": {
+        "model": "claude-sonnet-5-5",
+        "agentId": "a2ef34742bbe77bb4"
+      },
+      "firstStepModel": "claude-sonnet-5-5"
+    }
+  ]
+}

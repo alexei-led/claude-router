@@ -333,8 +333,13 @@ test('the activity decision: (route now, tier advice, activity advice, cache, co
       ['medium', null, 'activity-pending', OPUS, 'medium'],
     ],
     [
-      'a session-effort override orders by the effort sent',
+      'a session-effort override at the lower effort sent is a free move on one cache',
       { config: sessionEffort, label: labelOf('code') },
+      ['low', 'code', 'activity-down', HAIKU, 'medium'],
+    ],
+    [
+      'a session-effort override orders by the effort sent where efforts split the cache',
+      { config: { ...sessionEffort, effortSplitsCache: true }, label: labelOf('code') },
       ['low', null, 'activity-pending', HAIKU, 'high'],
     ],
     [

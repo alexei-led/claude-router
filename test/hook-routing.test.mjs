@@ -30,7 +30,24 @@ test('frozen native state reads do not restore consumed pins or drop first respo
   assert.equal(h.view().pendingPin, null);
   assert.equal(h.view().actualModel, 'claude-opus-5-5');
   assert.equal(h.loop().lastRequest.tokens, 1100);
-  assert.equal(h.loop().models['claude-opus-5-5@xhigh'].prefixTokens, 1000);
+  assert.equal(h.loop().models['claude-opus-5-5'].prefixTokens, 1000);
+});
+
+test('on a provider that gives each effort its own cache, the loop keys the observed cache by effort', async () => {
+  for (const [name, value] of [
+    ['CLAUDE_CODE_USE_BEDROCK', '1'],
+    ['CLAUDE_CODE_USE_VERTEX', 'true'],
+    ['CLAUDE_CODE_USE_FOUNDRY', '1'],
+    ['CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS', '1'],
+    ['ANTHROPIC_BASE_URL', 'https://gateway.example'],
+  ]) {
+    const h = harness();
+    h.env.set(name, value);
+    await start(h);
+    await h.event('command.run', { command: 'router', args: 'pin high' });
+    await drain(h.step(step));
+    assert.deepEqual(Object.keys(h.loop().models), ['claude-opus-5-5@xhigh'], name);
+  }
 });
 
 test('a failed routed request leaves an engine-selected fallback untouched', async () => {
@@ -1087,7 +1104,8 @@ test('a routed reply is priced against your model in the session totals and, at 
     assert.ok(Math.abs(savings.routedUsd - usd) < 1e-12);
     assert.equal(savings.yoursUsd, savings.routedUsd);
     assert.deepEqual(savings.tiers, { low: 1 });
-    assert.deepEqual([yours(h).total, yours(h).onYours], [1100, false]);
+    // Haiku 5.5 keeps one cache across efforts, so the reply ran on your cache.
+    assert.deepEqual([yours(h).total, yours(h).onYours], [1100, true]);
     assert.equal(h.preferences.get(`${SAVINGS}s1`).replies, 1);
     assert.ok(Number.isFinite(h.preferences.get(`${SAVINGS}s1`).since));
     assert.deepEqual(h.view().savingsStore, h.preferences.get(`${SAVINGS}s1`));
@@ -1293,6 +1311,8 @@ test('a session usage without rate limits prices cache writes at five minutes', 
 
 test('turns on an unchanged session model and effort keep your model’s cache warm', async () => {
   const h = harness(JEV_KEY);
+  // Each effort its own cache, so the replies at high are off your Haiku at medium and its cache is simulated.
+  h.env.set('CLAUDE_CODE_USE_BEDROCK', '1');
   answering(h, jevResponse('low', LOW));
   h.usage({ startedAt: 0, context: { tokens: 8000 } });
   await h.event('session.start', { cwd: '/fixture' });
@@ -1311,6 +1331,7 @@ test('turns on an unchanged session model and effort keep your model’s cache w
 
 test('a reply whose cache lifetime cannot be read is not counted, and your model’s cache still follows it', async () => {
   const h = harness(JEV_KEY);
+  h.env.set('CLAUDE_CODE_USE_BEDROCK', '1');
   answering(h, jevResponse('low', LOW));
   await h.event('session.start', { cwd: '/fixture' });
   await h.event('command.run', { command: 'router', args: 'off' });

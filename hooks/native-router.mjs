@@ -21,6 +21,7 @@ import { resolveCredentials } from '../lib/classifier-contract.mjs';
 import {
   ACTIVITY_MODES,
   activeClassifier,
+  CLASSIFY,
   DEFAULTS,
   editActivity,
   effectiveActivities,
@@ -79,7 +80,27 @@ import {
   SAVINGS_PREFIX,
   SAVINGS_RESET_KEY,
   sessionCacheTtl,
+  subagentCacheTtl,
 } from '../lib/savings.mjs';
+import {
+  addAgentReply,
+  agentFrontmatter,
+  classifiedAlias,
+  coreModelOf,
+  emptySubagentStore,
+  flushedAgent,
+  mergeSubagentStores,
+  passReason,
+  RESPAWN_WINDOW_MS,
+  readSubagentStore,
+  recordAgent,
+  SPAWN_DEADLINE_MS,
+  SUBAGENT_PREFIX,
+  spawnPrompt,
+  spawnRecord,
+  subagentsAfterReset,
+  typeRoute,
+} from '../lib/subagents.mjs';
 import { CLEARED_READINGS, continuationView, healthOf, initialView, responseMetrics } from '../lib/view.mjs';
 
 // The engine follows $ only into functions declared in this file, never across an import: every helper that takes $
@@ -91,6 +112,7 @@ const PANE = 'jev-router';
 const PANE_TITLE = 'Router';
 const BAND_DETAIL = 'band:detail';
 const MODE_PREFIX = 'mode:';
+const isSet = (value) => /^(1|true|yes|on)$/i.test(String(value ?? '').trim());
 
 // Everything the hooks change between events, in one object `register()` creates and passes to its helpers. Module
 // variables, not $.state: a reload starts them over, and the view is written through to $.state as it changes.
@@ -129,6 +151,14 @@ function createRouter(options) {
     metricsOthers: null,
     // Bumped by Reset activity stats, so a store write that read the counts before the reset skips.
     statsResets: 0,
+    // Each spawned agent's record by agentId (spawnRecord), and when each parent loop last finished an agent of a type,
+    // for respawns. The subagent totals kept across sessions, held as the savings records are.
+    agents: new Map(),
+    finished: new Map(),
+    // Each agent type's definition frontmatter by provider and type, read once per session (agentDefinition).
+    definitions: new Map(),
+    subagentsOwn: null,
+    subagentsOthers: null,
   };
 }
 
@@ -231,6 +261,32 @@ async function otherMetrics($, sessionId, resetAt) {
   return mergeMetrics(await Promise.all(keys.map((key) => $.store.get(key))), resetAt);
 }
 
+// This session's subagent record and the last reset, as ownSavings: Reset stats clears it with the same marker.
+async function ownSubagents($, router) {
+  const sessionId = await $.session.id();
+  const resetAt = await $.store.get(SAVINGS_RESET_KEY);
+  if (router.subagentsOwn?.sessionId !== sessionId) {
+    const record = readSubagentStore(await $.store.get(`${SUBAGENT_PREFIX}${sessionId}`));
+    if (router.subagentsOwn?.sessionId !== sessionId) router.subagentsOwn = { sessionId, record };
+  }
+  router.subagentsOwn.record = subagentsAfterReset(router.subagentsOwn.record, resetAt);
+  return { own: router.subagentsOwn, resetAt };
+}
+
+// Every other session's subagent record since the last reset, added up.
+async function otherSubagents($, sessionId, resetAt) {
+  const own = `${SUBAGENT_PREFIX}${sessionId}`;
+  const keys = (await $.store.keys()).filter((key) => key.startsWith(SUBAGENT_PREFIX) && key !== own);
+  return mergeSubagentStores(await Promise.all(keys.map((key) => $.store.get(key))), resetAt);
+}
+
+// The view's subagent totals, this session's and the others', from what the router holds; nothing until a read
+// succeeded.
+const subagentView = (router) =>
+  router.subagentsOthers
+    ? { subagentStore: mergeSubagentStores([router.subagentsOthers, router.subagentsOwn?.record]) }
+    : {};
+
 const metricsView = (router) => mergeMetrics([router.metricsOthers, router.metricsOwn?.record]);
 
 // The view's totals kept across sessions, from what the router holds; nothing until a read succeeded.
@@ -253,6 +309,11 @@ async function storeView($, router) {
   try {
     const { own, resetAt } = await ownSavings($, router);
     router.savingsOthers = await otherSavings($, own.sessionId, resetAt);
+  } catch {}
+  try {
+    const { own, resetAt } = await ownSubagents($, router);
+    router.subagentsOthers = await otherSubagents($, own.sessionId, resetAt);
+    Object.assign(out, subagentView(router));
   } catch {}
   return out;
 }
@@ -371,6 +432,19 @@ function openKeySettings($) {
   $.clock.after(0, () => $.command.run({ command: 'plugin', args: `configure ${$.plugin.name}` }).catch(() => {}));
 }
 
+// Whether this session's provider gives each effort its own prompt cache (effortSharesCache in lib/cost.mjs): Amazon
+// Bedrock, Google Cloud, Microsoft Foundry, a custom ANTHROPIC_BASE_URL (it may be a Claude apps gateway) or
+// CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS. A HIPAA configuration is not visible to a Mod. $.env.get takes literal names.
+async function effortSplitsCacheOf($) {
+  const flags = [
+    await $.env.get('CLAUDE_CODE_USE_BEDROCK'),
+    await $.env.get('CLAUDE_CODE_USE_VERTEX'),
+    await $.env.get('CLAUDE_CODE_USE_FOUNDRY'),
+    await $.env.get('CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS'),
+  ];
+  return flags.some(isSet) || Boolean(await $.env.get('ANTHROPIC_BASE_URL'));
+}
+
 async function loadNativeConfig($) {
   for (const source of ['project', 'local']) {
     const settings = await $.settings.read({ source });
@@ -381,7 +455,7 @@ async function loadNativeConfig($) {
   const profile = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${home}/.claude`;
   const path = `${profile}/router.json`;
   const userFile = (await $.fs.exists(path)) ? JSON.parse(await $.fs.read(path)) : null;
-  return { ...loadConfig({ userFile }), nativePath: path };
+  return { ...loadConfig({ userFile }), nativePath: path, effortSplitsCache: await effortSplitsCacheOf($) };
 }
 
 // Writes router.json through `change(previousFile)` once the result validates. Returns the new config or an error
@@ -392,7 +466,7 @@ async function saveConfig($, path, change) {
       return { error: 'Not saved: router.json is a symlink. Edit its maintained source instead.' };
     const { config, text } = rewrittenConfig((await $.fs.exists(path)) ? await $.fs.read(path) : null, change);
     await $.fs.write(path, text);
-    return { config: { ...config, nativePath: path } };
+    return { config: { ...config, nativePath: path, effortSplitsCache: await effortSplitsCacheOf($) } };
   } catch (error) {
     return { error: notSaved(error) };
   }
@@ -456,7 +530,7 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, router)
   const sessionId = await $.session.id();
   const response = yield* next(e);
   if (!next.signal.aborted && (await $.session.id()) === sessionId) {
-    const observed = observeResponse(loop, {
+    const observed = observeResponse(router.config, loop, {
       usage: response.usage,
       requestedModel: e.model,
       effort: e.effort ?? null,
@@ -616,7 +690,7 @@ async function publishReply($, router, turnId, response, tier, route, routedUsd)
 // A routed reply written to the loop at `loopVersion`, then published: the view's metrics and the routing-vs-your-model
 // totals. A lost write publishes nothing.
 async function observeRouted($, router, { turnId, cfg, loop, loopVersion, request, response, nativeModel }) {
-  const observed = observeResponse(loop, {
+  const observed = observeResponse(cfg, loop, {
     usage: response.usage,
     requestedModel: request.model,
     effort: request.effort ?? null,
@@ -789,6 +863,210 @@ async function flushRun($, run) {
   } catch {}
 }
 
+// The frontmatter of the agent file a spawn starts (agentFrontmatter), or null when it cannot be found or read. Read
+// once per provider and type in a session, and never for a built-in, whose definition is not on disk.
+async function agentDefinition($, router, e) {
+  const plugin = e.provider?.plugin;
+  if (typeof plugin !== 'string' || plugin === 'engine' || typeof e.subagentType !== 'string') return null;
+  const key = `${plugin} ${e.subagentType}`;
+  if (!router.definitions.has(key)) router.definitions.set(key, await findDefinition($, plugin, e.subagentType));
+  return router.definitions.get(key);
+}
+
+// A plugin agent (provider `plugin@marketplace`) is looked up under each install path installed_plugins.json gives
+// that plugin, the files Claude Code itself loads; any other agent under the session's .claude/agents, then the
+// profile's agents. Every match must agree on the model, or the definition is unknown. Limit: a plugin that keeps its
+// agents outside `agents/` reads as unknown, so its agents pass through.
+async function findDefinition($, plugin, type) {
+  try {
+    const home = await $.env.get('HOME');
+    const profile = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${home}/.claude`;
+    const name = type.slice(type.indexOf(':') + 1);
+    const fromPlugin = plugin.includes('@');
+    const dirs = fromPlugin
+      ? (JSON.parse(await $.fs.read(`${profile}/plugins/installed_plugins.json`)).plugins?.[plugin] ?? []).map(
+          (entry) => `${entry.installPath}/agents`,
+        )
+      : [`${await $.session.cwd()}/.claude/agents`, `${profile}/agents`];
+    const found = [];
+    for (const dir of dirs) {
+      if (!(await $.fs.exists(dir))) continue;
+      for (const entry of await $.fs.list(dir)) {
+        if (entry.kind === 'dir' || !entry.name.endsWith('.md')) continue;
+        const definition = agentFrontmatter(await $.fs.read(`${dir}/${entry.name}`));
+        if (definition && (definition.name ?? entry.name.slice(0, -3)) === name) found.push(definition);
+      }
+      // A project agent replaces a user agent of the same name.
+      if (found.length && !fromPlugin) break;
+    }
+    const agree = found.every((d) => d.model === found[0].model && d.modelRouting === found[0].modelRouting);
+    return found.length && agree ? found[0] : null;
+  } catch {
+    return null;
+  }
+}
+
+// The spawn path's classifier client: a breaker of its own, so spawn failures never pause main-turn routing, and no
+// in-flight slot, so a parent that spawns several agents at once gets an answer for each.
+function spawnClientOf(router, id) {
+  const key = `spawn:${id}`;
+  if (!router.clients.has(key)) router.clients.set(key, new ClassifierClient({ exclusive: false }));
+  return router.clients.get(key);
+}
+
+// A listed spawn's model: the models key its type names, or the classifier's pick for a `classify` type from the task
+// text alone. `choice: 'core'` keeps core's model: no advice (`failed`), or a model availableModels blocks.
+async function decideSpawn($, router, cfg, e, definition, signal) {
+  let alias = typeRoute(cfg, e, definition).route;
+  let failed = false;
+  if (alias === CLASSIFY) {
+    const entry = activeClassifier(cfg);
+    const credentials = await resolveCredentials(entry, (name) => settingOf($, router.options, name));
+    // The wait delays the subagent's start, so it is the classifier's deadline capped at SPAWN_DEADLINE_MS.
+    const timeoutMs = Math.min(entry.timeoutMs, SPAWN_DEADLINE_MS);
+    const result = await spawnClientOf(router, cfg.classifier).ask({
+      request: (url, init) => $.http.fetch(url, init),
+      sleep: (ms, args) => $.clock.sleep(ms, args),
+      config: { ...cfg, classifiers: { ...cfg.classifiers, [cfg.classifier]: { ...entry, timeoutMs } } },
+      apiKey: credentials.apiKey,
+      endpoint: credentials.endpoint,
+      prompt: spawnPrompt(cfg, e),
+      turns: [],
+      signal,
+    });
+    alias = classifiedAlias(cfg, result.advice);
+    failed = !result.advice;
+  }
+  // The full id, not an alias: a family alias would resolve to the parent's exact model when the families match.
+  const model = alias ? cfg.models[alias].id : null;
+  const settings = await $.settings.read().catch(() => ({}));
+  if (!model || !isModelAllowed(model, settings.availableModels, e.parentModel))
+    return { choice: 'core', model: null, failed };
+  return { choice: alias, model, failed };
+}
+
+// One model per subagent, chosen before its cache exists. `on` waits for the decision and sends its model, which
+// Claude Code uses in place of the Agent call's `model` and the agent's frontmatter. `shadow` spawns as Claude Code
+// would at once and records the decision once it is in, so it never delays an agent's start. Routing off or
+// unavailable keeps every model Claude Code chooses, and records nothing.
+async function spawnAgent($, router, e, next) {
+  const cfg = router.config;
+  const mode = cfg.subagentRouting;
+  if (mode === 'off') return next(e);
+  const view = router.view ?? (await readView($, router));
+  if (view.phase === 'unavailable' || (await modeOf($, router, view.mode)) === 'manual') return next(e);
+  const definition = await agentDefinition($, router, e);
+  const pass = passReason(cfg, e, definition);
+  const deciding = pass ? null : decideSpawn($, router, cfg, e, definition, next.signal).catch(() => null);
+  const decided = mode === 'on' ? await deciding : null;
+  const routed = Boolean(decided?.model);
+  const result = await next(routed ? { ...e, model: decided.model } : e);
+  if (!result.agentId) return result;
+  // In shadow the agent may reply, and even finish, before the decision lands: a pending entry keeps its replies.
+  if (mode !== 'on' && deciding !== null)
+    router.agents.set(result.agentId, { pending: true, usages: [], finished: false });
+  try {
+    const decision = mode === 'on' ? decided : await deciding;
+    if (pass || decision) await noteSpawn($, router, { cfg, mode, e, pass, decision, routed, result, definition });
+    else router.agents.delete(result.agentId);
+  } catch {
+    if (router.agents.get(result.agentId)?.pending) router.agents.delete(result.agentId);
+  }
+  return result;
+}
+
+// The spawn's record, kept until the session ends. In `on` core's model is an estimate (coreModelOf); otherwise it is
+// the model the agent started on.
+async function noteSpawn($, router, { cfg, mode, e, pass, decision, routed, result, definition }) {
+  const parentKey = `${e.parentAgentId ?? 'main'} ${e.subagentType}`;
+  const finishedAt = router.finished.get(parentKey);
+  const ttl = await subagentTtlOf($).catch(() => null);
+  const coreModel = routed
+    ? coreModelOf(cfg, e, {
+        envModel: await $.env.get('CLAUDE_CODE_SUBAGENT_MODEL'),
+        force: isSet(await $.env.get('CLAUDE_CODE_SUBAGENT_MODEL_FORCE')),
+        definition,
+      })
+    : result.model;
+  const record = spawnRecord({
+    sessionId: await $.session.id(),
+    mode,
+    spawn: e,
+    pass,
+    choice: decision?.choice ?? null,
+    routedModel: decision?.model ?? result.model,
+    coreModel,
+    failed: decision?.failed,
+    respawn: Number.isFinite(finishedAt) && Date.now() - finishedAt < RESPAWN_WINDOW_MS,
+  });
+  // Read after the last await, so no reply lands in the pending entry after its replay.
+  const pending = router.agents.get(result.agentId);
+  const replies = pending?.pending ? pending.usages : [];
+  router.agents.set(
+    result.agentId,
+    replies.reduce((agent, usage) => addAgentReply(cfg, agent, usage, ttl), { ...record, parentKey }),
+  );
+  if (pending?.finished) await finishAgent($, router, result.agentId);
+}
+
+// A subagent's prompt-cache lifetime, by Claude Code's rule for requests outside the main conversation.
+async function subagentTtlOf($) {
+  const settings = await $.settings.read();
+  return subagentCacheTtl({
+    force5m: await $.env.get('FORCE_PROMPT_CACHING_5M'),
+    envTtl: await $.env.get('CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL'),
+    settingTtl: settings.subagentPromptCacheTtl,
+    enable1h: await $.env.get('ENABLE_PROMPT_CACHING_1H'),
+  });
+}
+
+// A subagent's step runs exactly as Claude Code sent it: a model switch between its steps would rewrite its context
+// cold. Its reply is added to its spawn record; the record never breaks the step.
+async function* stepAgent($, router, e, next) {
+  const response = yield* next(e);
+  if (router.agents.has(e.agentId) && response?.usage) {
+    try {
+      const ttl = await subagentTtlOf($);
+      const agent = router.agents.get(e.agentId);
+      if (agent?.pending) agent.usages.push(response.usage);
+      else if (agent) router.agents.set(e.agentId, addAgentReply(router.config, agent, response.usage, ttl));
+    } catch {}
+  }
+  return response;
+}
+
+// A subagent's turn ended: its counts since the last flush go to this session's record kept across sessions.
+async function finishAgent($, router, agentId) {
+  const agent = router.agents.get(agentId);
+  if (!agent) return;
+  // A pending agent is flushed when its decision lands (noteSpawn).
+  if (agent.pending) {
+    agent.finished = true;
+    return;
+  }
+  router.finished.set(agent.parentKey, Date.now());
+  router.agents.set(agentId, flushedAgent(agent));
+  await flushSubagents($, router, [agent]);
+}
+
+// Agents' counts added to this session's record, with the guard flushSavings uses: counts read before a reset are not
+// written back. Stats never break a turn: a failed read or write loses these counts.
+async function flushSubagents($, router, agents) {
+  try {
+    const resets = router.statsResets;
+    const { own, resetAt } = await ownSubagents($, router);
+    const mine = agents.filter((agent) => agent.sessionId === own.sessionId);
+    if (!mine.length) return;
+    if (!router.subagentsOthers || subagentsAfterReset(router.subagentsOthers, resetAt) !== router.subagentsOthers)
+      router.subagentsOthers = await otherSubagents($, own.sessionId, resetAt);
+    if (router.statsResets !== resets) return;
+    const now = Date.now();
+    own.record = mine.reduce((record, agent) => recordAgent(record, agent, now), own.record);
+    await $.store.set(`${SUBAGENT_PREFIX}${own.sessionId}`, own.record);
+    if (router.statsResets === resets) await updateView($, router, subagentView(router));
+  } catch {}
+}
+
 // The pane's handlers. `view` is the view the pane was drawn from; a handler reads `router.view` first, which holds
 // any press since.
 function paneActions($, router, view) {
@@ -947,6 +1225,7 @@ function paneActions($, router, view) {
       router.run = null;
       router.afterDown = null;
       router.turnSavings.clear();
+      for (const [id, agent] of router.agents) if (!agent.pending) router.agents.set(id, flushedAgent(agent));
       const clear = (key, value) =>
         $.store
           .set(key, value)
@@ -957,14 +1236,16 @@ function paneActions($, router, view) {
         // Written first, so a session still holding its record from before the reset drops it, unless that record's
         // first reading has the reset's millisecond or the clock moved back across the reset.
         await $.store.set(SAVINGS_RESET_KEY, Date.now());
-        const keys = (await $.store.keys()).filter(
-          (key) => key.startsWith(SAVINGS_PREFIX) || key.startsWith(METRICS_PREFIX),
+        const keys = (await $.store.keys()).filter((key) =>
+          [SAVINGS_PREFIX, METRICS_PREFIX, SUBAGENT_PREFIX].some((prefix) => key.startsWith(prefix)),
         );
         await Promise.all(keys.map((key) => $.store.delete(key)));
         router.savingsOwn = null;
         router.savingsOthers = emptySavingsStore();
         router.metricsOwn = null;
         router.metricsOthers = emptyMetrics();
+        router.subagentsOwn = null;
+        router.subagentsOthers = emptySubagentStore();
         return true;
       };
       const [stats, records] = await Promise.all([clear(STORE_KEY, emptyStore()), clearRecords().catch(() => false)]);
@@ -972,7 +1253,9 @@ function paneActions($, router, view) {
         activityStats: null,
         savingsBy: {},
         ...(stats ? { activityStore: emptyStore() } : {}),
-        ...(records ? { activityMetrics: emptyMetrics(), savingsStore: emptySavingsStore() } : {}),
+        ...(records
+          ? { activityMetrics: emptyMetrics(), savingsStore: emptySavingsStore(), subagentStore: emptySubagentStore() }
+          : {}),
         notice:
           stats && records
             ? 'Stats reset: activity and routing vs your model, this session and saved.'
@@ -1030,10 +1313,47 @@ function paneActions($, router, view) {
   };
 }
 
+// The session's turns, open run and running agents end with it; the view starts the next session from the counts kept
+// across sessions.
+async function endSession($, router) {
+  for (const controller of router.controllers) controller.abort();
+  router.decisions.clear();
+  router.prompts.clear();
+  router.turnConfigs.clear();
+  router.turnActivities.clear();
+  router.turnSavings.clear();
+  const run = router.run;
+  router.run = null;
+  router.afterDown = null;
+  if (run) await flushRun($, run);
+  // Agents still running when the session ends: what they did so far is counted.
+  const agents = [...router.agents.values()];
+  router.agents.clear();
+  router.finished.clear();
+  await flushSubagents($, router, agents);
+  router.view = {
+    ...initialView(router.view?.nativeModel ?? ''),
+    // The effort carries over /clear until the next turn reads it again, so "your model" keeps its effort.
+    nativeEffort: router.view?.nativeEffort ?? null,
+    mode: 'auto',
+    credentials: router.view?.credentials ?? null,
+    // Counts kept across sessions: the next session starts from them.
+    activityStore: router.view?.activityStore ?? null,
+    activityMetrics: router.view?.activityMetrics ?? null,
+    savingsStore: router.view?.savingsStore ?? null,
+    subagentStore: router.view?.subagentStore ?? null,
+    health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
+    configPath: router.config.nativePath,
+    phase: router.view?.phase === 'unavailable' ? 'unavailable' : 'ready',
+    error: router.view?.phase === 'unavailable' ? router.view.error : null,
+  };
+}
+
 export function register(on, options) {
   const router = createRouter(options);
 
   on('session.start', async ($, e, next) => {
+    router.definitions.clear();
     await $.command.register({
       name: 'router',
       description: 'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>.',
@@ -1108,8 +1428,14 @@ export function register(on, options) {
     return next(e);
   });
 
+  // A hook failure spawns the agent as Claude Code would; next(e) replays a spawn already made. agent.spawn and a
+  // catchable on() are in the 2.1.293 build types, not checked on 2.1.289: an engine without them still loads routing.
+  try {
+    on('agent.spawn', ($, e, next) => spawnAgent($, router, e, next)).catch((_$, e, next) => next(e));
+  } catch {}
+
   on('turn.step', async function* ($, e, next) {
-    if (e.agentId) return yield* next(e);
+    if (e.agentId) return yield* stepAgent($, router, e, next);
     const cfg = router.turnConfigs.get(e.turnId) ?? router.config;
     const sessionId = await $.session.id();
     const nativeModel = await $.session.model();
@@ -1182,6 +1508,10 @@ export function register(on, options) {
   });
 
   on('turn.complete', async ($, e, next) => {
+    if (e.agentId) {
+      await finishAgent($, router, e.agentId);
+      return next(e);
+    }
     router.turnConfigs.delete(e.turnId);
     router.turnControllers.get(e.turnId)?.abort();
     if (router.view?.activeTurnId === e.turnId && router.view.phase === 'choosing') {
@@ -1217,31 +1547,7 @@ export function register(on, options) {
   });
 
   on('session.end', async ($, e, next) => {
-    for (const controller of router.controllers) controller.abort();
-    router.decisions.clear();
-    router.prompts.clear();
-    router.turnConfigs.clear();
-    router.turnActivities.clear();
-    router.turnSavings.clear();
-    const run = router.run;
-    router.run = null;
-    router.afterDown = null;
-    if (run) await flushRun($, run);
-    router.view = {
-      ...initialView(router.view?.nativeModel ?? ''),
-      // The effort carries over /clear until the next turn reads it again, so "your model" keeps its effort.
-      nativeEffort: router.view?.nativeEffort ?? null,
-      mode: 'auto',
-      credentials: router.view?.credentials ?? null,
-      // Counts kept across sessions: the next session starts from them.
-      activityStore: router.view?.activityStore ?? null,
-      activityMetrics: router.view?.activityMetrics ?? null,
-      savingsStore: router.view?.savingsStore ?? null,
-      health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
-      configPath: router.config.nativePath,
-      phase: router.view?.phase === 'unavailable' ? 'unavailable' : 'ready',
-      error: router.view?.phase === 'unavailable' ? router.view.error : null,
-    };
+    await endSession($, router);
     return next(e);
   });
 

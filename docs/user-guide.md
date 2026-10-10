@@ -53,13 +53,13 @@ Read the first line of the picture from left to right:
 | `⚠ Jev timed out · keeping model`               | The classifier failed: timed out, unreachable, rejected the key, or paused.                                           |
 | `○ Routing off [ Turn on ] · every turn uses …` | Routing is off: Claude's model answers every turn. **Turn on** turns it back on. The footer also shows `routing off`. |
 | `✕ Routing unavailable`                         | Nothing routes: an old Claude Code or leftover v0.8 settings. **Fix** opens the pane.                                 |
-| `○ Router · subagents keep their own model`     | You are viewing a subagent's transcript, which Router does not route.                                                 |
+| `○ Router · subagents keep their own model`     | You are viewing a subagent's transcript. Its steps are not routed; in `on` the band reads `subagent model chosen at spawn`. |
 
 The band shows one routing control at a time. While routing is on, hover over the band for a second row: pin a tier for the next turn, **Turn off** routing, or show two rows. While routing is off, **Turn on** sits on the first line next to `Routing off` and stays at any width: a narrow band drops the explanation and the model first. On a narrow band the hover row drops `routing on`, then **2 rows**, then `pin next turn`, then the pins; it keeps **Turn off**, and **1 row** when the band shows two. The hover row needs a pointer: from the keyboard, run `/router off`, or open the pane and press `f`. The two-row band adds this session against your model, the one `/model` selects now: `session  saved $1.84 (22%) vs Opus 5.5 · xhigh  ·  64 replies  ·  cold-cache writes +$0.47`, or `session  extra $2.48 (×5.0) vs Haiku 5.5 · high  ·  41 replies  ·  stronger models +$2.31` when routing cost more. The last part names the larger of the two costs behind the result, when there is one. After a `/model` change the row shows the whole session against the new model. Before the tenth routed reply it reads `session  3 replies · too early to compare`. When the row is short, the cost part drops first, then the reply count. Router remembers that choice across sessions. When Router changes the model between turns, a toast reads `Model changed: old → new · reason`. A pin does not raise one, and neither does a change of effort alone.
 
 The band steps aside while a survey needs the space.
 
-Tool continuations do not trigger another classification. Subagent choices remain unchanged.
+Tool continuations do not trigger another classification. A subagent gets at most one model, when it starts, and keeps it for every step: Haiku for exploration, Opus for clearly hard tasks, Sonnet for the rest. An agent that pins a model in its definition keeps it, unless it sets `modelRouting: auto`. The Usage tab's **SUBAGENTS** section shows what each agent type ran on and cost. See [Subagent routing](configuration.md#subagent-routing).
 
 ## Open the router pane
 
@@ -119,7 +119,7 @@ These are estimates, not a bill. They hold the tokens and the output length the 
 - **Next-turn difference** compares the candidate with the current model under five-minute and one-hour cache-write scenarios. A negative number means the candidate is estimated to cost less for that request.
 - **Payback** estimates later turns to recover an initial difference under assumed future cache reads and the last observed output size. It does not guarantee savings.
 
-Under routing vs your model, **PLAN QUOTA** shows the five-hour and seven-day use that Claude Code reports, and **BY ACTIVITY** shows this session by activity (see [Read the activity on the pane](#read-the-activity-on-the-pane)). **CLAUDE READINGS** puts cost, context and cache on one line; **details** adds the context and cache counters, the output of the last reply, the input per reply, and the estimates below.
+Under routing vs your model, **PLAN QUOTA** shows the five-hour and seven-day use that Claude Code reports, and **BY ACTIVITY** shows this session by activity (see [Read the activity on the pane](#read-the-activity-on-the-pane)). **SUBAGENTS · across sessions** shows each routed agent type, what routing cost against the model Claude Code would have used, and the spawns that passed through (see [Subagent routing](configuration.md#subagent-routing)). **CLAUDE READINGS** puts cost, context and cache on one line; **details** adds the context and cache counters, the output of the last reply, the input per reply, and the estimates below.
 
 The router keeps no bill. Routing vs your model is an estimate at configured list prices. The pane does not include classifier charges. Claude's native `/cost` is the source for its reported API cost.
 
@@ -190,20 +190,20 @@ A pin does not change the next turn after the pinned turn finishes. A fresh sess
 
 ## Edit routes and policy
 
-![The Routes tab: the activity routing mode, then one grid of tiers by activities with the tiers' own models on top, built-in overrides marked °, unsaved edits ●; the editor of the selected cell, coding at high, with Use tier model; the model setups in use; and the unsaved router.json changes with Save and Discard](router-pane-routes.svg)
+![The Routes tab: the activity routing mode, then one grid of tiers by activities with the tiers' own models on top, built-in overrides marked °, unsaved edits ●; the editor of the selected cell, coding at high, with Use tier model; the prompt caches in use; and the unsaved router.json changes with Save and Discard](router-pane-routes.svg)
 
 The **Routes** tab is one grid. Columns are tiers, from `micro` to `high`. The **every turn** row holds each tier's own model and effort. Each activity below it is a row: a cell shows the model the activity runs at that tier, or `·` when it runs the tier's model. Cells read as `models key·effort`, such as `sonnet·high`; a narrow pane shortens the effort (`opus·xh`). `°` marks a built-in default override and **●** an unsaved edit. In the picture, `medium` was changed to Sonnet 5.5 at `xhigh` and `coding` at `high` to Opus 5.5 at `max`.
 
 Select a cell, with the pointer or Tab and Enter, to edit it under the grid:
 
 - **A tier cell** (every turn) has a model and an effort, with the model's list prices and window.
-- **An activity cell** has a model and an effort, and says what the cell is: `built-in default`, `your override`, `runs the tier’s model`, or `same as the tier’s model: no effect`. **Use tier model** drops the override, so the cell runs the tier's model; for a built-in default, Save writes the tier's route for that cell, because the built-in one would come back otherwise. **Restore default** puts a changed or dropped built-in override back. A yellow note flags a cell stronger than the tier above, and a cell that is the only one on its model setup.
+- **An activity cell** has a model and an effort, and says what the cell is: `built-in default`, `your override`, `runs the tier’s model`, or `same as the tier’s model: no effect`. **Use tier model** drops the override, so the cell runs the tier's model; for a built-in default, Save writes the tier's route for that cell, because the built-in one would come back otherwise. **Restore default** puts a changed or dropped built-in override back. A yellow note flags a cell stronger than the tier above, and a cell that is the only one on its cache.
 
 The model list comes from the aliases in `router.json` `models`, limited by the `availableModels` setting. `inherit` keeps the effort Claude Code sends. A model without effort levels, such as a custom one with `"efforts": []`, shows `none`.
 
 **Activity routing** at the top sets `off`, `shadow`, or `on`, and says what the mode does. A yellow line says when the overrides do not run: activity routing `shadow` or `off`, or routing off or unavailable.
 
-Under the grid, `5 model setups in use` counts the different (model, effort) pairs the grid can run. Each setup keeps its own prompt cache: moving to a setup without a warm cache writes the whole conversation into a new cache, which is the switch cost on the Now tab. More setups mean more of those writes. A yellow line flags two neighbouring tiers that run the same model and effort, since that step changes nothing.
+Under the grid, `3 prompt caches in use` counts the caches the grid can run on. Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 keep one cache per model across efforts with an API key or a Claude subscription; on Amazon Bedrock, Google Cloud, Microsoft Foundry or a custom `ANTHROPIC_BASE_URL`, each (model, effort) pair has its own. Moving to a model without a warm cache writes the whole conversation into a new cache, which is the switch cost on the Now tab. More caches mean more of those writes. A yellow line flags two neighbouring tiers that run the same model and effort, since that step changes nothing.
 
 **Reset routes to defaults** (`r`) loads the built-in tier routes and start tier into the draft; **Save** then removes your route overrides from `router.json`. Activity edits and the mode stay in the draft.
 
@@ -211,7 +211,7 @@ A new model ID needs an entry in `router.json` `models` with its price, context 
 
 ### Tune future decisions
 
-![The Policy tab: each control inside its sentence, the start tier, going down, going up, the activity threshold and the credits cap, with the default beside a changed value, the router.json file, and the unsaved change with Save and Discard](router-pane-policy.svg)
+![The Policy tab: each control inside its sentence, the start tier, going down, going up, the activity threshold and the credits cap, with the default beside a changed value, the router.json file and the subagent routing mode, and the unsaved change with Save and Discard](router-pane-policy.svg)
 
 The **Policy** tab writes each control inside the sentence it completes, and names the default beside a value that differs from it. One **Save** writes them with any route changes:
 
@@ -221,7 +221,7 @@ The **Policy** tab writes each control inside the sentence it completes, and nam
 - **Activities** apply at 50%, 60%, 70%, or 80% certainty or more. Below it a new task runs its tier's model, and a continuation keeps its activity, or moves to a stronger route the classifier names. See [Activity routing](activity-routing.md#change-a-cell).
 - **Credits** caps one cold cache write on a `credits` model at $0.50, $1, $2, or $5. With no `credits` model in `router.json`, the tab says the cap has no effect.
 
-**Reset policy to defaults** loads the built-in values; **Save** then removes your policy overrides. The current turn keeps the settings it started with. A save preserves unrelated `router.json` keys and refuses to write through a symlink. When validation fails, the pane names the setting and leaves the file unchanged. The tab ends with the `router.json` path and a **copy** button.
+**Reset policy to defaults** loads the built-in values; **Save** then removes your policy overrides. The current turn keeps the settings it started with. A save preserves unrelated `router.json` keys and refuses to write through a symlink. When validation fails, the pane names the setting and leaves the file unchanged. The tab ends with the `router.json` path, a **copy** button, and the [subagent routing](configuration.md#subagent-routing) mode, which is set in `router.json`.
 
 ## Choose the classifier
 

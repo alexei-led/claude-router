@@ -90,7 +90,7 @@ The built-in overrides run only with `activityRouting: "on"`. A `·` cell uses t
 - `ops` at `medium` runs on Haiku at `high`. Command runs last long enough for Haiku to repay its cache write: about 4 requests from Opus at 350,000 tokens of context, against a median run of 6 to 11 requests in one developer's sessions. Haiku is weaker on multi-step tool work (OSWorld 2.1: about 61% against 79% for Opus at `medium`), so `ops` at `high` stays on Opus, and repeated tool errors move an `ops` turn to the `high` route.
 - `explore` and `docs` keep the base routes: moving them saved nothing in that replay, and Haiku scores lower on research benchmarks (Humanity's Last Exam with tools: 50.1% against 63.0% for Opus at `medium`).
 
-These are vendor benchmarks and a list-price replay, not measurements of this router, and they are not a claim of equal quality. The overrides add one (model, effort) pair the base routes do not use, Sonnet at `high`. The router counts each pair as its own cache, so activity routing adds one. [Activity routing](activity-routing.md) has the evidence per cell and its limits.
+These are vendor benchmarks and a list-price replay, not measurements of this router, and they are not a claim of equal quality. The overrides add one (model, effort) pair the base routes do not use, Sonnet at `high`. It is the only route on Sonnet, so activity routing adds one cache. [Activity routing](activity-routing.md) has the evidence per cell and its limits.
 
 A user file merges over these overrides one field at a time, as `routes` does. This sets only the effort of the built-in `code` override at `low`, so the cell runs Sonnet at `xhigh`, and adds a new override at `high`:
 
@@ -112,7 +112,7 @@ An override for a cell with no built-in names both fields, or inherits the missi
 - A cell cannot be `null`. To drop a built-in override, set it to the base route, for example `"ops": { "medium": { "model": "opus", "effort": "medium" } }`. The pane writes this for you when you press **Use tier model** on a built-in cell. The cell keeps that route if you later change the tier's route; drop it again then.
 - An override applies to whatever the tier's route is. If you move `routes.low` to Opus, the built-in `code` override at `low` still runs Sonnet. Set it to match, or remove it.
 - Unknown activities and tiers, unknown model aliases, and invalid efforts make the file invalid, like any other invalid setting. The pane refuses to save one and names it, such as `activities.code.low.model is not in models`.
-- The router counts each distinct (model, effort) pair as its own cache. The Routes tab counts them as model setups.
+- The Routes tab counts the prompt caches the routes use: one per model on Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1, one per (model, effort) pair on a provider that caches each effort apart.
 
 `policy.activityMass` (default `0.6`) is the lowest probability at which an activity applies. The Policy tab sets it under **Activities**, from 50% to 80%. It has not been tuned on any classifier, and the probe results do not record probabilities, so there is no data to tune it on yet.
 
@@ -171,6 +171,62 @@ To check a classifier outside Claude Code, run `node scripts/probe-classifier.mj
 
 `ollama` needs no key and keeps the text on this machine. Run `ollama serve`, pull the model named in `model`, and select the classifier. `model` is any tag you have pulled, such as `qwen3.5:9b`; change it under `classifiers.ollama.model`. The endpoint must stay on `localhost`, `127.0.0.1`, or `[::1]`, so a server on another machine on your network is not reachable through this entry. Each request turns thinking off. The activity is a second request, sent after the route answer parses and only when at least 300 ms of the deadline remain; if it fails, the turn keeps the running activity and the classifier is not counted as failed. If Ollama rejects that setting for a model, the request fails and the router keeps the baseline. Ollama unloads an idle model after its keep-alive period, and the first request after that can exceed `timeoutMs` while the model loads; the router then keeps the baseline for that turn.
 
+## Subagent routing
+
+`subagentRouting` gives each subagent one model when it starts, as the router gives each main turn one. It never changes the model between a subagent's steps: that would rewrite its context cold. With `CLAUDE_CODE_SUBAGENT_MODEL=sonnet`, agents that name no model already run on Sonnet. The router chooses per task instead: Haiku for exploration, Opus only for clearly hard work, Sonnet for the rest. It also routes the built-in Explore and Plan agents, which ignore that variable.
+
+| `subagentRouting` | Behavior                                                                                            |
+| ----------------- | --------------------------------------------------------------------------------------------------- |
+| `off`             | Asks nothing, records nothing. Every agent runs on the model Claude Code gives it.                  |
+| `shadow`          | Decides and records the choice and its list-price cost in the Usage tab; the agent runs unchanged. |
+| `on`              | The default. Sends the decided model, which Claude Code uses in place of the agent's own.           |
+
+**Which agents are routed.** The router reads the definition file of the agent being started: a plugin agent's file under the plugin's install path, a project agent's under `.claude/agents`, your own under `~/.claude/agents`. It routes the agent when its frontmatter:
+
+- names no `model`;
+- says `model: inherit`, which means "the main conversation's model", and the router routes that too;
+- or sets `modelRouting: auto`. The agent's `model` is then what it runs on without the router.
+
+An agent whose `model` names a model, such as `model: haiku`, keeps it. The Usage tab counts it as `pinned`. An agent whose file the router cannot find or read keeps its model as `unknown`; so does a plugin that keeps its agents outside `agents/`. Claude Code ignores frontmatter keys it does not know, so `modelRouting: auto` changes nothing without the router. To let the router choose a pinned agent's model, add the key to the agent's frontmatter:
+
+```yaml
+---
+name: runner
+model: haiku          # without the router
+modelRouting: auto    # the router may choose
+---
+```
+
+These agents always keep their model:
+
+- a fork;
+- an Agent call that names a `model`;
+- a teammate;
+- a workflow `agent()`: Claude Code ignores a rewrite of its model, so workflow agents get only `CLAUDE_CODE_SUBAGENT_MODEL`;
+- a built-in agent other than Explore, Plan and general-purpose: its definition is not on disk.
+
+```json
+{
+  "subagentRouting": "on",
+  "subagents": {
+    "types": { "Explore": "haiku", "Plan": "classify", "general-purpose": "classify" },
+    "light": "haiku",
+    "standard": "sonnet",
+    "heavy": "opus",
+    "heavyMass": 0.8
+  }
+}
+```
+
+The values above are the defaults.
+
+- `types` overrides the rule for an agent type: a models key, `classify`, or `null` to never route it. A user file adds to the defaults. A key without a colon matches only Claude Code's built-in of that name, such as `Explore`; a project agent named `Explore` replaces the built-in and follows its own definition. A `plugin:name` key matches only that plugin's agent. A listed type is routed even if its definition pins a model.
+- `classify` asks the active classifier, once, with the task's description and prompt. It sends no history and no tool results. The task runs on `heavy` when the classifier gives `high` at least `heavyMass`. It runs on `light` for exploration (the `explore` activity above `policy.activityMass`) or the `micro` tier. Everything else runs on `standard`. Every routed agent not listed in `types` is classified. In `on` the spawn waits up to the classifier's `timeoutMs`, at most 3 seconds; `shadow` never delays a spawn.
+- A classifier failure or a missing key keeps the model Claude Code gives the agent, and so does a model that `availableModels` blocks. So does routing off: `/router off`, or a `/model` choice.
+- A spawn sets a model, not an effort. An agent's `effort` frontmatter still applies.
+
+The Usage tab's **SUBAGENTS** section shows, per agent type, what routing cost against the model Claude Code would have used, and which agents passed through and why. [Evaluation](evaluation.md#subagent-routing) says what to look for. To compare before you trust it, set `"subagentRouting": "shadow"`. To stop it, set `"off"`. Router 1.8 rejects both keys as unknown, so remove `subagentRouting` and `subagents` before you downgrade. Subagent routing needs the `agent.spawn` hook: it is checked on Claude Code 2.1.293 and 2.1.296, and unverified on older builds.
+
 ## Optional `router.json`
 
 Start with the setting you need and leave the rest at defaults. For example, require three votes before moving to a cheaper tier and allow Jev up to two seconds:
@@ -196,6 +252,8 @@ The Mod validates the whole file. Unknown keys and invalid values make routing u
 | `classifier`                   | An id in `classifiers`                                                               | `jev`                                                    |
 | `classifiers.<id>`             | `label`, `api`, `endpoint`, `model`, `keyOption`, `timeoutMs`                        | [Classifiers](#classifiers) above                        |
 | `context`                      | `recentTurns`, `maxTextChars`                                                        | `6`, `1200`                                              |
+| `subagentRouting`              | `off`, `shadow`, `on`                                                                | `on`                                                     |
+| `subagents`                    | `types` (type → models key, `classify` or `null`), `light`, `standard`, `heavy`, `heavyMass` | [Subagent routing](#subagent-routing)            |
 
 Policy defaults:
 
@@ -217,6 +275,8 @@ Policy defaults:
 | `activityMass`          |   `0.6` | Minimum probability for the classifier's activity to apply. Not tuned on any classifier.           |
 
 The pane writes a subset of these settings. The **Routes** and **Policy** tabs set `routes`, `activities`, `activityRouting`, `baselineTier`, `policy.downgradeVotes`, `policy.downgradeHorizonTurns`, `policy.cashCapUsd`, and `policy.activityMass` in one save: it writes only values that differ from the defaults and removes the rest. `/router activities <mode>` writes `activityRouting` at once, with **Undo**. The **Classifier** tab sets `classifier` and the active classifier's `timeoutMs` at once. **Undo** reverts the settings the last pane write changed. Each save validates the whole file, keeps other keys, and applies from the next turn. A failed check names the setting and leaves the file unchanged. The pane refuses to write through a symlink. Model aliases and the other settings require a direct edit.
+
+Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 keep one prompt cache across effort levels, so the policy prices an effort-only move, such as Opus at `medium` to Opus at `high`, as no cache write. On Amazon Bedrock, Google Cloud, Microsoft Foundry, a custom `ANTHROPIC_BASE_URL`, or with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`, each effort has its own cache and the move pays its write. A HIPAA configuration cannot be detected; the router then prices those moves as free.
 
 Native cache freshness is unknown after 270 seconds or after a history reset. Claude usage does not report the cache TTL. The policy evaluates price bounds for five-minute and one-hour writes, but the one-hour case is not observed fact. See the [architecture](architecture.md#cache-and-cost) for the estimate rules.
 

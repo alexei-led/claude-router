@@ -62,7 +62,7 @@ test('switch comparison needs observed usage and preserves savings and added-cos
   const sonnetInput = (loop, overrides) => input(loop, { nativeModel: sonnet, ...overrides }, config);
   const initial = emptyLoop(config, sonnet);
   assert.equal(chooseRoute(config, initial, sonnetInput(initial)).decision.comparison, null);
-  const observed = observeResponse(initial, {
+  const observed = observeResponse(DEFAULTS, initial, {
     usage: usage({
       model: sonnet,
       input_tokens: 2000,
@@ -95,7 +95,7 @@ test('a model without an output price still gets a finite input-only comparison'
   const { output, ...inputOnly } = tiny;
   const config = loadConfig({ userFile: { models: { tiny: inputOnly }, routes: { micro: { model: 'tiny' } } } });
   const initial = emptyLoop(config, model);
-  const observed = observeResponse(initial, {
+  const observed = observeResponse(DEFAULTS, initial, {
     usage: usage({ input_tokens: 2000, cache_read_input_tokens: 140_000, cache_creation_input_tokens: 8000 }),
     requestedModel: model,
     effort: 'medium',
@@ -125,7 +125,7 @@ test('native facts use engine turn ids and bounded prompt rather than tool outpu
 
 test('a new or reset history switches on one vote; a measured one waits for the streak', () => {
   const initial = emptyLoop(DEFAULTS, model);
-  const observed = observeResponse(initial, { usage: usage(), requestedModel: model, effort: 'high', now });
+  const observed = observeResponse(DEFAULTS, initial, { usage: usage(), requestedModel: model, effort: 'high', now });
   const up = adviceOf('medium', { medium: 0.95, low: 0.05 });
   for (const [name, config, loop, vote, expected] of [
     ['session start, down', DEFAULTS, initial, advice, ['micro', 'downgrade']],
@@ -143,7 +143,7 @@ test('a new or reset history switches on one vote; a measured one waits for the 
 
 test('native facts say whether this history has a measured reply', () => {
   const initial = emptyLoop(DEFAULTS, model);
-  const observed = observeResponse(initial, { usage: usage(), requestedModel: model, effort: 'high', now });
+  const observed = observeResponse(DEFAULTS, initial, { usage: usage(), requestedModel: model, effort: 'high', now });
   for (const [loop, measured] of [
     [initial, false],
     [observed, true],
@@ -184,7 +184,7 @@ test('large and unknown contexts cannot be pinned into a smaller window', () => 
 });
 
 test('large tool results trigger fit without another turn vote', () => {
-  const loop = observeResponse(emptyLoop(SMALL_MICRO, model), {
+  const loop = observeResponse(DEFAULTS, emptyLoop(SMALL_MICRO, model), {
     usage: usage(),
     requestedModel: model,
     effort: 'medium',
@@ -204,7 +204,7 @@ test('large tool results trigger fit without another turn vote', () => {
 
 test('a local estimate alone cannot downgrade a new or reset history into a smaller window', () => {
   const initial = emptyLoop(SMALL_MICRO, model);
-  const observed = observeResponse(initial, {
+  const observed = observeResponse(DEFAULTS, initial, {
     usage: usage(),
     requestedModel: model,
     effort: 'medium',
@@ -283,22 +283,30 @@ test('an unknown context also blocks smaller windows in the fallback search', ()
 });
 
 test('observations count cached input only and never merge different dated snapshots', () => {
-  const observed = observeResponse(emptyLoop(DEFAULTS, model), {
+  const observed = observeResponse(DEFAULTS, emptyLoop(DEFAULTS, model), {
     usage: usage(),
     requestedModel: model,
     effort: 'medium',
     now,
   });
-  assert.equal(observed.models[`${model}@medium`].prefixTokens, 1100);
+  // Haiku 5.5 keeps one cache across efforts; a provider that splits it keys each effort.
+  assert.equal(observed.models[model].prefixTokens, 1100);
   assert.equal(observed.lastRequest.tokens, 1200);
-  const dated = observeResponse(observed, {
+  const split = observeResponse({ ...DEFAULTS, effortSplitsCache: true }, emptyLoop(DEFAULTS, model), {
+    usage: usage(),
+    requestedModel: model,
+    effort: 'medium',
+    now,
+  });
+  assert.deepEqual(Object.keys(split.models), [`${model}@medium`]);
+  const dated = observeResponse(DEFAULTS, observed, {
     usage: usage({ model: 'claude-haiku-4-5-20251001' }),
     requestedModel: 'claude-haiku-4-5',
     effort: null,
     now,
   });
   assert.equal(dated.resolutions['claude-haiku-4-5'], 'claude-haiku-4-5-20251001');
-  const moved = observeResponse(dated, {
+  const moved = observeResponse(DEFAULTS, dated, {
     usage: usage({ model: 'claude-haiku-4-5-20270101' }),
     requestedModel: 'claude-haiku-4-5',
     effort: null,
@@ -315,7 +323,7 @@ test('incomplete usage cannot erase the last context measurement', () => {
     usage({ input_tokens: -1 }),
   ]) {
     assert.equal(
-      observeResponse(loop, { usage: u, requestedModel: model, effort: null, now }).lastRequest.tokens,
+      observeResponse(DEFAULTS, loop, { usage: u, requestedModel: model, effort: null, now }).lastRequest.tokens,
       700_000,
     );
   }
@@ -339,13 +347,13 @@ test('rewind clears votes and warmth but retains the context floor', () => {
 });
 
 test('window-exceeded responses latch the model without a retry', () => {
-  const loop = observeResponse(emptyLoop(SMALL_MICRO, model), {
+  const loop = observeResponse(DEFAULTS, emptyLoop(SMALL_MICRO, model), {
     usage: usage(),
     requestedModel: model,
     effort: 'medium',
     now,
   });
-  const failed = observeResponse(loop, {
+  const failed = observeResponse(DEFAULTS, loop, {
     usage: null,
     requestedModel: 'claude-haiku-4-5',
     effort: null,
@@ -421,7 +429,7 @@ test("a route the context outgrows moves up the activity's routes; an unknown co
     userFile: { activityRouting: 'on', models: { tiny }, activities: { code: { low: { model: 'tiny' } } } },
   });
   const label = { choice: 'code', probabilities: { code: 0.95, uncertain: 0.05 } };
-  const loop = observeResponse(emptyLoop(config, model), {
+  const loop = observeResponse(DEFAULTS, emptyLoop(config, model), {
     usage: usage(),
     requestedModel: model,
     effort: 'medium',

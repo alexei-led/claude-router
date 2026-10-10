@@ -39,8 +39,17 @@ export function memory({ lastRoute = null, models = {}, lastRequest = null, stat
   return { lastRoute, models, lastRequest, state };
 }
 
-export function served(modelId, { tokens = 20_000, output = 500, ttl = '1h', at = T0, effort = null } = {}) {
-  const key = effort ? `${modelId}@${effort}` : modelId;
+// The models that keep one cache across efforts (code.claude.com/docs/en/prompt-caching), written out so the fixtures
+// do not lean on the code under test.
+export const EFFORT_SHARED = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-fable-5-1'];
+
+// The cache the router observed for a reply: one per effort on a provider that splits it (`effortSplits`) or on a
+// model outside EFFORT_SHARED, else one per model.
+export function served(
+  modelId,
+  { tokens = 20_000, output = 500, ttl = '1h', at = T0, effort = null, effortSplits = false } = {},
+) {
+  const key = effort && (effortSplits || !EFFORT_SHARED.includes(modelId)) ? `${modelId}@${effort}` : modelId;
   return {
     lastRequest: { model: modelId, tokens, outputTokens: output, cacheReadTokens: tokens, ttl, at },
     models: { [key]: { lastAt: at, prefixTokens: tokens + output, ttl } },
