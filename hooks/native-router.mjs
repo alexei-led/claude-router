@@ -428,6 +428,9 @@ async function contextOf($, loop) {
 }
 
 async function* passMain($, e, next, loop, version, nativeModel, reason, router) {
+  // A turn routing did not choose is a turn on another route: it ends the watch for escalations after a cheaper
+  // activity move, including one a turn started before routing was turned off mid-turn.
+  if (reason === 'manual') router.afterDown = null;
   const ref = { ...LOOP, id: 'main' };
   const context = await contextOf($, loop);
   await updateView($, router, {
