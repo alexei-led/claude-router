@@ -193,6 +193,8 @@ test('the Now tab shows the activity reading and the route its cell resolves to 
     const lines = texts(renderPanel(ELEMENTS, config, view({ ...props, ...reading }), null, actions));
     const name = `${mode} ${JSON.stringify(props)}`;
     assert.equal(after(lines, 'Route     '), route, name);
+    if (mode === 'on' && props === sonnetLow)
+      assert.equal(after(lines, 'Why       '), 'code at low runs on Sonnet 5.5 · high');
     assert.equal(after(lines, 'Activity  '), mode === 'off' ? null : 'code 81%', name);
     if (mode !== 'off') assert.equal(lines[lines.indexOf('Activity  ') + 2], '   ops 9% · explore 6%', name);
   }
@@ -362,8 +364,25 @@ test('the Routing tab controls call the pane actions with the activity and tier'
 
 const STATS = {
   byActivity: {
-    code: { turns: 12, requests: 71, inputTokens: 0, outputTokens: 0 },
-    explore: { turns: 5, requests: 22, inputTokens: 0, outputTokens: 0 },
+    code: {
+      turns: 12,
+      requests: 71,
+      inputTokens: 0,
+      outputTokens: 0,
+      routedUsd: 4.213,
+      pricedRequests: 71,
+      routes: { 'claude-sonnet-5-5@high': 60, 'claude-opus-5-5@medium': 11 },
+    },
+    explore: {
+      turns: 5,
+      requests: 22,
+      inputTokens: 0,
+      outputTokens: 0,
+      routedUsd: 0.31,
+      pricedRequests: 22,
+      routes: { 'claude-haiku-5-5@session': 22 },
+    },
+    // Counts saved by 1.7.0: no cost or routes.
     none: { turns: 3, requests: 3, inputTokens: 0, outputTokens: 0 },
   },
   switches: { tier: 4, activity: 5 },
@@ -377,19 +396,24 @@ const STORE = {
   lateral: { taken: 4, refused: 2 },
   shadow: { differs: 6, turns: 18, estimated: 6, minUsd: -0.42, maxUsd: 0.18 },
 };
+const METRICS = {
+  version: 1,
+  latency: { jev: [0, 0, 0, 3, 15, 1, 1, ...Array(15).fill(0)], openai: [9, ...Array(21).fill(0)] },
+  downMoves: { moves: 12, escalations: 1 },
+};
 const SESSION_LINES = [
   'ACTIVITY · this session',
   '   activity routing shadow',
-  '                       turns  requests  share',
+  '                       turns  requests  share  est. cost   mostly on',
   '  code     ',
   '██████░░░░',
-  '     12        71    60%',
+  '     12        71    60%      $4.21   Sonnet 5.5 · high',
   '  explore  ',
   '███░░░░░░░',
-  '      5        22    25%',
+  '      5        22    25%      $0.31   Haiku 5.5',
   '  none     ',
   '██░░░░░░░░',
-  '      3         3    15%',
+  '      3         3    15%          —   —',
   'Switches   9 · 4 by tier · 5 by activity',
   'Agreement  classifier vs tools: 19 of 22 turns (86%)',
 ];
@@ -406,6 +430,8 @@ const ACROSS_LINES = [
   'Code/ops/explore  classifier vs tools: 14 of 18 turns (78%)',
   'Mismatch   code → read 3 · ops → code 1',
   'Activity moves  4 taken · 2 refused',
+  'Escalations  after a cheaper activity move: 1 in 12 moves',
+  'Latency    Jev p95 ≤ 350 ms · 20 turns',
   'Shadow     on would route 6 of 18 turns differently · est. −$0.420 … +$0.180 at list prices',
 ];
 const ACROSS_EMPTY = [' ', ACROSS, '  no turns recorded yet'];
@@ -434,6 +460,8 @@ test('the Usage tab shows the session activity block and the counts across sessi
         'Labelled   3 turns',
         'Agreement  classifier vs tools: 2 of 3 turns (67%)',
         'Mismatch   debug → talk 1',
+        'Escalations  after a cheaper activity move: 1 in 12 moves',
+        'Latency    Jev p95 ≤ 350 ms · 20 turns',
       ],
     ],
     [
@@ -450,6 +478,19 @@ test('the Usage tab shows the session activity block and the counts across sessi
       STORE,
       [
         ...SESSION_LINES,
+        'Shadow     on would route 5 of 20 turns differently · est. −$0.300 … −$0.120 for 3 at list prices',
+        ...ACROSS_LINES,
+      ],
+    ],
+    [
+      'shadow after on: refused moves from on still show',
+      'shadow',
+      { ...STATS, lateral: { taken: 5, refused: 2 } },
+      STORE,
+      [
+        ...SESSION_LINES.slice(0, -2),
+        'Switches   9 · 4 by tier · 5 by activity · 2 refused',
+        SESSION_LINES.at(-1),
         'Shadow     on would route 5 of 20 turns differently · est. −$0.300 … −$0.120 for 3 at list prices',
         ...ACROSS_LINES,
       ],
@@ -488,11 +529,27 @@ test('the Usage tab shows the session activity block and the counts across sessi
       [
         'ACTIVITY · this session',
         '   activity routing on',
-        '                       turns  requests  share',
+        '                       turns  requests  share  est. cost   mostly on',
         '  ops      ',
         '██████████',
-        '     12        71   100%',
+        '     12        71   100%      $4.21   Sonnet 5.5 · high',
         'Switches   9 · 4 by tier · 5 by activity',
+        ...ACROSS_LINES,
+      ],
+    ],
+    [
+      'on, with refused activity moves',
+      'on',
+      { ...ops, lateral: { taken: 5, refused: 2 }, shadow: { differs: 0, turns: 0 } },
+      STORE,
+      [
+        'ACTIVITY · this session',
+        '   activity routing on',
+        '                       turns  requests  share  est. cost   mostly on',
+        '  ops      ',
+        '██████████',
+        '     12        71   100%      $4.21   Sonnet 5.5 · high',
+        'Switches   9 · 4 by tier · 5 by activity · 2 refused',
         ...ACROSS_LINES,
       ],
     ],
@@ -508,7 +565,7 @@ test('the Usage tab shows the session activity block and the counts across sessi
     const tree = renderPanel(
       ELEMENTS,
       { ...DEFAULTS, activityRouting: mode },
-      view({ tab: 'usage', activityStats, activityStore }),
+      view({ tab: 'usage', activityStats, activityStore, activityMetrics: METRICS }),
       null,
       recorded,
     );
@@ -523,5 +580,94 @@ test('the Usage tab shows the session activity block and the counts across sessi
     const reset = controls(tree).find((c) => c.key === 'reset-stats');
     reset.onPress();
     assert.deepEqual(calls, [['resetStats']], `${name}: the stored counts can always be reset`);
+  }
+});
+
+test('Escalations and Latency show only with readable data, and a bad latency hides only its line', () => {
+  const escalations = 'Escalations  after a cheaper activity move: 1 in 12 moves';
+  const latency = 'Latency    Jev p95 ≤ 350 ms · 20 turns';
+  for (const [name, activityMetrics, expected] of [
+    ['both', METRICS, [escalations, latency]],
+    ['none saved', null, []],
+    ['latency from an older bucket set', { ...METRICS, latency: { jev: [1, 2, 3] } }, [escalations]],
+    ['no cheaper moves', { ...METRICS, downMoves: { moves: 0, escalations: 0 } }, [latency]],
+    ['another classifier only', { ...METRICS, latency: { openai: METRICS.latency.openai } }, [escalations]],
+  ]) {
+    const lines = texts(
+      renderPanel(
+        ELEMENTS,
+        { ...DEFAULTS, activityRouting: 'on' },
+        view({ tab: 'usage', activityStore: STORE, activityMetrics }),
+        null,
+        actions,
+      ),
+    );
+    assert.deepEqual(
+      lines.filter((line) => line.startsWith('Escalations') || line.startsWith('Latency')),
+      expected,
+      name,
+    );
+    assert.ok(lines.includes('Labelled   22 turns'), `${name}: the stats store still shows`);
+  }
+  // A classifier id that names an Object.prototype member reads no latency rather than the prototype's function.
+  const proto = { ...DEFAULTS.classifiers.jev, label: 'Proto' };
+  const config = { ...DEFAULTS, activityRouting: 'on', classifier: 'toString', classifiers: { toString: proto } };
+  const lines = texts(
+    renderPanel(
+      ELEMENTS,
+      config,
+      view({ tab: 'usage', activityStore: STORE, activityMetrics: METRICS }),
+      null,
+      actions,
+    ),
+  );
+  assert.deepEqual(
+    lines.filter((line) => line.startsWith('Latency')),
+    [],
+  );
+});
+
+test('an activity shows its cost only when every reply was priced', () => {
+  const code = STATS.byActivity.code;
+  for (const [name, counts, expected] of [
+    ['all priced', code, '     12        71   100%      $4.21   Sonnet 5.5 · high'],
+    ['one reply unpriced', { ...code, pricedRequests: 70 }, '     12        71   100%          —   Sonnet 5.5 · high'],
+    [
+      'a 1.7.0 row priced after an upgrade',
+      { ...code, routedUsd: 0.05, pricedRequests: undefined },
+      '     12        71   100%          —   Sonnet 5.5 · high',
+    ],
+  ]) {
+    const lines = texts(
+      renderPanel(
+        ELEMENTS,
+        { ...DEFAULTS, activityRouting: 'on' },
+        view({ tab: 'usage', activityStats: { ...STATS, byActivity: { code: counts } } }),
+        null,
+        actions,
+      ),
+    );
+    assert.equal(lines[lines.indexOf('  code     ') + 2], expected, name);
+  }
+});
+
+test('a narrow Usage tab drops mostly on, then the cost, before the activity counts', () => {
+  for (const [columns, header] of [
+    [null, '                       turns  requests  share  est. cost   mostly on'],
+    [76, '                       turns  requests  share  est. cost   mostly on'],
+    [75, '                       turns  requests  share  est. cost'],
+    [56, '                       turns  requests  share  est. cost'],
+    [55, '                       turns  requests  share'],
+  ]) {
+    const tree = renderPanel(
+      ELEMENTS,
+      { ...DEFAULTS, activityRouting: 'on' },
+      view({ tab: 'usage', activityStats: STATS }),
+      null,
+      actions,
+      { columns },
+    );
+    const lines = texts(tree);
+    assert.equal(lines[lines.indexOf('   activity routing on') + 1], header, String(columns));
   }
 });

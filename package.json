@@ -36,6 +36,7 @@
     "test:plugin": "bash scripts/plugin-test.sh",
     "format": "tools/node_modules/.bin/biome format --write .",
     "docs:images": "node scripts/render-doc-images.mjs",
+    "probe:results": "node scripts/probe-results.mjs",
     "pack:dry": "npm pack --dry-run",
     "prepublishOnly": "npm run check && npm test"
   }

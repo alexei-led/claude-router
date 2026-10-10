@@ -2,12 +2,20 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   ALLOWED,
+  advanceDown,
   advanceRun,
   agrees,
+  emptyMetrics,
   emptySession,
   emptyStore,
+  latencyP95,
+  mergeMetrics,
+  metricsAfterReset,
+  mostlyOn,
   OBSERVED,
+  readMetrics,
   readStore,
+  recordMetrics,
   recordStore,
   recordTurn,
   storeSummary,
@@ -72,11 +80,45 @@ test('a session accumulates turns, requests and tokens per activity, and none wi
   session = recordTurn(session, turn({ requests: 2, inputTokens: 500, outputTokens: 50 }));
   session = recordTurn(session, turn({ activity: 'ops', observed: 'ops', requests: 1 }));
   session = recordTurn(session, turn({ activity: null, observed: 'talk', requests: 4 }));
+  const unpriced = { routedUsd: null, pricedRequests: 0, routes: {} };
   assert.deepEqual(session.byActivity, {
-    code: { turns: 2, requests: 5, inputTokens: 1500, outputTokens: 250 },
-    ops: { turns: 1, requests: 1, inputTokens: 1000, outputTokens: 200 },
-    none: { turns: 1, requests: 4, inputTokens: 1000, outputTokens: 200 },
+    code: { turns: 2, requests: 5, inputTokens: 1500, outputTokens: 250, ...unpriced },
+    ops: { turns: 1, requests: 1, inputTokens: 1000, outputTokens: 200, ...unpriced },
+    none: { turns: 1, requests: 4, inputTokens: 1000, outputTokens: 200, ...unpriced },
   });
+});
+
+test('a session adds each activity’s reply cost, priced replies and routes, also to counts saved by 1.7.0', () => {
+  const saved = { byActivity: { code: { turns: 1, requests: 2, inputTokens: 10, outputTokens: 1 } } };
+  let session = { ...emptySession(), ...saved };
+  session = recordTurn(session, turn({ routedUsd: null, pricedRequests: 0, routes: {} }));
+  const { routedUsd, pricedRequests, routes } = session.byActivity.code;
+  assert.deepEqual([routedUsd, pricedRequests, routes], [null, 0, {}]);
+  session = recordTurn(session, turn({ routedUsd: 0.5, pricedRequests: 2, routes: { 'claude-sonnet-5-5@high': 2 } }));
+  session = recordTurn(
+    session,
+    turn({
+      routedUsd: 0.25,
+      pricedRequests: 3,
+      routes: { 'claude-sonnet-5-5@high': 1, 'claude-opus-5-5@medium': 3, bad: -1 },
+    }),
+  );
+  const code = session.byActivity.code;
+  assert.deepEqual(
+    [code.routedUsd, code.pricedRequests, code.routes],
+    [0.75, 5, { 'claude-sonnet-5-5@high': 3, 'claude-opus-5-5@medium': 3 }],
+  );
+  assert.deepEqual([code.turns, code.requests], [4, 11], 'the 1.7.0 replies stay unpriced');
+});
+
+test('mostlyOn picks the route with the most replies, ties in name order, none without replies', () => {
+  for (const [routes, expected] of [
+    [{ 'b@high': 2, 'a@high': 5 }, 'a@high'],
+    [{ 'b@high': 3, 'a@medium': 3 }, 'a@medium'],
+    [{}, null],
+    [undefined, null],
+  ])
+    assert.equal(mostlyOn({ routes }), expected, JSON.stringify(routes));
 });
 
 test('session agreement compares the classifier answer, not the route label, and skips turns without one', () => {
@@ -105,6 +147,17 @@ test('session switches and shadow counters add up', () => {
     session = recordTurn(session, turn(extra));
   assert.deepEqual(session.switches, { tier: 2, activity: 3 });
   assert.deepEqual(session.shadow, shadowOf(1, 3));
+});
+
+test('session lateral moves count taken and refused, also on a 1.7.0 view without them', () => {
+  const { lateral: _, ...saved } = emptySession();
+  let session = saved;
+  for (const lateral of ['taken', 'refused', 'refused', null, 'bogus'])
+    session = recordTurn(session, turn({ lateral }));
+  assert.deepEqual(session.lateral, { taken: 1, refused: 2 });
+  for (const lateral of ['taken', 'refused'])
+    session = recordTurn(session, turn({ lateral, shadow: true, wouldDiffer: false }));
+  assert.deepEqual(session.lateral, { taken: 1, refused: 2 }, 'the would-route’s moves in shadow are not decisions');
 });
 
 test('the shadow estimate sums the ranges of differing turns only, and counts the turns it covers', () => {
@@ -141,7 +194,15 @@ test('recordTurn returns a new session and treats bad numbers as zero', () => {
     turn({ requests: Number.NaN, inputTokens: -5, outputTokens: undefined, tierSwitches: 'x' }),
   );
   assert.deepEqual(before, emptySession());
-  assert.deepEqual(after.byActivity.code, { turns: 1, requests: 0, inputTokens: 0, outputTokens: 0 });
+  assert.deepEqual(after.byActivity.code, {
+    turns: 1,
+    requests: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    routedUsd: null,
+    pricedRequests: 0,
+    routes: {},
+  });
   assert.deepEqual(after.switches, { tier: 0, activity: 0 });
 });
 
@@ -287,6 +348,100 @@ test('readStore keeps a valid store and falls back to an empty one for any bad s
     assert.deepEqual(readStore(value), emptyStore(), name);
 });
 
+test('the stats store keeps the 1.7.0 key set, which 1.7.0 reads back, whatever the turn measured', () => {
+  const store = recordStore(emptyStore(), {
+    predicted: 'code',
+    observed: 'code',
+    runEnded: { activity: 'code', length: 2 },
+    lateral: 'taken',
+    wouldDiffer: true,
+    classifier: 'jev',
+    adviceMs: 240,
+    downMove: 'moved',
+  });
+  assert.deepEqual(Object.keys(store), ['version', 'confusion', 'runs', 'lateral', 'shadow']);
+  assert.deepEqual(readStore(store), store);
+});
+
+test('readMetrics keeps each part it can read and drops only a bad one', () => {
+  const latency = { jev: [0, 0, 0, 0, 5, 1, ...Array(16).fill(0)] };
+  const downMoves = { moves: 3, escalations: 1 };
+  const valid = { version: 1, since: 5, latency, downMoves };
+  const none = { moves: 0, escalations: 0 };
+  assert.deepEqual(readMetrics(valid), valid);
+  assert.deepEqual(readMetrics(structuredClone(emptyMetrics())), emptyMetrics());
+  for (const [name, value, expected] of [
+    ['undefined', undefined, emptyMetrics()],
+    ['null', null, emptyMetrics()],
+    ['an array', [], emptyMetrics()],
+    ['a future version', { ...valid, version: 2 }, emptyMetrics()],
+    ['no since', { ...valid, since: undefined }, { ...valid, since: null }],
+    ['since as a string', { ...valid, since: '5' }, { ...valid, since: null }],
+    ['latency as an array', { ...valid, latency: [] }, { ...valid, latency: {} }],
+    ['too few latency buckets', { ...valid, latency: { jev: [1, 2] } }, { ...valid, latency: {} }],
+    ['a negative latency count', { ...valid, latency: { jev: [-1, ...Array(21).fill(0)] } }, { ...valid, latency: {} }],
+    [
+      'more classifiers than the bound',
+      { ...valid, latency: Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`c${i}`, Array(22).fill(0)])) },
+      { ...valid, latency: {} },
+    ],
+    ['downMoves missing a key', { ...valid, downMoves: { moves: 3 } }, { ...valid, downMoves: none }],
+    [
+      'downMoves with a string count',
+      { ...valid, downMoves: { moves: '3', escalations: 1 } },
+      { ...valid, downMoves: none },
+    ],
+  ])
+    assert.deepEqual(readMetrics(value), expected, name);
+});
+
+test('the sessions’ metrics add up since the last reset, within the classifier bound', () => {
+  const bucket = (i) => Array.from({ length: 22 }, (_, j) => (j === i ? 1 : 0));
+  const record = (since, latency, moves, escalations) => ({
+    version: 1,
+    since,
+    latency,
+    downMoves: { moves, escalations },
+  });
+  const many = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`c${i}`, bucket(0)]));
+  for (const [name, values, resetAt, expected] of [
+    ['none', [], null, emptyMetrics()],
+    [
+      'two sessions',
+      [record(20, { jev: bucket(0) }, 2, 1), record(10, { jev: bucket(3), clef: bucket(1) }, 1, 0)],
+      null,
+      record(10, { jev: [1, 0, 0, 1, ...Array(18).fill(0)], clef: bucket(1) }, 3, 1),
+    ],
+    [
+      'one from before the reset',
+      [record(5, { jev: bucket(0) }, 2, 1), record(20, {}, 1, 0)],
+      10,
+      record(20, {}, 1, 0),
+    ],
+    ['a bad and a missing value', [{ version: 2 }, undefined, record(20, {}, 1, 0)], null, record(20, {}, 1, 0)],
+    ['ids past the bound', [record(1, many, 0, 0), record(2, { jev: bucket(0) }, 0, 0)], null, record(1, many, 0, 0)],
+    [
+      'a classifier id that names an Object.prototype member',
+      [record(1, { toString: bucket(0) }, 0, 0), record(2, { toString: bucket(0) }, 0, 0)],
+      null,
+      record(1, { toString: bucket(0).map((n) => n * 2) }, 0, 0),
+    ],
+  ])
+    assert.deepEqual(mergeMetrics(values, resetAt), expected, name);
+  const merged = mergeMetrics([record(1, many, 0, 0), record(2, { jev: bucket(0) }, 0, 0)]);
+  assert.deepEqual(readMetrics(merged), merged);
+});
+
+test('a turn that adds no reading leaves the record as it was; the first reading sets since', () => {
+  const empty = emptyMetrics();
+  assert.equal(recordMetrics(empty, { classifier: null, adviceMs: null, downMove: null, now: 7 }), empty);
+  const first = recordMetrics(empty, { classifier: 'jev', adviceMs: 120, downMove: null, now: 7 });
+  assert.equal(first.since, 7);
+  assert.equal(recordMetrics(first, { classifier: null, adviceMs: null, downMove: 'moved', now: 9 }).since, 7);
+  assert.equal(metricsAfterReset(first, 8).since, null);
+  assert.equal(metricsAfterReset(first, 7), first);
+});
+
 test('advanceRun extends a run of the same activity and closes it on a change', () => {
   let run = null;
   const seen = [];
@@ -332,7 +487,7 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       'on',
       advice('ops', 0.81),
       sonnet,
-      { ...haiku, activity: 'ops', reason: 'activity-down' },
+      { ...haiku, activity: 'ops', reason: 'activity-down', lateral: 'taken' },
       { answer: 'ops', label: 'ops', predicted: 'ops', switched: 'activity', lateral: 'taken', wouldDiffer: null },
     ],
     [
@@ -340,8 +495,24 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       'on',
       advice('ops', 0.81),
       sonnet,
-      { ...sonnet, activity: 'code', reason: 'activity-pending' },
+      { ...sonnet, activity: 'code', reason: 'activity-pending', lateral: 'refused' },
       { answer: 'ops', label: 'code', predicted: 'ops', switched: null, lateral: 'refused', wouldDiffer: null },
+    ],
+    ...['hold', 'cash-gate'].map((reason) => [
+      `on: a move refused by ${reason} is counted`,
+      'on',
+      advice('ops', 0.81),
+      sonnet,
+      { ...sonnet, activity: 'code', reason, lateral: 'refused' },
+      { answer: 'ops', label: 'code', predicted: 'ops', switched: null, lateral: 'refused', wouldDiffer: null },
+    ]),
+    [
+      'on: a tier hold without a lateral move counts nothing',
+      'on',
+      advice('ops', 0.81),
+      sonnet,
+      { ...sonnet, activity: 'code', reason: 'hold', lateral: null },
+      { answer: 'ops', label: 'code', predicted: 'ops', switched: null, lateral: null, wouldDiffer: null },
     ],
     [
       'on: a tier move',
@@ -376,7 +547,13 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
         ...haiku,
         activity: null,
         reason: 'hold',
-        wouldRoute: { ...sonnet, activity: 'code', reason: 'activity-up', difference: { minUsd: 0.01, maxUsd: 0.1 } },
+        wouldRoute: {
+          ...sonnet,
+          activity: 'code',
+          reason: 'activity-up',
+          lateral: 'taken',
+          difference: { minUsd: 0.01, maxUsd: 0.1 },
+        },
       },
       {
         answer: 'code',
@@ -452,4 +629,89 @@ test('storeSummary counts labelled turns, agreement over activity rows, and the 
     lateral: { taken: 0, refused: 0 },
     shadow: shadowOf(0, 0),
   });
+});
+
+test('the metrics keep a bounded latency histogram per classifier and its p95 is a bucket bound', () => {
+  let metrics = emptyMetrics();
+  const turn = (classifier, adviceMs) => ({ classifier, adviceMs, downMove: null });
+  for (const ms of [...Array(18).fill(240), 299, 301, 7000]) metrics = recordMetrics(metrics, turn('jev', ms));
+  for (const ms of [null, -1, Number.NaN]) metrics = recordMetrics(metrics, turn('jev', ms));
+  metrics = recordMetrics(metrics, turn(null, 100));
+  assert.deepEqual(latencyP95(metrics.latency.jev), { ms: 350, over: false, turns: 21 });
+  assert.deepEqual(latencyP95([...Array(21).fill(0), 3]), { ms: 5000, over: true, turns: 3 });
+  assert.equal(latencyP95(undefined), null);
+  assert.equal(latencyP95(Array(22).fill(0)), null);
+  for (let i = 0; i < 12; i += 1) metrics = recordMetrics(metrics, turn(`c${i}`, 100));
+  assert.equal(Object.keys(metrics.latency).length, 8);
+  assert.ok(Object.hasOwn(metrics.latency, 'jev'));
+  assert.deepEqual(readMetrics(metrics), metrics);
+});
+
+test('escalations after a cheaper activity move: a move starts the watch, one escalation or another route ends it', () => {
+  const HAIKU = 'claude-haiku-5-5@high';
+  const SONNET = 'claude-sonnet-5-5@high';
+  const OPUS = 'claude-opus-5-5@xhigh';
+  const on = (reason, route, extra = {}) => ({
+    mode: 'on',
+    reason,
+    lateral: null,
+    escalated: false,
+    pinned: false,
+    route,
+    ...extra,
+  });
+  const down = on('activity-down', HAIKU, { lateral: 'taken' });
+  const escalation = on('escalation', OPUS, { escalated: true });
+  for (const [name, turns, events] of [
+    ['an escalation right after', [down, escalation], ['moved', 'escalated']],
+    ['an escalation after quiet turns', [down, on('same-tier', HAIKU), escalation], ['moved', null, 'escalated']],
+    ['one escalation counts once', [down, escalation, escalation], ['moved', 'escalated', null]],
+    ['another route ends the watch', [down, on('upgrade', SONNET), escalation], ['moved', null, null]],
+    [
+      'a pin and the return to the cheaper route keep the watch',
+      [down, on('pinned', OPUS, { pinned: true }), on('same-tier', HAIKU), escalation],
+      ['moved', null, null, 'escalated'],
+    ],
+    [
+      'a return from a pin to another route ends it',
+      [down, on('pinned', OPUS, { pinned: true }), on('upgrade', SONNET), escalation],
+      ['moved', null, null, null],
+    ],
+    ['an escalation the cash gate held', [down, on('cash-gate', HAIKU, { escalated: true })], ['moved', 'escalated']],
+    [
+      'an escalation context-fit replaced',
+      [down, on('context-fit', OPUS, { escalated: true })],
+      ['moved', 'escalated'],
+    ],
+    [
+      'a refused cheaper move starts nothing',
+      [on('activity-pending', SONNET, { lateral: 'refused' }), escalation],
+      [null, null],
+    ],
+    [
+      'an off turn ends the watch',
+      [down, { ...down, mode: 'off', reason: 'same-tier' }, escalation],
+      ['moved', null, null],
+    ],
+    [
+      'shadow never counts',
+      [
+        { ...down, mode: 'shadow' },
+        { ...escalation, mode: 'shadow' },
+      ],
+      [null, null],
+    ],
+  ]) {
+    let after = null;
+    const seen = turns.map((turn) => {
+      const step = advanceDown(after, turn);
+      after = step.after;
+      return step.event;
+    });
+    assert.deepEqual(seen, events, name);
+  }
+  let metrics = emptyMetrics();
+  for (const downMove of ['moved', 'escalated', 'moved', null, 'bogus'])
+    metrics = recordMetrics(metrics, { classifier: null, adviceMs: null, downMove });
+  assert.deepEqual(metrics.downMoves, { moves: 2, escalations: 1 });
 });

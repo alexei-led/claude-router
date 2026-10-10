@@ -14,7 +14,7 @@ import {
   TINY_ROUTER,
   texts,
 } from './harness.mjs';
-import { assistant, jevResponse, user } from './helpers.mjs';
+import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
 test('frozen native state reads do not restore consumed pins or drop first response usage', async () => {
   const h = harness();
@@ -516,9 +516,20 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   assert.match(line, / low ops → Haiku 5\.5 · high/);
   assert.match(line, /↘ ops/);
   assert.deepEqual(h.view().activities, ['code', 'ops']);
-  assert.deepEqual(h.view().activityStats, {
-    byActivity: { code: reply, ops: reply },
+  const { byActivity, ...counts } = h.view().activityStats;
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(byActivity).map(([name, { routedUsd, ...rest }]) => [name, rest])),
+    {
+      code: { ...reply, pricedRequests: 1, routes: { 'claude-sonnet-5-5@high': 1 } },
+      ops: { ...reply, pricedRequests: 1, routes: { 'claude-haiku-5-5@high': 1 } },
+    },
+  );
+  // Each activity's cost is its replies' share of the routed total.
+  assert.ok(byActivity.ops.routedUsd > 0 && byActivity.code.routedUsd > byActivity.ops.routedUsd);
+  assert.ok(Math.abs(byActivity.code.routedUsd + byActivity.ops.routedUsd - h.view().savings.routedUsd) < 1e-12);
+  assert.deepEqual(counts, {
     switches: { tier: 0, activity: 1 },
+    lateral: { taken: 1, refused: 0 },
     agreement: { matched: 2, total: 2 },
     shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
   });
@@ -529,6 +540,16 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
     lateral: { taken: 1, refused: 0 },
     shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
   });
+  const metrics = h.preferences.get('activity:metrics:v1:s1');
+  assert.ok(Number.isFinite(metrics.since));
+  assert.deepEqual(metrics, {
+    version: 1,
+    since: metrics.since,
+    // Two timed classifier answers in the fastest bucket, and one cheaper activity move with no escalation yet.
+    latency: { jev: [2, ...Array(21).fill(0)] },
+    downMoves: { moves: 1, escalations: 0 },
+  });
+  assert.deepEqual(h.view().activityMetrics, metrics);
 
   await h.event('session.end', { reason: 'clear' });
   assert.deepEqual(h.preferences.get(STATS).runs, { code: [1, 0, 0, 0, 0], ops: [1, 0, 0, 0, 0] });
@@ -536,15 +557,91 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't3', 'claude-sonnet-5-5', ['Bash']);
   assert.deepEqual(h.view().activities, ['ops']);
-  assert.deepEqual(h.view().activityStats.byActivity, { ops: reply });
+  assert.deepEqual(Object.keys(h.view().activityStats.byActivity), ['ops']);
+  assert.equal(h.view().activityStats.byActivity.ops.turns, 1);
 
   const reloaded = harness(JEV_KEY, h.preferences);
   reloaded.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
   answering(reloaded, jevResponse('low', LOW, 0, { ops: 0.9 }));
   await reloaded.event('session.start', { cwd: '/fixture' });
   await turn(reloaded, 't1', 'claude-haiku-5-5', ['Bash']);
-  assert.deepEqual(reloaded.view().activityStats.byActivity, { ops: reply });
+  assert.deepEqual(Object.keys(reloaded.view().activityStats.byActivity), ['ops']);
+  assert.equal(reloaded.view().activityStats.byActivity.ops.turns, 1);
   assert.deepEqual(reloaded.preferences.get(STATS).confusion, { code: { code: 1 }, ops: { ops: 3 } });
+});
+
+test('a turn with activity routing off ends the watch after a cheaper activity move', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(
+    CONFIG,
+    JSON.stringify({ activityRouting: 'on', activities: { ops: { low: { model: 'haiku', effort: 'medium' } } } }),
+  );
+  h.model('claude-sonnet-5-5');
+  answering(
+    h,
+    jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+  );
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
+  await turn(h, 't2', 'claude-sonnet-5-5', ['Bash']);
+  assert.equal(h.loop().decision.reason, 'activity-down');
+  await h.event('command.run', { command: 'router', args: 'activities off' });
+  await turn(h, 't3', 'claude-sonnet-5-5', ['Bash']);
+  assert.notEqual(`${h.requests[2].model}@${h.requests[2].effort}`, `${h.requests[1].model}@${h.requests[1].effort}`);
+  await h.event('command.run', { command: 'router', args: 'activities on' });
+  const failing = [
+    user('Fix the test.'),
+    assistant('running', ['Bash']),
+    toolResult('error: test_login failed', { isError: true }),
+    assistant('editing', ['Edit']),
+    toolResult('error: test_login failed', { isError: true }),
+    user('Next.'),
+  ];
+  await h.event('turn.start', { turnId: 't4', text: 'Next.' });
+  h.messages(async () => failing);
+  await drain(h.step({ ...step, turnId: 't4', model: 'claude-sonnet-5-5' }));
+  assert.equal(h.loop().decision.escalated, true);
+  h.messages(async () => [...failing, assistant('done', ['Bash'])]);
+  await h.event('turn.complete', { turnId: 't4' });
+  assert.deepEqual(h.view().activityMetrics.downMoves, { moves: 1, escalations: 0 });
+});
+
+test('turning routing off ends the watch after a cheaper activity move', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(
+    CONFIG,
+    JSON.stringify({ activityRouting: 'on', activities: { ops: { low: { model: 'haiku', effort: 'medium' } } } }),
+  );
+  h.model('claude-sonnet-5-5');
+  answering(
+    h,
+    jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+  );
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
+  await turn(h, 't2', 'claude-sonnet-5-5', ['Bash']);
+  assert.equal(h.loop().decision.reason, 'activity-down');
+  await h.event('command.run', { command: 'router', args: 'off' });
+  await turn(h, 't3', 'claude-sonnet-5-5', ['Bash']);
+  assert.equal(h.requests[2].model, 'claude-sonnet-5-5');
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  const failing = [
+    user('Fix the test.'),
+    assistant('running', ['Bash']),
+    toolResult('error: test_login failed', { isError: true }),
+    assistant('editing', ['Edit']),
+    toolResult('error: test_login failed', { isError: true }),
+    user('Next.'),
+  ];
+  await h.event('turn.start', { turnId: 't4', text: 'Next.' });
+  h.messages(async () => failing);
+  await drain(h.step({ ...step, turnId: 't4', model: 'claude-sonnet-5-5' }));
+  assert.equal(h.loop().decision.escalated, true);
+  h.messages(async () => [...failing, assistant('done', ['Bash'])]);
+  await h.event('turn.complete', { turnId: 't4' });
+  assert.deepEqual(h.view().activityMetrics.downMoves, { moves: 1, escalations: 0 });
 });
 
 test('with activity routing on, a turn without an activity answer keeps the activity but ends the run', async () => {
@@ -578,6 +675,7 @@ test('shadow asks and shows what on would do, and never changes the routed model
     model: 'claude-sonnet-5-5',
     effort: 'high',
     reason: 'activity-up',
+    lateral: 'taken',
     difference: null,
   });
   assert.match((await band(h)).line, / low code \(shadow\) → Haiku 5\.5 · high/);
@@ -589,6 +687,20 @@ test('shadow asks and shows what on would do, and never changes the routed model
   const { text } = await h.event('command.run', { command: 'router', args: '' });
   assert.match(text, /^Activity: code \(90%\)$/m);
   assert.match(text, /^Route: low \+ code would use Sonnet 5\.5 · high \(shadow; using Haiku 5\.5 · high\)$/m);
+});
+
+test('the classifier latency is the wait for its answer, not the routing after it', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
+  answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  const set = h.$.state.set;
+  h.$.state.set = async (...args) => {
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    return set(...args);
+  };
+  await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
+  assert.deepEqual(h.preferences.get('activity:metrics:v1:s1').latency.jev, [1, ...Array(21).fill(0)]);
 });
 
 test('shadow prices what on would route differently and the counts across sessions reach the view', async () => {
@@ -865,6 +977,35 @@ test('two sessions finishing turns at the same moment both add to the totals kep
   assert.equal(sessions[0].view().savingsStore.replies, 2);
 });
 
+test('two sessions finishing turns at the same moment both add to the metrics kept across sessions', async () => {
+  const writes = [];
+  let gated = false;
+  // Each write lands only once both sessions have sent theirs.
+  const preferences = new (class extends Map {
+    set(key, value) {
+      if (!gated || !key.startsWith('activity:metrics:')) return super.set(key, value);
+      const { promise, resolve } = Promise.withResolvers();
+      writes.push(() => resolve(super.set(key, value)));
+      if (writes.length === 2) for (const write of writes) write();
+      return promise;
+    }
+  })();
+  const sessions = [harness(JEV_KEY, preferences), harness(JEV_KEY, preferences)];
+  sessions[1].clear('s2');
+  for (const h of sessions) {
+    answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+    await h.event('session.start', { cwd: '/fixture' });
+    await h.event('turn.start', { turnId: 't1', text: 'Next.' });
+    await drain(h.step({ ...step, model: 'claude-haiku-5-5' }));
+  }
+  gated = true;
+  await Promise.all(sessions.map((h) => h.event('turn.complete', { turnId: 't1' })));
+  gated = false;
+  assert.equal(writes.length, 2);
+  await sessions[0].event('command.run', { command: 'router', args: '' });
+  assert.deepEqual(sessions[0].view().activityMetrics.latency.jev, [2, ...Array(21).fill(0)]);
+});
+
 test('a Reset in one session drops what another session still holds from before it', async (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: 1_000 });
   const preferences = new Map();
@@ -888,6 +1029,28 @@ test('a Reset in one session drops what another session still holds from before 
   assert.equal(b.view().savingsStore.replies, 1);
   await a.event('command.run', { command: 'router', args: '' });
   assert.equal(a.view().savingsStore.replies, 1);
+});
+
+test('a Reset in one session drops the metrics another session still holds from before it', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1_000 });
+  const preferences = new Map();
+  const [a, b] = [harness(JEV_KEY, preferences), harness(JEV_KEY, preferences)];
+  b.clear('s2');
+  answering(b, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+  await b.event('session.start', { cwd: '/fixture' });
+  await turn(b, 't1', 'claude-haiku-5-5', ['Edit']);
+  assert.deepEqual(preferences.get('activity:metrics:v1:s2').latency.jev, [1, ...Array(21).fill(0)]);
+  await a.event('session.start', { cwd: '/fixture' });
+  t.mock.timers.tick(1);
+  await press(a, 'tab-usage');
+  await press(a, 'reset-stats');
+  assert.equal(preferences.get('activity:metrics:v1:s2'), undefined);
+  t.mock.timers.tick(1);
+  await turn(b, 't2', 'claude-haiku-5-5', ['Edit']);
+  const record = preferences.get('activity:metrics:v1:s2');
+  assert.deepEqual([record.since, record.latency.jev], [1_002, [1, ...Array(21).fill(0)]]);
+  await a.event('command.run', { command: 'router', args: '' });
+  assert.deepEqual(a.view().activityMetrics.latency.jev, [1, ...Array(21).fill(0)]);
 });
 
 test('a Reset in one session drops the other sessions’ totals another session read before it', async (t) => {

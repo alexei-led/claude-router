@@ -379,6 +379,34 @@ test('the activity decision: (route now, tier advice, activity advice, cache, co
   }
 });
 
+test('the decision marks a lateral move taken or refused, whatever refused it, and nothing else', () => {
+  for (const [name, setup, expected] of [
+    ['taken up', { label: labelOf('code') }, ['activity-up', 'taken']],
+    ['taken down', { tier: 'medium', label: labelOf('ops'), tokens: 10_000 }, ['activity-down', 'taken']],
+    ['refused below the upgrade bar', { label: labelOf('code', 0.7) }, ['activity-pending', 'refused']],
+    [
+      'refused by the cash gate',
+      { config: metered, label: labelOf('code', 0.95), tokens: 300_000 },
+      ['cash-gate', 'refused'],
+    ],
+    [
+      'refused by a hold',
+      { tier: 'medium', label: labelOf('ops'), tokens: 5_000, state: holding },
+      ['hold', 'refused'],
+    ],
+    ['no lateral move on the same route', { activity: 'code', label: labelOf('debug') }, ['same-tier', null]],
+    [
+      'no lateral move on a tier move',
+      { choice: 'medium', label: labelOf('ops'), state: priorVote('medium') },
+      ['upgrade', null],
+    ],
+    ['no lateral move on a pin', { activity: 'code', pin: 'low', label: labelOf('docs') }, ['pinned', null]],
+  ]) {
+    const { decision } = turn(setup);
+    assert.deepEqual([decision.reason, decision.lateral], expected, name);
+  }
+});
+
 test('escalation keeps the failure for later when no tier above runs a stronger route', () => {
   const failure = { signature: 'boom' };
   const flat = turn({ config: docsFlat, activity: 'docs', label: labelOf('docs'), failure });
@@ -387,6 +415,29 @@ test('escalation keeps the failure for later when no tier above runs a stronger 
   const base = turn({ config: docsFlat, activity: 'docs', label: labelOf('uncertain'), failure });
   assert.deepEqual([base.decision.tier, base.decision.reason], ['medium', 'escalation']);
   assert.equal(base.state.escalatedSignature, 'boom');
+});
+
+test('a decision says whether a failure asked for an escalation, also when the cash gate held it', () => {
+  const failure = { signature: 'boom' };
+  const creditsOpus = fixed({ activityRouting: 'on', models: { opus: { billing: 'credits', input: 10 } } });
+  for (const [name, setup, expected] of [
+    ['an escalation', { activity: 'code', label: labelOf('code'), failure }, ['escalation', true]],
+    [
+      'held by the cash gate',
+      { config: creditsOpus, activity: 'code', label: labelOf('code'), failure, tokens: 300_000 },
+      ['cash-gate', true],
+    ],
+    ['no failure', { activity: 'code', label: labelOf('code') }, ['same-tier', false]],
+    [
+      'no tier above helps',
+      { config: docsFlat, activity: 'docs', label: labelOf('docs'), failure },
+      ['same-tier', false],
+    ],
+    ['a pin', { activity: 'code', pin: 'high', failure }, ['pinned', false]],
+  ]) {
+    const { decision } = turn(setup);
+    assert.deepEqual([decision.reason, decision.escalated], expected, name);
+  }
 });
 
 test('with the shipped matrix, a failing ops turn at low or medium escalates to the high route', () => {
@@ -432,6 +483,7 @@ test('off routes without the activity, shadow applies the same and reports what 
         model: SONNET,
         effort: 'medium',
         reason: 'activity-up',
+        lateral: 'taken',
         // Cold Sonnet read (min) or written at 1h (max), against warm Haiku, plus Sonnet's dearer output.
         difference: {
           minUsd: (0.2 * 21_500 - 0.01 * 21_500 + 9.5 * 1_500) / 1e6,

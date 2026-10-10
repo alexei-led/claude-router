@@ -1,8 +1,15 @@
 import {
+  advanceDown,
   advanceRun,
+  emptyMetrics,
   emptySession,
   emptyStore,
+  METRICS_PREFIX,
+  mergeMetrics,
+  metricsAfterReset,
+  readMetrics,
   readStore,
+  recordMetrics,
   recordStore,
   recordTurn,
   STORE_KEY,
@@ -103,6 +110,8 @@ function createRouter(options) {
     // one activity, flushed to the store when it ends.
     turnActivities: new Map(),
     run: null,
+    // The route a cheaper activity move went to, while the turns stay on it (advanceDown); else null.
+    afterDown: null,
     // Each turn's routing-vs-your-model totals until turn.complete adds them to the store.
     turnSavings: new Map(),
     // The totals kept across sessions: this session's record (`{ sessionId, record }`), held here so a refresh never
@@ -110,6 +119,9 @@ function createRouter(options) {
     // refresh. The view shows their sum.
     savingsOwn: null,
     savingsOthers: null,
+    // The activity metrics kept across sessions, held the same way: this session's record and the others' sum.
+    metricsOwn: null,
+    metricsOthers: null,
     // Bumped by Reset activity stats, so a store write that read the counts before the reset skips.
     statsResets: 0,
   };
@@ -191,6 +203,27 @@ async function otherSavings($, sessionId, resetAt) {
   return mergeSavingsStores(await Promise.all(keys.map((key) => $.store.get(key))), resetAt);
 }
 
+// This session's metrics record and the last reset, as ownSavings: Reset stats clears both with one marker.
+async function ownMetrics($, router) {
+  const sessionId = await $.session.id();
+  const resetAt = await $.store.get(SAVINGS_RESET_KEY);
+  if (router.metricsOwn?.sessionId !== sessionId) {
+    const record = readMetrics(await $.store.get(`${METRICS_PREFIX}${sessionId}`));
+    if (router.metricsOwn?.sessionId !== sessionId) router.metricsOwn = { sessionId, record };
+  }
+  router.metricsOwn.record = metricsAfterReset(router.metricsOwn.record, resetAt);
+  return { own: router.metricsOwn, resetAt };
+}
+
+// Every other session's metrics since the last reset, added up.
+async function otherMetrics($, sessionId, resetAt) {
+  const own = `${METRICS_PREFIX}${sessionId}`;
+  const keys = (await $.store.keys()).filter((key) => key.startsWith(METRICS_PREFIX) && key !== own);
+  return mergeMetrics(await Promise.all(keys.map((key) => $.store.get(key))), resetAt);
+}
+
+const metricsView = (router) => mergeMetrics([router.metricsOthers, router.metricsOwn?.record]);
+
 // The view's totals kept across sessions, from what the router holds; nothing until a read succeeded.
 const savedView = (router) =>
   router.savingsOthers ? { savingsStore: mergeSavingsStores([router.savingsOthers, router.savingsOwn?.record]) } : {};
@@ -202,6 +235,11 @@ async function storeView($, router) {
   const out = {};
   try {
     out.activityStore = readStore(await $.store.get(STORE_KEY));
+  } catch {}
+  try {
+    const { own, resetAt } = await ownMetrics($, router);
+    router.metricsOthers = await otherMetrics($, own.sessionId, resetAt);
+    out.activityMetrics = metricsView(router);
   } catch {}
   try {
     const { own, resetAt } = await ownSavings($, router);
@@ -220,6 +258,8 @@ async function openPane($, router) {
 async function changeMode($, router, mode) {
   const view = router.view ?? (await readView($, router));
   for (const controller of router.controllers) controller.abort();
+  // Turns with routing off run on Claude's model, off the cheaper move's route: the escalation watch ends.
+  if (mode === 'manual') router.afterDown = null;
   router.modes.set(await $.session.id(), mode);
   const saved = await rememberMode($, mode);
   await updateView($, router, {
@@ -461,6 +501,8 @@ async function decideTurn($, router, e, signal, step) {
           turns: facts.turns,
           signal: controller.signal,
         });
+    // The wait for advice alone, comparable with the activity probe's p95; the routing after it is not the classifier's.
+    const adviceMs = pin || !classifierTimed(result.error) ? null : Date.now() - adviceStarted;
     if (controller.signal.aborted || (await $.session.id()) !== sessionId || (await modeOf($, router)) !== 'auto')
       return null;
     const previous = loop.decision;
@@ -480,7 +522,22 @@ async function decideTurn($, router, e, signal, step) {
     if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
       $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
     const activity = turnActivity(cfg, result.advice, previous, selected.decision);
-    router.turnActivities.set(e.turnId, { ...activity, sessionId, requests: 0, inputTokens: 0, outputTokens: 0 });
+    router.turnActivities.set(e.turnId, {
+      ...activity,
+      reason: selected.decision.reason,
+      escalated: Boolean(selected.decision.escalated),
+      pinned: selected.decision.pinned,
+      route: `${selected.decision.model}@${selected.decision.effort ?? 'session'}`,
+      classifier: cfg.classifier,
+      adviceMs,
+      sessionId,
+      requests: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      routedUsd: null,
+      pricedRequests: 0,
+      routes: {},
+    });
     await updateView($, router, {
       phase: 'routed',
       selectedModel: selected.decision.model,
@@ -498,7 +555,7 @@ async function decideTurn($, router, e, signal, step) {
         ? {
             error: result.error,
             health: healthOf(clientOf(router, cfg.classifier), cfg.classifier),
-            adviceMs: pin || !classifierTimed(result.error) ? null : Date.now() - adviceStarted,
+            adviceMs,
             adviceChoice: result.advice?.choice ?? null,
             probabilities: result.advice?.probabilities ?? null,
             estimate: selected.decision.estimate ?? null,
@@ -517,8 +574,8 @@ async function decideTurn($, router, e, signal, step) {
 }
 
 // A routed reply's metrics in the view, labelled with the turn's activity when its tier served it, and added to the
-// turn's activity record.
-async function publishReply($, router, turnId, response, tier, route) {
+// turn's activity record with its list price (`routedUsd`, null when unpriced) and, when its tier served it, its route.
+async function publishReply($, router, turnId, response, tier, route, routedUsd) {
   const turn = router.turnActivities.get(turnId);
   const metrics = responseMetrics(
     router.view,
@@ -534,6 +591,9 @@ async function publishReply($, router, turnId, response, tier, route) {
       requests: turn.requests + 1,
       inputTokens: turn.inputTokens + (metrics.inputTokens ?? 0),
       outputTokens: turn.outputTokens + (metrics.outputTokens ?? 0),
+      routedUsd: Number.isFinite(routedUsd) ? (turn.routedUsd ?? 0) + routedUsd : turn.routedUsd,
+      pricedRequests: turn.pricedRequests + (Number.isFinite(routedUsd) ? 1 : 0),
+      routes: tier ? { ...turn.routes, [route]: (turn.routes[route] ?? 0) + 1 } : turn.routes,
     });
 }
 
@@ -554,7 +614,8 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   if (!written.isSet) return;
   // A substituted reply is not the tier's: the strip and trend must not count it as one.
   const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
-  await publishReply($, router, turnId, response, tier, `${request.model}@${request.effort ?? 'session'}`);
+  const route = `${request.model}@${request.effort ?? 'session'}`;
+  await publishReply($, router, turnId, response, tier, route, compared?.reply?.routedUsd ?? null);
   if (compared?.reply) await addSavings($, router, turnId, compared.reply, tier);
 }
 
@@ -623,7 +684,8 @@ async function flushSavings($, router, totals) {
 }
 
 // A finished turn's activity stats: the session counts in the view and the counts kept across sessions. Stats never
-// break a turn: a failed read or write loses this turn's counts only.
+// break a turn: a failed read or write loses this turn's counts. Readings already in the session's metrics record stay
+// in memory after a failed write and go out with the next turn that adds a reading.
 async function recordActivity($, router, turn) {
   try {
     if ((await $.session.id()) !== turn.sessionId) return;
@@ -637,6 +699,8 @@ async function recordActivity($, router, turn) {
     // Advanced before any further await, so a session change meanwhile cannot carry this run into the new session.
     const { run, ended } = advanceRun(router.run, turn.answer);
     router.run = run;
+    const down = advanceDown(router.afterDown, turn);
+    router.afterDown = down.after;
     await updateView($, router, {
       activityStats: recordTurn(view.activityStats ?? emptySession(), {
         activity: turn.label,
@@ -645,8 +709,12 @@ async function recordActivity($, router, turn) {
         requests: turn.requests,
         inputTokens: turn.inputTokens,
         outputTokens: turn.outputTokens,
+        routedUsd: turn.routedUsd,
+        pricedRequests: turn.pricedRequests,
+        routes: turn.routes,
         tierSwitches: turn.switched === 'tier' ? 1 : 0,
         activitySwitches: turn.switched === 'activity' ? 1 : 0,
+        lateral: turn.lateral,
         wouldDiffer: turn.wouldDiffer,
         wouldUsd: turn.wouldUsd,
         shadow: turn.mode === 'shadow',
@@ -654,6 +722,10 @@ async function recordActivity($, router, turn) {
     });
     const resets = router.statsResets;
     const store = readStore(await $.store.get(STORE_KEY));
+    const { own, resetAt } = await ownMetrics($, router);
+    // The others held from before a reset in another session are read again.
+    if (!router.metricsOthers || metricsAfterReset(router.metricsOthers, resetAt) !== router.metricsOthers)
+      router.metricsOthers = await otherMetrics($, own.sessionId, resetAt);
     // Writing counts read before a reset would bring them back; this turn's are lost instead.
     if (router.statsResets !== resets) return;
     const written = recordStore(store, {
@@ -664,9 +736,23 @@ async function recordActivity($, router, turn) {
       wouldDiffer: turn.wouldDiffer,
       wouldUsd: turn.wouldUsd,
     });
-    await $.store.set(STORE_KEY, written);
+    const measured = recordMetrics(own.record, {
+      classifier: turn.classifier,
+      adviceMs: turn.adviceMs,
+      downMove: down.event,
+      now: Date.now(),
+    });
+    // Added to in memory before the write, so a refresh during the write counts the turn once.
+    const changed = measured !== own.record;
+    own.record = measured;
+    // Both writes start before any reset can run between them.
+    await Promise.all([
+      $.store.set(STORE_KEY, written),
+      changed ? $.store.set(`${METRICS_PREFIX}${own.sessionId}`, measured) : null,
+    ]);
     // A reset during the write emptied the view; these counts are older than it.
-    if (router.statsResets === resets) await updateView($, router, { activityStore: written });
+    if (router.statsResets === resets)
+      await updateView($, router, { activityStore: written, activityMetrics: metricsView(router) });
   } catch {}
 }
 
@@ -832,33 +918,36 @@ function paneActions($, router, view) {
     resetStats: async () => {
       router.statsResets += 1;
       router.run = null;
+      router.afterDown = null;
       router.turnSavings.clear();
       const clear = (key, value) =>
         $.store
           .set(key, value)
           .then(() => true)
           .catch(() => false);
-      const clearSavings = async () => {
+      // The per-session records: savings and activity metrics.
+      const clearRecords = async () => {
         // Written first, so a session still holding its record from before the reset drops it, unless that record's
-        // first reply has the reset's millisecond or the clock moved back across the reset.
+        // first reading has the reset's millisecond or the clock moved back across the reset.
         await $.store.set(SAVINGS_RESET_KEY, Date.now());
-        const keys = (await $.store.keys()).filter((key) => key.startsWith(SAVINGS_PREFIX));
+        const keys = (await $.store.keys()).filter(
+          (key) => key.startsWith(SAVINGS_PREFIX) || key.startsWith(METRICS_PREFIX),
+        );
         await Promise.all(keys.map((key) => $.store.delete(key)));
         router.savingsOwn = null;
         router.savingsOthers = emptySavingsStore();
+        router.metricsOwn = null;
+        router.metricsOthers = emptyMetrics();
         return true;
       };
-      const [activity, savings] = await Promise.all([
-        clear(STORE_KEY, emptyStore()),
-        clearSavings().catch(() => false),
-      ]);
+      const [stats, records] = await Promise.all([clear(STORE_KEY, emptyStore()), clearRecords().catch(() => false)]);
       await updateView($, router, {
         activityStats: null,
         savings: null,
-        ...(activity ? { activityStore: emptyStore() } : {}),
-        ...(savings ? { savingsStore: emptySavingsStore() } : {}),
+        ...(stats ? { activityStore: emptyStore() } : {}),
+        ...(records ? { activityMetrics: emptyMetrics(), savingsStore: emptySavingsStore() } : {}),
         notice:
-          activity && savings
+          stats && records
             ? 'Stats reset: activity and routing vs your model, this session and saved.'
             : 'This session’s stats reset. Saved stats could not be cleared.',
       });
@@ -1076,10 +1165,12 @@ export function register(on, options) {
     }
     router.prompts.delete(e.turnId);
     for (const key of router.decisions.keys()) if (key.includes(`:${e.turnId}:`)) router.decisions.delete(key);
-    // `off` asks nothing, so it records nothing.
+    // `off` asks nothing, so it records nothing; it only ends the watch after a cheaper activity move.
     const turn = router.turnActivities.get(e.turnId);
     router.turnActivities.delete(e.turnId);
-    if (turn && turn.mode !== 'off') await recordActivity($, router, turn);
+    if (turn?.mode === 'off') {
+      if ((await $.session.id()) === turn.sessionId) router.afterDown = advanceDown(router.afterDown, turn).after;
+    } else if (turn) await recordActivity($, router, turn);
     const savings = router.turnSavings.get(e.turnId);
     router.turnSavings.delete(e.turnId);
     if (savings) await flushSavings($, router, savings);
@@ -1107,6 +1198,7 @@ export function register(on, options) {
     router.turnSavings.clear();
     const run = router.run;
     router.run = null;
+    router.afterDown = null;
     if (run) await flushRun($, run);
     router.view = {
       ...initialView(router.view?.nativeModel ?? ''),
@@ -1116,6 +1208,7 @@ export function register(on, options) {
       credentials: router.view?.credentials ?? null,
       // Counts kept across sessions: the next session starts from them.
       activityStore: router.view?.activityStore ?? null,
+      activityMetrics: router.view?.activityMetrics ?? null,
       savingsStore: router.view?.savingsStore ?? null,
       health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
       configPath: router.config.nativePath,
