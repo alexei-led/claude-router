@@ -22,6 +22,8 @@ v0.4 checks the plan against 1.7.0 and closes or records the gaps.
 | Lateral counts (§8.2) | inferred from `activity-pending` | the decision carries `lateral: taken \| refused \| null`; refusals by a hold or the cash gate count | A reason string shared with tier decisions hid them |
 | Probe in the pane (§8.3) | "when one is checked in" | `lib/probe-results.mjs`, generated from the result files (`npm run probe:results`) | `experiments/` is not shipped |
 | §11 tracked metrics | tracked by hand | Usage tab ACROSS SESSIONS: classifier p95 latency (bounded histogram) and escalations after a cheaper activity move | Visible without a replay |
+| Metrics storage (§8.2) | one bounded key | one bounded record per session, `activity:metrics:v1:<session id>`, summed when the pane reads them; **Reset stats** removes them all | **Deliberate.** The host store has no atomic update, so a shared key loses one of two sessions' writes; the record count grows by one per session until Reset |
+| Live evidence (§10, §11) | to record | `experiments/mod-router/results/activity-live-acceptance.json`: the §10 chain S→H→S→O with tool calls, thinking on Sonnet and Opus after a Haiku detour, the shadow would-route line, 0 API errors | The §11 thresholds still need field data from the Usage tab |
 
 ## 0.1 Changes since v0.2
 
