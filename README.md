@@ -25,7 +25,7 @@ Jev is the default. [Configuration](docs/configuration.md#classifiers) gives the
 
 The band above the prompt shows the tier, activity, model, and reason for each turn. `/router` opens a pane to pin a tier, edit the model and effort of each tier, and tune the policy. See the [user guide](docs/user-guide.md#read-the-status-band).
 
-The router needs Claude Code 2.1.289 or newer. Current savings are not measured. The panel shows Claude's reported usage and configured-price scenarios, not a savings total. See the [evaluation](docs/evaluation.md).
+The router needs Claude Code 2.1.289 or newer. Savings are not measured. The pane's Usage tab estimates what routing cost against your own model for the same tokens at configured list prices; it is not a bill and does not judge answer quality. See the [evaluation](docs/evaluation.md).
 
 ## How it works
 
@@ -88,7 +88,7 @@ claude --plugin-dir "$PWD" --model claude-haiku-5-5
 
 In Claude Code, run `/plugin configure router` and save your classifier key in the sensitive plugin option. The Mod adds its status band and `/router` pane. No status-line setup or gateway environment variables are needed.
 
-Run `/router` to open the pane: route status, per-tier controls, tuning, and usage. Run `/model` to select a model and turn routing off, and `/router auto` to turn it back on. For controls, metrics, tuning, and troubleshooting, see the [user guide](docs/user-guide.md).
+Run `/router` to open the pane: route status, per-tier controls, tuning, and usage, including routing vs your model. Run `/model` to select a model and turn routing off, and `/router auto` to turn it back on. For controls, metrics, tuning, and troubleshooting, see the [user guide](docs/user-guide.md).
 
 Before a push, run the same checks as CI. `npm run setup` installs Biome and TypeScript into `tools/`; the plugin root keeps no lockfile, so Claude Code installs nothing with the plugin. `npm run validate` and `npm run test:plugin` need the `claude` CLI: they load the Mod in the Claude Code engine, which refuses some faults that lint and unit tests miss.
 

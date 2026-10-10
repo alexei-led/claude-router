@@ -147,13 +147,37 @@ const usage = {
   ],
 };
 
+// Routing vs your model: a session on Opus 5.5 at xhigh that routing ran mostly on cheaper tiers.
+const yours = { nativeModel: 'claude-opus-5-5', nativeEffort: 'xhigh' };
+const savings = {
+  replies: 64,
+  routedUsd: 6.404,
+  yoursUsd: 8.236,
+  cheaperUsd: -2.31,
+  strongerUsd: 0,
+  switchUsd: 0.478,
+  tiers: { micro: 12, low: 26, medium: 17, high: 9 },
+  tierUsd: { micro: 0.4, low: 2.3, medium: 2.1, high: 1.6 },
+  stronger: {},
+};
+const savingsStore = {
+  version: 1,
+  since: Date.parse('2026-10-03T12:00:00Z'),
+  replies: 412,
+  routedUsd: 41.18,
+  yoursUsd: 52.6,
+  cheaperUsd: -14.9,
+  strongerUsd: 0,
+  switchUsd: 3.48,
+};
+
 // ---- band states ----
 const COLUMNS = 112;
 const states = [
   ['Routing on: routed to the high tier on a clear jump', base, false],
   [
-    'Two rows, with the hover row shown: recent replies by tier, pins, Routing off',
-    { ...base, bandDetail: true },
+    'Two rows, with the hover row shown: recent replies by tier, the session against your model, pins, Routing off',
+    { ...base, ...yours, bandDetail: true, savings, estimate: null },
     true,
   ],
   [
@@ -294,4 +318,22 @@ pane(
   'router-pane-classifier.svg',
   { ...config, classifier: 'clef-flash' },
 );
-console.log(`wrote router-band.svg and the Now, Routing and Classifier pane pictures to ${OUT}`);
+pane(
+  {
+    ...base,
+    ...yours,
+    tab: 'usage',
+    savings,
+    savingsStore,
+    activityStats: {
+      byActivity: { code: { turns: 14, requests: 41, inputTokens: 0, outputTokens: 0 } },
+      switches: { tier: 5, activity: 0 },
+      agreement: { matched: 12, total: 14 },
+      shadow: { differs: 4, turns: 14, estimated: 4, minUsd: -0.42, maxUsd: -0.11 },
+    },
+  },
+  'Router pane, Usage tab',
+  'Routing vs your model first: routed replies against the same tokens on Opus 5.5 at xhigh, this session and since the last reset, the difference split into cheaper models, stronger models and switch cache writes, the two costs as bars and the replies by tier; then Claude’s own readings, activity counts and estimates.',
+  'router-pane-usage.svg',
+);
+console.log(`wrote router-band.svg and the Now, Routing, Classifier and Usage pane pictures to ${OUT}`);
