@@ -295,6 +295,8 @@ test('rounding never flips a part’s sign or shows a part the session did not h
     [{ routedUsd: 0.109, yoursUsd: 0.1, cheaperUsd: -0.001, strongerUsd: 0.006, switchUsd: 0.004 }, [0.01, 0, 0.01, 0]],
     [{ routedUsd: 0.1049, yoursUsd: 0.0989, cheaperUsd: 0, strongerUsd: 0.006, switchUsd: 0 }, [0, 0, 0, 0]],
     [{ routedUsd: 0.094, yoursUsd: 0.105, cheaperUsd: -0.004, strongerUsd: 0.005, switchUsd: 0 }, [-0.02, -0.02, 0, 0]],
+    [{ routedUsd: 0.10928, yoursUsd: 0.10434, cheaperUsd: 0, strongerUsd: 0.00494, switchUsd: 0 }, [0.01, 0, 0.01, 0]],
+    [{ routedUsd: 0.0951, yoursUsd: 0.1004, cheaperUsd: -0.0053, strongerUsd: 0, switchUsd: 0 }, [0, 0, 0, 0]],
   ]) {
     const r = readout({ ...emptyTotals(), replies: EARLY_REPLIES, ...usd });
     const shown = [r.differenceUsd, r.cheaperUsd, r.strongerUsd, r.switchUsd].map((part) => part + 0);
