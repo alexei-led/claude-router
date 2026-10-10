@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.7.1 (2026-10-10)
+
+Readouts the activity routing plan asked for, and a record of the live checks behind 1.7.0.
+
+### Added
+
+- The Now tab's **Why** line names the activity cell when activity routing is on and the activity moved the route or the route is an override: `code at low runs on Sonnet 5.5 · high`. Tier moves, holds and refused moves keep their reason.
+- The Usage tab's **ACTIVITY** table adds `est. cost`, the list price of each activity's replies (the same estimate as Routing vs your model, shown only when every reply was priced), and `mostly on`, the route most of its replies used. A narrow pane drops these columns first.
+- **ACROSS SESSIONS** adds **Escalations** (`after a cheaper activity move: 1 in 12 moves`) and **Latency** (`Jev p95 ≤ 350 ms · 20 turns`, the active classifier), each only when there is data. Each session keeps its own record, merged when the pane reads it.
+- The Classifier tab shows each classifier's last checked-in activity probe under its row, such as `activity probe 70/70 · p95 299 ms · Oct 10`, when the configured model is the one that was probed.
+- `experiments/mod-router/results/activity-live-acceptance.json`: four live Claude Code 2.1.296 sessions in agterm across Haiku, Sonnet and Opus with tool calls, `shadow` and `on`, and Opus thinking blocks intact after a Haiku detour, with no API errors.
+
+### Changed
+
+- Activity moves refused by an escalation hold or the credits cap now count as refused, in the session's **Switches** line (`· 2 refused`) and in **Activity moves** across sessions. Before, only moves that did not pay back were counted.
+- A probe run without a single usable activity answer no longer replaces the checked-in result.
+
+### Upgrade notes
+
+- 1.7.0 keeps reading `activity:stats:v1` after a downgrade. It does not read the new `activity:metrics:v1:*` records, so the Escalations and Latency lines are not shown on 1.7.0.
+
 ## 1.7.0 (2026-10-10)
 
 Activity routing is now on by default, with a new default matrix that uses Opus, Sonnet and Haiku. The Usage tab shows what routing cost against running every reply on your own model. The band has one routing on/off control.
