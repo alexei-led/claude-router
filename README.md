@@ -70,7 +70,7 @@ Activity routing adds a second label: what the turn produces (`code`, `debug`, `
 | `ops`                             | ·              | ·                 | **Haiku · high** | ·            |
 | `explore`, `docs`                 | ·              | ·                 | ·                | ·            |
 
-`/router activities shadow` shows what it would route and keeps the base routes; `/router activities off` stops asking. [Activity routing](docs/activity-routing.md) explains each cell and how to change it. The label is optional: on `uncertain` or a weak label the base route is used, when the activity answer fails the running activity stays and the tier answer still applies, and when the classifier fails the running route stays. See [Route by activity](docs/user-guide.md#route-by-activity), and [Evaluation](docs/evaluation.md#activity-routing) for how it is checked. Its default overrides rest on published vendor results and a list-price replay of one developer's sessions, not measured savings.
+`/router activities shadow` shows what it would route and keeps the base routes; `/router activities off` stops asking. [Activity routing](docs/activity-routing.md) explains each cell and how to change it. The label is optional: on `uncertain` or a weak label the base route is used if the move passes the cache check, when the activity answer fails the running activity stays and the tier answer still applies, and when the classifier fails the running route stays. See [Route by activity](docs/user-guide.md#route-by-activity), and [Evaluation](docs/evaluation.md#activity-routing) for how it is checked. Its default overrides rest on published vendor results and a list-price replay of one developer's sessions, not measured savings.
 
 ## Install
 

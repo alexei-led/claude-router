@@ -203,8 +203,8 @@ label was right, not the classifier's probabilities.
   with routing off, also run `/router activities shadow`.
 - Overrides you saved stay as written. An override that sets only one field, such as `"effort"`, takes the other from
   1.7's built-in for that cell, or from the base route where 1.7 has none (`explore` and `docs` at `medium`, `docs` at
-  `low`). 1.6's overrides in those cells and in `ops` at `medium` were Sonnet, so such a cell now runs another model.
-  Write both `model` and `effort` to keep Sonnet.
+  `low`). 1.6's overrides in those cells and in `ops` at `medium` were Sonnet · medium, so such a cell can now run
+  another model or effort. Write both `model` and `effort` to keep 1.6's route.
 - If you removed a 1.6 built-in override that 1.7 no longer has, such as `docs` at `low`, the pane lists it with
   "same as base: no effect". Press **remove** and **Save** to drop it.
 - 1.6 reads the same keys. A file without `activityRouting` runs `shadow` under 1.6.
