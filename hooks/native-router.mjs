@@ -697,13 +697,15 @@ async function recordActivity($, router, turn) {
     if (start < 0) return;
     const observed = observedActivity(messages, start);
     const view = router.view ?? (await readView($, router));
+    // Routing turned off while this turn ran ends the watch here, so turning it back on cannot inherit this move.
+    const off = (await modeOf($, router)) === 'manual';
     // The session may have changed during the reads; this turn is not the new session's.
     if ((await $.session.id()) !== turn.sessionId) return;
     // Advanced before any further await, so a session change meanwhile cannot carry this run into the new session.
     const { run, ended } = advanceRun(router.run, turn.answer);
     router.run = run;
     const down = advanceDown(router.afterDown, turn);
-    router.afterDown = down.after;
+    router.afterDown = off ? null : down.after;
     await updateView($, router, {
       activityStats: recordTurn(view.activityStats ?? emptySession(), {
         activity: turn.label,
