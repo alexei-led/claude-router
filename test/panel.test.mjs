@@ -228,7 +228,11 @@ const rowWarnings = (tree, activity, tier) => {
 test('the default overrides draw five distinct routes and warn about nothing', () => {
   const tree = routing(DEFAULTS);
   assert.deepEqual(matrix(tree), [
-    'ACTIVITIES · routing on',
+    'ACTIVITIES',
+    ' · applies next turn · edit, then Save',
+    '',
+    'an override runs when the activity has one',
+    '',
     'micro    low      medium   high',
     '  base                          H·med    H·high   O·med    O·xh',
     '  code debug plan review        ·        S·high   ·        ·',
@@ -238,6 +242,20 @@ test('the default overrides draw five distinct routes and warn about nothing', (
   ]);
   for (const [activity, tiers] of Object.entries(DEFAULTS.activities))
     for (const tier of Object.keys(tiers)) assert.equal(rowWarnings(tree, activity, tier), '', `${activity} ${tier}`);
+});
+
+test('the activities lead with the mode, and OVERRIDES says whether the overrides are in use', () => {
+  for (const [mode, hint, state] of [
+    ['on', 'an override runs when the activity has one', ' · in use'],
+    ['shadow', 'shows what on would do; tier routes run', ' · not in use: activity routing is shadow'],
+    ['off', 'the activity is not asked; tier routes run', ' · not in use: activity routing is off'],
+  ]) {
+    const tree = routing({ ...DEFAULTS, activityRouting: mode });
+    assert.equal(controls(tree).find((c) => c.key === 'activity-mode').value, mode);
+    const lines = texts(tree);
+    assert.equal(lines[lines.indexOf('ACTIVITIES') + 3], hint, mode);
+    assert.equal(lines[lines.indexOf('OVERRIDES') + 1], state, mode);
+  }
 });
 
 test('override rows warn about no effect, a route above the next tier and a new cache', () => {
@@ -335,7 +353,7 @@ const STORE = {
 };
 const SESSION_LINES = [
   'ACTIVITY · this session',
-  '   routing shadow',
+  '   activity routing shadow',
   '                       turns  requests  share',
   '  code     ',
   '██████░░░░',
@@ -349,7 +367,10 @@ const SESSION_LINES = [
   'Switches   9 · 4 by tier · 5 by activity',
   'Agreement  classifier vs tools: 19 of 22 turns (86%)',
 ];
-const OFF_LINES = ['ACTIVITY · routing off', '  Not asked. Set activity routing to shadow or on in the Routing tab.'];
+const OFF_LINES = [
+  'ACTIVITY · activity routing off',
+  '  Not asked. Set activity routing to shadow or on in the Routing tab.',
+];
 const ACROSS = 'ACROSS SESSIONS · since the last reset';
 const ACROSS_LINES = [
   ' ',
@@ -394,7 +415,7 @@ test('the Usage tab shows the session activity block and the counts across sessi
       'shadow',
       null,
       null,
-      ['ACTIVITY · this session', '   routing shadow', '  no activity readings yet', ...ACROSS_EMPTY],
+      ['ACTIVITY · this session', '   activity routing shadow', '  no activity readings yet', ...ACROSS_EMPTY],
     ],
     [
       'shadow, with data and a partial estimate',
@@ -431,7 +452,7 @@ test('the Usage tab shows the session activity block and the counts across sessi
       'shadow',
       null,
       'garbage',
-      ['ACTIVITY · this session', '   routing shadow', '  no activity readings yet', ...ACROSS_EMPTY],
+      ['ACTIVITY · this session', '   activity routing shadow', '  no activity readings yet', ...ACROSS_EMPTY],
     ],
     [
       'on, with data',
@@ -440,7 +461,7 @@ test('the Usage tab shows the session activity block and the counts across sessi
       STORE,
       [
         'ACTIVITY · this session',
-        '   routing on',
+        '   activity routing on',
         '                       turns  requests  share',
         '  ops      ',
         '██████████',
@@ -454,7 +475,7 @@ test('the Usage tab shows the session activity block and the counts across sessi
       'on',
       null,
       null,
-      ['ACTIVITY · this session', '   routing on', '  no activity readings yet', ...ACROSS_EMPTY],
+      ['ACTIVITY · this session', '   activity routing on', '  no activity readings yet', ...ACROSS_EMPTY],
     ],
   ]) {
     const { calls, actions: recorded } = recording();
