@@ -42,19 +42,19 @@ Read the first line of the picture from left to right:
 - **Classifier support**: what the active classifier, such as Jev or Clef Flash, gave the switch against the bar the policy required.
 - **ctx** and **cache**: context use and cache reuse on the last reply. They turn yellow at 60% context and red at 80%.
 
-| Band shows                                  | Meaning                                                                                                                  |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `Routing on · ready`                        | Routing is on and ready for a new turn.                                                                                  |
-| `choosing for this turn…`                   | The classifier and local policy are running. The spinner says `Choosing model`.                                          |
-| `⏵ next turn: high ✕`                       | A pin is set. **✕** cancels it.                                                                                          |
-| `⚠ Jev: no API key · keeping model`         | The active classifier lacks a setting. **Set up** opens the secure plugin dialog.                                        |
-| `⚠ Clef: no account ID · keeping model`     | Clef has its API token but no Cloudflare account ID. **Set up** opens the dialog.                                        |
-| `⚠ Jev timed out · keeping model`           | The classifier failed: timed out, unreachable, rejected the key, or paused.                                              |
-| `○ Routing off · every turn uses …`         | Routing is off: Claude's model answers every turn. **Routing on** turns it back on. The footer also shows `routing off`. |
-| `✕ Routing unavailable`                     | Nothing routes: an old Claude Code or leftover v0.8 settings. **Fix** opens the pane.                                    |
-| `○ Router · subagents keep their own model` | You are viewing a subagent's transcript, which Router does not route.                                                    |
+| Band shows                                      | Meaning                                                                                                               |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `Routing on · ready`                            | Routing is on and ready for a new turn.                                                                               |
+| `choosing for this turn…`                       | The classifier and local policy are running. The spinner says `Choosing model`.                                       |
+| `⏵ next turn: high ✕`                           | A pin is set. **✕** cancels it.                                                                                       |
+| `⚠ Jev: no API key · keeping model`             | The active classifier lacks a setting. **Set up** opens the secure plugin dialog.                                     |
+| `⚠ Clef: no account ID · keeping model`         | Clef has its API token but no Cloudflare account ID. **Set up** opens the dialog.                                     |
+| `⚠ Jev timed out · keeping model`               | The classifier failed: timed out, unreachable, rejected the key, or paused.                                           |
+| `○ Routing off [ Turn on ] · every turn uses …` | Routing is off: Claude's model answers every turn. **Turn on** turns it back on. The footer also shows `routing off`. |
+| `✕ Routing unavailable`                         | Nothing routes: an old Claude Code or leftover v0.8 settings. **Fix** opens the pane.                                 |
+| `○ Router · subagents keep their own model`     | You are viewing a subagent's transcript, which Router does not route.                                                 |
 
-The band's **Routing off** button turns routing off, and **Routing on** turns it back on. Hover over the band for a second row: pin a tier for the next turn, or show two rows. The two-row band adds a strip of recent replies colored by tier, the switch count, the switch tax, and the cache saving. Router remembers that choice across sessions. When Router changes the model between turns, a toast reads `Model changed: old → new · reason`. A pin does not raise one, and neither does a change of effort alone.
+The band shows one routing control at a time. While routing is on, hover over the band for a second row: pin a tier for the next turn, **Turn off** routing, or show two rows. While routing is off, **Turn on** sits on the first line next to `Routing off` and stays at any width: a narrow band drops the explanation and the model first. On a narrow band the hover row drops `routing on`, then **2 rows**, then `pin next turn`, then the pins; it keeps **Turn off**, and **1 row** when the band shows two. The hover row needs a pointer: from the keyboard, run `/router off`, or open the pane and press `f`. The two-row band adds a strip of recent replies colored by tier, the switch count, the switch tax, and the cache saving. Router remembers that choice across sessions. When Router changes the model between turns, a toast reads `Model changed: old → new · reason`. A pin does not raise one, and neither does a change of effort alone.
 
 The band steps aside while a survey needs the space.
 
@@ -79,7 +79,7 @@ The **Routing** tab edits the routes, the activity overrides, and the policy. In
 | 3 Classifier | The classifier rows with their credentials state, the active classifier's deadline and health, and the credentials each classifier needs.                                                            |
 | 4 Usage      | Claude-reported cost, context and cache detail, input per reply, quota, activity counts for this session and across sessions, and configured-price estimates.                                      |
 
-**Routing on** and **Routing off** stay at the top of every tab. **?** shows what the estimates leave out.
+The top line of every tab, `ROUTING [ ◉ on ] [ ○ off ]`, shows the routing mode and switches it. Press `o` or `f` while the pane has focus. **?** shows what the estimates leave out.
 
 ### Save and undo changes
 
@@ -161,7 +161,8 @@ The band's activity label appears only when the activity applies, so a weak or `
 | `/router pin <micro\|low\|medium\|high>` | Pin the next turn and its tool continuations. Routing on must already be enabled.                         |
 | `/router activities <off\|shadow\|on>`   | Set the [activity routing](#route-by-activity) mode. Saved to `router.json` at once; **Undo** reverts it. |
 | `/model <name>`                          | Select a model and turn routing off. Use `/router auto` to turn it back on.                               |
-| **Routing on** / **Routing off**         | The same as `/router auto` and `/router off`.                                                             |
+| **Turn on** / **Turn off** on the band   | The same as `/router auto` and `/router off`.                                                             |
+| **on** / **off** on the pane (`o` / `f`) | The same as `/router auto` and `/router off`.                                                             |
 | **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.                                      |
 
 A pin does not change the next turn after the pinned turn finishes. A fresh session on a model that one of the tiers routes to starts with routing on. A fresh session on any other model starts with routing off. `/clear` starts the new session with routing on. Resuming a saved session restores its saved routing on or off.

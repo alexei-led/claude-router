@@ -151,11 +151,7 @@ const usage = {
 const COLUMNS = 112;
 const states = [
   ['Routing on: routed to the high tier on a clear jump', base, false],
-  [
-    'Two rows, with the hover row shown: recent replies by tier, pins, Routing off',
-    { ...base, bandDetail: true },
-    true,
-  ],
+  ['Two rows, with the hover row shown: recent replies by tier, pins, Turn off', { ...base, bandDetail: true }, true],
   [
     'A pin waits for the next turn; ✕ cancels it',
     {
@@ -193,7 +189,7 @@ const states = [
     false,
   ],
   [
-    'Routing off: /model chose the model; Routing on resumes routing',
+    'Routing off: /model chose the model; Turn on resumes routing',
     { ...base, mode: 'manual', reason: 'model selected manually', nativeModel: 'claude-sonnet-5-5' },
     false,
   ],

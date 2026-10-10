@@ -42,7 +42,7 @@ test('the band offers Routing on in Manual mode and a key button without a key',
   assert.equal(h.commandCalls(), 1);
   await h.event('command.run', { command: 'router', args: 'off' });
   view = await band(h);
-  assert.match(view.line, /Routing off · every turn uses Haiku 5\.5/);
+  assert.match(view.line, /Routing off .*every turn uses Haiku 5\.5/);
   await view.controls.find((node) => node.key === 'band-auto').onPress();
   assert.equal(h.view().mode, 'auto');
 });
