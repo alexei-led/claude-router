@@ -185,6 +185,44 @@ test('a tuning save writes only the changed value and keeps edits made on disk',
   });
 });
 
+test('the activity threshold is a policy draft: Save writes only a difference from the default, and Undo', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key' });
+  const LOW = { micro: 0, low: 0.95, medium: 0.05, high: 0, uncertain: 0 };
+  h.http(async () => ({
+    ok: true,
+    status: 200,
+    headers: {},
+    text: JSON.stringify(jevResponse('low', LOW, 0, { code: 0.79, ops: 0.21 })),
+  }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await press(h, 'tab-routing');
+  const threshold = controls(await h.render()).find((c) => c.key === 'activityMass');
+  assert.deepEqual(
+    threshold.options.map((o) => o.label),
+    ['50%', '60%', '70%', '80%'],
+  );
+  assert.equal(threshold.value, '0.6');
+  await press(h, 'activityMass', '0.8');
+  assert.equal(h.files.get(CONFIG), undefined);
+  const lines = texts(await h.render());
+  const at = lines.indexOf('router.json changes:');
+  assert.deepEqual(lines.slice(at + 1, at + 3), [
+    '- policy.activityMass            60%',
+    '+ policy.activityMass            80%',
+  ]);
+  await press(h, 'save-routing');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { policy: { activityMass: 0.8 } });
+  // A code reading of 79% clears the upgrade bar but not the new threshold: the tier route runs, not the code override.
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  await drain(h.step(step));
+  assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-haiku-5-5', 'high']);
+  await press(h, 'activityMass', '0.6');
+  await press(h, 'save-routing');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+  await press(h, 'undo');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { policy: { activityMass: 0.8 } });
+});
+
 test('one routing save writes routes and policy together and keeps edits made on disk', async () => {
   const h = harness();
   await start(h);
@@ -463,7 +501,8 @@ test('a switch clears the previous classifier readings, so no label claims them'
 
 test('a turn classified when the switch lands keeps its route, and its answer touches neither health nor status', async () => {
   const h = harness({ typesafe_api_key: 'synthetic-key', ...CLOUDFLARE_KEYS });
-  h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } } }));
+  // Activity routing off: Sonnet runs no route, so the policy route differs from the engine model.
+  h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } }, activityRouting: 'off' }));
   h.model('claude-sonnet-5-5');
   let release;
   h.http(
@@ -542,7 +581,7 @@ test('activity edits join the routing draft: Save writes them with the mode, and
   const h = harness();
   await start(h);
   await press(h, 'tab-routing');
-  await press(h, 'activity-mode', 'on');
+  await press(h, 'activity-mode', 'shadow');
   await press(h, 'activity-model-code-low', 'opus');
   await press(h, 'activity-remove-ops-medium');
   await press(h, 'activity-add', 'review.high');
@@ -551,11 +590,11 @@ test('activity edits join the routing draft: Save writes them with the mode, and
   assert.match(h.view().notice, /^Saved: 4 routing changes\./);
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
     activities: {
-      code: { low: { model: 'opus', effort: 'medium' } },
+      code: { low: { model: 'opus', effort: 'high' } },
       review: { high: { model: 'opus', effort: 'max' } },
       ops: { medium: { model: 'opus', effort: 'medium' } },
     },
-    activityRouting: 'on',
+    activityRouting: 'shadow',
   });
   assert.equal(h.view().routeDraft, null);
   await press(h, 'undo');
@@ -569,17 +608,18 @@ test('a pending activity edit survives another pane write and saves later', asyn
   await press(h, 'activity-model-code-low', 'opus');
   await press(h, 'tab-classifier');
   await press(h, 'timeoutMs', '500');
-  assert.deepEqual(h.view().routeDraft.activities.code.low, { model: 'opus', effort: 'medium' });
+  assert.deepEqual(h.view().routeDraft.activities.code.low, { model: 'opus', effort: 'high' });
   await press(h, 'tab-routing');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
     classifiers: { jev: { timeoutMs: 500 } },
-    activities: { code: { low: { model: 'opus', effort: 'medium' } } },
+    activities: { code: { low: { model: 'opus', effort: 'high' } } },
   });
 });
 
 test('Reset stats clears activity and routing vs your model, the session counts and the saved ones', async () => {
   const h = harness({ typesafe_api_key: 'synthetic-key' });
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'shadow' }));
   h.http(async () => ({
     ok: true,
     status: 200,
@@ -727,17 +767,29 @@ test('Reset stats while a turn writes its counts leaves the readout empty', asyn
   assert.ok(texts(await h.render()).includes('  no turns recorded yet'));
 });
 
+test('a 1.6 removal of a cell 1.7 no longer overrides shows as no effect, and remove drops it from router.json', async () => {
+  const h = harness();
+  h.files.set(CONFIG, JSON.stringify({ activities: { docs: { low: { model: 'haiku', effort: 'high' } } } }));
+  await start(h);
+  await press(h, 'tab-routing');
+  assert.ok(texts(await h.render()).includes('  same as base: no effect'));
+  await press(h, 'activity-remove-docs-low');
+  await press(h, 'save-routing');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+  assert.ok(!controls(await h.render()).some((c) => c.key === 'activity-model-docs-low'));
+});
+
 test('Reset routes keeps pending activity edits and the mode', async () => {
   const h = harness();
   await start(h);
   await press(h, 'tab-routing');
-  await press(h, 'activity-mode', 'on');
+  await press(h, 'activity-mode', 'shadow');
   await press(h, 'activity-model-code-low', 'opus');
   await press(h, 'reset-routes');
   assert.equal(h.view().notice, 'Routes already at defaults.');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
-    activities: { code: { low: { model: 'opus', effort: 'medium' } } },
-    activityRouting: 'on',
+    activities: { code: { low: { model: 'opus', effort: 'high' } } },
+    activityRouting: 'shadow',
   });
 });

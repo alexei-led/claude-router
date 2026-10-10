@@ -125,16 +125,18 @@ test('a route label adds the effort only when there is one', () => {
     assert.equal(routeLabel(model, effort), expected);
 });
 
-test('a switch is a tier change between consecutive routed replies', () => {
-  for (const [tiers, expected] of [
-    [[], 0],
-    [['low'], 0],
-    [['low', 'low'], 0],
-    [['low', 'high', 'high'], 1],
-    [['low', 'high', 'low'], 2],
-    [['low', null, 'high'], 0],
+test('a switch is a change of the route a reply went out with', () => {
+  for (const [routes, expected, name] of [
+    [[], 0, 'no replies'],
+    [['haiku@high'], 0, 'one reply'],
+    [['sonnet@high', 'sonnet@high'], 0, 'same route'],
+    [['haiku@high', 'opus@xhigh', 'opus@xhigh'], 1, 'one change'],
+    [['haiku@high', 'opus@xhigh', 'haiku@high'], 2, 'there and back'],
+    [['haiku@high', null, 'opus@xhigh'], 0, 'an unrouted reply breaks no run'],
+    [['sonnet@high', 'haiku@high'], 1, 'a move inside a tier: Sonnet for code, then Haiku for ops'],
+    [['opus@medium', 'opus@high'], 1, 'an effort change'],
   ])
-    assert.equal(switchCount(tiers), expected, tiers.join(','));
+    assert.equal(switchCount(routes), expected, name);
 });
 
 test('a classifier status names the classifier and the setting it lacks', () => {

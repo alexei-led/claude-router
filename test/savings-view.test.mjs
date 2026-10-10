@@ -66,9 +66,13 @@ const view = (props) => ({
   actualModel: 'claude-haiku-5-5',
   effort: 'high',
   tiers: ['low', 'low', 'high'],
+  routes: ['claude-haiku-5-5@high', 'claude-haiku-5-5@high', 'claude-opus-5-5@xhigh'],
   savingsStore: STORE,
   ...props,
 });
+
+// The activity-routing estimate line shows only in shadow, which 1.7 no longer defaults to.
+const SHADOW_CONFIG = { ...DEFAULTS, activityRouting: 'shadow' };
 
 function section(props, { columns = 100, config = DEFAULTS } = {}) {
   const lines = screen(renderPanel(ELEMENTS, config, view(props), null, actions, { columns }));
@@ -172,7 +176,7 @@ test('the Usage tab opens with routing vs your model, each number on the line th
       ['ROUTING VS YOUR MODEL · Mystery 1.0', '  Mystery 1.0 has no list price in router.json models.'],
     ],
   ])
-    assert.deepEqual(section(props), expected, name);
+    assert.deepEqual(section(props, { config: SHADOW_CONFIG }), expected, name);
 });
 
 test('your model takes the color of the tier that runs it at your effort', () => {

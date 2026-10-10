@@ -40,6 +40,7 @@ import {
   NOT_A_TIER_REASON,
   savingsLine,
   storeAgreementLine,
+  unavailableReason,
 } from '../lib/display.mjs';
 import { clip, observedActivity, promptIndex } from '../lib/facts.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
@@ -139,7 +140,8 @@ async function modeOf($, router, fallback = 'auto') {
   }
 }
 
-// A saved preference wins; a fresh session starts with routing on for a model some tier routes to, and off for any other.
+// A saved preference wins; a fresh session starts with routing on for a model some route runs (a tier's, or in `on` an
+// activity override's), and off for any other.
 async function startMode($, router, model) {
   const mode = await modeOf($, router, cellForModel(router.config, model) === null ? 'manual' : 'auto');
   router.modes.set(await $.session.id(), mode);
@@ -231,7 +233,7 @@ async function changeMode($, router, mode) {
 
 async function setPin($, router, tier) {
   const view = router.view ?? (await readView($, router));
-  if (view.phase === 'unavailable') return `Routing unavailable: ${view.error}.`;
+  if (view.phase === 'unavailable') return unavailableText(view);
   const mode = await modeOf($, router, view.mode);
   if (mode === 'manual') return 'Routing is off. Turn routing on before pinning a turn.';
   await updateView($, router, { pendingPin: tier });
@@ -242,6 +244,8 @@ async function setPin($, router, tier) {
 async function routerCommand($, router, args) {
   const [action, value] = args.trim().split(/\s+/);
   if (action === 'auto' || action === 'off') {
+    const view = router.view ?? (await readView($, router));
+    if (view.phase === 'unavailable') return { text: unavailableText(view) };
     await changeMode($, router, action === 'auto' ? 'auto' : 'manual');
     return { text: action === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
   }
@@ -263,7 +267,7 @@ async function routerCommand($, router, args) {
 // `/router activities <mode>`: the pane's write, so the file keeps the rest and Undo in the pane restores it.
 async function setActivityRouting($, router, mode) {
   const view = router.view ?? (await readView($, router));
-  if (view.phase === 'unavailable') return `Routing unavailable: ${view.error}.`;
+  if (view.phase === 'unavailable') return unavailableText(view);
   if (mode === router.config.activityRouting) return `Activity routing is already ${mode}.`;
   await paneActions($, router, view).activityRouting(mode);
   return router.view.notice;
@@ -342,7 +346,15 @@ async function saveConfig($, path, change) {
   }
 }
 
+const unavailableText = (view) => `Routing unavailable: ${unavailableReason(view)}. Claude’s model is kept.`;
+
 function detailText(config, view) {
+  if (view.phase === 'unavailable')
+    return [
+      unavailableText(view),
+      `Model: ${view.nativeModel}`,
+      ...(view.error === GATEWAY_SETTINGS ? GATEWAY_CLEANUP : []),
+    ].join('\n');
   const missing = missingCredentials(config, view, config.classifier);
   return [
     `Router — routing ${view.mode === 'auto' ? 'on' : 'off'}`,
@@ -359,7 +371,6 @@ function detailText(config, view) {
     view.pendingPin ? `Next turn pin: ${view.pendingPin}` : 'No next-turn pin.',
     'Routing on picks a model for each turn. Routing off keeps Claude’s model. Pins serve one turn only.',
     'Cache lifetime is an estimate. Claude’s cost ledger owns session totals.',
-    ...(view.error === GATEWAY_SETTINGS ? GATEWAY_CLEANUP : []),
   ].join('\n');
 }
 
@@ -507,9 +518,15 @@ async function decideTurn($, router, e, signal, step) {
 
 // A routed reply's metrics in the view, labelled with the turn's activity when its tier served it, and added to the
 // turn's activity record.
-async function publishReply($, router, turnId, response, tier) {
+async function publishReply($, router, turnId, response, tier, route) {
   const turn = router.turnActivities.get(turnId);
-  const metrics = responseMetrics(router.view, response, tier, tier ? (turn?.label ?? null) : null);
+  const metrics = responseMetrics(
+    router.view,
+    response,
+    tier,
+    tier ? (turn?.label ?? null) : null,
+    tier ? route : null,
+  );
   await updateView($, router, metrics);
   if (turn)
     router.turnActivities.set(turnId, {
@@ -537,7 +554,7 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   if (!written.isSet) return;
   // A substituted reply is not the tier's: the strip and trend must not count it as one.
   const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
-  await publishReply($, router, turnId, response, tier);
+  await publishReply($, router, turnId, response, tier, `${request.model}@${request.effort ?? 'session'}`);
   if (compared?.reply) await addSavings($, router, turnId, compared.reply, tier);
 }
 

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { bandSegments } from '../lib/band.mjs';
 import { DEFAULTS, editActivity, loadConfig } from '../lib/config.mjs';
-import { TIER_COLOR } from '../lib/display.mjs';
+import { GATEWAY_CLEANUP, GATEWAY_SETTINGS, TIER_COLOR } from '../lib/display.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
 import { isSameModel } from '../lib/route.mjs';
 import { controls, ELEMENTS, texts } from './harness.mjs';
@@ -64,6 +64,22 @@ test('the pane header is one on/off pair that marks the current mode and keeps t
     assert.equal(lines[0], 'ROUTING', mode);
     assert.ok(lines.includes('  off keeps the /model choice'), mode);
     assert.ok(lines.includes('Jev ready'), mode);
+  }
+});
+
+test('while routing is unavailable the header says why and offers no on/off or pins', () => {
+  for (const [error, reason, cleanup] of [
+    ['requires Claude Code 2.1.289 or newer', 'requires Claude Code 2.1.289 or newer', false],
+    [GATEWAY_SETTINGS, 'v0.8 gateway settings remain', true],
+  ]) {
+    const tree = pane({ phase: 'unavailable', error, tier: null });
+    const lines = texts(tree);
+    assert.deepEqual(lines.slice(0, 5), ['ROUTING', '  ', 'unavailable', '  Claude’s model is kept', reason], reason);
+    assert.equal(lines.includes(GATEWAY_CLEANUP[0]), cleanup, reason);
+    assert.ok(!lines.some((line) => /Jev ready|keeping the model/.test(line)), reason);
+    assert.ok(lines.includes('  Pins need routing, which is unavailable.'), reason);
+    const keys = controls(tree).map((c) => c.key);
+    for (const key of ['auto', 'manual', 'pin-low']) assert.ok(!keys.includes(key), `${reason}: ${key}`);
   }
 });
 
@@ -149,7 +165,7 @@ const recording = () => {
     ),
   };
 };
-const sonnetLow = { tier: 'low', selectedModel: 'claude-sonnet-5-5', effort: 'medium', activity: 'code' };
+const sonnetLow = { tier: 'low', selectedModel: 'claude-sonnet-5-5', effort: 'high', activity: 'code' };
 const haikuLow = { tier: 'low', selectedModel: 'claude-haiku-5-5', effort: 'high', activity: 'code' };
 const reading = { activityChoice: 'code', activityProbabilities: { code: 0.81, ops: 0.09, explore: 0.06, plan: 0 } };
 const would = (activity, model, effort) => ({ wouldRoute: { activity, tier: 'low', model, effort, reason: 'x' } });
@@ -157,13 +173,13 @@ const after = (lines, label) => (lines.includes(label) ? lines[lines.indexOf(lab
 
 test('the Now tab shows the activity reading and the route its cell resolves to in each mode', () => {
   for (const [mode, props, route] of [
-    ['on', sonnetLow, 'low + code → Sonnet 5.5 · medium   (override)   base: Haiku 5.5 · high'],
+    ['on', sonnetLow, 'low + code → Sonnet 5.5 · high   (override)   base: Haiku 5.5 · high'],
     ['on', { ...haikuLow, activity: 'ops' }, 'low + ops → Haiku 5.5 · high (base)'],
     ['on', { ...haikuLow, activity: null }, 'low → Haiku 5.5 · high (base)'],
     [
       'shadow',
-      { ...haikuLow, ...would('code', 'claude-sonnet-5-5', 'medium') },
-      'low + code would use Sonnet 5.5 · medium (shadow; using Haiku 5.5 · high)',
+      { ...haikuLow, ...would('code', 'claude-sonnet-5-5', 'high') },
+      'low + code would use Sonnet 5.5 · high (shadow; using Haiku 5.5 · high)',
     ],
     [
       'shadow',
@@ -183,7 +199,13 @@ test('the Now tab shows the activity reading and the route its cell resolves to 
 });
 
 test('REPLIES letters each reply by its activity under its tier, aligned from the newest', () => {
-  const lines = texts(pane({ tiers: ['low', 'low', 'medium', 'low'], activities: ['ops', null, 'docs'] }));
+  const lines = texts(
+    pane({
+      tiers: ['low', 'low', 'medium', 'low'],
+      activities: ['ops', null, 'docs'],
+      routes: ['h@high', 'h@high', 'o@medium', 'h@high'],
+    }),
+  );
   const at = lines.indexOf('  2 switches');
   assert.deepEqual(lines.slice(at + 1, at + 6), ['  ', '·', 'o', '·', 'w']);
   assert.ok(lines.includes('  c code  d debug  e explore  p plan  r review  o ops  w docs'));
@@ -213,16 +235,53 @@ const rowWarnings = (tree, activity, tier) => {
 test('the default overrides draw five distinct routes and warn about nothing', () => {
   const tree = routing(DEFAULTS);
   assert.deepEqual(matrix(tree), [
-    'ACTIVITIES · routing shadow',
+    'ACTIVITIES',
+    ' · applies next turn · edit, then Save',
+    '',
+    'an override runs when the activity has one',
+    '',
     'micro    low      medium   high',
     '  base                          H·med    H·high   O·med    O·xh',
-    '  code debug plan review        ·        S·med    ·        ·',
-    '  explore ops                   ·        ·        S·med    ·',
-    '  docs                          ·        S·med    S·med    ·',
-    '  5 distinct routes = 5 caches once activity routing is on',
+    '  code debug plan review        ·        S·high   ·        ·',
+    '  explore docs                  ·        ·        ·        ·',
+    '  ops                           ·        ·        H·high   ·',
+    '  5 distinct routes = 5 caches',
   ]);
   for (const [activity, tiers] of Object.entries(DEFAULTS.activities))
     for (const tier of Object.keys(tiers)) assert.equal(rowWarnings(tree, activity, tier), '', `${activity} ${tier}`);
+});
+
+test('the activities lead with the mode, and OVERRIDES says whether the overrides are in use', () => {
+  for (const [mode, hint, state] of [
+    ['on', 'an override runs when the activity has one', ' · in use'],
+    ['shadow', 'shows what on would do; base routes run', ' · not in use: activity routing is shadow'],
+    ['off', 'the activity is not asked; base routes run', ' · not in use: activity routing is off'],
+  ]) {
+    const tree = routing({ ...DEFAULTS, activityRouting: mode });
+    assert.equal(controls(tree).find((c) => c.key === 'activity-mode').value, mode);
+    const lines = texts(tree);
+    assert.equal(lines[lines.indexOf('ACTIVITIES') + 3], hint, mode);
+    assert.equal(lines[lines.indexOf('OVERRIDES') + 1], state, mode);
+  }
+  for (const [props, state] of [
+    [{ mode: 'manual' }, ' · not in use: routing is off'],
+    [{ phase: 'unavailable', error: 'invalid router configuration' }, ' · not in use: routing is unavailable'],
+  ]) {
+    const lines = texts(renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'routing', ...props }), null, actions));
+    assert.equal(lines[lines.indexOf('OVERRIDES') + 1], state, JSON.stringify(props));
+  }
+  // A draft mode runs nothing until Save: the state follows the saved mode and says what Save changes.
+  for (const [saved, drafted, state] of [
+    ['on', 'shadow', [' · in use', ' · not in use after Save']],
+    ['shadow', 'on', [' · not in use: activity routing is shadow', ' · in use after Save']],
+    ['shadow', 'off', [' · not in use: activity routing is shadow']],
+  ]) {
+    const config = { ...DEFAULTS, activityRouting: saved };
+    const draft = { ...routeDraftOf(config, {}), activityRouting: drafted };
+    const lines = texts(routing(config, draft));
+    const at = lines.indexOf('OVERRIDES');
+    assert.deepEqual(lines.slice(at + 1, at + 1 + state.length), state, `${saved} → ${drafted}`);
+  }
 });
 
 test('override rows warn about no effect, a route above the next tier and a new cache', () => {
@@ -246,12 +305,12 @@ test('the routing draft lists activity edits and the mode in the router.json dif
   const config = loadConfig();
   let draft = routeDraftOf(config, {});
   draft = editActivity(draft, config, 'code', 'high', 'effort', 'max');
-  draft = editActivity(draft, config, 'docs', 'low', 'remove');
-  draft = { ...draft, activityRouting: 'on' };
+  draft = editActivity(draft, config, 'review', 'low', 'remove');
+  draft = { ...draft, activityRouting: 'shadow' };
   const changes = routingChanges(config, view({ routeDraft: draft }));
   assert.deepEqual(changes.cells, [
     ['code', 'high'],
-    ['docs', 'low'],
+    ['review', 'low'],
   ]);
   assert.equal(changes.mode, true);
   assert.equal(changes.count, 3);
@@ -260,10 +319,10 @@ test('the routing draft lists activity edits and the mode in the router.json dif
   assert.deepEqual(lines.slice(at + 1, at + 7), [
     '- activities.code.high           no override',
     '+ activities.code.high           Opus 5.5 · max',
-    '- activities.docs.low            Sonnet 5.5 · medium',
-    '+ activities.docs.low            no override',
-    '- activityRouting                shadow',
-    '+ activityRouting                on',
+    '- activities.review.low          Sonnet 5.5 · high',
+    '+ activities.review.low          no override',
+    '- activityRouting                on',
+    '+ activityRouting                shadow',
   ]);
   assert.ok(lines.includes('● 3 unsaved routing changes  '));
   assert.equal(routingChanges(config, view()).count, 0);
@@ -275,7 +334,7 @@ test('a removed built-in override is not listed and can be added back', () => {
   const keys = controls(tree).map((c) => c.key);
   assert.ok(!keys.includes('activity-model-code-low'));
   assert.ok(keys.includes('activity-model-debug-low'));
-  assert.ok(matrix(tree).includes('  code                          ·        ·        ·        ·'));
+  assert.ok(matrix(tree).includes('  code explore docs             ·        ·        ·        ·'));
   const add = controls(tree).find((c) => c.key === 'activity-add');
   assert.ok(add.options.some((o) => o.value === 'code.low'));
   assert.equal(routingChanges(config, view()).count, 0);
@@ -284,18 +343,18 @@ test('a removed built-in override is not listed and can be added back', () => {
 test('the Routing tab controls call the pane actions with the activity and tier', () => {
   const { calls, actions: recorded } = recording();
   const found = (key) => controls(routing(DEFAULTS, null, recorded)).find((c) => c.key === key);
-  found('activity-mode').onSelect('on');
+  found('activity-mode').onSelect('shadow');
   found('activity-model-code-low').onSelect('opus');
   found('activity-effort-code-low').onSelect('session');
-  found('activity-effort-docs-medium').onSelect('high');
+  found('activity-effort-ops-medium').onSelect('medium');
   found('activity-remove-ops-medium').onPress();
   found('activity-add').onSelect('code.high');
   found('activity-add').onSelect('');
   assert.deepEqual(calls, [
-    ['activityMode', 'on'],
+    ['activityMode', 'shadow'],
     ['activityModel', 'code', 'low', 'opus'],
     ['activityEffort', 'code', 'low', null],
-    ['activityEffort', 'docs', 'medium', 'high'],
+    ['activityEffort', 'ops', 'medium', 'medium'],
     ['removeActivity', 'ops', 'medium'],
     ['addActivity', 'code', 'high'],
   ]);
@@ -320,7 +379,7 @@ const STORE = {
 };
 const SESSION_LINES = [
   'ACTIVITY · this session',
-  '   routing shadow',
+  '   activity routing shadow',
   '                       turns  requests  share',
   '  code     ',
   '██████░░░░',
@@ -334,7 +393,10 @@ const SESSION_LINES = [
   'Switches   9 · 4 by tier · 5 by activity',
   'Agreement  classifier vs tools: 19 of 22 turns (86%)',
 ];
-const OFF_LINES = ['ACTIVITY · routing off', '  Not asked. Set activity routing to shadow or on in the Routing tab.'];
+const OFF_LINES = [
+  'ACTIVITY · activity routing off',
+  '  Not asked. Set activity routing to shadow or on in the Routing tab.',
+];
 const ACROSS = 'ACROSS SESSIONS · since the last reset';
 const ACROSS_LINES = [
   ' ',
@@ -343,7 +405,7 @@ const ACROSS_LINES = [
   'Agreement  classifier vs tools: 16 of 20 turns (80%)',
   'Code/ops/explore  classifier vs tools: 14 of 18 turns (78%)',
   'Mismatch   code → read 3 · ops → code 1',
-  'Lateral    4 taken · 2 refused',
+  'Activity moves  4 taken · 2 refused',
   'Shadow     on would route 6 of 18 turns differently · est. −$0.420 … +$0.180 at list prices',
 ];
 const ACROSS_EMPTY = [' ', ACROSS, '  no turns recorded yet'];
@@ -379,7 +441,7 @@ test('the Usage tab shows the session activity block and the counts across sessi
       'shadow',
       null,
       null,
-      ['ACTIVITY · this session', '   routing shadow', '  no activity readings yet', ...ACROSS_EMPTY],
+      ['ACTIVITY · this session', '   activity routing shadow', '  no activity readings yet', ...ACROSS_EMPTY],
     ],
     [
       'shadow, with data and a partial estimate',
@@ -416,7 +478,7 @@ test('the Usage tab shows the session activity block and the counts across sessi
       'shadow',
       null,
       'garbage',
-      ['ACTIVITY · this session', '   routing shadow', '  no activity readings yet', ...ACROSS_EMPTY],
+      ['ACTIVITY · this session', '   activity routing shadow', '  no activity readings yet', ...ACROSS_EMPTY],
     ],
     [
       'on, with data',
@@ -425,7 +487,7 @@ test('the Usage tab shows the session activity block and the counts across sessi
       STORE,
       [
         'ACTIVITY · this session',
-        '   routing on',
+        '   activity routing on',
         '                       turns  requests  share',
         '  ops      ',
         '██████████',
@@ -439,7 +501,7 @@ test('the Usage tab shows the session activity block and the counts across sessi
       'on',
       null,
       null,
-      ['ACTIVITY · this session', '   routing on', '  no activity readings yet', ...ACROSS_EMPTY],
+      ['ACTIVITY · this session', '   activity routing on', '  no activity readings yet', ...ACROSS_EMPTY],
     ],
   ]) {
     const { calls, actions: recorded } = recording();

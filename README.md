@@ -61,7 +61,16 @@ The active classifier labels a new logical turn once. Tool continuations keep th
 
 These are routing defaults. They do not claim equal model quality. [Configuration](docs/configuration.md#built-in-defaults) gives the published results behind them and the `router.json` lines that restore the 1.3 Sonnet ladder.
 
-Activity routing adds a second label: what the turn produces (`code`, `debug`, `explore`, `plan`, `review`, `ops`, or `docs`). A route is then picked by tier and activity, so a `low` coding turn can run on Sonnet 5.5 while a `low` git turn stays on Haiku 5.5. It ships in `shadow` mode: the band and pane show the activity and what it would route, and the tier routes still run. Opt in with `/router activities on`. The label is optional: on `uncertain` or a weak label the tier route is used, when the activity answer fails the running activity stays and the tier answer still applies, and when the classifier fails the running route stays. See [Route by activity](docs/user-guide.md#route-by-activity), and [Evaluation](docs/evaluation.md#activity-routing) for how it is checked. Its default overrides rest on published vendor results, not measured savings.
+Activity routing adds a second label: what the turn produces (`code`, `debug`, `explore`, `plan`, `review`, `ops`, or `docs`). A route is then picked by tier and activity. It is on by default since 1.7. A `·` cell uses the tier's own route, the base route:
+
+| Activity                          | `micro`        | `low`             | `medium`         | `high`       |
+| --------------------------------- | -------------- | ----------------- | ---------------- | ------------ |
+| Base route                        | Haiku · medium | Haiku · high      | Opus · medium    | Opus · xhigh |
+| `code`, `debug`, `plan`, `review` | ·              | **Sonnet · high** | ·                | ·            |
+| `ops`                             | ·              | ·                 | **Haiku · high** | ·            |
+| `explore`, `docs`                 | ·              | ·                 | ·                | ·            |
+
+`/router activities shadow` shows what it would route and keeps the base routes; `/router activities off` stops asking. [Activity routing](docs/activity-routing.md) explains each cell and how to change it. The label is optional: on `uncertain` or a weak label the base route is used if the move passes the cache check, when the activity answer fails the running activity stays and the tier answer still applies, and when the classifier fails the running route stays. See [Route by activity](docs/user-guide.md#route-by-activity), and [Evaluation](docs/evaluation.md#activity-routing) for how it is checked. Its default overrides rest on published vendor results and a list-price replay of one developer's sessions, not measured savings.
 
 ## Install
 
@@ -72,7 +81,7 @@ claude plugin marketplace add alexei-led/claude-router
 claude plugin install router@alexei-led-claude-router
 ```
 
-Start Claude Code on the full baseline model, for example `claude --model claude-haiku-5-5`. Run `/plugin configure router` and save the key. For any other classifier, save its credentials, or run `ollama serve` with a pulled model, then pick the classifier on the pane's Classifier tab. A new session on a model that one of the tiers routes to starts with routing on; on another model it starts with routing off and says why, and `/router auto` turns routing on.
+Start Claude Code on the full baseline model, for example `claude --model claude-haiku-5-5`. Run `/plugin configure router` and save the key. For any other classifier, save its credentials, or run `ollama serve` with a pulled model, then pick the classifier on the pane's Classifier tab. A new session on a model that a tier routes to, or with activity routing `on` a model an activity override uses (Sonnet 5.5 on the defaults), starts with routing on; on any other model it starts with routing off and says why, and `/router auto` turns routing on.
 
 Claude Code updates the plugin at startup when auto-update is on for this marketplace. Otherwise run `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`.
 
@@ -102,6 +111,7 @@ npm run check && npm run typecheck && npm test && npm run validate && npm run te
 - [User guide](docs/user-guide.md): install, use the controls, read the panel, and troubleshoot.
 - [Configuration](docs/configuration.md): classifiers and keys, the optional profile `router.json`, defaults, and migrations.
 - [Architecture](docs/architecture.md): Mod event flow, state, safeguards, and runtime boundaries.
+- [Activity routing](docs/activity-routing.md): the default matrix by activity, why each cell, and how to change or turn it off.
 - [Native router details](docs/native-router.md): panel semantics, tuning, and accepted limits.
 - [Evaluation](docs/evaluation.md): historical gateway results and the native shadow replay.
 - [Changelog](CHANGELOG.md): user-visible changes by version.

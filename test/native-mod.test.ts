@@ -33,6 +33,7 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
     cacheWrite: 25_000,
     history: [100_000, 150_000, 120_000],
     tiers: ['low', 'micro', 'low'],
+    routes: ['claude-haiku-5-5@high', 'claude-haiku-5-5@medium', 'claude-haiku-5-5@high'],
     adviceMs: 390,
     comparison: {
       incumbent: 'low',

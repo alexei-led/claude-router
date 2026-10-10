@@ -8,7 +8,27 @@ import { initialState } from '../lib/policy.mjs';
 import { chooseRoute, emptyLoop, resetHistory } from '../lib/route.mjs';
 import { advice, T0 } from './helpers.mjs';
 
-const ON = loadConfig({ userFile: { activityRouting: 'on' } });
+// The policy cases run on a fixed matrix, the 1.6 overrides, so a change of the shipped defaults does not move them.
+const SONNET_MEDIUM = { model: 'sonnet', effort: 'medium' };
+const MATRIX = {
+  code: { low: SONNET_MEDIUM },
+  debug: { low: SONNET_MEDIUM },
+  explore: { medium: SONNET_MEDIUM },
+  plan: { low: SONNET_MEDIUM },
+  review: { low: SONNET_MEDIUM },
+  ops: { medium: SONNET_MEDIUM },
+  docs: { low: SONNET_MEDIUM, medium: SONNET_MEDIUM },
+};
+const fixed = ({ activities = {}, ...rest }) =>
+  loadConfig({
+    userFile: {
+      ...rest,
+      activities: Object.fromEntries(
+        Object.entries(MATRIX).map(([activity, tiers]) => [activity, { ...tiers, ...activities[activity] }]),
+      ),
+    },
+  });
+const ON = fixed({ activityRouting: 'on' });
 const NOW = T0 + 1_000_000;
 const WARM = NOW - 60_000;
 const HAIKU = 'claude-haiku-5-5';
@@ -171,29 +191,23 @@ function turnInput({
 
 const priorVote = (tier) => ({ ...initialState(), turn: 1, votes: [{ tier, turn: 1 }] });
 const holding = { ...initialState(), turn: 1, holdUntilTurn: 3 };
-const metered = loadConfig({
-  userFile: { activityRouting: 'on', models: { sonnet: { billing: 'credits' } }, policy: { cashCapUsd: 0.5 } },
+const metered = fixed({
+  activityRouting: 'on',
+  models: { sonnet: { billing: 'credits' } },
+  policy: { cashCapUsd: 0.5 },
 });
-const docsFlat = loadConfig({
-  userFile: {
-    activityRouting: 'on',
-    activities: { docs: { high: { model: 'sonnet', effort: 'medium' } } },
+const docsFlat = fixed({
+  activityRouting: 'on',
+  activities: { docs: { high: { model: 'sonnet', effort: 'medium' } } },
+});
+const sessionEffort = fixed({ activityRouting: 'on', activities: { code: { low: { model: 'haiku', effort: null } } } });
+const planSession = fixed({ activityRouting: 'on', activities: { plan: { high: { effort: null } } } });
+const unpricedCode = fixed({
+  activityRouting: 'on',
+  models: {
+    mini: { id: 'mini-1', input: 1, cacheRead: 0.1, contextWindow: 200_000, billing: 'plan', efforts: [] },
   },
-});
-const sessionEffort = loadConfig({
-  userFile: { activityRouting: 'on', activities: { code: { low: { model: 'haiku', effort: null } } } },
-});
-const planSession = loadConfig({
-  userFile: { activityRouting: 'on', activities: { plan: { high: { effort: null } } } },
-});
-const unpricedCode = loadConfig({
-  userFile: {
-    activityRouting: 'on',
-    models: {
-      mini: { id: 'mini-1', input: 1, cacheRead: 0.1, contextWindow: 200_000, billing: 'plan', efforts: [] },
-    },
-    activities: { code: { low: { model: 'mini' } } },
-  },
+  activities: { code: { low: { model: 'mini' } } },
 });
 
 test('the activity decision: (route now, tier advice, activity advice, cache, context) → route and reason', () => {
@@ -375,6 +389,25 @@ test('escalation keeps the failure for later when no tier above runs a stronger 
   assert.equal(base.state.escalatedSignature, 'boom');
 });
 
+test('with the shipped matrix, a failing ops turn at low or medium escalates to the high route', () => {
+  const shipped = loadConfig();
+  for (const [tier, activity, expected] of [
+    ['low', 'ops', ['high', 'ops', 'escalation', OPUS, 'xhigh']],
+    ['medium', 'ops', ['high', 'ops', 'escalation', OPUS, 'xhigh']],
+    ['low', 'code', ['medium', 'code', 'escalation', OPUS, 'medium']],
+  ]) {
+    const { decision: d } = turn({
+      config: shipped,
+      tier,
+      choice: tier,
+      activity,
+      label: labelOf(activity),
+      failure: { signature: 'boom' },
+    });
+    assert.deepEqual([d.tier, d.activity, d.reason, d.model, d.effort], expected, `${tier} ${activity}`);
+  }
+});
+
 test('the loop keeps the applied activity; a pin keeps the automatic one', () => {
   for (const [name, setup, lastRoute, lastActivity] of [
     ['a lateral move', { label: labelOf('code') }, 'low', 'code'],
@@ -408,7 +441,7 @@ test('off routes without the activity, shadow applies the same and reports what 
     ],
     ['on', ['low', 'code', 'activity-up', SONNET, 'medium'], null],
   ]) {
-    const config = loadConfig({ userFile: { activityRouting: mode } });
+    const config = fixed({ activityRouting: mode });
     const loop = turn({ config, label: labelOf('code') });
     assert.deepEqual(routeOf(loop.decision), applied, mode);
     const { difference, ...route } = loop.decision.wouldRoute ?? {};
@@ -421,7 +454,7 @@ test('off routes without the activity, shadow applies the same and reports what 
 });
 
 test('the would-route is priced only when it differs from the applied route and a request was measured', () => {
-  const config = loadConfig({ userFile: { activityRouting: 'shadow' } });
+  const config = fixed({ activityRouting: 'shadow' });
   const priced = (setup, change = (x) => x) => {
     const { loop, input } = turnInput({ config, ...setup });
     const { loop: l, input: i } = change({ loop, input });
@@ -468,7 +501,7 @@ test('off and the applied shadow decision ignore an activity left in the loop by
 });
 
 test('shadow follows what on would run from turn to turn, not from the applied route each turn', () => {
-  const config = loadConfig({ userFile: { activityRouting: 'shadow' } });
+  const config = fixed({ activityRouting: 'shadow' });
   const { loop: start, input } = turnInput({ config });
   let loop = start;
   const seen = [];
@@ -500,11 +533,11 @@ test('shadow follows what on would run from turn to turn, not from the applied r
 
 test('only shadow keeps the would-route cell, and a history reset clears its votes and hold', () => {
   for (const mode of ['off', 'shadow', 'on']) {
-    const config = loadConfig({ userFile: { activityRouting: mode } });
+    const config = fixed({ activityRouting: mode });
     const loop = turn({ config, label: labelOf('code') });
     assert.equal(loop.would === null, mode !== 'shadow', mode);
   }
-  const config = loadConfig({ userFile: { activityRouting: 'shadow' } });
+  const config = fixed({ activityRouting: 'shadow' });
   const loop = turn({ config, label: labelOf('code'), state: holding, choice: 'medium' });
   const reset = resetHistory(loop);
   assert.deepEqual(

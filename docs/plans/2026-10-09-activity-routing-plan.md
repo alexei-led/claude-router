@@ -1,7 +1,8 @@
 # Activity routing
 
-Version 0.3 · 2026-10-10 · Approved for implementation. Target: 1.6.0 ships phases 0–2, `shadow` by default, `on`
-opt-in. Phase 3 (`on` by default) waits for shadow data.
+Version 0.4 · 2026-10-10 · Phases 0–2 shipped in 1.6.0 with `shadow` by default. Phase 3 ships in 1.7.0: `on` by
+default with the matrix in §3.1, chosen from vendor benchmarks and a list-price replay instead of the shadow data §11
+first asked for.
 
 The router picks a tier for each logical turn: how hard the work is. This plan adds a second label, the **activity**:
 what kind of work the turn does. A route is then chosen by tier *and* activity, so a `low` coding turn can run on
@@ -115,25 +116,27 @@ it to the tier's base route; the pane writes that for you.
 
 ### 3.1 Defaults
 
-1.6.0 ships `activityRouting: "shadow"` with the overrides below. In `shadow` they only feed the "would route" readout
-and stats, so shadow data measures exactly what `on` would do. Routes change only after a user opts in to `on`.
+1.7.0 ships `activityRouting: "on"` with the overrides below. 1.6.0 shipped `shadow` with Sonnet · medium overrides
+(`code` `debug` `plan` `review` at `low`, `docs` at `low` and `medium`, `ops` and `explore` at `medium`); 1.7.0 drops
+the `docs`, `explore` and `ops` Sonnet cells and raises the Sonnet effort to `high`.
 
 The base routes stay as in 1.5. Cells marked `·` inherit them; activity `null` always uses them.
 
 | | micro | low | medium | high | Evidence |
 | --- | --- | --- | --- | --- | --- |
 | base (1.5) | Haiku · medium | Haiku · high | Opus · medium | Opus · xhigh | Unchanged |
-| `code` `debug` `plan` `review` | · | **Sonnet · medium** | · | · | Coding is where Haiku is weakest: Terminal-Bench 4.0, Haiku 5.5 39.2% vs Sonnet 5.5 70.6% |
-| `docs` | · | **Sonnet · medium** | **Sonnet · medium** | · | Knowledge work: Sonnet ≈ Opus (GDPval-AA 1844 vs 1846) |
-| `ops` | · | · | **Sonnet · medium** | · | Terminal-style tasks: Sonnet 5.5 70.6% vs Opus 5.5 66.4% (xhigh) |
-| `explore` | · | · | **Sonnet · medium** | · | Knowledge work: Sonnet ≈ Opus; Haiku close (1620) |
+| `code` `debug` `plan` `review` | · | **Sonnet · high** | · | · | Coding is where Haiku is weakest (Terminal-Bench 4.0: Haiku 39.2%, Sonnet 70.6%). FrontierCode Main: Sonnet ~49% at high, ~37% at medium, Haiku ~42% at high, so not Sonnet at medium |
+| `ops` | · | · | **Haiku · high** | · | Command runs lasted 6–11 requests at the median in the replay; Haiku repays its write in ~4 (§5.3). OSWorld 2.1: Haiku ~61% at high, Opus ~79% at medium, so `high` stays on Opus |
+| `explore` `docs` | · | · | · | · | Moving them saved nothing in the replay (question runs lasted 1–3 requests) or cost quality |
 
-At `low`, `ops` and `explore` keep 1.5's Haiku · high: they are the cheap cases the 1.4.0 ladder was chosen for. Only
-five distinct (model, effort) pairs: Haiku·medium, Haiku·high, Sonnet·medium, Opus·medium, Opus·xhigh, one more than
+Five distinct (model, effort) pairs: Haiku·medium, Haiku·high, Sonnet·high, Opus·medium, Opus·xhigh, one more than
 1.5. The pane counts the distinct pairs.
 
-These are vendor benchmarks at max or xhigh effort, not measurements of this router. `on` by default (Phase 3) waits
-for the shadow data in §8 and §11.
+The evidence is Anthropic's system cards and a replay of one developer's 10 days of sessions at list prices (11
+sessions with router markers): the matrix came out between −2% and +1% against what ran, 1.6.0's between −4% and
++15%, over seven replay variants. It does not measure answer quality, and a few percent is one or two cache writes in
+a sample this size. `docs/activity-routing.md` is the end-user version. `policy.activityMass` stays 0.6: the probe
+results record accuracy, not probabilities, so there is nothing to tune it on.
 
 ## 4. Classifier
 
@@ -218,8 +221,8 @@ Other rules:
 - **Escalation** after repeated tool errors keeps the activity. With A = null it is today's rule, one tier up, so
   `off` and the applied `shadow` decision stay equal to 1.5. With an activity it moves to the lowest tier above T0
   whose route(t, A) is stronger than R0; when no tier above gives a stronger route, there is no escalation and the
-  failure signature is not consumed. With the defaults, `low` and `medium` docs are both Sonnet, so docs escalates to
-  `high`.
+  failure signature is not consumed. With the 1.7 defaults, `ops` at `medium` runs Haiku · high, so a failing `ops` turn
+  escalates to `high`, Opus · xhigh.
 - **Context fit** resolves windows through `route(t, A)`.
 - **Model unavailable** falls back through the same chain as today, with resolved routes.
 - **Fresh history** (session start, `/clear`, committed compaction, rewind): tier and activity moves skip the vote
@@ -227,18 +230,22 @@ Other rules:
 
 ### 5.3 Why moves to Haiku are cheap and moves up cost
 
-Configured list prices, a 150K-token context (Haiku's above-100K rates), 2K output and 5K new tokens per request:
+List prices, a 350K-token context (the typical size in the replay; Haiku at its above-100K rate, 5× list), and the
+one-hour cache writes Claude Code made in every replayed session (2× input):
 
 | | Haiku 5.5 | Sonnet 5.5 | Opus 5.5 |
 | --- | ---: | ---: | ---: |
-| Cold cache write, 5 min | $0.09 | $0.38 | $0.75 |
-| One warm request | ≈ $0.016 | ≈ $0.063 | ≈ $0.095 |
+| Cold cache write, 1 hour | $0.35 | $1.40 | $2.80 |
+| One warm request | ≈ $0.03 | ≈ $0.10 | ≈ $0.13 |
 
-- Sonnet → Haiku for an `ops` turn: $0.09 write, $0.047 saved per request. It pays back on the second request.
-  Returning to Sonnet within the 5-minute TTL writes only the new tail.
-- Opus and Sonnet both read cache at $0.20/M. In long sessions, Sonnet's saving over Opus comes mostly from output
-  and new tokens, not from reads.
-- Moving up to a cold Sonnet or Opus costs $0.38–0.75. That is why moves up are justified on quality, not on cost.
+- Opus → Haiku for an `ops` turn at `medium`: $0.35 write, about $0.10 saved per request. It pays back after about 4
+  requests; from Sonnet after about 5. Command runs lasted 6–11 requests at the median, question runs 1–3.
+- Opus → Sonnet saves about $0.03 per request and costs $1.40 to start. It rarely pays back, so no default moves
+  `medium` or `high` work to Sonnet for cost.
+- Opus and Sonnet both read cache at $0.20/M. In long sessions a Sonnet request costs only about 20% less than Opus.
+- Moving up to a cold Sonnet or Opus costs $1.40–2.80. That is why moves up are justified on quality, not on cost.
+- An effort change on the same model kept the cache in all 6 replayed cases, and a model change rewrote it in 37 of
+  40. Six is too few; the router still prices each (model, effort) pair as its own cache.
 
 The policy computes this per turn with `downgradeTaxUsd` and `switchingTaxUsd`. The table only shows the scale.
 
@@ -249,8 +256,8 @@ The policy computes this per turn with `downgradeTaxUsd` and `switchingTaxUsd`. 
 | `policy.activityMass` | 0.6 | Minimum probability for an activity to apply |
 
 Everything else reuses the tier policy: `upgradeBase`, `upgradeSlope`, `upgradePivotUsd`, `downgradeHorizonTurns`,
-`continuationMass`. Not in the pane. Open question: the horizon counts requests, while activities run for a few turns
-of several requests each. Calibrate from §8 stats before Phase 3.
+`continuationMass`. Since 1.7.0 the Routing tab sets `activityMass` as **Activity threshold** (50–80%). Open question: the horizon counts requests, while activities run for a few turns
+of several requests each. Not calibrated for 1.7.0; calibrate from §8 stats.
 
 ## 6. Session start
 
@@ -460,9 +467,11 @@ activity and stats, UI; then the hook wiring and docs.
 | --- | --- | --- | --- |
 | 0 | 1.6.0 | — | Golden snapshot green; no behaviour change apart from fresh history |
 | 1–2 | 1.6.0 | `shadow`; `on` opt-in | Gate green; live sessions in `shadow` and `on` show the activity, the would-route readout and a lateral switch without a rejected request |
-| 3 | later minor | `on` by default | Two weeks of shadow: tool agreement ≥ 80% on `code` vs `ops`/`explore`; would-route estimate negative; p95 Jev latency up by ≤ 150 ms; no rise in tool-error escalations after activity downgrades |
+| 3 | 1.7.0 | `on` by default, the §3.1 matrix | Shipped on vendor benchmarks and a list-price replay of one developer's sessions, not on two weeks of shadow data. Probe accuracy: Jev and OpenAI 70 of 70, Clef and Clef Flash 69, Ollama 66 (`docs/evaluation.md`); Jev p95 latency 299 ms with the activity question. The shadow criteria below are still tracked in the Usage tab |
 
-If shadow data shows Jev's latency or accuracy failing, a patch release sets `activityRouting` to `off` by default.
+Still tracked after 1.7.0: tool agreement ≥ 80% on `code` vs `ops`/`explore`; p95 Jev latency up by ≤ 150 ms; no
+rise in tool-error escalations after activity downgrades. If they fail, a patch release sets `activityRouting` to
+`shadow` or `off` by default; a user can do the same with `/router activities shadow|off`.
 
 ## 12. Risks and open questions
 

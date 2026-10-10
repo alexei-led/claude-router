@@ -428,59 +428,108 @@ test('the default micro and low routes are Haiku at their own effort whatever th
   }
 });
 
-test('activity routing defaults to shadow with the plan matrix of Sonnet overrides', () => {
+test('activity routing defaults to on with Sonnet at high for low engineering work and Haiku for medium ops', () => {
   const config = loadConfig();
   assert.deepEqual(ACTIVITY_VALUES, [...ACTIVITIES, 'uncertain']);
   assert.deepEqual(ACTIVITY_MODES, ['off', 'shadow', 'on']);
-  assert.equal(config.activityRouting, 'shadow');
+  assert.equal(config.activityRouting, 'on');
   assert.equal(config.policy.activityMass, 0.6);
-  const sonnet = { model: 'sonnet', effort: 'medium' };
+  const sonnet = { model: 'sonnet', effort: 'high' };
   assert.deepEqual(config.activities, {
     code: { low: sonnet },
     debug: { low: sonnet },
-    explore: { medium: sonnet },
     plan: { low: sonnet },
     review: { low: sonnet },
-    ops: { medium: sonnet },
-    docs: { low: sonnet, medium: sonnet },
+    ops: { medium: { model: 'haiku', effort: 'high' } },
   });
 });
 
-test('resolveRoute applies the default overrides and keeps the base route without an activity', () => {
+test('resolveRoute runs the default matrix in every cell and the base route without an activity', () => {
   const config = loadConfig();
-  for (const [tier, activity, expected] of [
-    ['low', 'code', { model: 'sonnet', effort: 'medium' }],
-    ['low', 'ops', { model: 'haiku', effort: 'high' }],
-    ['medium', 'docs', { model: 'sonnet', effort: 'medium' }],
-    ['high', 'code', { model: 'opus', effort: 'xhigh' }],
-    ['micro', 'docs', { model: 'haiku', effort: 'medium' }],
-    ...TIERS.map((tier) => [tier, null, DEFAULTS.routes[tier]]),
-  ]) {
-    assert.deepEqual(resolveRoute(config, tier, activity), expected, `${tier} ${activity}`);
-  }
+  const H_MED = { model: 'haiku', effort: 'medium' };
+  const H_HIGH = { model: 'haiku', effort: 'high' };
+  const S_HIGH = { model: 'sonnet', effort: 'high' };
+  const O_MED = { model: 'opus', effort: 'medium' };
+  const O_XH = { model: 'opus', effort: 'xhigh' };
+  const engineering = [H_MED, S_HIGH, O_MED, O_XH];
+  const matrix = {
+    base: [H_MED, H_HIGH, O_MED, O_XH],
+    code: engineering,
+    debug: engineering,
+    plan: engineering,
+    review: engineering,
+    ops: [H_MED, H_HIGH, H_HIGH, O_XH],
+    explore: [H_MED, H_HIGH, O_MED, O_XH],
+    docs: [H_MED, H_HIGH, O_MED, O_XH],
+  };
+  assert.deepEqual(Object.keys(matrix).slice(1).sort(), [...ACTIVITIES].sort());
+  for (const [activity, routes] of Object.entries(matrix))
+    TIERS.forEach((tier, i) => {
+      assert.deepEqual(
+        resolveRoute(config, tier, activity === 'base' ? null : activity),
+        routes[i],
+        `${activity} ${tier}`,
+      );
+    });
 });
 
 test('a user override merges per field over the built-in one', () => {
   const config = loadConfig({
     userFile: {
-      activityRouting: 'on',
       activities: {
-        code: { low: { effort: 'high' }, high: { effort: 'max' } },
+        code: { low: { effort: 'medium' }, high: { effort: 'max' } },
         review: { low: { model: 'opus' } },
+        ops: { medium: { model: 'sonnet' } },
         docs: { low: { effort: null } },
       },
     },
   });
   assert.equal(config.activityRouting, 'on');
   for (const [tier, activity, expected] of [
-    ['low', 'code', { model: 'sonnet', effort: 'high' }],
+    ['low', 'code', { model: 'sonnet', effort: 'medium' }],
     ['high', 'code', { model: 'opus', effort: 'max' }],
-    ['low', 'review', { model: 'opus', effort: 'medium' }],
-    ['low', 'docs', { model: 'sonnet', effort: null }],
-    ['medium', 'docs', { model: 'sonnet', effort: 'medium' }],
-    ['low', 'debug', { model: 'sonnet', effort: 'medium' }],
+    ['low', 'review', { model: 'opus', effort: 'high' }],
+    ['medium', 'ops', { model: 'sonnet', effort: 'high' }],
+    ['low', 'docs', { model: 'haiku', effort: null }],
+    ['low', 'debug', { model: 'sonnet', effort: 'high' }],
   ]) {
     assert.deepEqual(resolveRoute(config, tier, activity), expected, `${tier} ${activity}`);
+  }
+});
+
+// What 1.6 pane saves and hand edits left in router.json: a mode other than its `shadow` default, cells that differ
+// from its Sonnet·medium overrides, and removed built-ins written as the tier's base route.
+test('a 1.6 router.json loads unchanged: its mode and cells stay as written, other cells take the new defaults', () => {
+  for (const [name, file, mode, cells] of [
+    ['no activity keys', {}, 'on', [['low', 'code', { model: 'sonnet', effort: 'high' }]]],
+    ['shadow written by hand', { activityRouting: 'shadow' }, 'shadow', []],
+    ['off', { activityRouting: 'off' }, 'off', []],
+    [
+      'a 1.6 removal of docs at low',
+      { activities: { docs: { low: { model: 'haiku', effort: 'high' } } } },
+      'on',
+      [['low', 'docs', { model: 'haiku', effort: 'high' }]],
+    ],
+    [
+      'a 1.6 Sonnet·medium cell for medium explore, written in full',
+      { activityRouting: 'on', activities: { explore: { medium: { model: 'sonnet', effort: 'medium' } } } },
+      'on',
+      [
+        ['medium', 'explore', { model: 'sonnet', effort: 'medium' }],
+        ['medium', 'ops', { model: 'haiku', effort: 'high' }],
+      ],
+    ],
+    [
+      'a 1.6 effort-only cell now merges over the new built-in',
+      { activities: { ops: { medium: { effort: 'low' } } } },
+      'on',
+      [['medium', 'ops', { model: 'haiku', effort: 'low' }]],
+    ],
+  ]) {
+    const config = loadConfig({ userFile: file });
+    assert.equal(config.activityRouting, mode, name);
+    for (const [tier, activity, route] of cells)
+      assert.deepEqual(resolveRoute(config, tier, activity), route, `${name}: ${tier} ${activity}`);
   }
 });
 
@@ -523,10 +572,10 @@ test('withActivities writes only the cells and mode that differ from the default
     ],
     [
       'a cell set back to its built-in value is removed',
-      { activities: { code: { low: { model: 'opus', effort: 'medium' } } }, context: { recentTurns: 4 } },
+      { activities: { code: { low: { model: 'opus', effort: 'high' } } }, context: { recentTurns: 4 } },
       (d, c) => editActivity(d, c, 'code', 'low', 'model', 'sonnet'),
       { context: { recentTurns: 4 } },
-      [['low', 'code', { model: 'sonnet', effort: 'medium' }]],
+      [['low', 'code', { model: 'sonnet', effort: 'high' }]],
     ],
     [
       'a removed built-in is written as the base route',
@@ -538,12 +587,12 @@ test('withActivities writes only the cells and mode that differ from the default
     [
       'a removed built-in follows the base route in the file',
       { routes: { low: { model: 'sonnet', effort: 'low' } } },
-      (d, c) => editActivity(d, c, 'docs', 'low', 'remove'),
+      (d, c) => editActivity(d, c, 'review', 'low', 'remove'),
       {
         routes: { low: { model: 'sonnet', effort: 'low' } },
-        activities: { docs: { low: { model: 'sonnet', effort: 'low' } } },
+        activities: { review: { low: { model: 'sonnet', effort: 'low' } } },
       },
-      [['low', 'docs', { model: 'sonnet', effort: 'low' }]],
+      [['low', 'review', { model: 'sonnet', effort: 'low' }]],
     ],
     [
       'the last user override removed drops the section',
@@ -557,7 +606,7 @@ test('withActivities writes only the cells and mode that differ from the default
       { activities: { code: { low: { model: 'haiku', effort: 'high' } } } },
       (d, c) => editActivity(d, c, 'code', 'low', 'add'),
       {},
-      [['low', 'code', { model: 'sonnet', effort: 'medium' }]],
+      [['low', 'code', { model: 'sonnet', effort: 'high' }]],
     ],
     [
       'a model switched away and back keeps a partial cell as written',
@@ -567,8 +616,14 @@ test('withActivities writes only the cells and mode that differ from the default
       null,
       [['medium', 'code', { model: 'sonnet', effort: 'medium' }]],
     ],
-    ['a mode other than the default', {}, (d) => ({ ...d, activityRouting: 'on' }), { activityRouting: 'on' }, []],
-    ['the default mode is no key', { activityRouting: 'off' }, (d) => ({ ...d, activityRouting: 'shadow' }), {}, []],
+    [
+      'a mode other than the default',
+      {},
+      (d) => ({ ...d, activityRouting: 'shadow' }),
+      { activityRouting: 'shadow' },
+      [],
+    ],
+    ['the default mode is no key', { activityRouting: 'off' }, (d) => ({ ...d, activityRouting: 'on' }), {}, []],
   ]) {
     const loaded = loadConfig({ userFile: file });
     const written = withActivities(file, edit(draftOf(loaded), loaded));
@@ -600,7 +655,7 @@ test('a draft edits only the activity cells it changed and follows the saved con
   const routesOnly = { routes: loaded.routes, baselineTier: 'low', base: draftOf(loaded).base };
   assert.deepEqual(effectiveActivities(routesOnly, saved), { activities: saved.activities, activityRouting: 'on' });
   assert.equal(
-    effectiveActivities(editActivity(draft, loaded, 'docs', 'low', 'remove'), saved).activities.docs.low,
+    effectiveActivities(editActivity(draft, loaded, 'code', 'low', 'remove'), saved).activities.code,
     undefined,
   );
 });
