@@ -65,12 +65,14 @@ import {
   resetHistory,
 } from '../lib/route.mjs';
 import {
+  addReplies,
   addReply,
   afterReset,
-  compareReply,
+  compareModels,
   emptySavingsStore,
   emptyTotals,
   mergeSavingsStores,
+  modelAlias,
   readSavingsStore,
   recordSavingsStore,
   SAVINGS_PREFIX,
@@ -181,6 +183,10 @@ async function rememberMode($, mode) {
 async function updateView($, router, patch) {
   const value = router.view ?? (await readView($, router));
   router.view = { ...value, ...patch };
+  // The session readout is against the model /model selects now, so a /model change shows the whole session against
+  // the new one.
+  if ('nativeModel' in patch || 'savingsBy' in patch)
+    router.view.savings = router.view.savingsBy?.[modelAlias(router.config, router.view.nativeModel)] ?? null;
   await $.state.set(VIEW, router.view);
 }
 
@@ -458,7 +464,7 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, router)
     });
     // Routing chose nothing here, so the reply is not counted; your model's cache still follows it.
     const compared = await compareYours($, router, loop, response, e.effort ?? null, nativeModel);
-    if (compared) observed.yours = compared.state;
+    if (compared) observed.yoursBy = compared.states;
     const written = await $.state.set(ref, observed, { ifVersion: version });
     if (written.isSet) await updateView($, router, responseMetrics(router.view, response, null));
   }
@@ -618,14 +624,14 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   });
   if (response.stopReason === null) observed.suspended = true;
   const compared = await compareYours($, router, loop, response, request.effort ?? null, nativeModel, cfg);
-  if (compared) observed.yours = compared.state;
+  if (compared) observed.yoursBy = compared.states;
   const written = await $.state.set({ ...LOOP, id: 'main' }, observed, { ifVersion: loopVersion });
   if (!written.isSet) return;
   // A substituted reply is not the tier's: the strip and trend must not count it as one.
   const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
   const route = `${request.model}@${request.effort ?? 'session'}`;
   await publishReply($, router, turnId, response, tier, route, compared?.reply?.routedUsd ?? null);
-  if (compared?.reply) await addSavings($, router, turnId, compared.reply, tier);
+  if (compared) await addSavings($, router, turnId, compared, tier);
 }
 
 // The main conversation's prompt-cache lifetime by Claude Code's rule (sessionCacheTtl), or null when a reading
@@ -647,31 +653,35 @@ async function cacheTtlOf($) {
   }
 }
 
-// A main reply against your model (compareReply): the loop's next `yours` state and the reply's prices, or null. The
-// readout never breaks a turn. A reply whose cache lifetime cannot be read still moves your model's cache and is not
-// counted; any other failure leaves the loop's state and the totals as they were.
+// A main reply against every configured model (compareModels): the loop's next states, the reply's prices by models
+// key, and `reply`, its prices against your model now, or null. The readout never breaks a turn. A reply whose cache
+// lifetime cannot be read still moves the models' caches and is not counted; any other failure leaves the loop's
+// states and the totals as they were.
 async function compareYours($, router, loop, response, servedEffort, nativeModel, cfg = router.config) {
   try {
     if (!response.usage?.model) return null;
     const view = router.view ?? (await readView($, router));
-    return compareReply(cfg, loop.yours ?? null, {
+    const compared = compareModels(cfg, loop.yoursBy ?? {}, {
       usage: response.usage,
       served: { model: response.usage.model, effort: servedEffort },
-      yours: { model: nativeModel, effort: view.nativeEffort ?? null },
+      effort: view.nativeEffort ?? null,
       ttl: await cacheTtlOf($),
       now: Date.now(),
     });
+    return { ...compared, reply: compared.replies[modelAlias(cfg, nativeModel)] ?? null };
   } catch {
     return null;
   }
 }
 
-// A routed reply's prices added to the session totals in the view and to the turn's totals for the store.
-async function addSavings($, router, turnId, reply, tier) {
+// A routed reply's prices added to each model's session totals in the view, and its prices against your model now to
+// the turn's totals for the store.
+async function addSavings($, router, turnId, compared, tier) {
   try {
     const view = router.view ?? (await readView($, router));
-    router.turnSavings.set(turnId, addReply(router.turnSavings.get(turnId) ?? emptyTotals(), reply, tier));
-    await updateView($, router, { savings: addReply(view.savings ?? emptyTotals(), reply, tier) });
+    if (compared.reply)
+      router.turnSavings.set(turnId, addReply(router.turnSavings.get(turnId) ?? emptyTotals(), compared.reply, tier));
+    await updateView($, router, { savingsBy: addReplies(view.savingsBy ?? {}, compared.replies, tier) });
   } catch {}
 }
 
@@ -956,7 +966,7 @@ function paneActions($, router, view) {
       const [stats, records] = await Promise.all([clear(STORE_KEY, emptyStore()), clearRecords().catch(() => false)]);
       await updateView($, router, {
         activityStats: null,
-        savings: null,
+        savingsBy: {},
         ...(stats ? { activityStore: emptyStore() } : {}),
         ...(records ? { activityMetrics: emptyMetrics(), savingsStore: emptySavingsStore() } : {}),
         notice:

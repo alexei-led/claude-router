@@ -168,9 +168,14 @@ test('a compaction leaves your cache nothing to read, whether seen as a shrink o
   );
   near(shrunk.reply.yoursUsd, (4 * (2 + 20_000 * 2) + 20 * 500) / 1e6);
   // resetHistory clears the state: the next reply on your route is its own price again.
-  const loop = resetHistory({ generation: 0, state: {}, would: null, yours: { total: 9, at: 0, onYours: false } });
-  assert.equal(loop.yours, null);
-  const fresh = compareReply(DEFAULTS, loop.yours, {
+  const loop = resetHistory({
+    generation: 0,
+    state: {},
+    would: null,
+    yoursBy: { opus: { total: 9, at: 0, onYours: false } },
+  });
+  assert.deepEqual(loop.yoursBy, {});
+  const fresh = compareReply(DEFAULTS, loop.yoursBy.opus ?? null, {
     usage: usage(after),
     served: OPUS,
     yours: OPUS,

@@ -10,7 +10,7 @@ test('the band shows the tier meter, route, reason and context after a routed re
   const { line, controls: buttons } = await band(h);
   assert.match(line, /▂▄▆█ high Opus 5\.5 · xhigh/);
   assert.match(line, /⏵ pinned/);
-  assert.match(line, /ctx \d+% · cache \d+%/);
+  assert.match(line, /ctx \d+% · cache hit \d+%/);
   assert.ok(buttons.some((node) => node.key === 'details'));
   assert.doesNotMatch(line, /Jev Router/);
 });
@@ -60,7 +60,7 @@ test('the band hover row pins, unpins and switches to two rows', async () => {
   assert.equal(preferences.get('band:detail'), true);
   await h.event('command.run', { command: 'router', args: 'pin low' });
   await drain(h.step(step));
-  assert.match((await band(h)).line, /replies █/);
+  assert.match((await band(h)).line, /session {2}1 reply · too early to compare/);
 });
 
 test('a route change raises one toast with the old and new model; a pin does not', async () => {

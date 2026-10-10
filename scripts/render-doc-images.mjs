@@ -160,6 +160,12 @@ const savings = {
   tierUsd: { micro: 0.4, low: 2.3, medium: 2.1, high: 1.6 },
   stronger: {},
 };
+// The same session against each model in router.json: /model on Sonnet or Haiku would have shown routing costing more.
+const savingsBy = {
+  opus: savings,
+  sonnet: { ...savings, yoursUsd: 4.118, cheaperUsd: 0, strongerUsd: 1.808 },
+  haiku: { ...savings, yoursUsd: 0.206, cheaperUsd: 0, strongerUsd: 5.72 },
+};
 const savingsStore = {
   version: 1,
   since: Date.parse('2026-10-03T12:00:00Z'),
@@ -176,7 +182,7 @@ const COLUMNS = 112;
 const states = [
   ['Routing on: routed to the high tier on a clear jump', base, false],
   [
-    'Two rows, with the hover row shown: recent replies by tier, the session against your model, pins, Turn off',
+    'Two rows, with the hover row shown: the session against your model, pins, Turn off',
     { ...base, ...yours, bandDetail: true, savings, estimate: null },
     true,
   ],
@@ -326,6 +332,7 @@ pane(
     ...yours,
     tab: 'usage',
     savings,
+    savingsBy,
     savingsStore,
     activityStats: {
       byActivity: {
@@ -376,7 +383,7 @@ pane(
     },
   },
   'Router pane, Usage tab',
-  'Routing vs your model first: routed replies against the same tokens on your model, Opus 5.5 at xhigh this session and each session’s own model since the last reset, the difference split into cheaper models, stronger models and switch cache writes, the two costs as bars and the replies by tier; then Claude’s own readings, activity counts with their estimated cost and route, the counts across sessions, and estimates.',
+  'Routing vs your model first: routed replies against the same tokens on your model, Opus 5.5 at xhigh this session and each session’s own model since the last reset, the difference split into cheaper models, stronger models and switch cache writes, the session against the other models, the two costs as bars and the replies by tier; then Claude’s own readings, activity counts with their estimated cost and route, the counts across sessions, and estimates.',
   'router-pane-usage.svg',
 );
 console.log(`wrote router-band.svg and the Now, Routing, Classifier and Usage pane pictures to ${OUT}`);

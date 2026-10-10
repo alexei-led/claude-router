@@ -243,27 +243,42 @@ test('the activity estimate shows only in shadow, where on is not yet in the rou
     assert.ok(!section(props, { config: { ...DEFAULTS, activityRouting: mode } }).some((l) => l.includes('activity')));
 });
 
-test('the two-row band adds the session against your model once it is past too early and fits', () => {
+test('the two-row band says the session against your model now, one scope, the answer kept when narrow', () => {
   const second = (props, columns = 140) =>
     screen(renderBand(ELEMENTS, DEFAULTS, view({ bandDetail: true, ...props }), null, { columns }, actions))[1];
-  assert.equal(
-    second({ ...OPUS, savings: SAVES }),
-    'replies ███  1 switch  ·  vs your model −22% (−$1.84, list prices)',
-  );
-  assert.equal(
-    second({ ...HAIKU, savings: MORE }),
-    'replies ███  1 switch  ·  vs your model +$2.48 (stronger models, list prices)',
-  );
-  assert.equal(
-    second({ ...HAIKU, savings: { ...MORE, strongerUsd: 0.1, switchUsd: 2.38 } }),
-    'replies ███  1 switch  ·  vs your model +$2.48 (switch cache writes, list prices)',
-  );
-  assert.equal(second({ ...OPUS, savings: EARLY }), 'replies ███  1 switch');
-  assert.equal(second({ ...OPUS, savings: SAVES }, 50), 'replies ███  1 switch');
+  const SAME = { ...SAVES, replies: 20, routedUsd: 1, yoursUsd: 1, cheaperUsd: 0, switchUsd: 0 };
+  for (const [props, columns, expected] of [
+    [
+      { ...OPUS, savings: SAVES },
+      140,
+      'session  saved $1.84 (22%) vs Opus 5.5 · xhigh  ·  64 replies  ·  cold-cache writes +$0.47',
+    ],
+    [
+      { ...HAIKU, savings: MORE },
+      140,
+      'session  extra $2.48 (×5.0) vs Haiku 5.5 · high  ·  41 replies  ·  stronger models +$2.31',
+    ],
+    [
+      { ...HAIKU, savings: { ...MORE, strongerUsd: 0.1, switchUsd: 2.38 } },
+      140,
+      'session  extra $2.48 (×5.0) vs Haiku 5.5 · high  ·  41 replies  ·  cold-cache writes +$2.38',
+    ],
+    [{ ...OPUS, savings: SAME }, 140, 'session  same cost as Opus 5.5 · xhigh  ·  20 replies'],
+    [{ ...OPUS, savings: EARLY }, 140, 'session  3 replies · too early to compare'],
+    [{ ...OPUS, savings: SAVES }, 66, 'session  saved $1.84 (22%) vs Opus 5.5 · xhigh  ·  64 replies'],
+    [{ ...OPUS, savings: SAVES }, 50, 'session  saved $1.84 (22%) vs Opus 5.5 · xhigh'],
+    [{ ...OPUS, savings: null }, 140, 'no replies yet'],
+    [
+      { nativeModel: 'claude-fable-5-1', nativeEffort: null, savings: null },
+      140,
+      'session  Fable 5.1 has no list price',
+    ],
+  ])
+    assert.equal(second(props, columns), expected, `${columns}: ${JSON.stringify(props.savings?.replies)}`);
   const oneRow = screen(
     renderBand(ELEMENTS, DEFAULTS, view({ ...OPUS, savings: SAVES }), null, { columns: 140 }, actions),
   );
-  assert.ok(!oneRow.join('\n').includes('vs your model'));
+  assert.ok(!oneRow.join('\n').includes('session'));
 });
 
 test('/router without a surface says the session against your model in one line', () => {
@@ -291,4 +306,10 @@ test('/router without a surface says the session against your model in one line'
     ],
   ])
     assert.equal(savingsLine(view(props)), expected);
+});
+
+test('the pane says the session against the other models past too early, so a /model choice can be weighed', () => {
+  const lines = section({ ...OPUS, savings: SAVES, savingsBy: { opus: SAVES, sonnet: EARLY, haiku: MORE } });
+  assert.ok(lines.includes('  vs other models: Haiku 5.5 extra $2.48'), lines.join('\n'));
+  assert.ok(!section({ ...OPUS, savings: SAVES, savingsBy: { opus: SAVES } }).some((l) => l.includes('other models')));
 });

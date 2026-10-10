@@ -213,7 +213,7 @@ label was right, not the classifier's probabilities.
 ## What the estimates mean
 
 **In the pane.** The band, the Now tab and the Usage tab report Claude's own readings: cost, context, and cache. The
-dollar figures next to them, such as the switch tax, the payback, and the shadow line on the Usage tab, are estimates
+dollar figures next to them, such as the switch cost, the payback, and the shadow line on the Usage tab, are estimates
 at the list prices in `router.json`. They are not your bill: a plan does not charge list prices. They are not measured
 savings: the router does not know what another model would have answered, or how many requests it would have needed.
 

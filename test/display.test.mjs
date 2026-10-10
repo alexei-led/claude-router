@@ -9,6 +9,7 @@ import {
   formatTokens,
   missingCredentials,
   missingText,
+  percentPair,
   routeLabel,
   sparkline,
   storeAgreementLine,
@@ -282,4 +283,15 @@ test('Why names the cell for an activity move or a stay on an override, and keep
     ['before a turn', on, { tier: null, activity: null, reason: 'ready' }, 'ready for the next turn'],
   ])
     assert.equal(whyText(config, view), expected, name);
+});
+
+test('two compared shares keep whole percents unless rounding would make unequal values read as equal', () => {
+  for (const [a, b, expected] of [
+    [0.9, 0.8, ['90%', '80%']],
+    [0.8, 0.8, ['80%', '80%']],
+    [0.81, 0.8138, ['81.0%', '81.4%']],
+    [0.805, 0.8138, ['80.5%', '81.4%']],
+    [0.81401, 0.81404, ['81.40%', '81.40%']],
+  ])
+    assert.deepEqual(percentPair(a, b), expected, `${a} ${b}`);
 });
