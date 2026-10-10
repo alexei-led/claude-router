@@ -1124,10 +1124,12 @@ export function register(on, options) {
     }
     router.prompts.delete(e.turnId);
     for (const key of router.decisions.keys()) if (key.includes(`:${e.turnId}:`)) router.decisions.delete(key);
-    // `off` asks nothing, so it records nothing.
+    // `off` asks nothing, so it records nothing; it only ends the watch after a cheaper activity move.
     const turn = router.turnActivities.get(e.turnId);
     router.turnActivities.delete(e.turnId);
-    if (turn && turn.mode !== 'off') await recordActivity($, router, turn);
+    if (turn?.mode === 'off') {
+      if ((await $.session.id()) === turn.sessionId) router.afterDown = advanceDown(router.afterDown, turn).after;
+    } else if (turn) await recordActivity($, router, turn);
     const savings = router.turnSavings.get(e.turnId);
     router.turnSavings.delete(e.turnId);
     if (savings) await flushSavings($, router, savings);
