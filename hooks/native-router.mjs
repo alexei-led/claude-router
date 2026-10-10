@@ -4,7 +4,9 @@ import {
   emptyMetrics,
   emptySession,
   emptyStore,
-  METRICS_KEY,
+  METRICS_PREFIX,
+  mergeMetrics,
+  metricsAfterReset,
   readMetrics,
   readStore,
   recordMetrics,
@@ -117,6 +119,9 @@ function createRouter(options) {
     // refresh. The view shows their sum.
     savingsOwn: null,
     savingsOthers: null,
+    // The activity metrics kept across sessions, held the same way: this session's record and the others' sum.
+    metricsOwn: null,
+    metricsOthers: null,
     // Bumped by Reset activity stats, so a store write that read the counts before the reset skips.
     statsResets: 0,
   };
@@ -198,6 +203,27 @@ async function otherSavings($, sessionId, resetAt) {
   return mergeSavingsStores(await Promise.all(keys.map((key) => $.store.get(key))), resetAt);
 }
 
+// This session's metrics record and the last reset, as ownSavings: Reset stats clears both with one marker.
+async function ownMetrics($, router) {
+  const sessionId = await $.session.id();
+  const resetAt = await $.store.get(SAVINGS_RESET_KEY);
+  if (router.metricsOwn?.sessionId !== sessionId) {
+    const record = readMetrics(await $.store.get(`${METRICS_PREFIX}${sessionId}`));
+    if (router.metricsOwn?.sessionId !== sessionId) router.metricsOwn = { sessionId, record };
+  }
+  router.metricsOwn.record = metricsAfterReset(router.metricsOwn.record, resetAt);
+  return { own: router.metricsOwn, resetAt };
+}
+
+// Every other session's metrics since the last reset, added up.
+async function otherMetrics($, sessionId, resetAt) {
+  const own = `${METRICS_PREFIX}${sessionId}`;
+  const keys = (await $.store.keys()).filter((key) => key.startsWith(METRICS_PREFIX) && key !== own);
+  return mergeMetrics(await Promise.all(keys.map((key) => $.store.get(key))), resetAt);
+}
+
+const metricsView = (router) => mergeMetrics([router.metricsOthers, router.metricsOwn?.record]);
+
 // The view's totals kept across sessions, from what the router holds; nothing until a read succeeded.
 const savedView = (router) =>
   router.savingsOthers ? { savingsStore: mergeSavingsStores([router.savingsOthers, router.savingsOwn?.record]) } : {};
@@ -211,7 +237,9 @@ async function storeView($, router) {
     out.activityStore = readStore(await $.store.get(STORE_KEY));
   } catch {}
   try {
-    out.activityMetrics = readMetrics(await $.store.get(METRICS_KEY));
+    const { own, resetAt } = await ownMetrics($, router);
+    router.metricsOthers = await otherMetrics($, own.sessionId, resetAt);
+    out.activityMetrics = metricsView(router);
   } catch {}
   try {
     const { own, resetAt } = await ownSavings($, router);
@@ -691,7 +719,10 @@ async function recordActivity($, router, turn) {
     });
     const resets = router.statsResets;
     const store = readStore(await $.store.get(STORE_KEY));
-    const metrics = readMetrics(await $.store.get(METRICS_KEY));
+    const { own, resetAt } = await ownMetrics($, router);
+    // The others held from before a reset in another session are read again.
+    if (!router.metricsOthers || metricsAfterReset(router.metricsOthers, resetAt) !== router.metricsOthers)
+      router.metricsOthers = await otherMetrics($, own.sessionId, resetAt);
     // Writing counts read before a reset would bring them back; this turn's are lost instead.
     if (router.statsResets !== resets) return;
     const written = recordStore(store, {
@@ -702,16 +733,23 @@ async function recordActivity($, router, turn) {
       wouldDiffer: turn.wouldDiffer,
       wouldUsd: turn.wouldUsd,
     });
-    const measured = recordMetrics(metrics, {
+    const measured = recordMetrics(own.record, {
       classifier: turn.classifier,
       adviceMs: turn.adviceMs,
       downMove: down.event,
+      now: Date.now(),
     });
+    // Added to in memory before the write, so a refresh during the write counts the turn once.
+    const changed = measured !== own.record;
+    own.record = measured;
     // Both writes start before any reset can run between them.
-    await Promise.all([$.store.set(STORE_KEY, written), $.store.set(METRICS_KEY, measured)]);
+    await Promise.all([
+      $.store.set(STORE_KEY, written),
+      changed ? $.store.set(`${METRICS_PREFIX}${own.sessionId}`, measured) : null,
+    ]);
     // A reset during the write emptied the view; these counts are older than it.
     if (router.statsResets === resets)
-      await updateView($, router, { activityStore: written, activityMetrics: measured });
+      await updateView($, router, { activityStore: written, activityMetrics: metricsView(router) });
   } catch {}
 }
 
@@ -884,29 +922,29 @@ function paneActions($, router, view) {
           .set(key, value)
           .then(() => true)
           .catch(() => false);
-      const clearSavings = async () => {
+      // The per-session records: savings and activity metrics.
+      const clearRecords = async () => {
         // Written first, so a session still holding its record from before the reset drops it, unless that record's
-        // first reply has the reset's millisecond or the clock moved back across the reset.
+        // first reading has the reset's millisecond or the clock moved back across the reset.
         await $.store.set(SAVINGS_RESET_KEY, Date.now());
-        const keys = (await $.store.keys()).filter((key) => key.startsWith(SAVINGS_PREFIX));
+        const keys = (await $.store.keys()).filter(
+          (key) => key.startsWith(SAVINGS_PREFIX) || key.startsWith(METRICS_PREFIX),
+        );
         await Promise.all(keys.map((key) => $.store.delete(key)));
         router.savingsOwn = null;
         router.savingsOthers = emptySavingsStore();
+        router.metricsOwn = null;
+        router.metricsOthers = emptyMetrics();
         return true;
       };
-      const [stats, metrics, savings] = await Promise.all([
-        clear(STORE_KEY, emptyStore()),
-        clear(METRICS_KEY, emptyMetrics()),
-        clearSavings().catch(() => false),
-      ]);
+      const [stats, records] = await Promise.all([clear(STORE_KEY, emptyStore()), clearRecords().catch(() => false)]);
       await updateView($, router, {
         activityStats: null,
         savings: null,
         ...(stats ? { activityStore: emptyStore() } : {}),
-        ...(metrics ? { activityMetrics: emptyMetrics() } : {}),
-        ...(savings ? { savingsStore: emptySavingsStore() } : {}),
+        ...(records ? { activityMetrics: emptyMetrics(), savingsStore: emptySavingsStore() } : {}),
         notice:
-          stats && metrics && savings
+          stats && records
             ? 'Stats reset: activity and routing vs your model, this session and saved.'
             : 'This session’s stats reset. Saved stats could not be cleared.',
       });

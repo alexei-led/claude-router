@@ -9,6 +9,8 @@ import {
   emptySession,
   emptyStore,
   latencyP95,
+  mergeMetrics,
+  metricsAfterReset,
   mostlyOn,
   OBSERVED,
   readMetrics,
@@ -364,7 +366,7 @@ test('the stats store keeps the 1.7.0 key set, which 1.7.0 reads back, whatever 
 test('readMetrics keeps each part it can read and drops only a bad one', () => {
   const latency = { jev: [0, 0, 0, 0, 5, 1, ...Array(16).fill(0)] };
   const downMoves = { moves: 3, escalations: 1 };
-  const valid = { version: 1, latency, downMoves };
+  const valid = { version: 1, since: 5, latency, downMoves };
   const none = { moves: 0, escalations: 0 };
   assert.deepEqual(readMetrics(valid), valid);
   assert.deepEqual(readMetrics(structuredClone(emptyMetrics())), emptyMetrics());
@@ -373,26 +375,65 @@ test('readMetrics keeps each part it can read and drops only a bad one', () => {
     ['null', null, emptyMetrics()],
     ['an array', [], emptyMetrics()],
     ['a future version', { ...valid, version: 2 }, emptyMetrics()],
-    ['latency as an array', { ...valid, latency: [] }, { version: 1, latency: {}, downMoves }],
-    ['too few latency buckets', { ...valid, latency: { jev: [1, 2] } }, { version: 1, latency: {}, downMoves }],
-    [
-      'a negative latency count',
-      { ...valid, latency: { jev: [-1, ...Array(21).fill(0)] } },
-      { version: 1, latency: {}, downMoves },
-    ],
+    ['no since', { ...valid, since: undefined }, { ...valid, since: null }],
+    ['since as a string', { ...valid, since: '5' }, { ...valid, since: null }],
+    ['latency as an array', { ...valid, latency: [] }, { ...valid, latency: {} }],
+    ['too few latency buckets', { ...valid, latency: { jev: [1, 2] } }, { ...valid, latency: {} }],
+    ['a negative latency count', { ...valid, latency: { jev: [-1, ...Array(21).fill(0)] } }, { ...valid, latency: {} }],
     [
       'more classifiers than the bound',
       { ...valid, latency: Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`c${i}`, Array(22).fill(0)])) },
-      { version: 1, latency: {}, downMoves },
+      { ...valid, latency: {} },
     ],
-    ['downMoves missing a key', { ...valid, downMoves: { moves: 3 } }, { version: 1, latency, downMoves: none }],
+    ['downMoves missing a key', { ...valid, downMoves: { moves: 3 } }, { ...valid, downMoves: none }],
     [
       'downMoves with a string count',
       { ...valid, downMoves: { moves: '3', escalations: 1 } },
-      { version: 1, latency, downMoves: none },
+      { ...valid, downMoves: none },
     ],
   ])
     assert.deepEqual(readMetrics(value), expected, name);
+});
+
+test('the sessions’ metrics add up since the last reset, within the classifier bound', () => {
+  const bucket = (i) => Array.from({ length: 22 }, (_, j) => (j === i ? 1 : 0));
+  const record = (since, latency, moves, escalations) => ({
+    version: 1,
+    since,
+    latency,
+    downMoves: { moves, escalations },
+  });
+  const many = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`c${i}`, bucket(0)]));
+  for (const [name, values, resetAt, expected] of [
+    ['none', [], null, emptyMetrics()],
+    [
+      'two sessions',
+      [record(20, { jev: bucket(0) }, 2, 1), record(10, { jev: bucket(3), clef: bucket(1) }, 1, 0)],
+      null,
+      record(10, { jev: [1, 0, 0, 1, ...Array(18).fill(0)], clef: bucket(1) }, 3, 1),
+    ],
+    [
+      'one from before the reset',
+      [record(5, { jev: bucket(0) }, 2, 1), record(20, {}, 1, 0)],
+      10,
+      record(20, {}, 1, 0),
+    ],
+    ['a bad and a missing value', [{ version: 2 }, undefined, record(20, {}, 1, 0)], null, record(20, {}, 1, 0)],
+    ['ids past the bound', [record(1, many, 0, 0), record(2, { jev: bucket(0) }, 0, 0)], null, record(1, many, 0, 0)],
+  ])
+    assert.deepEqual(mergeMetrics(values, resetAt), expected, name);
+  const merged = mergeMetrics([record(1, many, 0, 0), record(2, { jev: bucket(0) }, 0, 0)]);
+  assert.deepEqual(readMetrics(merged), merged);
+});
+
+test('a turn that adds no reading leaves the record as it was; the first reading sets since', () => {
+  const empty = emptyMetrics();
+  assert.equal(recordMetrics(empty, { classifier: null, adviceMs: null, downMove: null, now: 7 }), empty);
+  const first = recordMetrics(empty, { classifier: 'jev', adviceMs: 120, downMove: null, now: 7 });
+  assert.equal(first.since, 7);
+  assert.equal(recordMetrics(first, { classifier: null, adviceMs: null, downMove: 'moved', now: 9 }).since, 7);
+  assert.equal(metricsAfterReset(first, 8).since, null);
+  assert.equal(metricsAfterReset(first, 7), first);
 });
 
 test('advanceRun extends a run of the same activity and closes it on a change', () => {
@@ -640,6 +681,11 @@ test('escalations after a cheaper activity move: a move starts the watch, one es
       'a refused cheaper move starts nothing',
       [on('activity-pending', SONNET, { lateral: 'refused' }), escalation],
       [null, null],
+    ],
+    [
+      'an off turn ends the watch',
+      [down, { ...down, mode: 'off', reason: 'same-tier' }, escalation],
+      ['moved', null, null],
     ],
     [
       'shadow never counts',
