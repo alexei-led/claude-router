@@ -258,6 +258,8 @@ async function openPane($, router) {
 async function changeMode($, router, mode) {
   const view = router.view ?? (await readView($, router));
   for (const controller of router.controllers) controller.abort();
+  // Turns with routing off run on Claude's model, off the cheaper move's route: the escalation watch ends.
+  if (mode === 'manual') router.afterDown = null;
   router.modes.set(await $.session.id(), mode);
   const saved = await rememberMode($, mode);
   await updateView($, router, {

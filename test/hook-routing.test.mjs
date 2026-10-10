@@ -607,6 +607,43 @@ test('a turn with activity routing off ends the watch after a cheaper activity m
   assert.deepEqual(h.view().activityMetrics.downMoves, { moves: 1, escalations: 0 });
 });
 
+test('turning routing off ends the watch after a cheaper activity move', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(
+    CONFIG,
+    JSON.stringify({ activityRouting: 'on', activities: { ops: { low: { model: 'haiku', effort: 'medium' } } } }),
+  );
+  h.model('claude-sonnet-5-5');
+  answering(
+    h,
+    jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+  );
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
+  await turn(h, 't2', 'claude-sonnet-5-5', ['Bash']);
+  assert.equal(h.loop().decision.reason, 'activity-down');
+  await h.event('command.run', { command: 'router', args: 'off' });
+  await turn(h, 't3', 'claude-sonnet-5-5', ['Bash']);
+  assert.equal(h.requests[2].model, 'claude-sonnet-5-5');
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  const failing = [
+    user('Fix the test.'),
+    assistant('running', ['Bash']),
+    toolResult('error: test_login failed', { isError: true }),
+    assistant('editing', ['Edit']),
+    toolResult('error: test_login failed', { isError: true }),
+    user('Next.'),
+  ];
+  await h.event('turn.start', { turnId: 't4', text: 'Next.' });
+  h.messages(async () => failing);
+  await drain(h.step({ ...step, turnId: 't4', model: 'claude-sonnet-5-5' }));
+  assert.equal(h.loop().decision.escalated, true);
+  h.messages(async () => [...failing, assistant('done', ['Bash'])]);
+  await h.event('turn.complete', { turnId: 't4' });
+  assert.deepEqual(h.view().activityMetrics.downMoves, { moves: 1, escalations: 0 });
+});
+
 test('with activity routing on, a turn without an activity answer keeps the activity but ends the run', async () => {
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
