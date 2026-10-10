@@ -43,6 +43,26 @@
         "medium code → Opus·medium (↗ code)"
       ],
       "apiErrors": 0
+    },
+    {
+      "router": "1.7.1 + escalation-watch fix (PR #33)",
+      "mode": "on (default), then shadow",
+      "purpose": "plan §10 chain in its exact order, Sonnet thinking after a Haiku detour, and the shadow would-route line",
+      "chain": ["sonnet-5-5", "haiku-5-5", "sonnet-5-5", "opus-5-5"],
+      "cells": [
+        "low code → Sonnet·high",
+        "low ops → Haiku·high (↘ ops)",
+        "low code → Sonnet·high (↗ code)",
+        "high (pinned) → Opus·high"
+      ],
+      "perResponse": {
+        "sonnet-5-5 before": "thinking 1/4, tool_use 3/4",
+        "haiku-5-5": "thinking 2/3, tool_use 2/3",
+        "sonnet-5-5 after": "thinking 1/3, tool_use 2/3 (the first reply after the detour thinks)",
+        "opus-5-5": "thinking 2/3, tool_use 2/3"
+      },
+      "shadowRouteLine": "Route     low + code would use Sonnet 5.5 · high (shadow; using Haiku 5.5 · high)",
+      "apiErrors": 0
     }
   ],
   "storeRoundTrip": "ACROSS SESSIONS read counts written by earlier sessions, including 1.6.0-shaped records, in the real engine",
