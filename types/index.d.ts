@@ -189,6 +189,9 @@ declare module 'claude-code' {
       requestedPin: RouterTier | null;
     } | null;
     ineligible: string[];
+    // Your model's simulated cache for routing vs your model: the last prompt's tokens, when, and whether that reply
+    // ran on your route. Null at the start and after a compaction.
+    yours?: { total: number; at: number; onYours: boolean } | null;
     engineModel?: string;
     suspended?: boolean;
   }
