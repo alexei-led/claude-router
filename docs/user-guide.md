@@ -155,7 +155,7 @@ How the router moves inside a tier:
 
 - It compares routes, not labels. If the new activity resolves to the route already running, nothing switches.
 - A move to a stronger route needs the classifier's support, as an upgrade between tiers does. A move to a cheaper one must pay back its cache write within the payback horizon. One vote is enough for either, because the activity is a fact about this turn.
-- An activity applies only when the classifier gives it at least 60% probability (`policy.activityMass`). Below that, or on `uncertain`, a new task goes back to its base route if the move passes the same checks; a continuation of the running task keeps its activity. Tool continuations inside a turn keep the turn's route. When the classifier sees a new prompt as a continuation of the task, the activity may only move to a stronger route: `explore` can become `code`, but not the other way. Ollama does not answer the continuation question, so this rule does not apply to it.
+- An activity applies only when the classifier gives it at least 60% probability (`policy.activityMass`). Below that, or on `uncertain`, a new task goes back to its base route if the move passes the same checks; a continuation of the running task keeps its activity, or moves to the classifier's activity when that route is stronger. Tool continuations inside a turn keep the turn's route. When the classifier sees a new prompt as a continuation of the task, the activity may only move to a stronger route: `explore` can become `code`, but not the other way. Ollama does not answer the continuation question, so this rule does not apply to it.
 - A pinned turn uses the pin's base route and shows no activity.
 - When the classifier gives no answer at all (a timeout, a failure, a pause, or a missing key), the running route stays. When it answers the tier but gives no usable activity, only the running activity stays: the tier answer still applies, so the turn can change tier and keeps its activity there. In `shadow` and `off` the base route always runs.
 - A fresh session starts with routing on when the session model is a tier's route. With activity routing `on`, a model that only an activity override uses also counts: Sonnet 5.5 on the defaults. In `off` and `shadow` it does not.
@@ -205,7 +205,7 @@ Under **Policy** on the same tab, pick the values. One **Save** writes them with
 - **Votes to go down:** 1, 2, or 3 consecutive votes before a cheaper tier. A new or reset history needs one.
 - **Payback horizon:** 1, 3, 5, or 10 later turns used by the downgrade estimate.
 - **Credits cap:** $0.50, $1, $2, or $5 for an estimated cold cache write on a `credits` model.
-- **Activity threshold:** 50%, 60%, 70%, or 80%, the least probability at which the classifier's activity applies. Below it a new task goes back to the base route, and a continuation keeps its activity. See [Activity routing](activity-routing.md#change-a-cell).
+- **Activity threshold:** 50%, 60%, 70%, or 80%, the least probability at which the classifier's activity applies. Below it a new task goes back to the base route, and a continuation keeps its activity, or moves to a stronger route the classifier names. See [Activity routing](activity-routing.md#change-a-cell).
 
 **Reset policy to defaults** loads the built-in values; **Save** then removes your policy overrides. The current turn keeps the settings it started with. A save preserves unrelated `router.json` keys and refuses to write through a symlink. When validation fails, the pane names the setting and leaves the file unchanged.
 

@@ -185,7 +185,7 @@ Two other directions, with what they trade:
 
 **Activity threshold.** An activity applies only when the classifier gives it at least this probability. Below it, a
 new task goes back to the base route if that move passes the usual checks, and a continuation of the running task
-keeps its activity. The default is 60% (`policy.activityMass: 0.6`). Change it on the Routing tab under **POLICY**,
+keeps its activity, or moves to the classifier's activity when that route is stronger. The default is 60% (`policy.activityMass: 0.6`). Change it on the Routing tab under **POLICY**,
 **Activity threshold**, or in `router.json`. There is no data to tune it on yet: the probe results record whether the
 label was right, not the classifier's probabilities.
 
