@@ -835,6 +835,26 @@ test('a Reset in one session drops what another session still holds from before 
   assert.equal(a.view().savingsStore.replies, 1);
 });
 
+test('a Reset in one session drops the other sessions’ totals another session read before it', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1_000 });
+  const preferences = new Map();
+  const [a, b] = [harness(JEV_KEY, preferences), harness(JEV_KEY, preferences)];
+  b.clear('s2');
+  answering(a, jevResponse('low', LOW));
+  answering(b, jevResponse('low', LOW));
+  await a.event('session.start', { cwd: '/fixture' });
+  await turn(a, 't1', 'claude-haiku-5-5');
+  await b.event('session.start', { cwd: '/fixture' });
+  assert.equal(b.view().savingsStore.replies, 1);
+  t.mock.timers.tick(1);
+  await press(a, 'tab-usage');
+  await press(a, 'reset-stats');
+  t.mock.timers.tick(1);
+  await turn(b, 't1', 'claude-haiku-5-5');
+  assert.equal(b.view().savingsStore.replies, 1);
+  assert.equal(b.view().savingsStore.since, 1_002);
+});
+
 test('with routing off a reply is not counted, and your model’s cache still follows it', async () => {
   const h = harness(JEV_KEY);
   await h.event('session.start', { cwd: '/fixture' });
