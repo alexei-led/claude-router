@@ -8,7 +8,7 @@ import { renderPanel, routeDraftOf } from '../lib/panel.mjs';
 
 const OUT = fileURLToPath(new URL('../docs', import.meta.url));
 const config = { ...loadConfig(), nativePath: '~/.claude/router.json' };
-const activitiesOn = { ...config, activityRouting: 'on' };
+const shadow = { ...config, activityRouting: 'shadow' };
 const element = (type) => (props) => ({ type, props });
 const elements = { Box: element('Box'), Text: element('Text'), Button: element('Button'), Select: element('Select') };
 const noop = () => {};
@@ -160,6 +160,7 @@ const states = [
       selectedModel: 'claude-haiku-5-5',
       actualModel: 'claude-haiku-5-5',
       effort: 'high',
+      activity: 'ops',
       reason: 'same-tier',
       estimate: null,
       pendingPin: 'medium',
@@ -194,10 +195,10 @@ const states = [
     false,
   ],
   [
-    'Activity routing on: an ops turn at low moves to the cheaper route',
+    'Activity routing on: an ops turn at medium moves from Opus to Haiku',
     {
       ...base,
-      tier: 'low',
+      tier: 'medium',
       selectedModel: 'claude-haiku-5-5',
       actualModel: 'claude-haiku-5-5',
       effort: 'high',
@@ -206,7 +207,6 @@ const states = [
       estimate: null,
     },
     false,
-    activitiesOn,
   ],
   [
     'Activity routing in shadow: the label is shown, the tier route still runs',
@@ -218,8 +218,10 @@ const states = [
       effort: 'high',
       reason: 'same-tier',
       estimate: null,
+      wouldRoute: { activity: 'code', tier: 'low', model: 'claude-sonnet-5-5', effort: 'high', reason: 'activity-up' },
     },
     false,
+    shadow,
   ],
 ];
 let y = 30;

@@ -61,7 +61,15 @@ The active classifier labels a new logical turn once. Tool continuations keep th
 
 These are routing defaults. They do not claim equal model quality. [Configuration](docs/configuration.md#built-in-defaults) gives the published results behind them and the `router.json` lines that restore the 1.3 Sonnet ladder.
 
-Activity routing adds a second label: what the turn produces (`code`, `debug`, `explore`, `plan`, `review`, `ops`, or `docs`). A route is then picked by tier and activity, so a `low` coding turn can run on Sonnet 5.5 while a `low` git turn stays on Haiku 5.5. It ships in `shadow` mode: the band and pane show the activity and what it would route, and the tier routes still run. Opt in with `/router activities on`. The label is optional: on `uncertain` or a weak label the tier route is used, when the activity answer fails the running activity stays and the tier answer still applies, and when the classifier fails the running route stays. See [Route by activity](docs/user-guide.md#route-by-activity), and [Evaluation](docs/evaluation.md#activity-routing) for how it is checked. Its default overrides rest on published vendor results, not measured savings.
+Activity routing adds a second label: what the turn produces (`code`, `debug`, `explore`, `plan`, `review`, `ops`, or `docs`). A route is then picked by tier and activity. It is on by default since 1.7:
+
+| Activity                          | `low`             | `medium`         | Other cells |
+| --------------------------------- | ----------------- | ---------------- | ----------- |
+| `code`, `debug`, `plan`, `review` | Sonnet 5.5 · high | tier route       | tier route  |
+| `ops`                             | tier route        | Haiku 5.5 · high | tier route  |
+| `explore`, `docs`                 | tier route        | tier route       | tier route  |
+
+`/router activities shadow` shows what it would route and keeps the tier routes; `/router activities off` stops asking. [Activity routing](docs/activity-routing.md) explains each cell and how to change it. The label is optional: on `uncertain` or a weak label the tier route is used, when the activity answer fails the running activity stays and the tier answer still applies, and when the classifier fails the running route stays. See [Route by activity](docs/user-guide.md#route-by-activity), and [Evaluation](docs/evaluation.md#activity-routing) for how it is checked. Its default overrides rest on published vendor results and a list-price replay of one developer's sessions, not measured savings.
 
 ## Install
 
@@ -102,6 +110,7 @@ npm run check && npm run typecheck && npm test && npm run validate && npm run te
 - [User guide](docs/user-guide.md): install, use the controls, read the panel, and troubleshoot.
 - [Configuration](docs/configuration.md): classifiers and keys, the optional profile `router.json`, defaults, and migrations.
 - [Architecture](docs/architecture.md): Mod event flow, state, safeguards, and runtime boundaries.
+- [Activity routing](docs/activity-routing.md): the default matrix by activity, why each cell, and how to change or turn it off.
 - [Native router details](docs/native-router.md): panel semantics, tuning, and accepted limits.
 - [Evaluation](docs/evaluation.md): historical gateway results and the native shadow replay.
 - [Changelog](CHANGELOG.md): user-visible changes by version.

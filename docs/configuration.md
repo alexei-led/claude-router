@@ -61,13 +61,13 @@ Prices are configured list-price inputs for estimates. They are not a subscripti
 
 ## Activity routing
 
-The classifier also names the activity of a turn: what the turn produces. `activityRouting` decides what the router does with it.
+The classifier also names the activity of a turn: what the turn produces. `activityRouting` decides what the router does with it. [Activity routing](activity-routing.md) explains the defaults for end users.
 
-| `activityRouting` | Behavior                                                                                                           |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `off`             | Asks nothing new. The classifier requests are the ones 1.5 sent, and routes are exactly the tier routes.           |
-| `shadow`          | The default. Asks, shows the activity, records stats, and computes what `on` would run. The tier routes still run. |
-| `on`              | Applies the `activities` overrides below.                                                                          |
+| `activityRouting` | Behavior                                                                                                 |
+| ----------------- | -------------------------------------------------------------------------------------------------------- |
+| `off`             | Asks nothing new. The classifier requests are the ones 1.5 sent, and routes are exactly the tier routes. |
+| `shadow`          | Asks, shows the activity, records stats, and computes what `on` would run. The tier routes still run.    |
+| `on`              | The default since 1.7. Applies the `activities` overrides below.                                         |
 
 The seven activities are `code`, `debug`, `explore`, `plan`, `review`, `ops`, and `docs`. The classifier may also answer `uncertain`. In `on`, an activity applies only when its probability is at least `policy.activityMass`. Below that, or on `uncertain`, the turn goes back to its tier's route, if the move passes the cache checks. When the classifier gives no usable activity answer, the running activity stays and the tier answer still applies. When it gives no answer at all, the running route stays. In `off` and `shadow`, the tier route runs.
 
@@ -77,25 +77,34 @@ The seven activities are `code`, `debug`, `explore`, `plan`, `review`, `ops`, an
 route(tier, activity) = { ...routes[tier], ...activities[activity][tier] }
 ```
 
-The built-in overrides ship with 1.6 and run only with `activityRouting: "on"`. Cells marked `·` have no override:
+The built-in overrides run only with `activityRouting: "on"`. Cells marked `·` have no override:
 
-| Activity                          | `micro` | `low`           | `medium`        | `high` |
-| --------------------------------- | ------- | --------------- | --------------- | ------ |
-| `code`, `debug`, `plan`, `review` | `·`     | Sonnet · medium | `·`             | `·`    |
-| `docs`                            | `·`     | Sonnet · medium | Sonnet · medium | `·`    |
-| `ops`, `explore`                  | `·`     | `·`             | Sonnet · medium | `·`    |
+| Activity                          | `micro` | `low`         | `medium`     | `high` |
+| --------------------------------- | ------- | ------------- | ------------ | ------ |
+| `code`, `debug`, `plan`, `review` | `·`     | Sonnet · high | `·`          | `·`    |
+| `ops`                             | `·`     | `·`           | Haiku · high | `·`    |
+| `explore`, `docs`                 | `·`     | `·`           | `·`          | `·`    |
 
-At `low`, `ops` and `explore` keep Haiku at `high`: they are the cheap cases the `low` route is for. Coding is where Haiku 5.5 trails most (Terminal-Bench 4.0: Haiku 39.2%, Sonnet 70.6%). On knowledge and terminal tasks Sonnet 5.5 matched Opus 5.5 (GDPval-AA 1844 against 1846; Terminal-Bench 70.6% against 66.4%). These are vendor benchmarks at max or xhigh effort, not measurements of this router, and they are not a claim of equal quality. Every override uses Sonnet at `medium`, the one pair the four base routes do not use, so activity routing adds one cache.
+- `code`, `debug`, `plan`, `review` at `low` run on Sonnet at `high`. Coding is where Haiku 5.5 trails most (Terminal-Bench 4.0: Haiku 39.2%, Sonnet 70.6%). Sonnet at `medium` scored below Haiku at `high` on FrontierCode Main (about 37% against 42%); at `high` it scored about 49%.
+- `ops` at `medium` runs on Haiku at `high`. Command runs last long enough for Haiku to repay its cache write: about 4 requests from Opus at 350,000 tokens of context, against a median run of 6 to 11 requests in one developer's sessions. Haiku is weaker on multi-step tool work (OSWorld 2.1: about 61% against 79% for Opus at `medium`), so `ops` at `high` stays on Opus, and repeated tool errors move an `ops` turn to the `high` route.
+- `explore` and `docs` keep the base routes: moving them saved nothing in that replay, or cost answer quality.
 
-A user file merges over these overrides one field at a time, as `routes` does. This sets only the effort of the built-in `code` override at `low`, so the cell runs Sonnet at `high`, and adds a new override at `high`:
+These are vendor benchmarks and a list-price replay, not measurements of this router, and they are not a claim of equal quality. The overrides add one (model, effort) pair the base routes do not use, Sonnet at `high`, so activity routing adds one cache. [Activity routing](activity-routing.md) has the evidence per cell and its limits.
+
+A user file merges over these overrides one field at a time, as `routes` does. This sets only the effort of the built-in `code` override at `low`, so the cell runs Sonnet at `medium`, and adds a new override at `high`:
 
 ```json
 {
-  "activityRouting": "on",
   "activities": {
-    "code": { "low": { "effort": "high" }, "high": { "effort": "max" } }
+    "code": { "low": { "effort": "medium" }, "high": { "effort": "max" } }
   }
 }
+```
+
+An override for a cell with no built-in names both fields, or inherits the missing one from the tier's route. This runs `docs` at `medium` on Sonnet at the base route's `medium` effort:
+
+```json
+{ "activities": { "docs": { "medium": { "model": "sonnet" } } } }
 ```
 
 - `effort: null` keeps the session effort, as in `routes`.
@@ -104,11 +113,13 @@ A user file merges over these overrides one field at a time, as `routes` does. T
 - Unknown activities and tiers, unknown model aliases, and invalid efforts make the file invalid, like any other invalid setting. The pane refuses to save one and names it, such as `activities.code.low.model is not in models`.
 - Each distinct (model, effort) pair is its own cache. The Routing tab counts them.
 
-`policy.activityMass` (default `0.6`) is the lowest probability at which an activity applies. It has not been tuned on any classifier. Probabilities differ between classifiers, so recalibrate it from the [probe set](evaluation.md#activity-probe-set) if you change classifier.
+`policy.activityMass` (default `0.6`) is the lowest probability at which an activity applies. The Routing tab sets it as **Activity threshold** under POLICY, from 50% to 80%. It has not been tuned on any classifier. Probabilities differ between classifiers, so recalibrate it from the [probe set](evaluation.md#activity-probe-set) if you change classifier.
 
-Switch the mode with `/router activities off|shadow|on`, or with the selector at the top of the Routing tab's OVERRIDES section. The command writes `router.json` at once; the selector joins the Routing draft and writes on **Save**. Choosing `shadow`, the default, removes the key from the file.
+Switch the mode with `/router activities off|shadow|on`, or with the **Activity routing** selector at the top of the Routing tab's ACTIVITIES section. The command writes `router.json` at once; the selector joins the Routing draft and writes on **Save**. Choosing `on`, the default, removes the key from the file.
 
-**Rollback.** Router 1.5 rejects unknown keys and makes routing unavailable. Before you install 1.5 again, remove `activities`, `activityRouting`, and `policy.activityMass` from `router.json`. The pane writes them when you set the mode to `off` or `on`, or edit or remove an override.
+**Upgrade from 1.6.** 1.6 defaulted to `shadow` with Sonnet at `medium` in every override. A file without `activityRouting` now runs `on`; a file that sets it keeps its mode. Cells you saved stay as written, and a cell that sets one field merges over the new built-in. A 1.6 removal of a built-in that 1.7 no longer has, such as `docs` at `low`, stays in the file as the tier's route; the pane lists it as "same as base: no effect", and **remove** drops it.
+
+**Rollback.** To go back to 1.6 behavior without downgrading, set `"activityRouting": "shadow"`, or `off`. Router 1.6 reads the same keys; under 1.6 a file without `activityRouting` runs `shadow` with 1.6's overrides. Router 1.5 rejects unknown keys and makes routing unavailable. Before you install 1.5 again, remove `activities`, `activityRouting`, and `policy.activityMass` from `router.json`. The pane writes them when you set the mode to `off` or `shadow`, change the activity threshold, or edit or remove an override.
 
 ## Classifiers
 
@@ -176,7 +187,7 @@ The Mod validates the whole file. Unknown keys and invalid values make routing u
 | ------------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------- |
 | `baselineTier`                 | `micro`, `low`, `medium`, `high`                                                     | `low`                                                    |
 | `routes.<tier>`                | `model`, optional `effort` (a level, or `null` for the session effort)               | As in the route table above                              |
-| `activityRouting`              | `off`, `shadow`, `on`                                                                | `shadow`                                                 |
+| `activityRouting`              | `off`, `shadow`, `on`                                                                | `on`                                                     |
 | `activities.<activity>.<tier>` | optional `model` and `effort`, as in `routes`                                        | The overrides in [Activity routing](#activity-routing)   |
 | `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, `contextWindow`, `billing`, `efforts` | Three defaults above                                     |
 | `cache`                        | `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms |
@@ -187,24 +198,24 @@ The Mod validates the whole file. Unknown keys and invalid values make routing u
 
 Policy defaults:
 
-| Field                   | Default | Meaning                                                                                                   |
-| ----------------------- | ------: | --------------------------------------------------------------------------------------------------------- |
-| `upgradeVotes`          |     `2` | Consecutive supporting votes before an upgrade; one before a history's first measured reply.              |
-| `upgradeBase`           |  `0.75` | Minimum probability mass required for an upgrade.                                                         |
-| `upgradeSlope`          |  `0.15` | Maximum increase to the upgrade bar from estimated switching cost.                                        |
-| `upgradePivotUsd`       |   `0.5` | Cost scale used by the upgrade bar. Must be positive.                                                     |
-| `jumpConfidence`        |  `0.95` | Support for a two-tier jump without waiting for votes.                                                    |
-| `downgradeVotes`        |     `2` | Consecutive supporting votes before a downgrade; one before a history's first measured reply.             |
-| `downgradeMass`         |   `0.9` | Minimum probability mass required for a downgrade.                                                        |
-| `downgradeSlope`        |  `0.08` | Maximum increase to the downgrade bar from estimated switching cost.                                      |
-| `downgradePivotUsd`     |   `0.5` | Cost scale used by the downgrade bar. Must be positive.                                                   |
-| `downgradeHorizonTurns` |     `5` | Later turns included in a downgrade payback estimate.                                                     |
-| `continuationMass`      |   `0.7` | Advice probability that keeps the current route for a continuation.                                       |
-| `escalationHoldTurns`   |     `2` | Turns held after a repeated tool error escalates the route.                                               |
-| `cashCapUsd`            |     `2` | Maximum estimated cold cache write for a `credits` model. It does not cap output or session spend.        |
-| `activityMass`          |   `0.6` | Minimum probability for the classifier's activity to apply. Not tuned on any classifier. Not in the pane. |
+| Field                   | Default | Meaning                                                                                            |
+| ----------------------- | ------: | -------------------------------------------------------------------------------------------------- |
+| `upgradeVotes`          |     `2` | Consecutive supporting votes before an upgrade; one before a history's first measured reply.       |
+| `upgradeBase`           |  `0.75` | Minimum probability mass required for an upgrade.                                                  |
+| `upgradeSlope`          |  `0.15` | Maximum increase to the upgrade bar from estimated switching cost.                                 |
+| `upgradePivotUsd`       |   `0.5` | Cost scale used by the upgrade bar. Must be positive.                                              |
+| `jumpConfidence`        |  `0.95` | Support for a two-tier jump without waiting for votes.                                             |
+| `downgradeVotes`        |     `2` | Consecutive supporting votes before a downgrade; one before a history's first measured reply.      |
+| `downgradeMass`         |   `0.9` | Minimum probability mass required for a downgrade.                                                 |
+| `downgradeSlope`        |  `0.08` | Maximum increase to the downgrade bar from estimated switching cost.                               |
+| `downgradePivotUsd`     |   `0.5` | Cost scale used by the downgrade bar. Must be positive.                                            |
+| `downgradeHorizonTurns` |     `5` | Later turns included in a downgrade payback estimate.                                              |
+| `continuationMass`      |   `0.7` | Advice probability that keeps the current route for a continuation.                                |
+| `escalationHoldTurns`   |     `2` | Turns held after a repeated tool error escalates the route.                                        |
+| `cashCapUsd`            |     `2` | Maximum estimated cold cache write for a `credits` model. It does not cap output or session spend. |
+| `activityMass`          |   `0.6` | Minimum probability for the classifier's activity to apply. Not tuned on any classifier.           |
 
-The pane writes a subset of these settings. The **Routing** tab sets `routes`, `baselineTier`, `activities`, `activityRouting`, `policy.downgradeVotes`, `policy.downgradeHorizonTurns`, and `policy.cashCapUsd` in one save: it writes only values that differ from the defaults and removes the rest. `/router activities <mode>` writes `activityRouting` at once, with **Undo**. The **Classifier** tab sets `classifier` and the active classifier's `timeoutMs` at once. **Undo** reverts the settings the last pane write changed. Each save validates the whole file, keeps other keys, and applies from the next turn. A failed check names the setting and leaves the file unchanged. The pane refuses to write through a symlink. Model aliases and the other settings require a direct edit.
+The pane writes a subset of these settings. The **Routing** tab sets `routes`, `baselineTier`, `activities`, `activityRouting`, `policy.downgradeVotes`, `policy.downgradeHorizonTurns`, `policy.cashCapUsd`, and `policy.activityMass` in one save: it writes only values that differ from the defaults and removes the rest. `/router activities <mode>` writes `activityRouting` at once, with **Undo**. The **Classifier** tab sets `classifier` and the active classifier's `timeoutMs` at once. **Undo** reverts the settings the last pane write changed. Each save validates the whole file, keeps other keys, and applies from the next turn. A failed check names the setting and leaves the file unchanged. The pane refuses to write through a symlink. Model aliases and the other settings require a direct edit.
 
 Native cache freshness is unknown after 270 seconds or after a history reset. Claude usage does not report the cache TTL. The policy evaluates price bounds for five-minute and one-hour writes, but the one-hour case is not observed fact. See the [architecture](architecture.md#cache-and-cost) for the estimate rules.
 
