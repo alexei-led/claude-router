@@ -91,7 +91,7 @@ const modeBands = {
   },
   manual: {
     view: { mode: 'manual', phase: 'manual', nativeModel: 'claude-sonnet-5-5', reason: 'model selected manually' },
-    reading: '○ Routing off · ',
+    reading: '○ Routing off [ Turn on ]',
     control: { key: 'band-auto', label: 'Turn on', row: 'main' },
   },
 };
@@ -116,11 +116,12 @@ test('each mode draws one mode control, on one row, and the band fits at 60, 80 
   }
 });
 
-test('the hover row drops its labels and the row choice before the pins, and keeps Turn off', () => {
+test('the hover row drops routing on, then 2 rows, then the pin label, then the pins, and keeps Turn off', () => {
   const { view } = modeBands.auto;
   for (const [columns, expected] of [
     [120, 'pin next turn [ micro ] [ low ] [ medium ] [ high ]  routing on [ Turn off ]  [ 2 rows ]'],
     [80, 'pin next turn [ micro ] [ low ] [ medium ] [ high ]  [ Turn off ]  [ 2 rows ]'],
+    [70, 'pin next turn [ micro ] [ low ] [ medium ] [ high ]  [ Turn off ]'],
     [60, '[ micro ] [ low ] [ medium ] [ high ]  [ Turn off ]'],
     [40, '[ Turn off ]'],
   ])
@@ -144,18 +145,25 @@ test('a narrow two-row band keeps 1 row beside Turn off, the only way back to on
     );
 });
 
-test('a narrow manual band drops the explanation before the model and keeps Turn on', () => {
+test('a narrow manual band drops the explanation, then the model, then the word Routing, and keeps Turn on', () => {
   const { view } = modeBands.manual;
   for (const [columns, expected] of [
-    [80, '○ Routing off · every turn uses Sonnet 5.5 (/model)  ·  [ Turn on ]  Router'],
-    [60, '○ Routing off · Sonnet 5.5 (/model)  ·  [ Turn on ]  Router'],
-    [52, '○ Routing off · Sonnet 5.5  ·  [ Turn on ]  Router'],
-  ])
-    assert.equal(
-      drawn(renderBand(elements, DEFAULTS, view, null, { columns }, actions).props.children[0]),
-      expected,
+    [80, '○ Routing off [ Turn on ]  ·  every turn uses Sonnet 5.5 (/model)  Router'],
+    [60, '○ Routing off [ Turn on ]  ·  Sonnet 5.5 (/model)  Router'],
+    [52, '○ Routing off [ Turn on ]  ·  Sonnet 5.5  Router'],
+    [48, '○ Routing off [ Turn on ]  ·  Sonnet 5.5  Router'],
+    [44, '○ Routing off [ Turn on ]  Router'],
+    [40, '○ Routing off [ Turn on ]  Router'],
+    [30, '○ off [ Turn on ]  Router'],
+  ]) {
+    const main = renderBand(elements, DEFAULTS, view, null, { columns }, actions).props.children[0];
+    assert.equal(drawn(main), expected, `${columns} columns`);
+    assert.ok(drawn(main).length <= columns, `${columns} columns`);
+    assert.ok(
+      buttonsOf(main).some((b) => b.key === 'band-auto'),
       `${columns} columns`,
     );
+  }
 });
 
 test('a turn being classified shows an accent meter and the classifier deadline', () => {
