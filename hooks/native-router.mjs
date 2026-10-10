@@ -112,6 +112,8 @@ function createRouter(options) {
     run: null,
     // The route a cheaper activity move went to, while the turns stay on it (advanceDown); else null.
     afterDown: null,
+    // Counts every switch to routing off; a turn compares it with its own start to see routing went off meanwhile.
+    offSwitches: 0,
     // Each turn's routing-vs-your-model totals until turn.complete adds them to the store.
     turnSavings: new Map(),
     // The totals kept across sessions: this session's record (`{ sessionId, record }`), held here so a refresh never
@@ -259,7 +261,10 @@ async function changeMode($, router, mode) {
   const view = router.view ?? (await readView($, router));
   for (const controller of router.controllers) controller.abort();
   // Turns with routing off run on Claude's model, off the cheaper move's route: the escalation watch ends.
-  if (mode === 'manual') router.afterDown = null;
+  if (mode === 'manual') {
+    router.afterDown = null;
+    router.offSwitches += 1;
+  }
   router.modes.set(await $.session.id(), mode);
   const saved = await rememberMode($, mode);
   await updateView($, router, {
@@ -532,6 +537,7 @@ async function decideTurn($, router, e, signal, step) {
       pinned: selected.decision.pinned,
       route: `${selected.decision.model}@${selected.decision.effort ?? 'session'}`,
       classifier: cfg.classifier,
+      offSwitches: router.offSwitches,
       adviceMs,
       sessionId,
       requests: 0,
@@ -697,8 +703,9 @@ async function recordActivity($, router, turn) {
     if (start < 0) return;
     const observed = observedActivity(messages, start);
     const view = router.view ?? (await readView($, router));
-    // Routing turned off while this turn ran ends the watch here, so turning it back on cannot inherit this move.
-    const off = (await modeOf($, router)) === 'manual';
+    // Routing turned off while this turn ran ends the watch here, even when it is back on by now, so the move is not
+    // inherited.
+    const off = (await modeOf($, router)) === 'manual' || turn.offSwitches !== router.offSwitches;
     // The session may have changed during the reads; this turn is not the new session's.
     if ((await $.session.id()) !== turn.sessionId) return;
     // Advanced before any further await, so a session change meanwhile cannot carry this run into the new session.
