@@ -264,6 +264,18 @@ test('the activities lead with the mode, and OVERRIDES says whether the override
     const lines = texts(renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'routing', ...props }), null, actions));
     assert.equal(lines[lines.indexOf('OVERRIDES') + 1], state, JSON.stringify(props));
   }
+  // A draft mode runs nothing until Save: the state follows the saved mode and says what Save changes.
+  for (const [saved, drafted, state] of [
+    ['on', 'shadow', [' · in use', ' · not in use after Save']],
+    ['shadow', 'on', [' · not in use: activity routing is shadow', ' · in use after Save']],
+    ['shadow', 'off', [' · not in use: activity routing is shadow']],
+  ]) {
+    const config = { ...DEFAULTS, activityRouting: saved };
+    const draft = { ...routeDraftOf(config, {}), activityRouting: drafted };
+    const lines = texts(routing(config, draft));
+    const at = lines.indexOf('OVERRIDES');
+    assert.deepEqual(lines.slice(at + 1, at + 1 + state.length), state, `${saved} → ${drafted}`);
+  }
 });
 
 test('override rows warn about no effect, a route above the next tier and a new cache', () => {

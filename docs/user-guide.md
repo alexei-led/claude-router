@@ -205,7 +205,7 @@ Under **Policy** on the same tab, pick the values. One **Save** writes them with
 - **Votes to go down:** 1, 2, or 3 consecutive votes before a cheaper tier. A new or reset history needs one.
 - **Payback horizon:** 1, 3, 5, or 10 later turns used by the downgrade estimate.
 - **Credits cap:** $0.50, $1, $2, or $5 for an estimated cold cache write on a `credits` model.
-- **Activity threshold:** 50%, 60%, 70%, or 80%, the least probability at which the classifier's activity applies. Below it the base route runs. See [Activity routing](activity-routing.md#change-a-cell).
+- **Activity threshold:** 50%, 60%, 70%, or 80%, the least probability at which the classifier's activity applies. Below it a new task goes back to the base route, and a continuation keeps its activity. See [Activity routing](activity-routing.md#change-a-cell).
 
 **Reset policy to defaults** loads the built-in values; **Save** then removes your policy overrides. The current turn keeps the settings it started with. A save preserves unrelated `router.json` keys and refuses to write through a symlink. When validation fails, the pane names the setting and leaves the file unchanged.
 

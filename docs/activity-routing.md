@@ -106,8 +106,9 @@ At 350,000 tokens of context, the typical size in that sample, at list prices:
 - A move from Opus to Sonnet saves about $0.03 per request and costs $1.40 to start. It rarely pays back. That is why
   the defaults do not move `medium` or `high` work to Sonnet.
 
-The router does this sum for every move with the prices in `router.json`, and stays on the running route when a
-cheaper one would not pay back. Like the table, it prices Haiku at five times its list rates above 100,000 tokens
+The router does this sum for every move with the prices in `router.json`. A move to a cheaper route inside a tier is
+taken only when it pays back within the payback horizon. A move down a tier weighs the same cost against the
+classifier's confidence: a costly write needs a more confident answer, but a confident enough answer can still move. Like the table, it prices Haiku at five times its list rates above 100,000 tokens
 (`models.haiku.longContext` in [Configuration](configuration.md)).
 
 ## Turn it off or back to shadow
@@ -182,8 +183,9 @@ Two other directions, with what they trade:
 }
 ```
 
-**Activity threshold.** An activity applies only when the classifier gives it at least this probability; below it the
-base route runs. The default is 60% (`policy.activityMass: 0.6`). Change it on the Routing tab under **POLICY**,
+**Activity threshold.** An activity applies only when the classifier gives it at least this probability. Below it, a
+new task goes back to the base route if that move passes the usual checks, and a continuation of the running task
+keeps its activity. The default is 60% (`policy.activityMass: 0.6`). Change it on the Routing tab under **POLICY**,
 **Activity threshold**, or in `router.json`. There is no data to tune it on yet: the probe results record whether the
 label was right, not the classifier's probabilities.
 
