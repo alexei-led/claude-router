@@ -126,6 +126,16 @@ const base = {
   ],
   tiers: [...'llllllddllllhhhhhhhh'].map((c) => ({ l: 'low', d: 'medium', h: 'high' })[c]),
   activities: [...'eeccoocceeppcccccccc'].map((c) => ({ c: 'code', e: 'explore', o: 'ops', p: 'plan' })[c]),
+  // What served each reply: Haiku at low, Sonnet for low coding and planning, Opus at medium and high.
+  routes: [...'hhsshhsshhoossOOOOOO'].map(
+    (c) =>
+      ({
+        h: 'claude-haiku-5-5@high',
+        s: 'claude-sonnet-5-5@high',
+        o: 'claude-opus-5-5@medium',
+        O: 'claude-opus-5-5@xhigh',
+      })[c],
+  ),
   activity: 'code',
   activityChoice: 'code',
   activityProbabilities: { code: 0.84, debug: 0.08, plan: 0.05, uncertain: 0.03 },
@@ -282,6 +292,13 @@ writeFileSync(
 );
 
 // ---- pane tabs ----
+const activityStore = {
+  version: 1,
+  confusion: { code: { code: 40, read: 4 }, ops: { ops: 18, read: 3, code: 1 }, explore: { read: 12, talk: 5 } },
+  runs: {},
+  lateral: { taken: 9, refused: 4 },
+  shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
+};
 function pane(view, title, desc, file, paneConfig = config) {
   const tree = renderPanel(elements, paneConfig, view, usage, actions, { modelOptions: Object.keys(config.models) });
   const lines = lay(tree, { hover: false }).filter((line, i, all) => i < all.length - 1 || width(line) > 0);
@@ -294,23 +311,25 @@ function pane(view, title, desc, file, paneConfig = config) {
 pane(
   base,
   'Router pane, Now tab',
-  'The current route with its activity and reason, classifier support per tier with pin buttons, the last 20 replies colored by tier and lettered by activity, and context, cache and cost.',
+  'What runs next turn: tier, model and activity, with the reason and the classifier support it weighed; classifier support per tier with pin buttons; the last 20 replies colored by tier with the switch count and the replies per tier and per activity; and context, cache and cost.',
   'router-pane-now.svg',
 );
+const draft = {
+  ...routeDraftOf(config, {}),
+  routes: { ...config.routes, medium: { model: 'sonnet', effort: 'xhigh' } },
+  activities: { ...config.activities, code: { ...config.activities.code, high: { model: 'opus', effort: 'max' } } },
+};
 pane(
-  {
-    ...base,
-    tab: 'routing',
-    routeDraft: {
-      ...routeDraftOf(config, {}),
-      routes: { ...config.routes, medium: { model: 'sonnet', effort: 'xhigh' } },
-      activities: { ...config.activities, code: { ...config.activities.code, high: { model: 'opus', effort: 'max' } } },
-    },
-    configPath: '~/.claude/router.json',
-  },
-  'Router pane, Routing tab',
-  'Model and effort per tier with prices and windows, the baseline tier, how the policy prices each step up, the activity matrix and overrides, the policy controls, and the unsaved router.json changes with Save and Discard.',
-  'router-pane-routing.svg',
+  { ...base, tab: 'routes', routeDraft: draft, routeCell: 'code.high' },
+  'Router pane, Routes tab',
+  'The activity routing mode, then one grid of tiers by activities: the tiers’ own models on top, each activity override in its cell with built-in defaults marked °, unsaved edits ●; the editor of the selected cell, coding at high, with Use tier model; the model setups in use; and the unsaved router.json changes with Save and Discard.',
+  'router-pane-routes.svg',
+);
+pane(
+  { ...base, tab: 'policy', tuning: { downgradeVotes: 3 }, tuningBase: null, configPath: '~/.claude/router.json' },
+  'Router pane, Policy tab',
+  'Each policy control inside the sentence it completes: the start tier, votes and payback horizon for going down, the support needed to go up, the activity threshold and the credits cap, with the default shown beside a changed value, the router.json file, and the unsaved change with Save and Discard.',
+  'router-pane-policy.svg',
 );
 pane(
   {
@@ -320,9 +339,11 @@ pane(
     credentials: { jev: 'missing-key', clef: null, 'clef-flash': null, openai: 'missing-key', ollama: null },
     notice: 'Saved: classifier Clef → Clef Flash. Applies from the next turn.',
     lastWrite: { label: 'classifier Clef → Clef Flash', leaves: [{ path: ['classifier'], value: 'clef' }] },
+    activityStore,
+    activityMetrics: { version: 1, latency: {}, downMoves: { moves: 7, escalations: 0 } },
   },
   'Router pane, Classifier tab',
-  'The classifier rows with the active one marked and each one’s last activity probe, a missing Jev API key with Set up, the deadline, health, the receiving host and the credentials each classifier needs, and Undo after a switch.',
+  'One row per classifier to compare: where the prompt goes, its activity probe, its p95 wait and whether its credentials are complete, with Set up for a missing Jev API key; the active classifier’s deadline against its wait, the host that receives the prompt, health and credentials; the agreement with tools across sessions; and Undo after a switch.',
   'router-pane-classifier.svg',
   { ...config, classifier: 'clef-flash' },
 );
@@ -369,13 +390,7 @@ pane(
       agreement: { matched: 21, total: 24 },
       shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
     },
-    activityStore: {
-      version: 1,
-      confusion: { code: { code: 40, read: 4 }, ops: { ops: 18, read: 3, code: 1 }, explore: { read: 12, talk: 5 } },
-      runs: {},
-      lateral: { taken: 9, refused: 4 },
-      shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
-    },
+    activityStore,
     activityMetrics: {
       version: 1,
       latency: { jev: [0, 0, 12, 40, 24, 3, 2, ...Array(15).fill(0)] },
@@ -383,7 +398,7 @@ pane(
     },
   },
   'Router pane, Usage tab',
-  'Routing vs your model first: routed replies against the same tokens on your model, Opus 5.5 at xhigh this session and each session’s own model since the last reset, the difference split into cheaper models, stronger models and switch cache writes, the session against the other models, the two costs as bars and the replies by tier; then Claude’s own readings, activity counts with their estimated cost and route, the counts across sessions, and estimates.',
+  'The answer first, routing saved $1.84 (22%) against Opus 5.5 at xhigh; then routed replies against the same tokens on your model, this session and since the last reset, the difference split into cheaper models, stronger models and switch cache writes, the two costs as bars and the replies by tier; plan quota; this session by activity with estimated cost and route; and Claude’s readings on one line with details.',
   'router-pane-usage.svg',
 );
-console.log(`wrote router-band.svg and the Now, Routing, Classifier and Usage pane pictures to ${OUT}`);
+console.log(`wrote router-band.svg and the Now, Routes, Policy, Classifier and Usage pane pictures to ${OUT}`);

@@ -6,7 +6,7 @@ import { probeText } from '../lib/display.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { PROBE_RESULTS } from '../lib/probe-results.mjs';
 import { isUsableProbe, probeModule, readProbeResults } from '../scripts/probe-results.mjs';
-import { ELEMENTS, texts } from './harness.mjs';
+import { ELEMENTS, screen } from './harness.mjs';
 
 test('lib/probe-results.mjs is what the script writes from the checked-in probe results', () => {
   const results = readProbeResults();
@@ -90,11 +90,10 @@ test('a classifier shows its probe only for the model that was probed', () => {
     assert.equal(probeText(config, id), expected, name);
 });
 
-test('the Classifier tab puts each probe under its classifier row', () => {
-  const lines = texts(
+test('the Classifier tab puts each probe in its classifier row', () => {
+  const lines = screen(
     renderPanel(ELEMENTS, DEFAULTS, { mode: 'auto', phase: 'routed', credentials: {}, tab: 'classifier' }, null, {}),
   );
-  const at = lines.indexOf('api.typesafe.ai');
-  assert.ok(at > 0);
-  assert.ok(lines.slice(at, at + 5).includes('    activity probe 70/70 · p95 299 ms · Oct 10'));
+  assert.ok(lines.some((line) => /^\[ ◉ Jev\s+\] api\.typesafe\.ai\s+70\/70\s+299 ms\s+○ no API key/.test(line)));
+  assert.ok(lines.some((line) => /^\[ ○ Ollama\s+\] this machine\s+66\/70\s+3483 ms\s+● ready/.test(line)));
 });

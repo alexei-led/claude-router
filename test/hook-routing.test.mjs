@@ -433,7 +433,7 @@ test('replies record the tier that served them and the strip counts switches', a
   assert.equal(h.view().history.length, 2);
   await drain(h.step({ ...step, turnId: 't3' }, { usage: null }));
   assert.equal(h.view().tiers.length, h.view().history.length);
-  assert.ok(texts(await h.render()).some((line) => /0 switches/.test(line)));
+  assert.ok(texts(await h.render()).some((line) => /0 model switches/.test(line)));
 });
 
 test('the router command opens the pane, switches modes and pins, with no setup or status forms', async () => {
@@ -911,7 +911,7 @@ test('shadow prices what on would route differently and the counts across sessio
   await reloaded.event('session.start', { cwd: '/fixture' });
   assert.equal(reloaded.view().activityStats, null);
   assert.deepEqual(reloaded.view().activityStore, h.preferences.get(STATS));
-  await press(reloaded, 'tab-usage');
+  await press(reloaded, 'tab-classifier');
   const across = texts(await reloaded.render());
   assert.ok(across.includes('Labelled   2 turns'));
   assert.ok(across.includes(`Shadow     on would route 2 of 2 turns differently ${est} for 1 at list prices`));
@@ -933,10 +933,9 @@ test('a corrupted or unreadable stats store shows an empty readout and never bre
     const h = harness(JEV_KEY, preferences);
     await h.event('session.start', { cwd: '/fixture' });
     assert.equal(h.view().phase, 'ready', name);
-    await press(h, 'tab-usage');
+    await press(h, 'tab-classifier');
     const lines = texts(await h.render());
-    const at = lines.indexOf('ACROSS SESSIONS · since the last reset');
-    assert.equal(lines[at + 1], '  no turns recorded yet', name);
+    assert.ok(!lines.includes('ACROSS SESSIONS · since the last reset'), name);
     h.surfaces([]);
     const { text } = await h.event('command.run', { command: 'router', args: '' });
     assert.match(text, /^Agreement across sessions: no labelled turns yet$/m, name);

@@ -136,13 +136,14 @@ turn, whatever the activity mode.
 
 ## Change a cell
 
-**In the pane.** Open `/router` and press `2`. **ACTIVITIES** shows the mode, then the route each cell runs, with `·`
-for the base route, and counts the routes. Routes are abbreviated, such as `S·high` for Sonnet · high, and activities
-with the same cells share a row. **OVERRIDES** lists each override with a model, an effort, and **remove**.
-**add an override…** adds one for an activity and tier. Edits are a draft: the status bar lists the `router.json`
-lines they change. **Save** (`s`) writes them, **Discard** (`d`) drops them, and **Undo** (`u`) reverts the last
-write. A yellow note flags an override that has no effect, one stronger than the tier above, or the only cell or tier
-on its (model, effort) pair, which adds a cache.
+**In the pane.** Open `/router` and press `2` for the **Routes** tab. It starts with the mode, then one grid: a column
+per tier, the **every turn** row with each tier's own model, and a row per activity. A cell shows the model the activity
+runs at that tier, such as `sonnet·high`, or `·` for the tier's model; `°` marks a built-in default. Select a cell to
+edit its model and effort under the grid. **Use tier model** drops the override; **Restore default** puts a built-in
+one back. Edits are a draft: the tab reads **Routes ●** and lists the `router.json` lines they change. **Save** (`s`)
+writes them, **Discard** (`d`) drops them, and **Undo** (`u`) reverts the last write. A yellow note flags a cell
+stronger than the tier above, or the only cell on its model setup, which adds a cache. A selected cell whose override
+changes nothing says `same as the tier’s model: no effect`.
 
 **In `router.json`.** `activities.<activity>.<tier>` takes `model`, `effort`, or both. A field you leave out keeps its
 default. This runs `code` at `low` on Sonnet at `xhigh` and adds `max` effort for hard code:
@@ -155,9 +156,9 @@ default. This runs `code` at `low` on Sonnet at `xhigh` and adds `max` effort fo
 }
 ```
 
-A cell cannot be `null`. To drop a built-in override, set the cell to the tier's base route, or press **remove** in
-the pane, which writes that for you. The cell keeps that route if you later change the tier's route; remove it again
-then:
+A cell cannot be `null`. To drop a built-in override, set the cell to the tier's base route, or press **Use tier
+model** in the pane, which writes that for you. The cell keeps that route if you later change the tier's route; drop it
+again then:
 
 ```json
 { "activities": { "ops": { "medium": { "model": "opus", "effort": "medium" } } } }
@@ -185,8 +186,8 @@ Two other directions, with what they trade:
 
 **Activity threshold.** An activity applies only when the classifier gives it at least this probability. Below it, a
 new task goes back to the base route if that move passes the usual checks, and a continuation of the running task
-keeps its activity, or moves to the classifier's activity when that route is stronger. The default is 60% (`policy.activityMass: 0.6`). Change it on the Routing tab under **POLICY**,
-**Activity threshold**, or in `router.json`. There is no data to tune it on yet: the probe results record whether the
+keeps its activity, or moves to the classifier's activity when that route is stronger. The default is 60% (`policy.activityMass: 0.6`). Change it on the Policy tab under **Activities**,
+or in `router.json`. There is no data to tune it on yet: the probe results record whether the
 label was right, not the classifier's probabilities.
 
 [Configuration](configuration.md#activity-routing) has the full schema.
@@ -206,8 +207,8 @@ label was right, not the classifier's probabilities.
   1.7's built-in for that cell, or from the base route where 1.7 has none (`explore` and `docs` at `medium`, `docs` at
   `low`). 1.6's overrides in those cells and in `ops` at `medium` were Sonnet · medium, so such a cell can now run
   another model or effort. Write both `model` and `effort` to keep 1.6's route.
-- If you removed a 1.6 built-in override that 1.7 no longer has, such as `docs` at `low`, the pane lists it with
-  "same as base: no effect". Press **remove** and **Save** to drop it.
+- If you removed a 1.6 built-in override that 1.7 no longer has, such as `docs` at `low`, its cell on the Routes tab
+  says "same as the tier’s model: no effect". Press **Use tier model** and **Save** to drop it.
 - 1.6 reads the same keys. A file without `activityRouting` runs `shadow` under 1.6.
 
 ## What the estimates mean
@@ -235,8 +236,8 @@ Limits:
 
 - The answer quality of routed sessions.
 - How well the classifier labels real turns. On 70 synthetic prompts, Jev and OpenAI labelled all 70 right; see
-  [Evaluation](evaluation.md#activity-probe-set). The Usage tab's **Agreement** line checks your own turns against the
-  tools they used.
+  [Evaluation](evaluation.md#activity-probe-set). The **Agreement** lines, on the Usage tab for this session and on the
+  Classifier tab across sessions, check your own turns against the tools they used.
 - Whether an effort change on the same model keeps the cache. We found only 6 cases. The router counts each
   (model, effort) pair as its own cache.
 - How many requests a turn needs on each model.

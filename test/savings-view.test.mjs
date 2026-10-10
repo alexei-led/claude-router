@@ -77,7 +77,7 @@ const SHADOW_CONFIG = { ...DEFAULTS, activityRouting: 'shadow' };
 function section(props, { columns = 100, config = DEFAULTS } = {}) {
   const lines = screen(renderPanel(ELEMENTS, config, view(props), null, actions, { columns }));
   const at = lines.findIndex((line) => line.startsWith('ROUTING VS YOUR MODEL'));
-  return lines.slice(at, lines.indexOf('USAGE · Claude readings') - 1);
+  return lines.slice(at, lines.findIndex((line) => line.startsWith('BY ACTIVITY')) - 1);
 }
 
 test('the Usage tab opens with routing vs your model, each number on the line that names it', () => {
@@ -122,7 +122,7 @@ test('the Usage tab opens with routing vs your model, each number on the line th
         '  your model  ████░░░░░░░░░░░░░░░░░░  $0.62',
         '  ■ low 59%  ■ medium 29%  ■ high 12% of replies',
         '  Routing spent more than Haiku 5.5 alone because upper tiers ran on Opus 5.5.',
-        '  To spend less, pick cheaper models for those tiers in the Routing tab.',
+        '  To spend less, pick cheaper models for those tiers in the Routes tab.',
         ...SAVED_FOOTER,
       ],
     ],
@@ -177,6 +177,26 @@ test('the Usage tab opens with routing vs your model, each number on the line th
     ],
   ])
     assert.deepEqual(section(props, { config: SHADOW_CONFIG }), expected, name);
+});
+
+test('the Usage tab opens with the answer, once the session has enough routed replies', () => {
+  const headline = (props) => {
+    const lines = screen(renderPanel(ELEMENTS, DEFAULTS, view(props), null, actions));
+    return lines[3] === '' ? null : lines[3];
+  };
+  assert.equal(headline({ ...OPUS, savings: SAVES }), 'Routing saved $1.84 (22%) this session vs Opus 5.5 · xhigh');
+  assert.equal(
+    headline({ ...HAIKU, savings: MORE }),
+    'Routing cost $2.48 (×5.0) more this session than Haiku 5.5 · high',
+  );
+  for (const props of [
+    { ...OPUS, savings: EARLY },
+    { ...OPUS, savings: null },
+    { nativeModel: 'claude-mystery-1-0', nativeEffort: null, savings: SAVES },
+  ])
+    assert.ok(
+      screen(renderPanel(ELEMENTS, DEFAULTS, view(props), null, actions))[3].startsWith('ROUTING VS YOUR MODEL'),
+    );
 });
 
 test('your model takes the color of the tier that runs it at your effort', () => {

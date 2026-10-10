@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The pane has five tabs: Now, Routes, Policy, Classifier, Usage (`1`–`5`). The routing on/off pair and the classifier state share one top line.
+- **Routes** is one grid of tiers by activities: the **every turn** row holds each tier's model, and each activity's cell shows the model it runs there, `·` for the tier's model, `°` for a built-in default, **●** for an unsaved edit. Select a cell to edit it under the grid. The separate matrix and overrides list are gone. **remove** is now **Use tier model**, and **Restore default** puts a built-in override back. `5 distinct routes = 5 caches` is now `5 model setups in use`, with a sentence on why each setup costs a cache write. The effort option `session` reads `inherit`.
+- **Policy** has the policy controls and the start tier (`baselineTier`), each inside its sentence, such as `Going down  after 2 ▾ agreeing turns`, with the default beside a changed value. The tab says when the credits cap has no effect. **Routes ●** or **Policy ●** marks the tab whose settings the draft changes; the `router.json` diff shows on those two tabs and a one-line count on the others.
+- **Now** leads with what runs next turn and why: `Next turn  ▌high  Opus 5.5 · xhigh`, the activity as a verb, and `Jev gave stronger tiers 88% (needs 82%) · switch ≈ $0.48` under **Why**. The letter row under the replies strip (`eeccoo…`) is gone; the replies per tier and per activity are counted instead, such as `coding 12 · exploring 4`.
+- **Classifier** lists the classifiers as columns to compare: where the prompt goes (`this machine` for Ollama), the activity probe and its p95 wait, and status. The deadline line shows the active classifier's p95 wait across sessions, in yellow when it is slower than the deadline. The counts kept across sessions moved here from Usage. The list of the credentials every classifier needs is gone; each row names what it lacks.
+- **Usage** opens with the answer, `Routing saved $1.84 (22%) this session vs Opus 5.5 · xhigh`, and moves plan quota up under it. Claude's readings fold to one line; **details** shows the counters, the input per reply and the estimates.
+
+### Fixed
+
+- The Now picture in the docs said `0 switches` next to a strip with three tier changes; its sample now records what served each reply.
+
 ## 1.8.1 (2026-10-10)
 
 ### Changed

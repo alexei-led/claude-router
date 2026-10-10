@@ -928,8 +928,11 @@ function paneActions($, router, view) {
       }),
     activityModel: (activity, tier, alias) => editCell(activity, tier, 'model', alias),
     activityEffort: (activity, tier, effort) => editCell(activity, tier, 'effort', effort),
-    addActivity: (activity, tier) => editCell(activity, tier, 'add'),
+    // Restore puts the built-in default back; Use tier model drops the cell, a built-in one saved as the tier's route.
+    restoreActivity: (activity, tier) => editCell(activity, tier, 'add'),
     removeActivity: (activity, tier) => editCell(activity, tier, 'remove'),
+    selectCell: (cell) => updateView($, router, { routeCell: cell, notice: null }),
+    usageDetail: () => updateView($, router, { usageDetail: !(router.view ?? view).usageDetail }),
     // `/router activities <mode>`: the mode alone, saved at once like a classifier press, with Undo.
     activityRouting: (mode) => {
       const from = router.config.activityRouting;

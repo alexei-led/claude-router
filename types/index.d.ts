@@ -191,7 +191,11 @@ declare module 'claude-code' {
     routeDraft?: (RouterRoutes & { base: RouterRoutes }) | null;
     // The last pane write to router.json: each leaf it changed with the value the file had before, none if absent.
     lastWrite?: { label: string; leaves: { path: string[]; value?: unknown }[] } | null;
-    tab?: 'now' | 'routing' | 'classifier' | 'usage';
+    tab?: 'now' | 'routes' | 'policy' | 'classifier' | 'usage';
+    // The Routes grid cell whose editor is open: '<activity>.<tier>', or 'tier.<tier>' for a tier's own route.
+    routeCell?: string | null;
+    // Whether the Usage tab shows Claude's readings in detail, with the estimates.
+    usageDetail?: boolean;
     help?: boolean;
     bandDetail?: boolean;
     notice?: string | null;

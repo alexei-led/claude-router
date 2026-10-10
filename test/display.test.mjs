@@ -5,7 +5,6 @@ import {
   activityDetailLines,
   bar,
   classifierStatus,
-  credentialsNeeded,
   formatTokens,
   missingCredentials,
   missingText,
@@ -162,22 +161,6 @@ test('a classifier that takes no key is not missing one before its credentials a
   assert.equal(missingCredentials(DEFAULTS, { credentials: { jev: null } }, 'jev'), null);
 });
 
-test('the credentials list groups classifiers that need the same settings', () => {
-  const proxy = {
-    label: 'Proxy',
-    endpoint: 'https://jev-proxy.example.internal/v1/systemone',
-    model: 'jev-1.13.0',
-    keyOption: 'typesafe_api_key',
-    timeoutMs: 1500,
-  };
-  const needs = 'Clef, Clef Flash: API token, account ID · OpenAI: API key · Ollama: no key needed';
-  assert.equal(credentialsNeeded(DEFAULTS), `Jev: API key · ${needs}`);
-  assert.equal(
-    credentialsNeeded(loadConfig({ userFile: { classifiers: { proxy } } })),
-    `Jev, Proxy: API key · ${needs}`,
-  );
-});
-
 test('/router without a UI surface names the activity and its route, and nothing in off', () => {
   const haiku = { tier: 'low', selectedModel: 'claude-haiku-5-5', effort: 'high' };
   const ops = { activity: 'ops', activityChoice: 'ops', activityProbabilities: { ops: 0.81, code: 0.1 } };
@@ -229,19 +212,19 @@ test('Why names the cell for an activity move or a stay on an override, and keep
       'a move up to an override',
       on,
       { tier: 'low', activity: 'code', reason: 'activity-up' },
-      'code at low runs on Sonnet 5.5 · high',
+      'coding at low runs on Sonnet 5.5 · high',
     ],
     [
       'a move down to an override',
       on,
       { tier: 'medium', activity: 'ops', reason: 'activity-down' },
-      'ops at medium runs on Haiku 5.5 · high',
+      'running at medium runs on Haiku 5.5 · high',
     ],
     [
       'a move to an activity on the base route',
       on,
       { tier: 'low', activity: 'ops', reason: 'activity-down' },
-      'ops at low runs on Haiku 5.5 · high',
+      'running at low runs on Haiku 5.5 · high',
     ],
     [
       'a move back to the base route',
@@ -253,7 +236,7 @@ test('Why names the cell for an activity move or a stay on an override, and keep
       'a stay on an override',
       on,
       { tier: 'low', activity: 'debug', reason: 'same-tier' },
-      'debug at low runs on Sonnet 5.5 · high',
+      'debugging at low runs on Sonnet 5.5 · high',
     ],
     [
       'a stay on a cell without an override',

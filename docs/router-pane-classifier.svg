@@ -1,74 +1,93 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 899 496" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 672 591" role="img" aria-labelledby="title desc">
   <title id="title">Router pane, Classifier tab</title>
-  <desc id="desc">The classifier rows with the active one marked and each one’s last activity probe, a missing Jev API key with Set up, the deadline, health, the receiving host and the credentials each classifier needs, and Undo after a switch.</desc>
+  <desc id="desc">One row per classifier to compare: where the prompt goes, its activity probe, its p95 wait and whether its credentials are complete, with Set up for a missing Jev API key; the active classifier’s deadline against its wait, the host that receives the prompt, health and credentials; the agreement with tools across sessions; and Undo after a switch.</desc>
   <style>
     text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; }
     .cap { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; fill: #9a988f; }
   </style>
-  <rect width="899" height="496" rx="8" fill="#1c1c1c"/>
-<rect x="10" y="10" width="879" height="476" rx="6" fill="none" stroke="#3f5f8f"/>
+  <rect width="672" height="591" rx="8" fill="#1c1c1c"/>
+<rect x="10" y="10" width="652" height="571" rx="6" fill="none" stroke="#3f5f8f"/>
 <text x="24.0" y="34" fill="#5fafd7" font-weight="700" xml:space="preserve">ROUTING</text>
 <rect x="94.2" y="20" width="62.4" height="18" rx="4" fill="#87afff"/>
 <text x="94.2" y="34" fill="#0d1016" font-weight="700" xml:space="preserve">[ ◉ on ]</text>
 <rect x="164.4" y="20" width="70.2" height="18" rx="4" fill="#2e3340"/>
 <text x="164.4" y="34" fill="#d0d0d0" xml:space="preserve">[ ○ off ]</text>
-<text x="234.6" y="34" fill="#7c7c7c" xml:space="preserve">  off keeps the /model choice</text>
-<text x="24.0" y="53" fill="#87d787" xml:space="preserve">Clef Flash ready</text>
-<rect x="24.0" y="58" width="54.6" height="18" rx="4" fill="#2e3340"/>
-<text x="24.0" y="72" fill="#d0d0d0" xml:space="preserve">[ Now ]</text>
-<rect x="86.4" y="58" width="85.8" height="18" rx="4" fill="#2e3340"/>
-<text x="86.4" y="72" fill="#d0d0d0" xml:space="preserve">[ Routing ]</text>
-<rect x="180.0" y="58" width="109.2" height="18" rx="4" fill="#87afff"/>
-<text x="180.0" y="72" fill="#0d1016" font-weight="700" xml:space="preserve">[ Classifier ]</text>
-<rect x="297.0" y="58" width="70.2" height="18" rx="4" fill="#2e3340"/>
-<text x="297.0" y="72" fill="#d0d0d0" xml:space="preserve">[ Usage ]</text>
-<rect x="375.0" y="58" width="39.0" height="18" rx="4" fill="#2e3340"/>
-<text x="375.0" y="72" fill="#d0d0d0" xml:space="preserve">[ ? ]</text>
-<text x="24.0" y="110" fill="#5fafd7" font-weight="700" xml:space="preserve">CLASSIFIER</text>
-<text x="102.0" y="110" fill="#7c7c7c" xml:space="preserve"> · applies next turn · saves at once</text>
-<text x="24.0" y="129" fill="#7c7c7c" xml:space="preserve">Asked once per new turn.</text>
-<rect x="24.0" y="134" width="132.6" height="18" rx="4" fill="#2e3340"/>
-<text x="24.0" y="148" fill="#d0d0d0" xml:space="preserve">[ ○ Jev         ]</text>
-<text x="164.4" y="148" fill="#7c7c7c" xml:space="preserve">api.typesafe.ai</text>
-<text x="320.4" y="148" fill="#d7af5f" xml:space="preserve">○ no API key  </text>
-<rect x="429.6" y="134" width="78.0" height="18" rx="4" fill="#2e3340"/>
-<text x="429.6" y="148" fill="#d0d0d0" xml:space="preserve">[ Set up ]</text>
-<text x="24.0" y="167" fill="#7c7c7c" xml:space="preserve">    activity probe 70/70 · p95 299 ms · Oct 10</text>
-<rect x="24.0" y="172" width="132.6" height="18" rx="4" fill="#2e3340"/>
-<text x="24.0" y="186" fill="#d0d0d0" xml:space="preserve">[ ○ Clef        ]</text>
-<text x="164.4" y="186" fill="#7c7c7c" xml:space="preserve">api.cloudflare.com</text>
-<text x="320.4" y="186" fill="#87d787" xml:space="preserve">● ready</text>
-<text x="24.0" y="205" fill="#7c7c7c" xml:space="preserve">    activity probe 69/70 · p95 883 ms · Oct 9</text>
-<rect x="24.0" y="210" width="132.6" height="18" rx="4" fill="#87afff"/>
-<text x="24.0" y="224" fill="#0d1016" font-weight="700" xml:space="preserve">[ ◉ Clef Flash  ]</text>
-<text x="164.4" y="224" fill="#7c7c7c" xml:space="preserve">api.cloudflare.com</text>
-<text x="320.4" y="224" fill="#87d787" xml:space="preserve">● ready</text>
-<text x="24.0" y="243" fill="#7c7c7c" xml:space="preserve">    activity probe 69/70 · p95 874 ms · Oct 9</text>
-<rect x="24.0" y="248" width="132.6" height="18" rx="4" fill="#2e3340"/>
-<text x="24.0" y="262" fill="#d0d0d0" xml:space="preserve">[ ○ OpenAI      ]</text>
-<text x="164.4" y="262" fill="#7c7c7c" xml:space="preserve">api.openai.com</text>
-<text x="320.4" y="262" fill="#d7af5f" xml:space="preserve">○ no API key  </text>
-<rect x="429.6" y="248" width="78.0" height="18" rx="4" fill="#2e3340"/>
-<text x="429.6" y="262" fill="#d0d0d0" xml:space="preserve">[ Set up ]</text>
-<text x="24.0" y="281" fill="#7c7c7c" xml:space="preserve">    activity probe 70/70 · p95 286 ms · Oct 10</text>
-<rect x="24.0" y="286" width="132.6" height="18" rx="4" fill="#2e3340"/>
-<text x="24.0" y="300" fill="#d0d0d0" xml:space="preserve">[ ○ Ollama      ]</text>
-<text x="164.4" y="300" fill="#7c7c7c" xml:space="preserve">127.0.0.1:11434</text>
-<text x="320.4" y="300" fill="#87d787" xml:space="preserve">● ready</text>
-<text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">    activity probe 66/70 · p95 3483 ms · Oct 9</text>
-<text x="24.0" y="338" fill="#d0d0d0" xml:space="preserve">Deadline</text>
-<text x="94.2" y="338" fill="#d0d0d0" xml:space="preserve">3000 ms ▾</text>
-<text x="187.8" y="338" fill="#7c7c7c" xml:space="preserve">then keep the model</text>
-<text x="24.0" y="357" fill="#d0d0d0" xml:space="preserve">Health   active · 0 recent failures</text>
-<text x="24.0" y="376" fill="#7c7c7c" xml:space="preserve">Sends    prompt + 6 recent turns → api.cloudflare.com</text>
-<text x="24.0" y="395" fill="#d0d0d0" xml:space="preserve">Credentials  </text>
-<rect x="125.4" y="381" width="62.4" height="18" rx="4" fill="#2e3340"/>
-<text x="125.4" y="395" fill="#d0d0d0" xml:space="preserve">[ Edit ]</text>
-<text x="187.8" y="395" fill="#7c7c7c" xml:space="preserve">  opens /plugin configure</text>
-<text x="24.0" y="414" fill="#7c7c7c" xml:space="preserve">             Jev: API key · Clef, Clef Flash: API token, account ID · OpenAI: API key · Ollama: no key needed</text>
-<text x="24.0" y="452" fill="#87d787" xml:space="preserve">Saved: classifier Clef → Clef Flash. Applies from the next turn.  </text>
-<rect x="538.8" y="438" width="62.4" height="18" rx="4" fill="#2e3340"/>
-<text x="538.8" y="452" fill="#d0d0d0" xml:space="preserve">[ Undo ]</text>
-<rect x="24.0" y="457" width="70.2" height="18" rx="4" fill="#2e3340"/>
-<text x="24.0" y="471" fill="#d0d0d0" xml:space="preserve">[ Close ]</text>
+<text x="250.2" y="34" fill="#87d787" xml:space="preserve">Clef Flash ready</text>
+<rect x="24.0" y="39" width="54.6" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="53" fill="#d0d0d0" xml:space="preserve">[ Now ]</text>
+<rect x="86.4" y="39" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="86.4" y="53" fill="#d0d0d0" xml:space="preserve">[ Routes ]</text>
+<rect x="172.2" y="39" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="172.2" y="53" fill="#d0d0d0" xml:space="preserve">[ Policy ]</text>
+<rect x="258.0" y="39" width="109.2" height="18" rx="4" fill="#87afff"/>
+<text x="258.0" y="53" fill="#0d1016" font-weight="700" xml:space="preserve">[ Classifier ]</text>
+<rect x="375.0" y="39" width="70.2" height="18" rx="4" fill="#2e3340"/>
+<text x="375.0" y="53" fill="#d0d0d0" xml:space="preserve">[ Usage ]</text>
+<rect x="453.0" y="39" width="39.0" height="18" rx="4" fill="#2e3340"/>
+<text x="453.0" y="53" fill="#d0d0d0" xml:space="preserve">[ ? ]</text>
+<text x="24.0" y="91" fill="#5fafd7" font-weight="700" xml:space="preserve">CLASSIFIER</text>
+<text x="102.0" y="91" fill="#7c7c7c" xml:space="preserve"> · asked once per new turn · a pick saves at once</text>
+<text x="24.0" y="110" fill="#7c7c7c" xml:space="preserve">                 prompt goes to       probe   p95       status</text>
+<rect x="24.0" y="115" width="124.8" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="129" fill="#d0d0d0" xml:space="preserve">[ ○ Jev        ]</text>
+<text x="156.6" y="129" fill="#7c7c7c" xml:space="preserve">api.typesafe.ai</text>
+<text x="320.4" y="129" fill="#d0d0d0" xml:space="preserve">70/70</text>
+<text x="382.8" y="129" fill="#d0d0d0" xml:space="preserve">299 ms</text>
+<text x="460.8" y="129" fill="#d7af5f" xml:space="preserve">○ no API key  </text>
+<rect x="570.0" y="115" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="570.0" y="129" fill="#d0d0d0" xml:space="preserve">[ Set up ]</text>
+<rect x="24.0" y="134" width="124.8" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="148" fill="#d0d0d0" xml:space="preserve">[ ○ Clef       ]</text>
+<text x="156.6" y="148" fill="#7c7c7c" xml:space="preserve">api.cloudflare.com</text>
+<text x="320.4" y="148" fill="#d0d0d0" xml:space="preserve">69/70</text>
+<text x="382.8" y="148" fill="#d0d0d0" xml:space="preserve">883 ms</text>
+<text x="460.8" y="148" fill="#87d787" xml:space="preserve">● ready</text>
+<rect x="24.0" y="153" width="124.8" height="18" rx="4" fill="#87afff"/>
+<text x="24.0" y="167" fill="#0d1016" font-weight="700" xml:space="preserve">[ ◉ Clef Flash ]</text>
+<text x="156.6" y="167" fill="#7c7c7c" xml:space="preserve">api.cloudflare.com</text>
+<text x="320.4" y="167" fill="#d0d0d0" xml:space="preserve">69/70</text>
+<text x="382.8" y="167" fill="#d0d0d0" xml:space="preserve">874 ms</text>
+<text x="460.8" y="167" fill="#87d787" xml:space="preserve">● ready</text>
+<rect x="24.0" y="172" width="124.8" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="186" fill="#d0d0d0" xml:space="preserve">[ ○ OpenAI     ]</text>
+<text x="156.6" y="186" fill="#7c7c7c" xml:space="preserve">api.openai.com</text>
+<text x="320.4" y="186" fill="#d0d0d0" xml:space="preserve">70/70</text>
+<text x="382.8" y="186" fill="#d0d0d0" xml:space="preserve">286 ms</text>
+<text x="460.8" y="186" fill="#d7af5f" xml:space="preserve">○ no API key  </text>
+<rect x="570.0" y="172" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="570.0" y="186" fill="#d0d0d0" xml:space="preserve">[ Set up ]</text>
+<rect x="24.0" y="191" width="124.8" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="205" fill="#d0d0d0" xml:space="preserve">[ ○ Ollama     ]</text>
+<text x="156.6" y="205" fill="#87d787" xml:space="preserve">this machine</text>
+<text x="320.4" y="205" fill="#d0d0d0" xml:space="preserve">66/70</text>
+<text x="382.8" y="205" fill="#d0d0d0" xml:space="preserve">3483 ms</text>
+<text x="460.8" y="205" fill="#87d787" xml:space="preserve">● ready</text>
+<text x="24.0" y="224" fill="#7c7c7c" xml:space="preserve">  probe: test prompts with a known activity it answered right, and its p95 wait</text>
+<text x="24.0" y="262" fill="#5fafd7" font-weight="700" xml:space="preserve">CLEF FLASH</text>
+<text x="102.0" y="262" fill="#7c7c7c" xml:space="preserve"> · active</text>
+<text x="24.0" y="281" fill="#d0d0d0" xml:space="preserve">Deadline</text>
+<text x="117.6" y="281" fill="#d0d0d0" xml:space="preserve">3000 ms ▾</text>
+<text x="211.2" y="281" fill="#7c7c7c" xml:space="preserve">p95 874 ms in its probe</text>
+<text x="24.0" y="300" fill="#7c7c7c" xml:space="preserve">            past the deadline the turn keeps its model</text>
+<text x="24.0" y="319" fill="#d0d0d0" xml:space="preserve">Sends</text>
+<text x="117.6" y="319" fill="#d0d0d0" xml:space="preserve">prompt + 6 recent turns → api.cloudflare.com</text>
+<text x="24.0" y="338" fill="#d0d0d0" xml:space="preserve">Health</text>
+<text x="117.6" y="338" fill="#d0d0d0" xml:space="preserve">not paused</text>
+<text x="195.6" y="338" fill="#d0d0d0" xml:space="preserve"> · 0 recent failures</text>
+<text x="24.0" y="357" fill="#d0d0d0" xml:space="preserve">Credentials</text>
+<rect x="117.6" y="343" width="62.4" height="18" rx="4" fill="#2e3340"/>
+<text x="117.6" y="357" fill="#d0d0d0" xml:space="preserve">[ Edit ]</text>
+<text x="180.0" y="357" fill="#7c7c7c" xml:space="preserve">  opens /plugin configure</text>
+<text x="24.0" y="395" fill="#5fafd7" font-weight="700" xml:space="preserve">ACROSS SESSIONS · since the last reset</text>
+<text x="24.0" y="414" fill="#d0d0d0" xml:space="preserve">Labelled   83 turns</text>
+<text x="24.0" y="433" fill="#d0d0d0" xml:space="preserve">Agreement  classifier vs tools: 78 of 83 turns (94%)</text>
+<text x="24.0" y="452" fill="#d0d0d0" xml:space="preserve">Code/ops/explore  classifier vs tools: 78 of 83 turns (94%)</text>
+<text x="24.0" y="471" fill="#d0d0d0" xml:space="preserve">Mismatch   code → read 4 · ops → code 1</text>
+<text x="24.0" y="490" fill="#d0d0d0" xml:space="preserve">Activity moves  9 taken · 4 refused</text>
+<text x="24.0" y="509" fill="#d0d0d0" xml:space="preserve">Escalations  after a cheaper activity move: 0 in 7 moves</text>
+<text x="24.0" y="547" fill="#87d787" xml:space="preserve">Saved: classifier Clef → Clef Flash. Applies from the next turn.  </text>
+<rect x="538.8" y="533" width="62.4" height="18" rx="4" fill="#2e3340"/>
+<text x="538.8" y="547" fill="#d0d0d0" xml:space="preserve">[ Undo ]</text>
+<rect x="24.0" y="552" width="70.2" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="566" fill="#d0d0d0" xml:space="preserve">[ Close ]</text>
 </svg>
