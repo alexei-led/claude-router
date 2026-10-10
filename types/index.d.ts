@@ -57,7 +57,8 @@ declare module 'claude-code' {
   interface RouterActivitySession {
     byActivity: Partial<Record<RouterActivity | 'none', RouterActivityCounts>>;
     switches: { tier: number; activity: number };
-    // Lateral moves taken and refused (by economics, a hold or the cash gate); absent in views saved by 1.7.0.
+    // Lateral moves taken and refused (by economics, a hold or the cash gate), outside shadow only; absent in views saved
+    // by 1.7.0.
     lateral?: { taken: number; refused: number };
     agreement: { matched: number; total: number };
     shadow: RouterActivityShadow;
