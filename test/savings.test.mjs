@@ -383,4 +383,6 @@ test('a reply that cannot be priced against your model, one named after an Objec
   const input = { usage: usage({ write: 1000 }), served: OPUS, effort: 'high', now: 0, yours: 'claude-toy-1' };
   assert.equal(compareModels(config, {}, { ...input, ttl: 'never' }).reply, null);
   assert.equal(compareModels(config, {}, { ...input, ttl: '1h' }).reply.routedUsd > 0, true);
+  const named = { ...DEFAULTS, models: { ...DEFAULTS.models, null: { ...DEFAULTS.models.haiku, id: 'claude-toy-2' } } };
+  assert.equal(compareModels(named, {}, { ...input, ttl: '1h', yours: 'claude-fable-5-1' }).reply, null);
 });
