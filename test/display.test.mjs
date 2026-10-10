@@ -125,16 +125,22 @@ test('a route label adds the effort only when there is one', () => {
     assert.equal(routeLabel(model, effort), expected);
 });
 
-test('a switch is a tier change between consecutive routed replies', () => {
-  for (const [tiers, expected] of [
-    [[], 0],
-    [['low'], 0],
-    [['low', 'low'], 0],
-    [['low', 'high', 'high'], 1],
-    [['low', 'high', 'low'], 2],
-    [['low', null, 'high'], 0],
+test('a switch is a route change between consecutive routed replies', () => {
+  const on = loadConfig();
+  const off = loadConfig({ userFile: { activityRouting: 'off' } });
+  for (const [config, tiers, activities, expected, name] of [
+    [on, [], [], 0, 'no replies'],
+    [on, ['low'], ['code'], 0, 'one reply'],
+    [on, ['low', 'low'], ['code', 'code'], 0, 'same cell'],
+    [on, ['low', 'high', 'high'], [null, null, null], 1, 'tier change'],
+    [on, ['low', 'high', 'low'], [null, null, null], 2, 'there and back'],
+    [on, ['low', null, 'high'], [null, null, null], 0, 'an unrouted reply breaks no run'],
+    [on, ['low', 'low'], ['code', 'ops'], 1, 'code on Sonnet, then ops on Haiku inside low'],
+    [on, ['low', 'low'], ['ops', 'explore'], 0, 'two activities on the same base route'],
+    [off, ['low', 'low'], ['code', 'ops'], 0, 'activities do not route while activity routing is off'],
+    [on, ['low', 'low', 'low'], ['code', 'code', 'ops'], 1, 'activities align with the last replies'],
   ])
-    assert.equal(switchCount(tiers), expected, tiers.join(','));
+    assert.equal(switchCount(config, tiers, activities), expected, name);
 });
 
 test('a classifier status names the classifier and the setting it lacks', () => {
