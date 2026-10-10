@@ -315,7 +315,7 @@ Route      low + code → Sonnet 5.5 · high   (override)   base: Haiku 5.5 · h
 ```
 
 The tier ladder and its support bars stay. In `on`, Why names the cell for an activity move or a stay on an override
-cell; a move back to the base route reads `low runs on its base route, Haiku 5.5 · high`. A refused move, a hold and a
+cell; a move to no activity (uncertain) reads `low runs on its base route, Haiku 5.5 · high`. A refused move, a hold and a
 tier move keep their reason. In `shadow`, the Route line reads
 `low + code would use Sonnet 5.5 · high (shadow; using Haiku 5.5 · high)`. A cell without an override reads
 `low + ops → Haiku 5.5 · high (base)`.

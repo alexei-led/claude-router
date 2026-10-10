@@ -237,6 +237,12 @@ test('Why names the cell for an activity move or a stay on an override, and keep
       'ops at medium runs on Haiku 5.5 · high',
     ],
     [
+      'a move to an activity on the base route',
+      on,
+      { tier: 'low', activity: 'ops', reason: 'activity-down' },
+      'ops at low runs on Haiku 5.5 · high',
+    ],
+    [
       'a move back to the base route',
       on,
       { tier: 'low', activity: null, reason: 'activity-down' },
