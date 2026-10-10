@@ -389,6 +389,25 @@ test('escalation keeps the failure for later when no tier above runs a stronger 
   assert.equal(base.state.escalatedSignature, 'boom');
 });
 
+test('with the shipped matrix, a failing ops turn at low or medium escalates to the high route', () => {
+  const shipped = loadConfig();
+  for (const [tier, activity, expected] of [
+    ['low', 'ops', ['high', 'ops', 'escalation', OPUS, 'xhigh']],
+    ['medium', 'ops', ['high', 'ops', 'escalation', OPUS, 'xhigh']],
+    ['low', 'code', ['medium', 'code', 'escalation', OPUS, 'medium']],
+  ]) {
+    const { decision: d } = turn({
+      config: shipped,
+      tier,
+      choice: tier,
+      activity,
+      label: labelOf(activity),
+      failure: { signature: 'boom' },
+    });
+    assert.deepEqual([d.tier, d.activity, d.reason, d.model, d.effort], expected, `${tier} ${activity}`);
+  }
+});
+
 test('the loop keeps the applied activity; a pin keeps the automatic one', () => {
   for (const [name, setup, lastRoute, lastActivity] of [
     ['a lateral move', { label: labelOf('code') }, 'low', 'code'],

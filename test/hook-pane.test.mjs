@@ -757,6 +757,18 @@ test('Reset activity stats while a turn writes its counts leaves the readout emp
   assert.ok(texts(await h.render()).includes('  no turns recorded yet'));
 });
 
+test('a 1.6 removal of a cell 1.7 no longer overrides shows as no effect, and remove drops it from router.json', async () => {
+  const h = harness();
+  h.files.set(CONFIG, JSON.stringify({ activities: { docs: { low: { model: 'haiku', effort: 'high' } } } }));
+  await start(h);
+  await press(h, 'tab-routing');
+  assert.ok(texts(await h.render()).includes('  same as base: no effect'));
+  await press(h, 'activity-remove-docs-low');
+  await press(h, 'save-routing');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+  assert.ok(!controls(await h.render()).some((c) => c.key === 'activity-model-docs-low'));
+});
+
 test('Reset routes keeps pending activity edits and the mode', async () => {
   const h = harness();
   await start(h);

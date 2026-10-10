@@ -190,6 +190,9 @@ label was right, not the classifier's probabilities.
 
 - A `router.json` that sets `activityRouting` keeps it. A file without it now runs `on`. To keep 1.6's behavior, run
   `/router activities shadow`.
+- A session started on Sonnet 5.5 used to start with routing off, because no tier route used Sonnet. Sonnet now runs
+  the `code` cell at `low`, so the session starts with routing on and the router may move it to Haiku or Opus. To
+  stay on Sonnet, choose it with `/model`, which turns routing off, or run `/router activities shadow`.
 - Overrides you saved stay as written. An override that only sets a field, such as `"effort"`, now merges over the
   new built-in for that cell.
 - If you removed a 1.6 built-in override that 1.7 no longer has, such as `docs` at `low`, the pane lists it with
