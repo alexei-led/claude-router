@@ -1,0 +1,39 @@
+{
+  "classifier": "openai",
+  "model": "gpt-6-luna",
+  "api": "openai-decisions",
+  "date": "2026-10-10T07:42:47.224Z",
+  "probes": 70,
+  "answered": 70,
+  "accuracy": 1,
+  "labels": ["code", "debug", "explore", "plan", "review", "ops", "docs", "uncertain", "none"],
+  "confusion": {
+    "code": {
+      "code": 10
+    },
+    "debug": {
+      "debug": 10
+    },
+    "explore": {
+      "explore": 10
+    },
+    "plan": {
+      "plan": 10
+    },
+    "review": {
+      "review": 10
+    },
+    "ops": {
+      "ops": 10
+    },
+    "docs": {
+      "docs": 10
+    }
+  },
+  "latencyMs": {
+    "p50": 161,
+    "p95": 286,
+    "deadline": 3000
+  },
+  "errors": {}
+}
