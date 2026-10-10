@@ -822,7 +822,8 @@ function paneActions($, router, view) {
           .then(() => true)
           .catch(() => false);
       const clearSavings = async () => {
-        // Written first, so a session still holding its record from before the reset drops it.
+        // Written first, so a session still holding its record from before the reset drops it, unless that record's
+        // first reply has the reset's millisecond or the clock moved back across the reset.
         await $.store.set(SAVINGS_RESET_KEY, Date.now());
         const keys = (await $.store.keys()).filter((key) => key.startsWith(SAVINGS_PREFIX));
         await Promise.all(keys.map((key) => $.store.delete(key)));
