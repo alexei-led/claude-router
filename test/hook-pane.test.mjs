@@ -185,6 +185,44 @@ test('a tuning save writes only the changed value and keeps edits made on disk',
   });
 });
 
+test('the activity threshold is a policy draft: Save writes only a difference from the default, and Undo', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key' });
+  const LOW = { micro: 0, low: 0.95, medium: 0.05, high: 0, uncertain: 0 };
+  h.http(async () => ({
+    ok: true,
+    status: 200,
+    headers: {},
+    text: JSON.stringify(jevResponse('low', LOW, 0, { code: 0.79, ops: 0.21 })),
+  }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await press(h, 'tab-routing');
+  const threshold = controls(await h.render()).find((c) => c.key === 'activityMass');
+  assert.deepEqual(
+    threshold.options.map((o) => o.label),
+    ['50%', '60%', '70%', '80%'],
+  );
+  assert.equal(threshold.value, '0.6');
+  await press(h, 'activityMass', '0.8');
+  assert.equal(h.files.get(CONFIG), undefined);
+  const lines = texts(await h.render());
+  const at = lines.indexOf('router.json changes:');
+  assert.deepEqual(lines.slice(at + 1, at + 3), [
+    '- policy.activityMass            60%',
+    '+ policy.activityMass            80%',
+  ]);
+  await press(h, 'save-routing');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { policy: { activityMass: 0.8 } });
+  // A code reading of 79% clears the upgrade bar but not the new threshold: the tier route runs, not the code override.
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  await drain(h.step(step));
+  assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-haiku-5-5', 'high']);
+  await press(h, 'activityMass', '0.6');
+  await press(h, 'save-routing');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+  await press(h, 'undo');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { policy: { activityMass: 0.8 } });
+});
+
 test('one routing save writes routes and policy together and keeps edits made on disk', async () => {
   const h = harness();
   await start(h);
