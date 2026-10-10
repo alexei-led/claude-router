@@ -18,16 +18,23 @@ export function readProbeResults(dir = RESULTS) {
     .map((file) => JSON.parse(readFileSync(new URL(file, dir), 'utf8')));
 }
 
-// A run that got no answer, or no latency to report, says nothing about the classifier: a revoked key or a dead
-// network. It must not replace a good result.
-export const isUsableProbe = (r) => r.answered > 0 && Number.isFinite(r.latencyMs?.p95);
+// Answers that named an activity or `uncertain`. A failed request and a missing or malformed activity answer both
+// count under `none`.
+const activityAnswers = (r) =>
+  Object.values(r.confusion ?? {})
+    .flatMap((row) => Object.entries(row))
+    .reduce((sum, [answer, n]) => sum + (answer === 'none' ? 0 : n), 0);
+
+// A run without a single activity answer, or without latency to report, says nothing about the classifier: a revoked
+// key, a dead network, or a model that drops the activity question. It must not replace a good result.
+export const isUsableProbe = (r) => activityAnswers(r) > 0 && Number.isFinite(r.latencyMs?.p95);
 
 // The module text for `results`: per classifier the model probed, correct answers, probes, p95 latency in ms and the
 // UTC date of the run. JSON keeps any id or model text a valid literal; Biome skips the file, so the text stays what
 // this writes.
 export function probeModule(results) {
   const rows = results.map((r) => {
-    if (!isUsableProbe(r)) throw new Error(`${r.classifier}: the probe run has no answer or no p95 latency`);
+    if (!isUsableProbe(r)) throw new Error(`${r.classifier}: the probe run has no activity answer or no p95 latency`);
     const correct = Math.round(r.accuracy * r.probes);
     const date = r.date.slice(0, 10);
     return [r.classifier, { model: r.model, correct, probes: r.probes, p95Ms: r.latencyMs.p95, date }];

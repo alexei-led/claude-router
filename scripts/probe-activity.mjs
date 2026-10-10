@@ -89,7 +89,7 @@ const result = {
   errors,
 };
 if (!isUsableProbe(result)) {
-  console.error(`\n${id}: no usable answer, nothing written. Errors: ${JSON.stringify(errors)}`);
+  console.error(`\n${id}: no activity answer, nothing written. Errors: ${JSON.stringify(errors)}`);
   process.exit(1);
 }
 const dir = fileURLToPath(new URL('../experiments/mod-router/results/', import.meta.url));
