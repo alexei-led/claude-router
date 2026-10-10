@@ -98,10 +98,35 @@ declare module 'claude-code' {
     >;
     activityRouting?: RouterActivityMode;
   }
+  // Routing vs your model at configured list prices, in USD: routed replies, the same tokens on your model, and the
+  // difference's parts (cheaper models, stronger than yours, cache writes from switches), which sum to it.
+  interface RouterSavingsSums {
+    replies: number;
+    routedUsd: number;
+    yoursUsd: number;
+    cheaperUsd: number;
+    strongerUsd: number;
+    switchUsd: number;
+  }
+  // A session's totals; per tier ('none': not chosen by routing) its replies and their routed cost, and replies by the
+  // stronger model they ran on.
+  interface RouterSavingsSession extends RouterSavingsSums {
+    tiers: Partial<Record<RouterTier | 'none', number>>;
+    tierUsd: Partial<Record<RouterTier | 'none', number>>;
+    stronger: Record<string, number>;
+  }
+  // Totals kept across sessions, one per session under store key 'savings:v1:<session id>' or their sum in the view,
+  // since the first reply after the last reset (ms).
+  interface RouterSavingsStore extends RouterSavingsSums {
+    version: 1;
+    since: number | null;
+  }
   interface RouterView {
     phase: 'ready' | 'choosing' | 'routed' | 'manual' | 'unavailable';
     mode: 'auto' | 'manual';
     nativeModel: string;
+    // The effort Claude Code sent on the turn's first request, before routing.
+    nativeEffort?: string | number | null;
     activeTurnId?: string | null;
     selectedModel?: string | null;
     actualModel?: string | null;
@@ -136,6 +161,8 @@ declare module 'claude-code' {
     activityStats?: RouterActivitySession | null;
     // The counts kept across sessions as last read or written.
     activityStore?: RouterActivityStore | null;
+    savings?: RouterSavingsSession | null;
+    savingsStore?: RouterSavingsStore | null;
     configPath?: string | null;
     tuning?: Partial<RouterTuning> | null;
     tuningBase?: RouterTuning | null;
@@ -189,6 +216,9 @@ declare module 'claude-code' {
       requestedPin: RouterTier | null;
     } | null;
     ineligible: string[];
+    // Your model's simulated cache for routing vs your model: the last prompt's tokens, when, whether that reply ran
+    // on your route, and the model and effort it was kept for. Null at the start and after a compaction.
+    yours?: { total: number; at: number; onYours: boolean; model: string; effort: string | null } | null;
     engineModel?: string;
     suspended?: boolean;
   }

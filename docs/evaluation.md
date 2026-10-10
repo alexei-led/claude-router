@@ -1,6 +1,6 @@
 # Evaluation
 
-The native Mod has no measured savings result. The pane reports Claude's own usage and configured-price scenarios. It does not maintain a counterfactual bill or a cumulative savings total.
+The native Mod has no measured savings result. The pane reports Claude's own usage and configured-price scenarios. Its one counterfactual is [routing vs your model](#routing-vs-your-model), an estimate at configured list prices, not a bill or a measured saving.
 
 This page separates an older gateway experiment from a shadow replay of native policy. Neither result measures answer quality or proves lower real spend. [Activity routing](#activity-routing) adds two checks of the activity label, with no savings result either.
 
@@ -107,6 +107,32 @@ Five probe results are checked in, all run on 2026-10-10 with the synthetic set 
 | Ollama     | 66 of 70 |     2986 ms |     3483 ms | [`activity-probe-ollama.json`](../experiments/mod-router/results/activity-probe-ollama.json)         |
 
 Ollama's latency covers both requests and stays inside its 5000 ms deadline; on slower hardware the activity step is skipped when less than 300 ms remain. They measure the label on synthetic prompts, not routing quality or savings. The activity question costs little time: 30 alternating pairs of the same prompts, with and without it, gave Jev p50 259 ms both ways and p95 300 ms without, 306 ms with; OpenAI p50 163 ms and 162 ms, p95 296 ms and 349 ms. OpenAI's first request of a run took about 2.3 s of its 3000 ms deadline. The pane shows no probe accuracy. `policy.activityMass` was not tuned on any classifier; run the probe before you trust it with a new one.
+
+## Routing vs your model
+
+The Usage tab compares what routed replies cost with what the same tokens would cost on your model, the session's model and effort before routing. It answers "at list prices, did routing spend more or less than my own model for this work". It does not answer whether the answers were as good.
+
+Method, per main reply that routing chose:
+
+- **Routed** prices the usage Claude reported (uncached input, cache read, cache write, output) on the model that served it.
+- **Yours** prices the same tokens on your model. While this reply and the one before it ran on your route, it is the reply's own usage, so a session on your model differs by exactly $0.00. Otherwise your model keeps one cache that never switched: it reads the previous prompt, up to this one less its uncached input, inside the cache lifetime, unless a compaction shrank the history or your model or effort changed since, and never less than the API actually read; it writes the rest. Output tokens are the same.
+- **Parts**: the served model on your cache against yours is the model price, under cheaper models when negative and stronger than yours when positive; routed against the served model on your cache is the cache the switches cost, never negative. They sum to the difference. The pane rounds to cents and gives the remainder only to a part that is not zero: a surplus to the switch part, else the stronger part, else the cheaper part toward $0.00; a shortfall comes off the stronger part, down to $0.00, then the cheaper part. The shown parts add up, none changes sign, and none appears from rounding alone.
+- **Prices**: `router.json` list prices through `ratesAt`, so Haiku 5.5 above 100,000 prompt tokens is priced at 5x. Claude Code reports no 5m/1h split to a Mod, so cache writes use the lifetime Claude Code 2.1.296 gives the main conversation by its own rule: one hour on a Claude plan unless an environment variable or the `promptCacheTtl` setting says otherwise, five minutes with an API key.
+
+Checks:
+
+- Unit tests (`test/savings.test.mjs`) cover a session that saves, one that costs more with Haiku as your model, equal routes at exactly 0, cache expiry at 5m and 1h, a compaction, a change of your model or effort, the 100K surcharge, an unpriced model, and a corrupted store. `test/hook-routing.test.mjs` covers two sessions finishing turns at the same moment.
+- A one-off replay, not checked in, of this machine's main-conversation transcripts from 2026-10-01 to 2026-10-10 (nine sessions with 10 or more replies) gave $0.00 for every session that ran only on the model it was compared with: three on Opus 5.5, one on Haiku 5.5. Every main-conversation cache write in them was a one-hour write, which is what the lifetime rule gives on this Max plan.
+- A live Claude Code 2.1.296 session on 2026-10-10, Opus 5.5 at `high` with turns pinned to Haiku 5.5, showed **Routed replies $0.48** beside **Cost $0.480 reported by Claude** for the same 16 replies; its last Haiku reply had a 114K-token prompt, which agrees only at the 5x rate. A Haiku 5.5 session with a pinned Opus turn showed $0.45 routed against $0.446 reported.
+
+Limits:
+
+- Output length is held the same. A stronger model may write less, or finish in fewer tool steps; a cheaper one may need more. The readout cannot see either.
+- Answer quality is not measured. A saving bought with worse answers would read the same.
+- Your model's cache is simulated, and a five-minute session that the lifetime rule takes for one hour (a plan subscriber billed as overage) would read too much cache on your side.
+- A route that changes only the effort costs the same per token; it shows only its cache writes.
+- Subagents, classifier charges and replies with routing off are not counted. On a Claude plan the dollars stand for quota, not cash.
+- The saved column keeps one record per session, so sessions finishing turns at the same moment both count. Claude Code's store has no atomic update, which leaves these gaps: the same session open in two Claude Code processes at once can lose one's turn; a turn finishing in another process during **Reset stats** can be lost; a session's total from before a reset comes back if its first saved reply has the same millisecond as the reset, or if the system clock moved back across the reset; and the activity counts across sessions are still one shared record, where two sessions finishing turns at the same moment can lose one turn's counts. The router reads every session's record at session start and when the pane opens, so that read grows with the number of sessions since the last reset.
 
 ## Historical method and limits
 
