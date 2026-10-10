@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { buildActivityRequest, buildRequest, parseActivityAnswer, parseAnswers } from '../lib/classifier-apis.mjs';
 import { resolveCredentials } from '../lib/classifier-contract.mjs';
 import { ACTIVITY_VALUES, loadConfig } from '../lib/config.mjs';
-import { writeProbeModule } from './probe-results.mjs';
+import { isUsableProbe, writeProbeModule } from './probe-results.mjs';
 
 if (existsSync('.env')) process.loadEnvFile('.env');
 const profile = join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'router.json');
@@ -88,6 +88,10 @@ const result = {
   latencyMs: { p50: percentile(latencies, 0.5), p95: percentile(latencies, 0.95), deadline: entry.timeoutMs },
   errors,
 };
+if (!isUsableProbe(result)) {
+  console.error(`\n${id}: no usable answer, nothing written. Errors: ${JSON.stringify(errors)}`);
+  process.exit(1);
+}
 const dir = fileURLToPath(new URL('../experiments/mod-router/results/', import.meta.url));
 mkdirSync(dir, { recursive: true });
 const out = join(dir, `activity-probe-${id}.json`);

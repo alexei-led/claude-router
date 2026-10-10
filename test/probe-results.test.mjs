@@ -5,7 +5,7 @@ import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { probeText } from '../lib/display.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { PROBE_RESULTS } from '../lib/probe-results.mjs';
-import { probeModule, readProbeResults } from '../scripts/probe-results.mjs';
+import { isUsableProbe, probeModule, readProbeResults } from '../scripts/probe-results.mjs';
 import { ELEMENTS, texts } from './harness.mjs';
 
 test('lib/probe-results.mjs is what the script writes from the checked-in probe results', () => {
@@ -24,6 +24,42 @@ test('lib/probe-results.mjs is what the script writes from the checked-in probe 
       r.classifier,
     );
   assert.equal(Object.keys(PROBE_RESULTS).length, results.length);
+});
+
+const probe = (extra = {}) => ({
+  classifier: 'mine',
+  model: 'm',
+  date: '2026-10-10T12:00:00.000Z',
+  probes: 70,
+  answered: 70,
+  accuracy: 1,
+  latencyMs: { p50: 200, p95: 300, deadline: 1000 },
+  ...extra,
+});
+
+test('the module keeps any id and model text as data, however long or quoted', async () => {
+  const results = [
+    probe({ classifier: "o'brien", model: "o'brien-7b" }),
+    probe({ classifier: 'long-tag', model: `hf.co/${'x'.repeat(40)}/model-GGUF:Q4_K_M` }),
+    probe({ classifier: 'quote"and\\back', model: '</script>\u2028' }),
+  ];
+  const text = probeModule(results);
+  const { PROBE_RESULTS: loaded } = await import(`data:text/javascript,${encodeURIComponent(text)}`);
+  assert.deepEqual(
+    Object.entries(loaded).map(([id, row]) => [id, row.model]),
+    results.map((r) => [r.classifier, r.model]),
+  );
+});
+
+test('a run without a single answer or a p95 is refused, and never reaches the module', () => {
+  for (const [name, result, usable] of [
+    ['answered', probe(), true],
+    ['no answer', probe({ answered: 0, accuracy: 0, latencyMs: { p50: null, p95: null, deadline: 1000 } }), false],
+    ['no p95', probe({ latencyMs: { p50: 200, p95: null, deadline: 1000 } }), false],
+  ]) {
+    assert.equal(isUsableProbe(result), usable, name);
+    if (!usable) assert.throws(() => probeModule([result]), /mine/, name);
+  }
 });
 
 test('a classifier shows its probe only for the model that was probed', () => {

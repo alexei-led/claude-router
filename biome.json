@@ -3,6 +3,7 @@
   "files": {
     "includes": [
       "lib/**/*.mjs",
+      "!lib/probe-results.mjs",
       "scripts/**/*.mjs",
       "test/**/*.mjs",
       "test/**/*.ts",
