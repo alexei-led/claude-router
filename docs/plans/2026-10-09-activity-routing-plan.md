@@ -8,7 +8,22 @@ The router picks a tier for each logical turn: how hard the work is. This plan a
 what kind of work the turn does. A route is then chosen by tier *and* activity, so a `low` coding turn can run on
 Sonnet while a `low` git turn runs on Haiku.
 
-## 0. Changes since v0.2
+## 0. Changes since v0.3
+
+v0.4 checks the plan against 1.7.0 and closes or records the gaps.
+
+| Area | v0.3 | v0.4 | Why |
+| --- | --- | --- | --- |
+| Now tab Why (§7.3) | example only | an activity move, or a stay on an override cell, names the cell: `code at low runs on Sonnet 5.5 · high`; refusals, holds and tier moves keep their reason | The reason text alone did not say why the route is not the tier's base |
+| Mode selector (§7.4) | top of OVERRIDES | top of ACTIVITIES | **Deliberate.** The mode decides whether the matrix below it runs, so it leads the matrix |
+| Usage ACTIVITY (§7.5, §8.2) | turns, requests, share, mostly on | adds `est. cost`, the list price of each activity's replies (the routed cost of Routing vs your model), and `mostly on`; a narrow pane drops them first | Cost per activity is what the overrides change |
+| Switches `est. writes` (§7.5) | on the Switches line | not shown there | **Deliberate.** Routing vs your model's `cache writes from switches` line already prices the writes; a second figure would disagree in scope |
+| Observed buckets (§8.1) | Read, Grep, Glob, WebFetch, WebSearch are `read` | every other non-edit tool too: Task (subagents), TodoWrite, MCP tools | **Deliberate.** A subagent's edits never reach the main transcript, so `code` agreement is understated for delegated work |
+| Lateral counts (§8.2) | inferred from `activity-pending` | the decision carries `lateral: taken \| refused \| null`; refusals by a hold or the cash gate count | A reason string shared with tier decisions hid them |
+| Probe in the pane (§8.3) | "when one is checked in" | `lib/probe-results.mjs`, generated from the result files (`npm run probe:results`) | `experiments/` is not shipped |
+| §11 tracked metrics | tracked by hand | Usage tab ACROSS SESSIONS: classifier p95 latency (bounded histogram) and escalations after a cheaper activity move | Visible without a replay |
+
+## 0.1 Changes since v0.2
 
 v0.3 checks v0.2 against the 1.5.1 code and fixes the release shape.
 
@@ -21,7 +36,7 @@ v0.3 checks v0.2 against the 1.5.1 code and fixes the release shape.
 | Classifier criteria | — | the classifier keeps seeing the **base** route per tier (`classifier-apis.mjs` sends `route` in the criteria) | The tier question is about difficulty; overrides are the router's business |
 | Rollback | `activities`, `activityRouting` | also `policy.activityMass`: 1.5 closes the `policy` keys too | Verified in `checkShape` |
 
-## 0.1 Changes since v0.1
+## 0.2 Changes since v0.1
 
 v0.1 was the chat draft (`kinds`, six types, one switching rule). This version reviews it against the code.
 
@@ -293,14 +308,16 @@ of several requests each. Not calibrated for 1.7.0; calibrate from §8 stats.
 ### 7.3 Now tab
 
 ```
-Now        ▌low  Sonnet 5.5 · medium
+Now        ▌low  Sonnet 5.5 · high
 Activity   code 81%   ops 9% · explore 6%
-Why        code at low runs on Sonnet 5.5
-Route      low + code → Sonnet 5.5 · medium   (override)        base: Haiku 5.5 · high
+Why        code at low runs on Sonnet 5.5 · high
+Route      low + code → Sonnet 5.5 · high   (override)   base: Haiku 5.5 · high
 ```
 
-The tier ladder and its support bars stay. In `shadow`, the Route line reads
-`low + code would use Sonnet 5.5 · medium (shadow; using Haiku 5.5 · high)`. A cell without an override reads
+The tier ladder and its support bars stay. In `on`, Why names the cell for an activity move or a stay on an override
+cell; a move back to the base route reads `low runs on its base route, Haiku 5.5 · high`. A refused move, a hold and a
+tier move keep their reason. In `shadow`, the Route line reads
+`low + code would use Sonnet 5.5 · high (shadow; using Haiku 5.5 · high)`. A cell without an override reads
 `low + ops → Haiku 5.5 · high (base)`.
 
 ### 7.4 Routing tab
@@ -310,16 +327,21 @@ Keep the ROUTES table. Add two sections under it.
 **ACTIVITIES**: a read-only matrix of the effective routes, `·` where a cell inherits:
 
 ```
-ACTIVITIES · routing on                  micro    low      medium   high
-  base                                   H·med    H·high   O·med    O·xh
-  code debug plan review                 ·        S·med    ·        ·
-  docs                                   ·        S·med    S·med    ·
-  ops explore                            ·        ·        S·med    ·
+ACTIVITIES · applies next turn · edit, then Save
+Activity routing: on      an override runs when the activity has one
+                                micro    low      medium   high
+  base                          H·med    H·high   O·med    O·xh
+  code debug plan review        ·        S·high   ·        ·
+  explore docs                  ·        ·        ·        ·
+  ops                           ·        ·        H·high   ·
   5 distinct routes = 5 caches
 ```
 
+The mode Select (`off · shadow · on`) sits at the top of ACTIVITIES, not OVERRIDES: it decides whether the matrix
+runs.
+
 **OVERRIDES**: one row per override with model and effort Selects and a remove button, plus one add row (activity,
-tier, model, effort). The mode Select (`off · shadow · on`) sits at the top of the section.
+tier, model, effort).
 
 All of it joins the existing routing draft: **Save**, **Discard**, the `router.json` diff in the status bar, and
 **Undo**. Warnings, in yellow:
@@ -331,15 +353,20 @@ All of it joins the existing routing draft: **Save**, **Discard**, the `router.j
 ### 7.5 Usage tab and replies
 
 ```
-ACTIVITY · this session        turns  requests  share   mostly on
-  code     ████████░░             12        71    48%   Sonnet 5.5 · medium
-  explore  ███░░░░░░░              5        22    20%   Haiku 5.5 · high
-  ops      ██░░░░░░░░              4         9    16%   Haiku 5.5 · high
+ACTIVITY · this session   activity routing on
+                       turns  requests  share  est. cost   mostly on
+  code     ██████░░░░     12        71    63%      $4.21   Sonnet 5.5 · high
+  ops      ██░░░░░░░░      4         9    21%      $0.31   Haiku 5.5 · high
   …
-Switches   9 · 4 by tier · 5 by activity · est. writes $0.21
+Switches   9 · 4 by tier · 5 by activity · 2 refused
 Agreement  classifier vs tools: 19 of 22 turns (86%)
-Shadow     would route 5 turns differently · est. −$0.30 … −$0.12 at list prices
+Shadow     on would route 5 of 20 turns differently · est. −$0.300 … −$0.120 at list prices
 ```
+
+- `est. cost` is the list price of the activity's replies, the routed cost Routing vs your model computes; `mostly on`
+  is the route most of them went out with. A narrow pane drops `mostly on`, then `est. cost`.
+- The Switches line names no cache-write estimate: Routing vs your model's `cache writes from switches` line prices
+  them (deliberate, v0.4).
 
 - REPLIES on the Now tab gets a second row: one letter per reply under its tier block
   (`c c e e o c d`), with a legend.
@@ -357,8 +384,11 @@ At `turn.complete`, a pure function in `facts.mjs` labels the finished turn from
 | `code` | An edit tool on a non-doc path |
 | `docs` | Edits only to `*.md`, `*.mdx`, `*.rst`, `*.txt`, `docs/**` |
 | `ops` | Bash and no edits: git, gh, build, test runners, docker, kubectl, terraform, deploy scripts |
-| `read` | Only Read, Grep, Glob, WebFetch, WebSearch |
+| `read` | Any other tool and no edits or commands: Read, Grep, Glob, WebFetch, WebSearch, and also Task (subagents), TodoWrite, MCP tools |
 | `talk` | No tools |
+
+Deliberate (v0.4): a subagent's edits never reach the main transcript, so a turn that delegates its coding reads as
+`read`, and `code` agreement is understated for delegated work.
 
 Predicted activities map to the buckets they allow:
 
@@ -381,8 +411,10 @@ a coding turn. No text is stored, only the bucket.
 - **Across sessions**: one `$.store` key, `activity:stats:v1`, holding counts only:
   - a predicted × observed confusion matrix;
   - run lengths per activity;
-  - lateral switches taken and refused;
-  - shadow would-route counts.
+  - lateral switches taken and refused, read from the decision's `lateral` field, so a hold or the cash gate counts;
+  - shadow would-route counts;
+  - classifier latency per classifier id, a 22-bucket histogram for at most 8 ids;
+  - cheaper activity moves taken in `on`, and the escalations that followed one before any other route change.
 
   It is bounded in size and has a **Reset** button in the Usage tab.
 
@@ -398,8 +430,9 @@ cases:
 
 `scripts/probe-activity.mjs`, like `probe-classifier.mjs`, sends them to one classifier and writes accuracy, a
 confusion matrix, and p50/p95 latency to `experiments/mod-router/results/activity-probe-<classifier>.json`. It needs
-the keys and is run by hand, not in CI. The Classifier tab shows the last probe result per classifier when one is
-checked in.
+the keys and is run by hand, not in CI. It then regenerates `lib/probe-results.mjs` (also `npm run probe:results`),
+since `experiments/` is not shipped; the Classifier tab shows the last result under each classifier row probed on its
+configured model, `activity probe 70/70 · p95 299 ms · Oct 10`.
 
 ## 9. Implementation
 
@@ -469,8 +502,10 @@ activity and stats, UI; then the hook wiring and docs.
 | 1–2 | 1.6.0 | `shadow`; `on` opt-in | Gate green; live sessions in `shadow` and `on` show the activity, the would-route readout and a lateral switch without a rejected request |
 | 3 | 1.7.0 | `on` by default, the §3.1 matrix | Shipped on vendor benchmarks and a list-price replay of one developer's sessions, not on two weeks of shadow data. Probe accuracy: Jev and OpenAI 70 of 70, Clef and Clef Flash 69, Ollama 66 (`docs/evaluation.md`); Jev p95 latency 299 ms with the activity question. The shadow criteria below are still tracked in the Usage tab |
 
-Still tracked after 1.7.0: tool agreement ≥ 80% on `code` vs `ops`/`explore`; p95 Jev latency up by ≤ 150 ms; no
-rise in tool-error escalations after activity downgrades. If they fail, a patch release sets `activityRouting` to
+Still tracked after 1.7.0, in the Usage tab's ACROSS SESSIONS block: tool agreement ≥ 80% on `code` vs
+`ops`/`explore` (**Code/ops/explore**); p95 Jev latency up by ≤ 150 ms (**Latency**, a bucket bound such as `≤ 350 ms`);
+no rise in tool-error escalations after activity downgrades (**Escalations**, `after a cheaper activity move: 1 in 12
+moves`). If they fail, a patch release sets `activityRouting` to
 `shadow` or `off` by default; a user can do the same with `/router activities shadow|off`.
 
 ## 12. Risks and open questions
