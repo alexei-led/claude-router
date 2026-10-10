@@ -14,8 +14,8 @@ test('the price fixture names its source and the date it was checked', () => {
 
 for (const [alias, model] of Object.entries(DEFAULTS.models)) {
   test(`default prices of ${alias} match the checked fixture, so a price edit needs a new source and date`, () => {
-    const { input, output, cacheRead } = model;
-    assert.deepEqual({ input, output, cacheRead }, fixture.models[model.id]);
+    const { input, output, cacheRead, longContext } = model;
+    assert.deepEqual({ input, output, cacheRead, ...(longContext ? { longContext } : {}) }, fixture.models[model.id]);
   });
 }
 

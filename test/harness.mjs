@@ -21,7 +21,7 @@ export function harness(options = {}, preferences = new Map()) {
   const files = new Map();
   const links = new Set();
   let model = 'claude-haiku-5-5';
-  let usage = { context: { tokens: 8000, breakdown: { totalTokens: 9000 } } };
+  let usage = { startedAt: 0, context: { tokens: 8000, breakdown: { totalTokens: 9000 } }, rateLimits: [] };
   let draft = '';
   let commandCalls = 0;
   let surfaces = ['terminal'];
@@ -39,7 +39,12 @@ export function harness(options = {}, preferences = new Map()) {
   const $ = {
     plugin: { name: 'router', root: '/fixture/plugin' },
     env: { get: async (key) => env.get(key), set: async (key, value) => env.set(key, value) },
-    store: { get: async (key) => preferences.get(key), set: async (key, value) => preferences.set(key, value) },
+    store: {
+      get: async (key) => preferences.get(key),
+      set: async (key, value) => preferences.set(key, value),
+      delete: async (key) => preferences.delete(key),
+      keys: async () => [...preferences.keys()],
+    },
     state: {
       get: async (ref) => {
         const key = keyOf(ref);
@@ -167,11 +172,11 @@ export function harness(options = {}, preferences = new Map()) {
       snapshot = new Map();
       return handler(name, input)($, input, next);
     },
-    render: async () => {
+    render: async (props = PANE) => {
       snapshot = new Map();
       return handler('ui.render', { component: 'Pane' })(
         $,
-        { component: 'Pane', requestId: 'jev-router' },
+        { component: 'Pane', requestId: 'jev-router', props },
         async () => null,
       );
     },
@@ -256,6 +261,33 @@ export function texts(tree) {
   return out;
 }
 
+// The tree as the lines a terminal shows, trailing spaces trimmed: Text and Button as their words, a row Box side by
+// side, a column Box stacked, a `width` padded. Hidden boxes (`display: none`) are left out.
+export function screen(tree) {
+  const width = (line) => [...line].length;
+  function lay(node) {
+    if (!node) return [];
+    const { type, props } = node;
+    if (type === 'Text') return [String(props.children ?? '')];
+    if (type === 'Button') return [props.plain ? props.label : `[ ${props.label} ]`];
+    if (type === 'Select') return [`${props.label ? `${props.label}: ` : ''}${props.value} ▾`];
+    if (props.display === 'none') return [];
+    const children = (Array.isArray(props.children) ? props.children : [props.children]).filter(Boolean);
+    let lines;
+    if (props.flexDirection === 'column') lines = children.flatMap(lay);
+    else {
+      const blocks = children.map(lay).filter((block) => block.length);
+      lines = Array.from({ length: Math.max(1, ...blocks.map((block) => block.length)) }, () => '');
+      for (const block of blocks) {
+        const w = Math.max(0, ...block.map(width));
+        lines = lines.map((line, i) => line + (block[i] ?? '').padEnd(w));
+      }
+    }
+    return props.width ? lines.map((line) => line.padEnd(props.width)) : lines;
+  }
+  return lay(tree).map((line) => line.trimEnd());
+}
+
 export function controls(tree) {
   const nodes = [];
   function walk(node) {
@@ -277,6 +309,7 @@ export const substituted = {
   },
 };
 
+const PANE = { title: 'Router', isFocused: true, bodyColumns: 100, placement: 'dock' };
 const BAND = { hasSurvey: false, isWorking: false, maxRows: 8, bodyColumns: 120, view: {} };
 
 export const band = async (h, props = {}) => {

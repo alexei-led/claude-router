@@ -617,7 +617,7 @@ test('a pending activity edit survives another pane write and saves later', asyn
   });
 });
 
-test('Reset activity stats clears the session counts and the saved ones', async () => {
+test('Reset stats clears activity and routing vs your model, the session counts and the saved ones', async () => {
   const h = harness({ typesafe_api_key: 'synthetic-key' });
   h.files.set(CONFIG, JSON.stringify({ activityRouting: 'shadow' }));
   h.http(async () => ({
@@ -634,12 +634,22 @@ test('Reset activity stats clears the session counts and the saved ones', async 
   assert.equal(h.view().activityStats.byActivity.code.turns, 1);
   assert.equal(h.preferences.get('activity:stats:v1').shadow.turns, 1);
   assert.equal(h.view().activityStore.shadow.turns, 1);
+  assert.equal(h.view().savings.replies, 1);
+  assert.equal(h.preferences.get('savings:v1:s1').replies, 1);
+  h.preferences.set('savings:v1:s0', h.preferences.get('savings:v1:s1'));
   await press(h, 'tab-usage');
-  await press(h, 'reset-activity-stats');
+  await press(h, 'reset-stats');
   assert.equal(h.view().activityStats, null);
+  assert.equal(h.view().savings, null);
   assert.deepEqual(h.view().activityStore, h.preferences.get('activity:stats:v1'));
+  assert.equal(h.view().savingsStore.replies, 0);
+  assert.deepEqual(
+    [...h.preferences.keys()].filter((key) => key.startsWith('savings:')),
+    ['savings:reset:v1'],
+  );
+  assert.ok(Number.isFinite(h.preferences.get('savings:reset:v1')));
   assert.ok(texts(await h.render()).includes('  no turns recorded yet'));
-  assert.equal(h.view().notice, 'Activity stats reset.');
+  assert.equal(h.view().notice, 'Stats reset: activity and routing vs your model, this session and saved.');
   assert.deepEqual(h.preferences.get('activity:stats:v1'), {
     version: 1,
     confusion: {},
@@ -668,7 +678,7 @@ test('opening the pane reloads the counts another session added', async () => {
   assert.ok(lines.includes('Code/ops/explore  classifier vs tools: 3 of 3 turns (100%)'));
 });
 
-test('Reset activity stats during a turn completion is not undone by that turn', async () => {
+test('Reset stats during a turn completion is not undone by that turn', async () => {
   const STORE = 'activity:stats:v1';
   const earlier = {
     version: 1,
@@ -705,10 +715,10 @@ test('Reset activity stats during a turn completion is not undone by that turn',
   const read = gate;
   gate = null;
   await press(h, 'tab-usage');
-  await press(h, 'reset-activity-stats');
+  await press(h, 'reset-stats');
   read.resolve(earlier);
   await completing;
-  assert.equal(h.view().notice, 'Activity stats reset.');
+  assert.equal(h.view().notice, 'Stats reset: activity and routing vs your model, this session and saved.');
   assert.deepEqual(h.preferences.get(STORE), {
     version: 1,
     confusion: {},
@@ -718,7 +728,7 @@ test('Reset activity stats during a turn completion is not undone by that turn',
   });
 });
 
-test('Reset activity stats while a turn writes its counts leaves the readout empty', async () => {
+test('Reset stats while a turn writes its counts leaves the readout empty', async () => {
   const STORE = 'activity:stats:v1';
   let gate = null;
   const preferences = new (class extends Map {
@@ -749,7 +759,7 @@ test('Reset activity stats while a turn writes its counts leaves the readout emp
   const write = gate;
   gate = null;
   await press(h, 'tab-usage');
-  await press(h, 'reset-activity-stats');
+  await press(h, 'reset-stats');
   write.resolve();
   await completing;
   assert.equal(h.preferences.get(STORE).lateral.taken, 0);

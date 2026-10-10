@@ -107,9 +107,8 @@ At 350,000 tokens of context, the typical size in that sample, at list prices:
   the defaults do not move `medium` or `high` work to Sonnet.
 
 The router does this sum for every move with the prices in `router.json`, and stays on the running route when a
-cheaper one would not pay back. The table uses Haiku's price above 100,000 tokens. `router.json` lists Haiku's price
-for prompts up to 100,000 tokens, so above that the router underestimates Haiku's cost and moves to it sooner than
-this table suggests.
+cheaper one would not pay back. Like the table, it prices Haiku at five times its list rates above 100,000 tokens
+(`models.haiku.longContext` in [Configuration](configuration.md)).
 
 ## Turn it off or back to shadow
 

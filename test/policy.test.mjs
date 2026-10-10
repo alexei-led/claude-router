@@ -119,7 +119,9 @@ test('a one-tier switch needs two consecutive votes with enough mass', () => {
 });
 
 test('before the first measured reply one vote moves up or down; the mass bars and the cash gate still apply', () => {
-  const haikuMetered = loadConfig({ userFile: { models: { haiku: { billing: 'credits', input: 10 } } } });
+  const haikuMetered = loadConfig({
+    userFile: { models: { haiku: { billing: 'credits', input: 10, longContext: null } } },
+  });
   const history = (historyMeasured, options) => ({ ...facts(options), historyMeasured });
   const up = advice('medium', { medium: 0.9, low: 0.1 });
   const down = advice('low', { low: 0.95, high: 0.05 });
@@ -178,7 +180,9 @@ test('the upgrade threshold rises with the switching tax', () => {
 });
 
 test('a cold metered model above the cash cap is gated, which only a user-billed model can trigger', () => {
-  const haikuMetered = loadConfig({ userFile: { models: { haiku: { billing: 'credits', input: 10 } } } });
+  const haikuMetered = loadConfig({
+    userFile: { models: { haiku: { billing: 'credits', input: 10, longContext: null } } },
+  });
   const upgrade = advice('high', { high: 0.97 });
   const downgrade = advice('low', { low: 0.99 });
   for (const [name, cfg, f, votes, tier] of [
@@ -241,13 +245,16 @@ test('an effort-only upgrade between one model at two efforts pays the tax of re
 });
 
 test('the default micro to low upgrade is effort-only on Haiku and pays its cache rewrite', () => {
-  const f = facts({ lastRoute: 'micro', tokens: 400_000, servedBy: 'claude-haiku-5-5', effort: 'medium' });
+  const at = (tokens) => facts({ lastRoute: 'micro', tokens, servedBy: 'claude-haiku-5-5', effort: 'medium' });
   const votes = [advice('low', { low: 0.8, micro: 0.2 }), advice('low', { low: 0.8, micro: 0.2 })];
-  const [, second] = runTurns(f, votes);
+  const [, second] = runTurns(at(90_000), votes);
   assert.deepEqual([second.tier, second.reason], ['low', 'upgrade']);
   assert.deepEqual(second.estimate.cache, { candidate: 'unknown', incumbent: 'fresh' });
   assert.ok(second.estimate.taxUsd > 0);
   assert.ok(second.estimate.threshold > config.policy.upgradeBase);
+  // Above 100K tokens Haiku 5.5 bills 5x, so the same rewrite costs enough to hold the upgrade.
+  const [, large] = runTurns(at(400_000), votes);
+  assert.deepEqual([large.tier, large.reason], ['micro', 'upgrade-pending']);
 });
 
 test('a downgrade to a candidate colder than the incumbent raises the bar by its cache write, as an upgrade tax does', () => {

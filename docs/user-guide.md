@@ -54,7 +54,7 @@ Read the first line of the picture from left to right:
 | `✕ Routing unavailable`                         | Nothing routes: an old Claude Code or leftover v0.8 settings. **Fix** opens the pane.                                 |
 | `○ Router · subagents keep their own model`     | You are viewing a subagent's transcript, which Router does not route.                                                 |
 
-The band shows one routing control at a time. While routing is on, hover over the band for a second row: pin a tier for the next turn, **Turn off** routing, or show two rows. While routing is off, **Turn on** sits on the first line next to `Routing off` and stays at any width: a narrow band drops the explanation and the model first. On a narrow band the hover row drops `routing on`, then **2 rows**, then `pin next turn`, then the pins; it keeps **Turn off**, and **1 row** when the band shows two. The hover row needs a pointer: from the keyboard, run `/router off`, or open the pane and press `f`. The two-row band adds a strip of recent replies colored by tier, the switch count, the switch tax, and the cache saving. Router remembers that choice across sessions. When Router changes the model between turns, a toast reads `Model changed: old → new · reason`. A pin does not raise one, and neither does a change of effort alone.
+The band shows one routing control at a time. While routing is on, hover over the band for a second row: pin a tier for the next turn, **Turn off** routing, or show two rows. While routing is off, **Turn on** sits on the first line next to `Routing off` and stays at any width: a narrow band drops the explanation and the model first. On a narrow band the hover row drops `routing on`, then **2 rows**, then `pin next turn`, then the pins; it keeps **Turn off**, and **1 row** when the band shows two. The hover row needs a pointer: from the keyboard, run `/router off`, or open the pane and press `f`. The two-row band adds a strip of recent replies colored by tier, the switch count, the switch tax, the cache saving and, from the tenth reply, the session against your model, such as `vs your model −22% (−$1.84, list prices)` or `vs your model +$2.48 (stronger models, list prices)`. It drops first when the row is short. Router remembers that choice across sessions. When Router changes the model between turns, a toast reads `Model changed: old → new · reason`. A pin does not raise one, and neither does a change of effort alone.
 
 The band steps aside while a survey needs the space.
 
@@ -77,7 +77,7 @@ The **Routing** tab edits the routes, the activity overrides, and the policy. In
 | 1 Now        | The current tier, model, activity, and reason; the classifier's support for each tier with a **pin** button; the last 30 replies by tier and activity; context and cache.             |
 | 2 Routing    | The model and effort for each tier, the baseline tier, the cache cost of each step up; the activity routing mode, matrix, and overrides; the policy controls; the `router.json` path. |
 | 3 Classifier | The classifier rows with their credentials state, the active classifier's deadline and health, and the credentials each classifier needs.                                             |
-| 4 Usage      | Claude-reported cost, context and cache detail, input per reply, quota, activity counts for this session and across sessions, and configured-price estimates.                         |
+| 4 Usage      | Routing vs your model; Claude-reported cost, context and cache detail, input per reply, quota, activity counts for this session and across sessions, and configured-price estimates.  |
 
 The top line of every tab, `ROUTING [ ◉ on ] [ ○ off ]`, shows the routing mode and switches it. Press `o` or `f` while the pane has focus. **?** shows what the estimates leave out. When routing is unavailable, the top line reads `ROUTING  unavailable  Claude’s model is kept` with the reason under it, and offers no on or off: see [Troubleshooting](#troubleshooting).
 
@@ -89,6 +89,25 @@ The two settings tabs follow one rule each, and the section captions say which:
 - **Classifier**: a row or a deadline is written to `router.json` when you select it.
 
 Every write applies from the next turn and can be undone. **Undo** (`u`) puts back the settings the last write changed, from any tab, and leaves any other edit to `router.json` alone. A new session clears it. Green notices confirm a write or an undo; a red one names why nothing was written.
+
+### Compare routing with your model
+
+![The Usage tab: routing vs your model, this session and since the last reset, with the difference split into its three parts, bars and replies by tier, then Claude's readings, activity counts and estimates](router-pane-usage.svg)
+
+**ROUTING VS YOUR MODEL** opens the Usage tab. Your model is the model and effort the session had before routing: the `--model` or `/model` choice and the session effort, shown in the heading. For every reply routing chose, it prices the tokens Claude reported on the model that served them, and the same tokens on your model, at the list prices in `router.json`.
+
+| Line                       | What it is                                                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Routed replies             | What the routed replies cost on the models that served them.                                                                                |
+| Same tokens on your model  | What the same input and output tokens cost on your model, with one cache that never switched.                                              |
+| Difference                 | Routed minus yours. Green with a percentage when routing cost less; amber with `+$` when it cost more, `×N` once it is twice yours or more. |
+| cheaper models             | The part from replies on models cheaper than yours.                                                                                         |
+| stronger than yours        | The part from replies on stronger models, with how many replies ran on them.                                                                |
+| cache writes from switches | The part from rewriting the prompt cache after model switches.                                                                              |
+
+The three parts add up to the difference. Two bars compare the costs, the routed one colored by the tier that spent it, and a line gives the share of replies per tier. In activity-routing `shadow`, one more line estimates what `on` would change in this session. The columns are this session and every session since the last reset; the saved column compares each session with its own model and effort, so it can add up several models. A column reads `too early` until it has 10 routed replies. With routing off or unavailable and no routed reply this session, the section says every reply used your model. In a narrow pane the bars go first, then the saved column.
+
+These are estimates, not a bill. They hold the tokens and the output length the same, although another model may write more or less, and they do not measure answer quality. On a Claude plan the dollars stand for quota. Your model's cache reads the previous prompt inside the cache lifetime Claude Code uses, one hour on a Claude plan, and never less than the API actually read. A route that changes only the effort, such as Opus at `xhigh` to Opus at `medium`, costs no less per token: it shows only its cache writes. [Evaluation](evaluation.md#routing-vs-your-model) explains the method.
 
 ### Understand usage and estimates
 
@@ -102,7 +121,7 @@ Every write applies from the next turn and can be undone. **Undo** (`u`) puts ba
 - **Next-turn difference** compares the candidate with the current model under five-minute and one-hour cache-write scenarios. A negative number means the candidate is estimated to cost less for that request.
 - **Payback** estimates later turns to recover an initial difference under assumed future cache reads and the last observed output size. It does not guarantee savings.
 
-There is no router-side spend or savings ledger. The pane does not include classifier charges. Claude's native `/cost` is the source for its reported API cost.
+The router keeps no bill. Routing vs your model is an estimate at configured list prices. The pane does not include classifier charges. Claude's native `/cost` is the source for its reported API cost.
 
 ## Route by activity
 
@@ -149,9 +168,9 @@ The band's activity label appears only when the activity applies, so a weak or `
 - **Routing**: **ACTIVITIES** starts with the **Activity routing** selector (`off`, `shadow`, `on`) and what the mode does. The matrix under it shows the effective routes per tier, with `·` where a cell uses the base route, and counts the distinct routes, because the router counts each as its own cache. Routes are abbreviated, such as `S·high` for Sonnet · high, and activities with the same cells share a row. **OVERRIDES** says whether the overrides are in use, then lists each override with a model, an effort, and **remove**, plus a selector to add one. **Activity threshold** under **POLICY** is the least probability at which an activity applies. Edits join the routing draft: **Save** and **Discard** apply as for routes. Yellow notes flag an override with no effect (`same as base`), one stronger than the tier above, and the only cell or tier on its (model, effort) pair, which adds a cache.
 - **Usage**: **ACTIVITY · this session** lists turns, requests, and share per activity, the switches split by tier and by activity, and **Agreement**, how often the tools a turn used fit the classifier's activity (see [Evaluation](evaluation.md#tool-agreement)). In `shadow` the **Shadow** line counts how many turns `on` would have routed differently, such as `on would route 5 of 20 turns differently · est. −$0.300 … −$0.120 at list prices`. The estimate sums, over those turns, what the next request on the route `on` would use would cost against the route that ran, as a low and a high scenario at the configured list prices in `router.json`. Minus means cheaper. It covers only turns after a measured reply, and adds `for 3` when only three of the turns have one. It is not a measured saving.
 
-**ACROSS SESSIONS · since the last reset** shows the counts kept across sessions: the turns labelled from their tools, **Agreement** over them, **Code/ops/explore**, the same agreement over the turns the classifier answered `code`, `ops` or `explore` (omitted when there are none), the two most frequent mismatches as `predicted → observed count` (`code → read 3`), **Activity moves**, the moves to another route inside a tier, taken and refused, and the **Shadow** line summed over all shadow turns. This agreement compares the classifier's raw answer, so it can differ from the session's. The pane reads these counts when the session starts and when it opens, and after each turn. **Reset activity stats** clears the session counts and the counts kept across sessions.
+**ACROSS SESSIONS · since the last reset** shows the counts kept across sessions: the turns labelled from their tools, **Agreement** over them, **Code/ops/explore**, the same agreement over the turns the classifier answered `code`, `ops` or `explore` (omitted when there are none), the two most frequent mismatches as `predicted → observed count` (`code → read 3`), **Activity moves**, the moves to another route inside a tier, taken and refused, and the **Shadow** line summed over all shadow turns. This agreement compares the classifier's raw answer, so it can differ from the session's. The pane reads these counts when the session starts and when it opens, and after each turn. **Reset stats** clears the activity counts and routing vs your model, for this session and across sessions.
 
-`/router` without a UI surface adds an `Activity: ops (81%)` line, the resolved route, and `Agreement across sessions: 19 of 22 turns (86%) · code/ops/explore 9 of 10 (90%)`.
+`/router` without a UI surface adds an `Activity: ops (81%)` line, the resolved route, and `Agreement across sessions: 19 of 22 turns (86%) · code/ops/explore 9 of 10 (90%)`. It also prints the session against your model, such as `vs your model (Opus 5.5 · xhigh): −$1.84 (−22%) this session, 64 replies, est. at list prices`.
 
 ## Change routing
 
