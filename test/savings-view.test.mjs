@@ -54,6 +54,7 @@ const FOOTER = [
   '  API list prices · same tokens and output length · not a bill;',
   '  on a Claude plan it stands for quota · answer quality not measured',
 ];
+const SAVED_FOOTER = ['', '  since Oct 10: each session compared with its own model', ...FOOTER.slice(1)];
 
 const view = (props) => ({
   mode: 'auto',
@@ -83,7 +84,7 @@ test('the Usage tab opens with routing vs your model, each number on the line th
       [
         'ROUTING VS YOUR MODEL · Opus 5.5 · xhigh   this session   since Oct 10',
         '  Routed replies                           $6.40          $41.18',
-        '  Same tokens on Opus 5.5 · xhigh          $8.24          $52.60',
+        '  Same tokens on your model                $8.24          $52.60',
         '  Difference                               −$1.84 −22%    −$11.42 −22%',
         '    cheaper models                         −$2.31         −$14.90',
         '    stronger than yours                    $0.00          $0.00',
@@ -93,7 +94,7 @@ test('the Usage tab opens with routing vs your model, each number on the line th
         '  your model  ██████████████████████  $8.24',
         '  ■ micro 19%  ■ low 41%  ■ medium 27%  ■ high 14% of replies',
         '  if activity routing were on: est. −$0.42 … −$0.11 this session',
-        ...FOOTER,
+        ...SAVED_FOOTER,
       ],
     ],
     [
@@ -106,7 +107,7 @@ test('the Usage tab opens with routing vs your model, each number on the line th
       [
         'ROUTING VS YOUR MODEL · Haiku 5.5 · high   this session   since Oct 10',
         '  Routed replies                           $3.10          $12.74',
-        '  Same tokens on Haiku 5.5 · high          $0.62          $2.95',
+        '  Same tokens on your model                $0.62          $2.95',
         '  Difference                               +$2.48 ×5.0    +$9.79 ×4.3',
         '    cheaper models                         $0.00          $0.00',
         '    stronger than yours                    +$2.31         +$9.02',
@@ -118,7 +119,7 @@ test('the Usage tab opens with routing vs your model, each number on the line th
         '  ■ low 59%  ■ medium 29%  ■ high 12% of replies',
         '  Routing spent more than Haiku 5.5 alone because upper tiers ran on Opus 5.5.',
         '  To spend less, pick cheaper models for those tiers in the Routing tab.',
-        ...FOOTER,
+        ...SAVED_FOOTER,
       ],
     ],
     [
@@ -127,10 +128,10 @@ test('the Usage tab opens with routing vs your model, each number on the line th
       [
         'ROUTING VS YOUR MODEL · Opus 5.5 · xhigh   this session   since Oct 10',
         '  Routed replies                           $0.21          $41.18',
-        '  Same tokens on Opus 5.5 · xhigh          $0.26          $52.60',
+        '  Same tokens on your model                $0.26          $52.60',
         '  Difference                               too early      −$11.42 −22%',
         '    3 routed replies so far; the session figure appears after 10',
-        ...FOOTER,
+        ...SAVED_FOOTER,
       ],
     ],
     [
@@ -140,7 +141,7 @@ test('the Usage tab opens with routing vs your model, each number on the line th
         'ROUTING VS YOUR MODEL · Sonnet 5.5 · medium   this session   since Oct 10',
         '  Routing is off: every reply this session used your model.',
         '  Difference                                  $0.00          −$11.42 −22%',
-        ...FOOTER,
+        ...SAVED_FOOTER,
       ],
     ],
     [
@@ -150,7 +151,7 @@ test('the Usage tab opens with routing vs your model, each number on the line th
         'ROUTING VS YOUR MODEL · Opus 5.5 · xhigh   this session   since Oct 10',
         '  Routing is unavailable: every reply this session used your model.',
         '  Difference                               $0.00          −$11.42 −22%',
-        ...FOOTER,
+        ...SAVED_FOOTER,
       ],
     ],
     [
@@ -159,7 +160,7 @@ test('the Usage tab opens with routing vs your model, each number on the line th
       [
         'ROUTING VS YOUR MODEL · Opus 5.5 · xhigh   this session',
         '  Routed replies                           $0.00',
-        '  Same tokens on Opus 5.5 · xhigh          $0.00',
+        '  Same tokens on your model                $0.00',
         '  Difference                               too early',
         '    0 routed replies so far; the session figure appears after 10',
         ...FOOTER,
@@ -197,6 +198,7 @@ test('a narrow pane keeps every sentence whole and indented', () => {
     '    3 routed replies so far; the session figure appears',
     '    after 10',
     '',
+    '  since Oct 10: each session compared with its own model',
     '  API list prices · same tokens and output length',
     '  not a bill; on a Claude plan it stands for quota',
     '  answer quality not measured',
@@ -209,15 +211,15 @@ test('a narrow pane drops the bars before any number, then the saved column', ()
   const at64 = section(props, { columns: 64 });
   assert.deepEqual(at64.slice(0, 4), [
     'ROUTING VS YOUR MODEL · Opus 5.5 · xhigh',
-    '                                   this session   since Oct 10',
-    '  Routed replies                   $6.40          $41.18',
-    '  Same tokens on Opus 5.5 · xhigh  $8.24          $52.60',
+    '                             this session   since Oct 10',
+    '  Routed replies             $6.40          $41.18',
+    '  Same tokens on your model  $8.24          $52.60',
   ]);
   assert.ok(!at64.some((line) => line.includes('█')));
   assert.ok(at64.includes('  ■ micro 19%  ■ low 41%  ■ medium 27%  ■ high 14% of replies'));
-  const at60 = section(props, { columns: 60 });
-  assert.equal(at60[3], '  Same tokens on Opus 5.5 · xhigh  $8.24');
-  assert.ok(at60.every((line) => !line.includes('since')));
+  const at56 = section(props, { columns: 56 });
+  assert.equal(at56[3], '  Same tokens on your model  $8.24');
+  assert.ok(at56.every((line) => !line.includes('since')));
 });
 
 test('the activity estimate shows only in shadow, where on is not yet in the routed figure', () => {
@@ -262,11 +264,11 @@ test('/router without a surface says the session against your model in one line'
     [{ ...OPUS, savings: EARLY }, 'vs your model (Opus 5.5 · xhigh): too early, 3 routed replies'],
     [
       { nativeModel: 'claude-sonnet-5-5', nativeEffort: 'medium', savings: null },
-      'vs your model (Sonnet 5.5 · medium): no routed replies this session; −$11.42 (−22%) since Oct 10',
+      'vs your model (Sonnet 5.5 · medium): no routed replies this session; −$11.42 (−22%) since Oct 10, each session compared with its own model',
     ],
     [
       { ...OPUS, phase: 'unavailable', savings: null },
-      'vs your model (Opus 5.5 · xhigh): no routed replies this session; −$11.42 (−22%) since Oct 10',
+      'vs your model (Opus 5.5 · xhigh): no routed replies this session; −$11.42 (−22%) since Oct 10, each session compared with its own model',
     ],
     [
       { ...OPUS, savings: null, savingsStore: 'corrupted' },

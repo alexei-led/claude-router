@@ -333,7 +333,7 @@ pane(
     },
   },
   'Router pane, Usage tab',
-  'Routing vs your model first: routed replies against the same tokens on Opus 5.5 at xhigh, this session and since the last reset, the difference split into cheaper models, stronger models and switch cache writes, the two costs as bars and the replies by tier; then Claude’s own readings, activity counts and estimates.',
+  'Routing vs your model first: routed replies against the same tokens on your model, Opus 5.5 at xhigh this session and each session’s own model since the last reset, the difference split into cheaper models, stronger models and switch cache writes, the two costs as bars and the replies by tier; then Claude’s own readings, activity counts and estimates.',
   'router-pane-usage.svg',
 );
 console.log(`wrote router-band.svg and the Now, Routing, Classifier and Usage pane pictures to ${OUT}`);
