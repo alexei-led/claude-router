@@ -656,6 +656,8 @@ test('Reset stats clears activity and routing vs your model, the session counts 
     runs: {},
     lateral: { taken: 0, refused: 0 },
     shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
+    latency: {},
+    downMoves: { moves: 0, escalations: 0 },
   });
 });
 
@@ -725,6 +727,8 @@ test('Reset stats during a turn completion is not undone by that turn', async ()
     runs: {},
     lateral: { taken: 0, refused: 0 },
     shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
+    latency: {},
+    downMoves: { moves: 0, escalations: 0 },
   });
 });
 

@@ -393,6 +393,8 @@ const STORE = {
   runs: {},
   lateral: { taken: 4, refused: 2 },
   shadow: { differs: 6, turns: 18, estimated: 6, minUsd: -0.42, maxUsd: 0.18 },
+  latency: { jev: [0, 0, 0, 3, 15, 1, 1, ...Array(15).fill(0)], openai: [9, ...Array(21).fill(0)] },
+  downMoves: { moves: 12, escalations: 1 },
 };
 const SESSION_LINES = [
   'ACTIVITY · this session',
@@ -423,6 +425,8 @@ const ACROSS_LINES = [
   'Code/ops/explore  classifier vs tools: 14 of 18 turns (78%)',
   'Mismatch   code → read 3 · ops → code 1',
   'Activity moves  4 taken · 2 refused',
+  'Escalations  after a cheaper activity move: 1 in 12 moves',
+  'Latency    Jev p95 ≤ 350 ms · 20 turns',
   'Shadow     on would route 6 of 18 turns differently · est. −$0.420 … +$0.180 at list prices',
 ];
 const ACROSS_EMPTY = [' ', ACROSS, '  no turns recorded yet'];
@@ -443,6 +447,8 @@ test('the Usage tab shows the session activity block and the counts across sessi
         confusion: { debug: { code: 2, talk: 1 } },
         lateral: { taken: 0, refused: 0 },
         shadow: { differs: 0, turns: 0 },
+        latency: {},
+        downMoves: { moves: 0, escalations: 0 },
       },
       [
         ...OFF_LINES,

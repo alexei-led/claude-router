@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   ALLOWED,
+  advanceDown,
   advanceRun,
   agrees,
   emptySession,
   emptyStore,
+  latencyP95,
   mostlyOn,
   OBSERVED,
   readStore,
@@ -280,13 +282,21 @@ test('readStore keeps a valid store and falls back to an empty one for any bad s
     runs: { code: [1, 0, 2, 0, 3] },
     lateral: { taken: 2, refused: 1 },
     shadow: shadowOf(3, 10, 2, -0.5, 0.25),
+    latency: { jev: [0, 0, 0, 0, 5, 1, ...Array(16).fill(0)] },
+    downMoves: { moves: 3, escalations: 1 },
   };
   assert.deepEqual(readStore(valid), valid);
   assert.deepEqual(readStore(structuredClone(emptyStore())), emptyStore());
-  const before = { ...valid, shadow: { differs: 3, turns: 10 } };
+  const { latency: _, downMoves: __, ...v170 } = valid;
+  assert.deepEqual(
+    readStore(v170),
+    { ...valid, latency: {}, downMoves: { moves: 0, escalations: 0 } },
+    'a 1.7.0 store loads with no latency and no cheaper moves',
+  );
+  const before = { ...v170, shadow: { differs: 3, turns: 10 } };
   assert.deepEqual(
     readStore(before),
-    { ...valid, shadow: shadowOf(3, 10) },
+    { ...valid, shadow: shadowOf(3, 10), latency: {}, downMoves: { moves: 0, escalations: 0 } },
     'a 1.6.0 store loads with a zero estimate',
   );
   assert.deepEqual(before.shadow, { differs: 3, turns: 10 }, 'the value read is not changed');
@@ -327,6 +337,17 @@ test('readStore keeps a valid store and falls back to an empty one for any bad s
     ['an infinite estimate', mutate((v) => (v.shadow.maxUsd = Number.POSITIVE_INFINITY))],
     ['a fractional estimated count', mutate((v) => (v.shadow.estimated = 1.5))],
     ['shadow with an extra key', mutate((v) => (v.shadow.saved = 1))],
+    ['latency as an array', mutate((v) => (v.latency = []))],
+    ['too few latency buckets', mutate((v) => (v.latency.jev = [1, 2]))],
+    ['a negative latency count', mutate((v) => (v.latency.jev[0] = -1))],
+    [
+      'more classifiers than the bound',
+      mutate((v) => {
+        for (let i = 0; i < 9; i += 1) v.latency[`c${i}`] = Array(22).fill(0);
+      }),
+    ],
+    ['downMoves missing a key', mutate((v) => delete v.downMoves.escalations)],
+    ['downMoves with a string count', mutate((v) => (v.downMoves.moves = '3'))],
   ])
     assert.deepEqual(readStore(value), emptyStore(), name);
 });
@@ -509,6 +530,8 @@ test('storeSummary counts labelled turns, agreement over activity rows, and the 
     ],
     lateral: { taken: 4, refused: 2 },
     shadow: shadowOf(0, 0),
+    latency: {},
+    downMoves: { moves: 0, escalations: 0 },
   });
   assert.deepEqual(storeSummary(emptyStore()), {
     labelled: 0,
@@ -517,5 +540,86 @@ test('storeSummary counts labelled turns, agreement over activity rows, and the 
     disagreements: [],
     lateral: { taken: 0, refused: 0 },
     shadow: shadowOf(0, 0),
+    latency: {},
+    downMoves: { moves: 0, escalations: 0 },
   });
+});
+
+test('the store keeps a bounded latency histogram per classifier and its p95 is a bucket bound', () => {
+  let store = emptyStore();
+  const turn = (classifier, adviceMs) => ({
+    predicted: null,
+    observed: 'talk',
+    runEnded: null,
+    lateral: null,
+    wouldDiffer: null,
+    classifier,
+    adviceMs,
+  });
+  for (const ms of [...Array(18).fill(240), 299, 301, 7000]) store = recordStore(store, turn('jev', ms));
+  for (const ms of [null, -1, Number.NaN]) store = recordStore(store, turn('jev', ms));
+  store = recordStore(store, turn(null, 100));
+  assert.deepEqual(latencyP95(store.latency.jev), { ms: 350, over: false, turns: 21 });
+  assert.deepEqual(latencyP95([...Array(21).fill(0), 3]), { ms: 5000, over: true, turns: 3 });
+  assert.equal(latencyP95(undefined), null);
+  assert.equal(latencyP95(Array(22).fill(0)), null);
+  for (let i = 0; i < 12; i += 1) store = recordStore(store, turn(`c${i}`, 100));
+  assert.equal(Object.keys(store.latency).length, 8);
+  assert.ok(Object.hasOwn(store.latency, 'jev'));
+  assert.deepEqual(readStore(store), store);
+});
+
+test('escalations after a cheaper activity move: a move starts the watch, one escalation or another switch ends it', () => {
+  const on = (reason, extra = {}) => ({ mode: 'on', reason, lateral: null, switched: null, ...extra });
+  const down = on('activity-down', { lateral: 'taken', switched: 'activity' });
+  for (const [name, turns, events] of [
+    ['an escalation right after', [down, on('escalation', { switched: 'tier' })], ['moved', 'escalated']],
+    [
+      'an escalation after quiet turns',
+      [down, on('same-tier'), on('escalation', { switched: 'tier' })],
+      ['moved', null, 'escalated'],
+    ],
+    [
+      'one escalation counts once',
+      [down, on('escalation', { switched: 'tier' }), on('escalation', { switched: 'tier' })],
+      ['moved', 'escalated', null],
+    ],
+    [
+      'another switch ends the watch',
+      [down, on('upgrade', { switched: 'tier' }), on('escalation', { switched: 'tier' })],
+      ['moved', null, null],
+    ],
+    [
+      'a refused cheaper move starts nothing',
+      [on('activity-pending', { lateral: 'refused' }), on('escalation', { switched: 'tier' })],
+      [null, null],
+    ],
+    [
+      'shadow never counts',
+      [
+        { ...down, mode: 'shadow' },
+        { ...on('escalation'), mode: 'shadow' },
+      ],
+      [null, null],
+    ],
+  ]) {
+    let after = false;
+    const seen = turns.map((turn) => {
+      const step = advanceDown(after, turn);
+      after = step.after;
+      return step.event;
+    });
+    assert.deepEqual(seen, events, name);
+  }
+  let store = emptyStore();
+  for (const downMove of ['moved', 'escalated', 'moved', null, 'bogus'])
+    store = recordStore(store, {
+      predicted: null,
+      observed: 'talk',
+      runEnded: null,
+      lateral: null,
+      wouldDiffer: null,
+      downMove,
+    });
+  assert.deepEqual(store.downMoves, { moves: 2, escalations: 1 });
 });

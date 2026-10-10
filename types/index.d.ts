@@ -69,6 +69,10 @@ declare module 'claude-code' {
     lateral: { taken: number; refused: number };
     // A 1.6.0 store has `differs` and `turns` only; readStore fills the rest with zeros.
     shadow: RouterActivityShadow;
+    // Classifier wait per turn by classifier id, in LATENCY_BOUNDS buckets plus one above; at most 8 ids. Cheaper
+    // activity moves taken in 'on' and the escalations that followed one. A 1.7.0 store has neither; readStore fills them.
+    latency: Record<string, number[]>;
+    downMoves: { moves: number; escalations: number };
   }
   interface RouterComparison {
     candidate: RouterTier;

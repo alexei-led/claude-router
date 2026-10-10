@@ -1,4 +1,5 @@
 import {
+  advanceDown,
   advanceRun,
   emptySession,
   emptyStore,
@@ -103,6 +104,8 @@ function createRouter(options) {
     // one activity, flushed to the store when it ends.
     turnActivities: new Map(),
     run: null,
+    // Whether the route running now came from a cheaper activity move, until another route change (advanceDown).
+    afterDown: false,
     // Each turn's routing-vs-your-model totals until turn.complete adds them to the store.
     turnSavings: new Map(),
     // The totals kept across sessions: this session's record (`{ sessionId, record }`), held here so a refresh never
@@ -480,8 +483,12 @@ async function decideTurn($, router, e, signal, step) {
     if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
       $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
     const activity = turnActivity(cfg, result.advice, previous, selected.decision);
+    const adviceMs = pin || !classifierTimed(result.error) ? null : Date.now() - adviceStarted;
     router.turnActivities.set(e.turnId, {
       ...activity,
+      reason: selected.decision.reason,
+      classifier: cfg.classifier,
+      adviceMs,
       sessionId,
       requests: 0,
       inputTokens: 0,
@@ -506,7 +513,7 @@ async function decideTurn($, router, e, signal, step) {
         ? {
             error: result.error,
             health: healthOf(clientOf(router, cfg.classifier), cfg.classifier),
-            adviceMs: pin || !classifierTimed(result.error) ? null : Date.now() - adviceStarted,
+            adviceMs,
             adviceChoice: result.advice?.choice ?? null,
             probabilities: result.advice?.probabilities ?? null,
             estimate: selected.decision.estimate ?? null,
@@ -648,6 +655,8 @@ async function recordActivity($, router, turn) {
     // Advanced before any further await, so a session change meanwhile cannot carry this run into the new session.
     const { run, ended } = advanceRun(router.run, turn.answer);
     router.run = run;
+    const down = advanceDown(router.afterDown, turn);
+    router.afterDown = down.after;
     await updateView($, router, {
       activityStats: recordTurn(view.activityStats ?? emptySession(), {
         activity: turn.label,
@@ -677,6 +686,9 @@ async function recordActivity($, router, turn) {
       lateral: turn.lateral,
       wouldDiffer: turn.wouldDiffer,
       wouldUsd: turn.wouldUsd,
+      classifier: turn.classifier,
+      adviceMs: turn.adviceMs,
+      downMove: down.event,
     });
     await $.store.set(STORE_KEY, written);
     // A reset during the write emptied the view; these counts are older than it.
@@ -846,6 +858,7 @@ function paneActions($, router, view) {
     resetStats: async () => {
       router.statsResets += 1;
       router.run = null;
+      router.afterDown = false;
       router.turnSavings.clear();
       const clear = (key, value) =>
         $.store
@@ -1121,6 +1134,7 @@ export function register(on, options) {
     router.turnSavings.clear();
     const run = router.run;
     router.run = null;
+    router.afterDown = false;
     if (run) await flushRun($, run);
     router.view = {
       ...initialView(router.view?.nativeModel ?? ''),
