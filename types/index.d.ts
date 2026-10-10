@@ -115,7 +115,8 @@ declare module 'claude-code' {
     tierUsd: Partial<Record<RouterTier | 'none', number>>;
     stronger: Record<string, number>;
   }
-  // Totals across sessions under store key 'savings:v1', since the first reply after the last reset (ms).
+  // Totals kept across sessions, one per session under store key 'savings:v1:<session id>' or their sum in the view,
+  // since the first reply after the last reset (ms).
   interface RouterSavingsStore extends RouterSavingsSums {
     version: 1;
     since: number | null;

@@ -39,7 +39,12 @@ export function harness(options = {}, preferences = new Map()) {
   const $ = {
     plugin: { name: 'router', root: '/fixture/plugin' },
     env: { get: async (key) => env.get(key), set: async (key, value) => env.set(key, value) },
-    store: { get: async (key) => preferences.get(key), set: async (key, value) => preferences.set(key, value) },
+    store: {
+      get: async (key) => preferences.get(key),
+      set: async (key, value) => preferences.set(key, value),
+      delete: async (key) => preferences.delete(key),
+      keys: async () => [...preferences.keys()],
+    },
     state: {
       get: async (ref) => {
         const key = keyOf(ref);

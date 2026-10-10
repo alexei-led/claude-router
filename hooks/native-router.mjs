@@ -61,9 +61,10 @@ import {
   compareReply,
   emptySavingsStore,
   emptyTotals,
+  mergeSavingsStores,
   readSavingsStore,
   recordSavingsStore,
-  SAVINGS_KEY,
+  SAVINGS_PREFIX,
   sessionCacheTtl,
 } from '../lib/savings.mjs';
 import { CLEARED_READINGS, continuationView, healthOf, initialView, responseMetrics } from '../lib/view.mjs';
@@ -168,7 +169,8 @@ async function storeView($) {
     out.activityStore = readStore(await $.store.get(STORE_KEY));
   } catch {}
   try {
-    out.savingsStore = readSavingsStore(await $.store.get(SAVINGS_KEY));
+    const keys = (await $.store.keys()).filter((key) => key.startsWith(SAVINGS_PREFIX));
+    out.savingsStore = mergeSavingsStores(await Promise.all(keys.map((key) => $.store.get(key))));
   } catch {}
   return out;
 }
@@ -553,16 +555,19 @@ async function addSavings($, router, turnId, reply, tier) {
   } catch {}
 }
 
-// A finished turn's totals added to the totals kept across sessions, with the guard recordActivity uses: totals read
-// before a reset are not written back.
+// A finished turn's totals added to this session's record kept across sessions, with the guard recordActivity uses:
+// totals read before a reset are not written back. The view's sum takes the turn without reading every session's.
 async function flushSavings($, router, totals) {
   try {
+    const key = `${SAVINGS_PREFIX}${await $.session.id()}`;
     const resets = router.statsResets;
-    const store = readSavingsStore(await $.store.get(SAVINGS_KEY));
+    const record = readSavingsStore(await $.store.get(key));
     if (router.statsResets !== resets) return;
-    const written = recordSavingsStore(store, totals, Date.now());
-    await $.store.set(SAVINGS_KEY, written);
-    if (router.statsResets === resets) await updateView($, router, { savingsStore: written });
+    const now = Date.now();
+    await $.store.set(key, recordSavingsStore(record, totals, now));
+    if (router.statsResets !== resets) return;
+    const view = router.view ?? (await readView($, router));
+    await updateView($, router, { savingsStore: recordSavingsStore(readSavingsStore(view.savingsStore), totals, now) });
   } catch {}
 }
 
@@ -782,9 +787,14 @@ function paneActions($, router, view) {
           .set(key, value)
           .then(() => true)
           .catch(() => false);
+      const clearSavings = async () => {
+        const keys = (await $.store.keys()).filter((key) => key.startsWith(SAVINGS_PREFIX));
+        await Promise.all(keys.map((key) => $.store.delete(key)));
+        return true;
+      };
       const [activity, savings] = await Promise.all([
         clear(STORE_KEY, emptyStore()),
-        clear(SAVINGS_KEY, emptySavingsStore()),
+        clearSavings().catch(() => false),
       ]);
       await updateView($, router, {
         activityStats: null,

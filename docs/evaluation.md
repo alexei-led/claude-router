@@ -132,6 +132,7 @@ Limits:
 - Your model's cache is simulated, and a five-minute session that the lifetime rule takes for one hour (a plan subscriber billed as overage) would read too much cache on your side.
 - A route that changes only the effort costs the same per token; it shows only its cache writes.
 - Subagents, classifier charges and replies with routing off are not counted. On a Claude plan the dollars stand for quota, not cash.
+- The saved column keeps one record per session, so sessions finishing turns at the same moment both count. Claude Code's store has no atomic update, which leaves three gaps: the same session open in two Claude Code processes at once can lose one's turn; a turn finishing in another process during **Reset stats** can bring back that session's total from before the reset; and the activity counts across sessions are still one shared record, where two sessions finishing turns at the same moment can lose one turn's counts. The pane reads every session's record when it opens, so that read grows with the number of sessions since the last reset.
 
 ## Historical method and limits
 

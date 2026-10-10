@@ -8,6 +8,7 @@ import {
   EARLY_REPLIES,
   emptySavingsStore,
   emptyTotals,
+  mergeSavingsStores,
   modelSpec,
   readout,
   readSavingsStore,
@@ -339,4 +340,19 @@ test('a missing or corrupted store reads as empty, and a turn adds to it from it
   assert.deepEqual(readSavingsStore(once), once);
   assert.equal(recordSavingsStore(once, turn, 9).since, 5);
   assert.equal(recordSavingsStore(once, emptyTotals(), 9), once);
+});
+
+test('the totals kept across sessions add up every session’s record since the earliest, skipping a corrupted one', () => {
+  const record = (since, replies, usd) => ({
+    ...emptySavingsStore(),
+    since,
+    replies,
+    routedUsd: usd,
+    yoursUsd: 2 * usd,
+    cheaperUsd: -usd,
+  });
+  assert.deepEqual(mergeSavingsStores([record(9, 2, 1), { version: 9 }, record(5, 3, 0.5), undefined]), {
+    ...record(5, 5, 1.5),
+  });
+  assert.deepEqual(mergeSavingsStores([]), emptySavingsStore());
 });

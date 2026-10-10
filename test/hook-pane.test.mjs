@@ -595,14 +595,18 @@ test('Reset stats clears activity and routing vs your model, the session counts 
   assert.equal(h.preferences.get('activity:stats:v1').shadow.turns, 1);
   assert.equal(h.view().activityStore.shadow.turns, 1);
   assert.equal(h.view().savings.replies, 1);
-  assert.equal(h.preferences.get('savings:v1').replies, 1);
+  assert.equal(h.preferences.get('savings:v1:s1').replies, 1);
+  h.preferences.set('savings:v1:s0', h.preferences.get('savings:v1:s1'));
   await press(h, 'tab-usage');
   await press(h, 'reset-stats');
   assert.equal(h.view().activityStats, null);
   assert.equal(h.view().savings, null);
   assert.deepEqual(h.view().activityStore, h.preferences.get('activity:stats:v1'));
-  assert.deepEqual(h.view().savingsStore, h.preferences.get('savings:v1'));
-  assert.equal(h.preferences.get('savings:v1').replies, 0);
+  assert.equal(h.view().savingsStore.replies, 0);
+  assert.deepEqual(
+    [...h.preferences.keys()].filter((key) => key.startsWith('savings:')),
+    [],
+  );
   assert.ok(texts(await h.render()).includes('  no turns recorded yet'));
   assert.equal(h.view().notice, 'Stats reset: activity and routing vs your model, this session and saved.');
   assert.deepEqual(h.preferences.get('activity:stats:v1'), {
