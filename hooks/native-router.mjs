@@ -703,14 +703,15 @@ async function recordActivity($, router, turn) {
     if (start < 0) return;
     const observed = observedActivity(messages, start);
     const view = router.view ?? (await readView($, router));
-    // Routing turned off while this turn ran ends the watch here, even when it is back on by now, so the move is not
-    // inherited.
-    const off = (await modeOf($, router)) === 'manual' || turn.offSwitches !== router.offSwitches;
+    const manual = (await modeOf($, router)) === 'manual';
     // The session may have changed during the reads; this turn is not the new session's.
     if ((await $.session.id()) !== turn.sessionId) return;
     // Advanced before any further await, so a session change meanwhile cannot carry this run into the new session.
     const { run, ended } = advanceRun(router.run, turn.answer);
     router.run = run;
+    // Routing turned off while this turn ran ends the watch here, even when it is back on by now, so the move is not
+    // inherited. The counter is read after the last await: a switch during any of them counts.
+    const off = manual || turn.offSwitches !== router.offSwitches;
     const down = advanceDown(router.afterDown, turn);
     router.afterDown = off ? null : down.after;
     await updateView($, router, {
