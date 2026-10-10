@@ -119,7 +119,8 @@ async function modeOf($, router, fallback = 'auto') {
   }
 }
 
-// A saved preference wins; a fresh session starts with routing on for a model some tier routes to, and off for any other.
+// A saved preference wins; a fresh session starts with routing on for a model some route runs (a tier's, or in `on` an
+// activity override's), and off for any other.
 async function startMode($, router, model) {
   const mode = await modeOf($, router, cellForModel(router.config, model) === null ? 'manual' : 'auto');
   router.modes.set(await $.session.id(), mode);

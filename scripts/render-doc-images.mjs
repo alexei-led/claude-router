@@ -209,7 +209,7 @@ const states = [
     false,
   ],
   [
-    'Activity routing in shadow: the label is shown, the tier route still runs',
+    'Activity routing in shadow: the label is shown, the base route still runs',
     {
       ...base,
       tier: 'low',

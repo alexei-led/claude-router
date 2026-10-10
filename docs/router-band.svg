@@ -152,7 +152,7 @@
 <text x="460.8" y="419" fill="#d0d0d0" xml:space="preserve"> · cache </text>
 <text x="531.0" y="419" fill="#87d787" xml:space="preserve">100%</text>
 <text x="577.8" y="419" fill="#d0d0d0" xml:space="preserve">Router</text>
-<text class="cap" x="20" y="458">Activity routing in shadow: the label is shown, the tier route still runs</text>
+<text class="cap" x="20" y="458">Activity routing in shadow: the label is shown, the base route still runs</text>
 <rect x="12" y="466" width="897.6" height="29" rx="5" fill="#232323"/>
 <text x="24.0" y="484" fill="#5f9fe0" xml:space="preserve">▂</text>
 <text x="31.8" y="484" fill="#5f9fe0" xml:space="preserve">▄</text>

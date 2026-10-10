@@ -247,8 +247,8 @@ test('the default overrides draw five distinct routes and warn about nothing', (
 test('the activities lead with the mode, and OVERRIDES says whether the overrides are in use', () => {
   for (const [mode, hint, state] of [
     ['on', 'an override runs when the activity has one', ' · in use'],
-    ['shadow', 'shows what on would do; tier routes run', ' · not in use: activity routing is shadow'],
-    ['off', 'the activity is not asked; tier routes run', ' · not in use: activity routing is off'],
+    ['shadow', 'shows what on would do; base routes run', ' · not in use: activity routing is shadow'],
+    ['off', 'the activity is not asked; base routes run', ' · not in use: activity routing is off'],
   ]) {
     const tree = routing({ ...DEFAULTS, activityRouting: mode });
     assert.equal(controls(tree).find((c) => c.key === 'activity-mode').value, mode);
@@ -386,7 +386,7 @@ const ACROSS_LINES = [
   'Agreement  classifier vs tools: 16 of 20 turns (80%)',
   'Code/ops/explore  classifier vs tools: 14 of 18 turns (78%)',
   'Mismatch   code → read 3 · ops → code 1',
-  'Lateral    4 taken · 2 refused',
+  'Activity moves  4 taken · 2 refused',
   'Shadow     on would route 6 of 18 turns differently · est. −$0.420 … +$0.180 at list prices',
 ];
 const ACROSS_EMPTY = [' ', ACROSS, '  no turns recorded yet'];
