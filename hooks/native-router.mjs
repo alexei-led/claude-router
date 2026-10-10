@@ -480,7 +480,15 @@ async function decideTurn($, router, e, signal, step) {
     if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
       $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
     const activity = turnActivity(cfg, result.advice, previous, selected.decision);
-    router.turnActivities.set(e.turnId, { ...activity, sessionId, requests: 0, inputTokens: 0, outputTokens: 0 });
+    router.turnActivities.set(e.turnId, {
+      ...activity,
+      sessionId,
+      requests: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      routedUsd: null,
+      routes: {},
+    });
     await updateView($, router, {
       phase: 'routed',
       selectedModel: selected.decision.model,
@@ -517,8 +525,8 @@ async function decideTurn($, router, e, signal, step) {
 }
 
 // A routed reply's metrics in the view, labelled with the turn's activity when its tier served it, and added to the
-// turn's activity record.
-async function publishReply($, router, turnId, response, tier, route) {
+// turn's activity record with its list price (`routedUsd`, null when unpriced) and, when its tier served it, its route.
+async function publishReply($, router, turnId, response, tier, route, routedUsd) {
   const turn = router.turnActivities.get(turnId);
   const metrics = responseMetrics(
     router.view,
@@ -534,6 +542,8 @@ async function publishReply($, router, turnId, response, tier, route) {
       requests: turn.requests + 1,
       inputTokens: turn.inputTokens + (metrics.inputTokens ?? 0),
       outputTokens: turn.outputTokens + (metrics.outputTokens ?? 0),
+      routedUsd: Number.isFinite(routedUsd) ? (turn.routedUsd ?? 0) + routedUsd : turn.routedUsd,
+      routes: tier ? { ...turn.routes, [route]: (turn.routes[route] ?? 0) + 1 } : turn.routes,
     });
 }
 
@@ -554,7 +564,8 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   if (!written.isSet) return;
   // A substituted reply is not the tier's: the strip and trend must not count it as one.
   const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
-  await publishReply($, router, turnId, response, tier, `${request.model}@${request.effort ?? 'session'}`);
+  const route = `${request.model}@${request.effort ?? 'session'}`;
+  await publishReply($, router, turnId, response, tier, route, compared?.reply?.routedUsd ?? null);
   if (compared?.reply) await addSavings($, router, turnId, compared.reply, tier);
 }
 
@@ -645,6 +656,8 @@ async function recordActivity($, router, turn) {
         requests: turn.requests,
         inputTokens: turn.inputTokens,
         outputTokens: turn.outputTokens,
+        routedUsd: turn.routedUsd,
+        routes: turn.routes,
         tierSwitches: turn.switched === 'tier' ? 1 : 0,
         activitySwitches: turn.switched === 'activity' ? 1 : 0,
         lateral: turn.lateral,

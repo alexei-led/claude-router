@@ -516,8 +516,18 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   assert.match(line, / low ops → Haiku 5\.5 · high/);
   assert.match(line, /↘ ops/);
   assert.deepEqual(h.view().activities, ['code', 'ops']);
-  assert.deepEqual(h.view().activityStats, {
-    byActivity: { code: reply, ops: reply },
+  const { byActivity, ...counts } = h.view().activityStats;
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(byActivity).map(([name, { routedUsd, ...rest }]) => [name, rest])),
+    {
+      code: { ...reply, routes: { 'claude-sonnet-5-5@high': 1 } },
+      ops: { ...reply, routes: { 'claude-haiku-5-5@high': 1 } },
+    },
+  );
+  // Each activity's cost is its replies' share of the routed total.
+  assert.ok(byActivity.ops.routedUsd > 0 && byActivity.code.routedUsd > byActivity.ops.routedUsd);
+  assert.ok(Math.abs(byActivity.code.routedUsd + byActivity.ops.routedUsd - h.view().savings.routedUsd) < 1e-12);
+  assert.deepEqual(counts, {
     switches: { tier: 0, activity: 1 },
     lateral: { taken: 1, refused: 0 },
     agreement: { matched: 2, total: 2 },
@@ -537,14 +547,16 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't3', 'claude-sonnet-5-5', ['Bash']);
   assert.deepEqual(h.view().activities, ['ops']);
-  assert.deepEqual(h.view().activityStats.byActivity, { ops: reply });
+  assert.deepEqual(Object.keys(h.view().activityStats.byActivity), ['ops']);
+  assert.equal(h.view().activityStats.byActivity.ops.turns, 1);
 
   const reloaded = harness(JEV_KEY, h.preferences);
   reloaded.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
   answering(reloaded, jevResponse('low', LOW, 0, { ops: 0.9 }));
   await reloaded.event('session.start', { cwd: '/fixture' });
   await turn(reloaded, 't1', 'claude-haiku-5-5', ['Bash']);
-  assert.deepEqual(reloaded.view().activityStats.byActivity, { ops: reply });
+  assert.deepEqual(Object.keys(reloaded.view().activityStats.byActivity), ['ops']);
+  assert.equal(reloaded.view().activityStats.byActivity.ops.turns, 1);
   assert.deepEqual(reloaded.preferences.get(STATS).confusion, { code: { code: 1 }, ops: { ops: 3 } });
 });
 

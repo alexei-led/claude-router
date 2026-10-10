@@ -364,8 +364,23 @@ test('the Routing tab controls call the pane actions with the activity and tier'
 
 const STATS = {
   byActivity: {
-    code: { turns: 12, requests: 71, inputTokens: 0, outputTokens: 0 },
-    explore: { turns: 5, requests: 22, inputTokens: 0, outputTokens: 0 },
+    code: {
+      turns: 12,
+      requests: 71,
+      inputTokens: 0,
+      outputTokens: 0,
+      routedUsd: 4.213,
+      routes: { 'claude-sonnet-5-5@high': 60, 'claude-opus-5-5@medium': 11 },
+    },
+    explore: {
+      turns: 5,
+      requests: 22,
+      inputTokens: 0,
+      outputTokens: 0,
+      routedUsd: 0.31,
+      routes: { 'claude-haiku-5-5@session': 22 },
+    },
+    // Counts saved by 1.7.0: no cost or routes.
     none: { turns: 3, requests: 3, inputTokens: 0, outputTokens: 0 },
   },
   switches: { tier: 4, activity: 5 },
@@ -382,16 +397,16 @@ const STORE = {
 const SESSION_LINES = [
   'ACTIVITY · this session',
   '   activity routing shadow',
-  '                       turns  requests  share',
+  '                       turns  requests  share  est. cost   mostly on',
   '  code     ',
   '██████░░░░',
-  '     12        71    60%',
+  '     12        71    60%      $4.21   Sonnet 5.5 · high',
   '  explore  ',
   '███░░░░░░░',
-  '      5        22    25%',
+  '      5        22    25%      $0.31   Haiku 5.5',
   '  none     ',
   '██░░░░░░░░',
-  '      3         3    15%',
+  '      3         3    15%          —   —',
   'Switches   9 · 4 by tier · 5 by activity',
   'Agreement  classifier vs tools: 19 of 22 turns (86%)',
 ];
@@ -490,10 +505,10 @@ test('the Usage tab shows the session activity block and the counts across sessi
       [
         'ACTIVITY · this session',
         '   activity routing on',
-        '                       turns  requests  share',
+        '                       turns  requests  share  est. cost   mostly on',
         '  ops      ',
         '██████████',
-        '     12        71   100%',
+        '     12        71   100%      $4.21   Sonnet 5.5 · high',
         'Switches   9 · 4 by tier · 5 by activity',
         ...ACROSS_LINES,
       ],
@@ -506,10 +521,10 @@ test('the Usage tab shows the session activity block and the counts across sessi
       [
         'ACTIVITY · this session',
         '   activity routing on',
-        '                       turns  requests  share',
+        '                       turns  requests  share  est. cost   mostly on',
         '  ops      ',
         '██████████',
-        '     12        71   100%',
+        '     12        71   100%      $4.21   Sonnet 5.5 · high',
         'Switches   9 · 4 by tier · 5 by activity · 2 refused',
         ...ACROSS_LINES,
       ],
@@ -541,5 +556,26 @@ test('the Usage tab shows the session activity block and the counts across sessi
     const reset = controls(tree).find((c) => c.key === 'reset-stats');
     reset.onPress();
     assert.deepEqual(calls, [['resetStats']], `${name}: the stored counts can always be reset`);
+  }
+});
+
+test('a narrow Usage tab drops mostly on, then the cost, before the activity counts', () => {
+  for (const [columns, header] of [
+    [null, '                       turns  requests  share  est. cost   mostly on'],
+    [76, '                       turns  requests  share  est. cost   mostly on'],
+    [75, '                       turns  requests  share  est. cost'],
+    [56, '                       turns  requests  share  est. cost'],
+    [55, '                       turns  requests  share'],
+  ]) {
+    const tree = renderPanel(
+      ELEMENTS,
+      { ...DEFAULTS, activityRouting: 'on' },
+      view({ tab: 'usage', activityStats: STATS }),
+      null,
+      actions,
+      { columns },
+    );
+    const lines = texts(tree);
+    assert.equal(lines[lines.indexOf('   activity routing on') + 1], header, String(columns));
   }
 });

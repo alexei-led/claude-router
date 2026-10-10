@@ -6,6 +6,7 @@ import {
   agrees,
   emptySession,
   emptyStore,
+  mostlyOn,
   OBSERVED,
   readStore,
   recordStore,
@@ -72,11 +73,39 @@ test('a session accumulates turns, requests and tokens per activity, and none wi
   session = recordTurn(session, turn({ requests: 2, inputTokens: 500, outputTokens: 50 }));
   session = recordTurn(session, turn({ activity: 'ops', observed: 'ops', requests: 1 }));
   session = recordTurn(session, turn({ activity: null, observed: 'talk', requests: 4 }));
+  const unpriced = { routedUsd: null, routes: {} };
   assert.deepEqual(session.byActivity, {
-    code: { turns: 2, requests: 5, inputTokens: 1500, outputTokens: 250 },
-    ops: { turns: 1, requests: 1, inputTokens: 1000, outputTokens: 200 },
-    none: { turns: 1, requests: 4, inputTokens: 1000, outputTokens: 200 },
+    code: { turns: 2, requests: 5, inputTokens: 1500, outputTokens: 250, ...unpriced },
+    ops: { turns: 1, requests: 1, inputTokens: 1000, outputTokens: 200, ...unpriced },
+    none: { turns: 1, requests: 4, inputTokens: 1000, outputTokens: 200, ...unpriced },
   });
+});
+
+test('a session adds each activity’s reply cost and routes, also to counts saved by 1.7.0', () => {
+  const saved = { byActivity: { code: { turns: 1, requests: 2, inputTokens: 10, outputTokens: 1 } } };
+  let session = { ...emptySession(), ...saved };
+  session = recordTurn(session, turn({ routedUsd: null, routes: {} }));
+  assert.deepEqual([session.byActivity.code.routedUsd, session.byActivity.code.routes], [null, {}]);
+  session = recordTurn(session, turn({ routedUsd: 0.5, routes: { 'claude-sonnet-5-5@high': 2 } }));
+  session = recordTurn(
+    session,
+    turn({ routedUsd: 0.25, routes: { 'claude-sonnet-5-5@high': 1, 'claude-opus-5-5@medium': 3, bad: -1 } }),
+  );
+  assert.deepEqual(
+    [session.byActivity.code.routedUsd, session.byActivity.code.routes],
+    [0.75, { 'claude-sonnet-5-5@high': 3, 'claude-opus-5-5@medium': 3 }],
+  );
+  assert.equal(session.byActivity.code.turns, 4);
+});
+
+test('mostlyOn picks the route with the most replies, ties in name order, none without replies', () => {
+  for (const [routes, expected] of [
+    [{ 'b@high': 2, 'a@high': 5 }, 'a@high'],
+    [{ 'b@high': 3, 'a@medium': 3 }, 'a@medium'],
+    [{}, null],
+    [undefined, null],
+  ])
+    assert.equal(mostlyOn({ routes }), expected, JSON.stringify(routes));
 });
 
 test('session agreement compares the classifier answer, not the route label, and skips turns without one', () => {
@@ -149,7 +178,14 @@ test('recordTurn returns a new session and treats bad numbers as zero', () => {
     turn({ requests: Number.NaN, inputTokens: -5, outputTokens: undefined, tierSwitches: 'x' }),
   );
   assert.deepEqual(before, emptySession());
-  assert.deepEqual(after.byActivity.code, { turns: 1, requests: 0, inputTokens: 0, outputTokens: 0 });
+  assert.deepEqual(after.byActivity.code, {
+    turns: 1,
+    requests: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    routedUsd: null,
+    routes: {},
+  });
   assert.deepEqual(after.switches, { tier: 0, activity: 0 });
 });
 
