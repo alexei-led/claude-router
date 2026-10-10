@@ -206,19 +206,30 @@ test('a narrow pane keeps every sentence whole and indented', () => {
   assert.ok(lines.every((line) => line.length <= 58));
 });
 
+test('in a narrow pane every amount starts under its column head', () => {
+  for (const columns of [64, 58, 56])
+    for (const savings of [SAVES, EARLY]) {
+      const lines = section({ ...OPUS, savings, activityStats: SHADOW }, { columns });
+      const heads = [lines[1].indexOf('this session'), lines[1].indexOf('since')].filter((at) => at >= 0);
+      for (const line of lines.slice(2, lines.indexOf('')))
+        for (const amount of line.matchAll(/[−+]?\$\d/g))
+          assert.ok(heads.includes(amount.index), `${columns}: ${line}`);
+    }
+});
+
 test('a narrow pane drops the bars before any number, then the saved column', () => {
   const props = { ...OPUS, savings: SAVES, activityStats: SHADOW };
   const at64 = section(props, { columns: 64 });
   assert.deepEqual(at64.slice(0, 4), [
     'ROUTING VS YOUR MODEL · Opus 5.5 · xhigh',
-    '                             this session   since Oct 10',
-    '  Routed replies             $6.40          $41.18',
-    '  Same tokens on your model  $8.24          $52.60',
+    '                                this session   since Oct 10',
+    '  Routed replies                $6.40          $41.18',
+    '  Same tokens on your model     $8.24          $52.60',
   ]);
   assert.ok(!at64.some((line) => line.includes('█')));
   assert.ok(at64.includes('  ■ micro 19%  ■ low 41%  ■ medium 27%  ■ high 14% of replies'));
   const at56 = section(props, { columns: 56 });
-  assert.equal(at56[3], '  Same tokens on your model  $8.24');
+  assert.equal(at56[3], '  Same tokens on your model     $8.24');
   assert.ok(at56.every((line) => !line.includes('since')));
 });
 
