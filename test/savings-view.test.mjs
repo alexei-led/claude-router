@@ -110,14 +110,14 @@ test('the Usage tab opens with routing vs your model, each number on the line th
         '  Difference                               +$2.48 ×5.0    +$9.79 ×4.3',
         '    cheaper models                         $0.00          $0.00',
         '    stronger than yours                    +$2.31         +$9.02',
-        '      9 replies on Opus 5.5 for harder work',
+        '      9 replies on Opus 5.5',
         '    cache writes from switches             +$0.17         +$0.77',
         '',
         '  routed      ██████████████████████  $3.10',
         '  your model  ████░░░░░░░░░░░░░░░░░░  $0.62',
         '  ■ low 59%  ■ medium 29%  ■ high 12% of replies',
-        '  Routing spent more than Haiku 5.5 alone because the classifier sent',
-        '  harder turns to Opus 5.5. Lower the high tier or pin turns to keep it down.',
+        '  Routing spent more than Haiku 5.5 alone because upper tiers ran on Opus 5.5.',
+        '  To spend less, pick cheaper models for those tiers in the Routing tab.',
         ...FOOTER,
       ],
     ],
@@ -162,6 +162,19 @@ test('the Usage tab opens with routing vs your model, each number on the line th
     ],
   ])
     assert.deepEqual(section(props), expected, name);
+});
+
+test('a narrow pane keeps every sentence whole and indented', () => {
+  const lines = section({ ...OPUS, savings: EARLY }, { columns: 58 });
+  assert.deepEqual(lines.slice(lines.findIndex((line) => line.includes('so far'))), [
+    '    3 routed replies so far; the session figure appears',
+    '    after 10',
+    '',
+    '  API list prices · same tokens and output length',
+    '  not a bill; on a Claude plan it stands for quota',
+    '  answer quality not measured',
+  ]);
+  assert.ok(lines.every((line) => line.length <= 58));
 });
 
 test('a narrow pane drops the bars before any number, then the saved column', () => {

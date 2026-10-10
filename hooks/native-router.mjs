@@ -1037,6 +1037,8 @@ export function register(on, options) {
     if (run) await flushRun($, run);
     router.view = {
       ...initialView(router.view?.nativeModel ?? ''),
+      // The effort carries over /clear until the next turn reads it again, so "your model" keeps its effort.
+      nativeEffort: router.view?.nativeEffort ?? null,
       mode: 'auto',
       credentials: router.view?.credentials ?? null,
       // Counts kept across sessions: the next session starts from them.

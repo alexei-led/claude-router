@@ -421,7 +421,7 @@ test('the Usage tab shows the session activity block and the counts across sessi
     assert.deepEqual(lines.slice(at, at + expected.length), expected, name);
     assert.deepEqual(
       lines.slice(at + expected.length, at + expected.length + 2),
-      ['  clears activity stats and routing vs your model, this session and saved', ' '],
+      ['  clears activity stats and routing vs your model, all sessions', ' '],
       `${name}: the reset says what it clears, and no further activity lines`,
     );
     const reset = controls(tree).find((c) => c.key === 'reset-stats');
