@@ -108,6 +108,28 @@ test('an all-credits policy with no plan fallback stays rather than returning an
   assert.equal(result.reason, 'cash-gate');
 });
 
+test('a long-context model bills every rate at its multiplier only for prompts over the threshold', () => {
+  const haiku = DEFAULTS.models.haiku;
+  for (const [tokens, k] of [
+    [0, 1],
+    [100_000, 1],
+    [100_001, 5],
+    [400_000, 5],
+  ])
+    assert.deepEqual(
+      native.ratesAt(haiku, tokens),
+      { input: 0.1 * k, cacheRead: 0.01 * k, output: 0.5 * k },
+      `${tokens}`,
+    );
+  assert.deepEqual(native.ratesAt(DEFAULTS.models.opus, 400_000), { input: 4, cacheRead: 0.2, output: 20 });
+  assert.equal(native.ratesAt({ input: 1, cacheRead: 0.1 }, 10).output, undefined);
+});
+
+test('a cold write to Haiku above 100K tokens is five times the short-prompt rate', () => {
+  near(native.coldWriteUsd(DEFAULTS, 'haiku', 100_000), 0.02);
+  near(native.coldWriteUsd(DEFAULTS, 'haiku', 200_000), 0.2);
+});
+
 test('effort clamping keeps supported levels and bounds unsupported levels', () => {
   for (const [wanted, supported, expected] of [
     ['xhigh', ['low', 'medium', 'high', 'max'], 'high'],

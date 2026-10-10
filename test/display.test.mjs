@@ -29,7 +29,15 @@ test('a small-window model is measured against its own window, not the native se
   const config = loadConfig({
     userFile: {
       models: {
-        haiku: { id: 'claude-haiku-4-5', input: 1, output: 5, cacheRead: 0.1, contextWindow: 200_000, efforts: [] },
+        haiku: {
+          id: 'claude-haiku-4-5',
+          input: 1,
+          output: 5,
+          cacheRead: 0.1,
+          longContext: null,
+          contextWindow: 200_000,
+          efforts: [],
+        },
       },
     },
   });

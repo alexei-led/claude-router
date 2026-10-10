@@ -153,6 +153,10 @@ for (const [name, userFile, message] of [
   ['activityMass above 1', { policy: { activityMass: 1.5 } }, /policy\.activityMass/],
   ['a negative activityMass', { policy: { activityMass: -0.1 } }, /policy\.activityMass/],
   ['fractional text chars', { context: { maxTextChars: 1.5 } }, /context\.maxTextChars/],
+  ['an unknown long-context key', { models: { haiku: { longContext: { over: 1 } } } }, /longContext\.over/],
+  ['a long context that is not an object', { models: { haiku: { longContext: 5 } } }, /longContext must be/],
+  ['a fractional long-context threshold', { models: { haiku: { longContext: { above: 1.5 } } } }, /above/],
+  ['a zero long-context multiplier', { models: { haiku: { longContext: { multiplier: 0 } } } }, /multiplier/],
 ]) {
   test(`strict router.json rejects ${name} instead of ignoring it`, () => {
     assert.throws(() => loadConfig({ userFile }), message);
@@ -168,6 +172,14 @@ for (const [name, userFile] of [
     assert.throws(() => loadConfig({ userFile }), /router\.json must be an object/);
   });
 }
+
+test('a long-context surcharge merges per field, and null removes it', () => {
+  assert.deepEqual(loadConfig({}).models.haiku.longContext, { above: 100_000, multiplier: 5 });
+  const raised = loadConfig({ userFile: { models: { haiku: { longContext: { above: 200_000 } } } } });
+  assert.deepEqual(raised.models.haiku.longContext, { above: 200_000, multiplier: 5 });
+  assert.equal(loadConfig({ userFile: { models: { haiku: { longContext: null } } } }).models.haiku.longContext, null);
+  assert.equal(loadConfig({}).models.opus.longContext, undefined);
+});
 
 test('error messages name the field, never the value', () => {
   for (const userFile of [
