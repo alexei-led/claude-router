@@ -220,6 +220,18 @@ test('a model without a configured price is not compared, and the cache simulati
   assert.equal(compareReply(DEFAULTS, null, { usage: { output_tokens: 1 }, served: OPUS, yours: OPUS }).reply, null);
 });
 
+test('a reply with an unknown cache lifetime is not compared, and the cache simulation goes on', () => {
+  const result = compareReply(DEFAULTS, null, {
+    usage: usage({ write: 1_000 }),
+    served: HAIKU,
+    yours: OPUS,
+    ttl: null,
+    now: 0,
+  });
+  assert.equal(result.reply, null);
+  assert.deepEqual(result.state, { total: 1_002, at: 0, onYours: false });
+});
+
 test('a served snapshot or a context suffix prices as its configured model', () => {
   for (const [id, expected] of [
     ['claude-opus-5-5', 'claude-opus-5-5'],

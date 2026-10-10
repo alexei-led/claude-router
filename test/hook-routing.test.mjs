@@ -766,17 +766,45 @@ test('with routing off a reply is not counted, and your model’s cache still fo
   assert.match(text, /^vs your model \(Haiku 5\.5 · medium\): no routed replies this session$/m);
 });
 
-test('a usage reading the readout cannot use, or a corrupted saved total, never breaks a turn', async () => {
-  const h = harness(JEV_KEY, new Map([[SAVINGS, { version: 9, replies: 'many' }]]));
+test('a session usage without rate limits prices cache writes at five minutes', async () => {
+  const h = harness(JEV_KEY);
   answering(h, jevResponse('low', LOW));
-  h.usage({ context: { tokens: 8000 } });
+  h.usage({ startedAt: 0, context: { tokens: 8000 } });
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-haiku-5-5');
-  assert.equal(h.requests.length, 1);
-  assert.equal(h.view().savings, null);
-  assert.equal(h.view().savingsStore.replies, 0);
-  h.usage({ context: { tokens: 8000 }, rateLimits: [] });
+  const usd = (0.1 * (100 + 200 * 1.25) + 0.01 * 800 + 0.5 * 10) / 1e6;
+  assert.equal(h.view().savings.replies, 1);
+  assert.ok(Math.abs(h.view().savings.routedUsd - usd) < 1e-12);
+});
+
+test('a reply whose cache lifetime cannot be read is not counted, and your model’s cache still follows it', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, jevResponse('low', LOW));
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('command.run', { command: 'router', args: 'off' });
+  await turn(h, 't1', 'claude-haiku-5-5');
+  assert.equal(h.loop().yours.onYours, true);
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  const usage = h.$.session.usage;
+  h.$.session.usage = async () => {
+    throw new Error('usage unavailable');
+  };
   await turn(h, 't2', 'claude-haiku-5-5');
+  assert.equal(h.requests.at(-1).effort, 'high');
+  assert.equal(h.view().savings, null);
+  assert.equal(h.loop().yours.onYours, false);
+  h.$.session.usage = usage;
+  await turn(h, 't3', 'claude-haiku-5-5');
+  assert.equal(h.view().savings.replies, 1);
+});
+
+test('a corrupted saved total never breaks a turn', async () => {
+  const h = harness(JEV_KEY, new Map([[SAVINGS, { version: 9, replies: 'many' }]]));
+  answering(h, jevResponse('low', LOW));
+  await h.event('session.start', { cwd: '/fixture' });
+  assert.equal(h.view().savingsStore.replies, 0);
+  await turn(h, 't1', 'claude-haiku-5-5');
+  assert.equal(h.requests.length, 1);
   assert.equal(h.view().savings.replies, 1);
   assert.equal(h.preferences.get(SAVINGS).replies, 1);
 });

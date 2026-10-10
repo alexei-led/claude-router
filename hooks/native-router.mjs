@@ -506,22 +506,28 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   if (compared?.reply) await addSavings($, router, turnId, compared.reply, tier);
 }
 
-// The main conversation's prompt-cache lifetime by Claude Code's rule (sessionCacheTtl). $.env.get takes literal
-// names only. A plan subscriber is one whose replies report plan rate limits.
+// The main conversation's prompt-cache lifetime by Claude Code's rule (sessionCacheTtl), or null when a reading
+// fails. $.env.get takes literal names only. A plan subscriber is one whose replies report plan rate limits; a usage
+// without them is not one.
 async function cacheTtlOf($) {
-  const settings = await $.settings.read();
-  const usage = await $.session.usage();
-  return sessionCacheTtl({
-    force5m: await $.env.get('FORCE_PROMPT_CACHING_5M'),
-    envTtl: await $.env.get('CLAUDE_CODE_PROMPT_CACHE_TTL'),
-    settingTtl: settings.promptCacheTtl,
-    enable1h: await $.env.get('ENABLE_PROMPT_CACHING_1H'),
-    subscriber: usage.rateLimits.some((limit) => limit.kind === 'five_hour' || limit.kind === 'seven_day'),
-  });
+  try {
+    const settings = await $.settings.read();
+    const usage = await $.session.usage();
+    return sessionCacheTtl({
+      force5m: await $.env.get('FORCE_PROMPT_CACHING_5M'),
+      envTtl: await $.env.get('CLAUDE_CODE_PROMPT_CACHE_TTL'),
+      settingTtl: settings.promptCacheTtl,
+      enable1h: await $.env.get('ENABLE_PROMPT_CACHING_1H'),
+      subscriber: (usage?.rateLimits ?? []).some((limit) => limit.kind === 'five_hour' || limit.kind === 'seven_day'),
+    });
+  } catch {
+    return null;
+  }
 }
 
 // A main reply against your model (compareReply): the loop's next `yours` state and the reply's prices, or null. The
-// readout never breaks a turn: any failure leaves the loop's state and the totals as they were.
+// readout never breaks a turn. A reply whose cache lifetime cannot be read still moves your model's cache and is not
+// counted; any other failure leaves the loop's state and the totals as they were.
 async function compareYours($, router, loop, response, servedEffort, nativeModel, cfg = router.config) {
   try {
     if (!response.usage?.model) return null;
