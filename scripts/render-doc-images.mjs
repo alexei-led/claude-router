@@ -176,7 +176,7 @@ const COLUMNS = 112;
 const states = [
   ['Routing on: routed to the high tier on a clear jump', base, false],
   [
-    'Two rows, with the hover row shown: recent replies by tier, the session against your model, pins, Routing off',
+    'Two rows, with the hover row shown: recent replies by tier, the session against your model, pins, Turn off',
     { ...base, ...yours, bandDetail: true, savings, estimate: null },
     true,
   ],
@@ -217,7 +217,7 @@ const states = [
     false,
   ],
   [
-    'Routing off: /model chose the model; Routing on resumes routing',
+    'Routing off: /model chose the model; Turn on resumes routing',
     { ...base, mode: 'manual', reason: 'model selected manually', nativeModel: 'claude-sonnet-5-5' },
     false,
   ],

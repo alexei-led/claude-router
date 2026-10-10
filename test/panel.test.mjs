@@ -33,6 +33,40 @@ test('the band, the pane and the router agree on which served model is a fallbac
   }
 });
 
+test('the pane header is one on/off pair that marks the current mode and keeps the o and f hotkeys', () => {
+  for (const [mode, expected] of [
+    [
+      'auto',
+      [
+        ['auto', '◉ on', 'o', 'primary'],
+        ['manual', '○ off', 'f', 'secondary'],
+      ],
+    ],
+    [
+      'manual',
+      [
+        ['auto', '○ on', 'o', 'secondary'],
+        ['manual', '◉ off', 'f', 'primary'],
+      ],
+    ],
+  ]) {
+    const pressed = [];
+    const tree = pane({ mode }, null, { ...actions, mode: (to) => pressed.push(to) });
+    const pair = controls(tree).filter((c) => c.key === 'auto' || c.key === 'manual');
+    assert.deepEqual(
+      pair.map((c) => [c.key, c.label, c.hotkey, c.variant]),
+      expected,
+      mode,
+    );
+    for (const c of pair) c.onPress();
+    assert.deepEqual(pressed, ['auto', 'manual'], mode);
+    const lines = texts(tree);
+    assert.equal(lines[0], 'ROUTING', mode);
+    assert.ok(lines.includes('  off keeps the /model choice'), mode);
+    assert.ok(lines.includes('Jev ready'), mode);
+  }
+});
+
 test('a pending pin shows on the Now tab with unpin', () => {
   let unpinned = 0;
   const tree = pane({ tier: 'low', selectedModel: 'claude-sonnet-5-5', pendingPin: 'high' }, null, {

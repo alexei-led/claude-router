@@ -145,7 +145,7 @@ test('unknown readings remain unknown and the band preserves other Mods', async 
     });
     expect(await band.find({ type: 'Text', text: 'other mod' })).toBeDefined();
     expect(await band.find({ key: 'details' })).toBeDefined();
-    expect(await band.find({ key: 'band-detail' })).toBeDefined();
+    expect(await band.find({ key: 'band-manual' })).toBeDefined();
     await band.unmount();
   }
 });

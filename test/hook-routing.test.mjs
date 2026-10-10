@@ -164,7 +164,7 @@ test('a fresh session on a model no tier routes to says why routing starts off, 
   h.model('claude-sonnet-5-5');
   await start(h);
   const line = (await band(h)).line;
-  assert.match(line, /Routing off · every turn uses Sonnet 5\.5/);
+  assert.match(line, /Routing off .*every turn uses Sonnet 5\.5/);
   assert.match(line, /Sonnet 5\.5 is not a routing tier/);
   await h.event('command.run', { command: 'router', args: 'auto' });
   assert.doesNotMatch((await band(h)).line, /not a routing tier/);
