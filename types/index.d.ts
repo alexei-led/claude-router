@@ -7,6 +7,8 @@ declare module 'claude-code' {
   type RouterActivityMode = 'off' | 'shadow' | 'on';
   // A finished turn's bucket, read from its tool calls.
   type RouterObserved = 'code' | 'docs' | 'ops' | 'read' | 'talk';
+  // A route change inside the incumbent's tier: taken, refused (does not pay back, a hold, the cash gate), or none.
+  type RouterLateral = 'taken' | 'refused' | null;
   // Classifier output. `activity` is null when not asked, or missing, malformed or failed.
   interface RouterAdvice {
     choice: RouterTier | 'uncertain';
@@ -31,6 +33,7 @@ declare module 'claude-code' {
     model: string;
     effort: string | number | null;
     reason: string;
+    lateral: RouterLateral;
     difference: RouterUsdRange | null;
   }
   // Shadow turns, those `on` would route differently, and of those the ones with a `difference`, summed.
@@ -49,6 +52,8 @@ declare module 'claude-code' {
   interface RouterActivitySession {
     byActivity: Partial<Record<RouterActivity | 'none', RouterActivityCounts>>;
     switches: { tier: number; activity: number };
+    // Lateral moves taken and refused (by economics, a hold or the cash gate); absent in views saved by 1.7.0.
+    lateral?: { taken: number; refused: number };
     agreement: { matched: number; total: number };
     shadow: RouterActivityShadow;
   }
@@ -213,6 +218,7 @@ declare module 'claude-code' {
       comparison?: RouterComparison | null;
       // The applied activity; `wouldRoute` is set only in shadow mode.
       activity?: RouterActivity | null;
+      lateral?: RouterLateral;
       wouldRoute?: RouterWouldRoute | null;
       pinned: boolean;
       requestedPin: RouterTier | null;

@@ -647,6 +647,7 @@ async function recordActivity($, router, turn) {
         outputTokens: turn.outputTokens,
         tierSwitches: turn.switched === 'tier' ? 1 : 0,
         activitySwitches: turn.switched === 'activity' ? 1 : 0,
+        lateral: turn.lateral,
         wouldDiffer: turn.wouldDiffer,
         wouldUsd: turn.wouldUsd,
         shadow: turn.mode === 'shadow',

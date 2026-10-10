@@ -497,6 +497,22 @@ test('the Usage tab shows the session activity block and the counts across sessi
       ],
     ],
     [
+      'on, with refused activity moves',
+      'on',
+      { ...ops, lateral: { taken: 5, refused: 2 }, shadow: { differs: 0, turns: 0 } },
+      STORE,
+      [
+        'ACTIVITY · this session',
+        '   activity routing on',
+        '                       turns  requests  share',
+        '  ops      ',
+        '██████████',
+        '     12        71   100%',
+        'Switches   9 · 4 by tier · 5 by activity · 2 refused',
+        ...ACROSS_LINES,
+      ],
+    ],
+    [
       'on, nothing across sessions',
       'on',
       null,

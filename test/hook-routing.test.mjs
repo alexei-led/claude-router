@@ -519,6 +519,7 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   assert.deepEqual(h.view().activityStats, {
     byActivity: { code: reply, ops: reply },
     switches: { tier: 0, activity: 1 },
+    lateral: { taken: 1, refused: 0 },
     agreement: { matched: 2, total: 2 },
     shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
   });
@@ -578,6 +579,7 @@ test('shadow asks and shows what on would do, and never changes the routed model
     model: 'claude-sonnet-5-5',
     effort: 'high',
     reason: 'activity-up',
+    lateral: 'taken',
     difference: null,
   });
   assert.match((await band(h)).line, / low code \(shadow\) → Haiku 5\.5 · high/);

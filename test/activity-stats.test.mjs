@@ -107,6 +107,14 @@ test('session switches and shadow counters add up', () => {
   assert.deepEqual(session.shadow, shadowOf(1, 3));
 });
 
+test('session lateral moves count taken and refused, also on a 1.7.0 view without them', () => {
+  const { lateral: _, ...saved } = emptySession();
+  let session = saved;
+  for (const lateral of ['taken', 'refused', 'refused', null, 'bogus'])
+    session = recordTurn(session, turn({ lateral }));
+  assert.deepEqual(session.lateral, { taken: 1, refused: 2 });
+});
+
 test('the shadow estimate sums the ranges of differing turns only, and counts the turns it covers', () => {
   const range = (minUsd, maxUsd) => ({ minUsd, maxUsd });
   const cases = [
@@ -332,7 +340,7 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       'on',
       advice('ops', 0.81),
       sonnet,
-      { ...haiku, activity: 'ops', reason: 'activity-down' },
+      { ...haiku, activity: 'ops', reason: 'activity-down', lateral: 'taken' },
       { answer: 'ops', label: 'ops', predicted: 'ops', switched: 'activity', lateral: 'taken', wouldDiffer: null },
     ],
     [
@@ -340,8 +348,24 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       'on',
       advice('ops', 0.81),
       sonnet,
-      { ...sonnet, activity: 'code', reason: 'activity-pending' },
+      { ...sonnet, activity: 'code', reason: 'activity-pending', lateral: 'refused' },
       { answer: 'ops', label: 'code', predicted: 'ops', switched: null, lateral: 'refused', wouldDiffer: null },
+    ],
+    ...['hold', 'cash-gate'].map((reason) => [
+      `on: a move refused by ${reason} is counted`,
+      'on',
+      advice('ops', 0.81),
+      sonnet,
+      { ...sonnet, activity: 'code', reason, lateral: 'refused' },
+      { answer: 'ops', label: 'code', predicted: 'ops', switched: null, lateral: 'refused', wouldDiffer: null },
+    ]),
+    [
+      'on: a tier hold without a lateral move counts nothing',
+      'on',
+      advice('ops', 0.81),
+      sonnet,
+      { ...sonnet, activity: 'code', reason: 'hold', lateral: null },
+      { answer: 'ops', label: 'code', predicted: 'ops', switched: null, lateral: null, wouldDiffer: null },
     ],
     [
       'on: a tier move',
@@ -376,7 +400,13 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
         ...haiku,
         activity: null,
         reason: 'hold',
-        wouldRoute: { ...sonnet, activity: 'code', reason: 'activity-up', difference: { minUsd: 0.01, maxUsd: 0.1 } },
+        wouldRoute: {
+          ...sonnet,
+          activity: 'code',
+          reason: 'activity-up',
+          lateral: 'taken',
+          difference: { minUsd: 0.01, maxUsd: 0.1 },
+        },
       },
       {
         answer: 'code',
