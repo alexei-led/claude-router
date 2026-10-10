@@ -508,7 +508,8 @@ async function recordActivity($, router, turn) {
       wouldUsd: turn.wouldUsd,
     });
     await $.store.set(STORE_KEY, written);
-    await updateView($, router, { activityStore: written });
+    // A reset during the write emptied the view; these counts are older than it.
+    if (router.statsResets === resets) await updateView($, router, { activityStore: written });
   } catch {}
 }
 
