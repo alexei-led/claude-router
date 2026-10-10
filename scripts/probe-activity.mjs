@@ -1,6 +1,7 @@
 // Sends the synthetic activity probe set (test/fixtures/activity-probe.json) to one classifier as the router would ask
 // it, and writes accuracy, the expected × answered confusion matrix and p50/p95 latency to
-// experiments/mod-router/results/activity-probe-<classifier>.json. Ollama's latency covers both of its requests.
+// experiments/mod-router/results/activity-probe-<classifier>.json, then regenerates lib/probe-results.mjs, which the
+// Classifier tab reads. Ollama's latency covers both of its requests.
 // Reads keys and endpoint settings as probe-classifier.mjs does. Never prints a key or the full URL. Billed; run by
 // hand, not in CI.
 // Usage: node scripts/probe-activity.mjs [classifier-id]
@@ -11,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { buildActivityRequest, buildRequest, parseActivityAnswer, parseAnswers } from '../lib/classifier-apis.mjs';
 import { resolveCredentials } from '../lib/classifier-contract.mjs';
 import { ACTIVITY_VALUES, loadConfig } from '../lib/config.mjs';
+import { writeProbeModule } from './probe-results.mjs';
 
 if (existsSync('.env')) process.loadEnvFile('.env');
 const profile = join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'router.json');
@@ -96,3 +98,4 @@ console.log(
     `p50 ${result.latencyMs.p50} ms, p95 ${result.latencyMs.p95} ms, deadline ${entry.timeoutMs} ms`,
 );
 console.log(`wrote ${out}`);
+console.log(`wrote ${writeProbeModule()}`);
