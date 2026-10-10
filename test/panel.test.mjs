@@ -481,6 +481,19 @@ test('the Usage tab shows the session activity block and the counts across sessi
       ],
     ],
     [
+      'shadow after on: refused moves from on still show',
+      'shadow',
+      { ...STATS, lateral: { taken: 5, refused: 2 } },
+      STORE,
+      [
+        ...SESSION_LINES.slice(0, -2),
+        'Switches   9 · 4 by tier · 5 by activity · 2 refused',
+        SESSION_LINES.at(-1),
+        'Shadow     on would route 5 of 20 turns differently · est. −$0.300 … −$0.120 for 3 at list prices',
+        ...ACROSS_LINES,
+      ],
+    ],
+    [
       'shadow, no differing turn had an estimate',
       'shadow',
       { ...STATS, shadow: { differs: 5, turns: 20, estimated: 0, minUsd: 0, maxUsd: 0 } },

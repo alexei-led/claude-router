@@ -147,6 +147,9 @@ test('session lateral moves count taken and refused, also on a 1.7.0 view withou
   for (const lateral of ['taken', 'refused', 'refused', null, 'bogus'])
     session = recordTurn(session, turn({ lateral }));
   assert.deepEqual(session.lateral, { taken: 1, refused: 2 });
+  for (const lateral of ['taken', 'refused'])
+    session = recordTurn(session, turn({ lateral, shadow: true, wouldDiffer: false }));
+  assert.deepEqual(session.lateral, { taken: 1, refused: 2 }, 'the would-route’s moves in shadow are not decisions');
 });
 
 test('the shadow estimate sums the ranges of differing turns only, and counts the turns it covers', () => {
