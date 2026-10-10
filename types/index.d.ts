@@ -18,13 +18,26 @@ declare module 'claude-code' {
       probabilities: Record<RouterActivityAnswer, number>;
     } | null;
   }
-  // What `on` would do, computed in `shadow`. `model` is a model id, as `decision.model`.
+  // A next-request cost difference in USD at configured list prices; negative is cheaper.
+  interface RouterUsdRange {
+    minUsd: number;
+    maxUsd: number;
+  }
+  // What `on` would do, computed in `shadow`. `model` is a model id, as `decision.model`. `difference` prices its next
+  // request against the applied route's; null when the routes match or there is no measured request yet.
   interface RouterWouldRoute {
     activity: RouterActivity | null;
     tier: RouterTier | null;
     model: string;
     effort: string | number | null;
     reason: string;
+    difference: RouterUsdRange | null;
+  }
+  // Shadow turns, those `on` would route differently, and of those the ones with a `difference`, summed.
+  interface RouterActivityShadow extends RouterUsdRange {
+    differs: number;
+    turns: number;
+    estimated: number;
   }
   interface RouterActivityCounts {
     turns: number;
@@ -37,7 +50,7 @@ declare module 'claude-code' {
     byActivity: Partial<Record<RouterActivity | 'none', RouterActivityCounts>>;
     switches: { tier: number; activity: number };
     agreement: { matched: number; total: number };
-    shadow: { differs: number; turns: number };
+    shadow: RouterActivityShadow;
   }
   // Cross-session counts under store key 'activity:stats:v1'. `runs` buckets run lengths 1, 2, 3, 4, 5+.
   interface RouterActivityStore {
@@ -45,7 +58,8 @@ declare module 'claude-code' {
     confusion: Partial<Record<RouterActivityAnswer | 'none', Partial<Record<RouterObserved, number>>>>;
     runs: Partial<Record<RouterActivity, [number, number, number, number, number]>>;
     lateral: { taken: number; refused: number };
-    shadow: { differs: number; turns: number };
+    // A 1.6.0 store has `differs` and `turns` only; readStore fills the rest with zeros.
+    shadow: RouterActivityShadow;
   }
   interface RouterComparison {
     candidate: RouterTier;
@@ -120,6 +134,8 @@ declare module 'claude-code' {
     // Aligned with `history` and `tiers`.
     activities?: (RouterActivity | null)[];
     activityStats?: RouterActivitySession | null;
+    // The counts kept across sessions as last read or written.
+    activityStore?: RouterActivityStore | null;
     configPath?: string | null;
     tuning?: Partial<RouterTuning> | null;
     tuningBase?: RouterTuning | null;

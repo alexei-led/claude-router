@@ -393,16 +393,48 @@ test('off routes without the activity, shadow applies the same and reports what 
     [
       'shadow',
       ['low', null, 'same-tier', HAIKU, 'high'],
-      { activity: 'code', tier: 'low', model: SONNET, effort: 'medium', reason: 'activity-up' },
+      {
+        activity: 'code',
+        tier: 'low',
+        model: SONNET,
+        effort: 'medium',
+        reason: 'activity-up',
+        // Cold Sonnet read (min) or written at 1h (max), against warm Haiku, plus Sonnet's dearer output.
+        difference: {
+          minUsd: (0.2 * 21_500 - 0.01 * 21_500 + 9.5 * 1_500) / 1e6,
+          maxUsd: (2 * 2 * 21_500 - 0.01 * 21_500 + 9.5 * 1_500) / 1e6,
+        },
+      },
     ],
     ['on', ['low', 'code', 'activity-up', SONNET, 'medium'], null],
   ]) {
     const config = loadConfig({ userFile: { activityRouting: mode } });
     const loop = turn({ config, label: labelOf('code') });
     assert.deepEqual(routeOf(loop.decision), applied, mode);
-    assert.deepEqual(loop.decision.wouldRoute, wouldRoute, mode);
+    const { difference, ...route } = loop.decision.wouldRoute ?? {};
+    const { difference: expected, ...expectedRoute } = wouldRoute ?? {};
+    assert.deepEqual(route, expectedRoute, mode);
+    for (const key of ['minUsd', 'maxUsd'])
+      assert.ok(Math.abs((difference?.[key] ?? 0) - (expected?.[key] ?? 0)) < 1e-12, `${mode} ${key}`);
     assert.equal(loop.lastActivity, applied[1], mode);
   }
+});
+
+test('the would-route is priced only when it differs from the applied route and a request was measured', () => {
+  const config = loadConfig({ userFile: { activityRouting: 'shadow' } });
+  const priced = (setup, change = (x) => x) => {
+    const { loop, input } = turnInput({ config, ...setup });
+    const { loop: l, input: i } = change({ loop, input });
+    return chooseRoute(config, l, i).decision.wouldRoute.difference;
+  };
+  assert.ok(priced({ label: labelOf('code') }).minUsd > 0, 'Sonnet for code costs more than Haiku');
+  for (const [name, setup, change] of [
+    ['the same route', { label: labelOf('ops') }],
+    ['no activity', {}],
+    ['context not known', { label: labelOf('code') }, (x) => ({ ...x, input: { ...x.input, contextKnown: false } })],
+    ['no measured request', { label: labelOf('code') }, (x) => ({ ...x, loop: { ...x.loop, lastRequest: null } })],
+  ])
+    assert.equal(priced(setup, change), null, name);
 });
 
 test('off and the applied shadow decision ignore an activity left in the loop by on', () => {

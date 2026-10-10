@@ -360,11 +360,11 @@ Predicted activities map to the buckets they allow:
 - `explore` → {read, talk}
 - `plan` → {talk, read, docs}
 - `review` → {read, talk}
-- `ops` → {ops}
+- `ops` → {ops, read} (a read-only Bash turn such as `git status` is still ops)
 - `docs` → {docs}
 
-Agreement means the observed bucket is in the allowed set. It is a weak oracle: it tells `ops` from `code` from
-`explore` well and cannot separate `plan` from `review`. That is enough to catch the costly mistake, a cheap route on
+Agreement means the observed bucket is in the allowed set. It is a weak oracle: it tells `code` from `ops` and
+`explore` well, not `ops` from `explore` when the commands only read, and cannot separate `plan` from `review`. That is enough to catch the costly mistake, a cheap route on
 a coding turn. No text is stored, only the bucket.
 
 ### 8.2 Where stats live

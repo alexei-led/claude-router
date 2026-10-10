@@ -274,42 +274,120 @@ const STATS = {
   },
   switches: { tier: 4, activity: 5 },
   agreement: { matched: 19, total: 22 },
-  shadow: { differs: 5, turns: 20 },
+  shadow: { differs: 5, turns: 20, estimated: 3, minUsd: -0.3, maxUsd: -0.12 },
 };
+const STORE = {
+  version: 1,
+  confusion: { code: { code: 10, read: 3 }, ops: { ops: 4, code: 1 }, debug: { code: 2 }, uncertain: { talk: 2 } },
+  runs: {},
+  lateral: { taken: 4, refused: 2 },
+  shadow: { differs: 6, turns: 18, estimated: 6, minUsd: -0.42, maxUsd: 0.18 },
+};
+const SESSION_LINES = [
+  'ACTIVITY · this session',
+  '   routing shadow',
+  '                       turns  requests  share',
+  '  code     ',
+  '██████░░░░',
+  '     12        71    60%',
+  '  explore  ',
+  '███░░░░░░░',
+  '      5        22    25%',
+  '  none     ',
+  '██░░░░░░░░',
+  '      3         3    15%',
+  'Switches   9 · 4 by tier · 5 by activity',
+  'Agreement  classifier vs tools: 19 of 22 turns (86%)',
+];
+const OFF_LINES = ['ACTIVITY · routing off', '  Not asked. Set activity routing to shadow or on in the Routing tab.'];
+const ACROSS = 'ACROSS SESSIONS · since the last reset';
+const ACROSS_LINES = [
+  ' ',
+  ACROSS,
+  'Labelled   22 turns',
+  'Agreement  classifier vs tools: 16 of 20 turns (80%)',
+  'Code/ops/explore  classifier vs tools: 14 of 18 turns (78%)',
+  'Mismatch   code → read 3 · ops → code 1',
+  'Lateral    4 taken · 2 refused',
+  'Shadow     on would route 6 of 18 turns differently · est. −$0.420 … +$0.180 at list prices',
+];
+const ACROSS_EMPTY = [' ', ACROSS, '  no turns recorded yet'];
 
-test('the Usage tab shows activity counts, switches, agreement and the shadow readout by mode', () => {
-  for (const [mode, activityStats, expected] of [
-    ['off', null, ['ACTIVITY · routing off', '  Not asked. Set activity routing to shadow or on in the Routing tab.']],
-    ['shadow', null, ['ACTIVITY · this session', '   routing shadow', '  no activity readings yet']],
+test('the Usage tab shows the session activity block and the counts across sessions by mode', () => {
+  const ops = { ...STATS, byActivity: { ops: STATS.byActivity.code }, agreement: { matched: 0, total: 0 } };
+  const before = { ...STORE, shadow: { differs: 6, turns: 18 } };
+  for (const [name, mode, activityStats, activityStore, expected] of [
+    ['off, nothing recorded', 'off', null, null, OFF_LINES],
+    ['off, counts from earlier sessions', 'off', null, STORE, [...OFF_LINES, ...ACROSS_LINES]],
+    ['off, a corrupted store', 'off', null, { ...STORE, version: 2 }, OFF_LINES],
     [
-      'shadow',
-      STATS,
+      'off, no code, ops or explore answers',
+      'off',
+      null,
+      {
+        ...STORE,
+        confusion: { debug: { code: 2, talk: 1 } },
+        lateral: { taken: 0, refused: 0 },
+        shadow: { differs: 0, turns: 0 },
+      },
       [
-        'ACTIVITY · this session',
-        '   routing shadow',
-        '                       turns  requests  share',
-        '  code     ',
-        '██████░░░░',
-        '     12        71    60%',
-        '  explore  ',
-        '███░░░░░░░',
-        '      5        22    25%',
-        '  none     ',
-        '██░░░░░░░░',
-        '      3         3    15%',
-        'Switches   9 · 4 by tier · 5 by activity',
-        'Agreement  classifier vs tools: 19 of 22 turns (86%)',
-        'Shadow     on would route 5 of 20 turns differently',
+        ...OFF_LINES,
+        ' ',
+        ACROSS,
+        'Labelled   3 turns',
+        'Agreement  classifier vs tools: 2 of 3 turns (67%)',
+        'Mismatch   debug → talk 1',
       ],
     ],
     [
+      'shadow, nothing yet',
+      'shadow',
+      null,
+      null,
+      ['ACTIVITY · this session', '   routing shadow', '  no activity readings yet', ...ACROSS_EMPTY],
+    ],
+    [
+      'shadow, with data and a partial estimate',
+      'shadow',
+      STATS,
+      STORE,
+      [
+        ...SESSION_LINES,
+        'Shadow     on would route 5 of 20 turns differently · est. −$0.300 … −$0.120 for 3 at list prices',
+        ...ACROSS_LINES,
+      ],
+    ],
+    [
+      'shadow, no differing turn had an estimate',
+      'shadow',
+      { ...STATS, shadow: { differs: 5, turns: 20, estimated: 0, minUsd: 0, maxUsd: 0 } },
+      { ...STORE, shadow: { differs: 0, turns: 0 } },
+      [...SESSION_LINES, 'Shadow     on would route 5 of 20 turns differently', ...ACROSS_LINES.slice(0, -1)],
+    ],
+    [
+      'shadow, a 1.6.0 session view and store',
+      'shadow',
+      { ...STATS, shadow: { differs: 5, turns: 20 } },
+      before,
+      [
+        ...SESSION_LINES,
+        'Shadow     on would route 5 of 20 turns differently',
+        ...ACROSS_LINES.slice(0, -1),
+        'Shadow     on would route 6 of 18 turns differently',
+      ],
+    ],
+    [
+      'shadow, a corrupted store',
+      'shadow',
+      null,
+      'garbage',
+      ['ACTIVITY · this session', '   routing shadow', '  no activity readings yet', ...ACROSS_EMPTY],
+    ],
+    [
+      'on, with data',
       'on',
-      {
-        ...STATS,
-        byActivity: { ops: STATS.byActivity.code },
-        agreement: { matched: 0, total: 0 },
-        shadow: { differs: 0, turns: 0 },
-      },
+      { ...ops, shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 } },
+      STORE,
       [
         'ACTIVITY · this session',
         '   routing on',
@@ -318,23 +396,31 @@ test('the Usage tab shows activity counts, switches, agreement and the shadow re
         '██████████',
         '     12        71   100%',
         'Switches   9 · 4 by tier · 5 by activity',
+        ...ACROSS_LINES,
       ],
+    ],
+    [
+      'on, nothing across sessions',
+      'on',
+      null,
+      null,
+      ['ACTIVITY · this session', '   routing on', '  no activity readings yet', ...ACROSS_EMPTY],
     ],
   ]) {
     const { calls, actions: recorded } = recording();
     const tree = renderPanel(
       ELEMENTS,
       { ...DEFAULTS, activityRouting: mode },
-      view({ tab: 'usage', activityStats }),
+      view({ tab: 'usage', activityStats, activityStore }),
       null,
       recorded,
     );
     const lines = texts(tree);
     const at = lines.findIndex((l) => l.startsWith('ACTIVITY'));
-    assert.deepEqual(lines.slice(at, at + expected.length), expected, `${mode} ${Boolean(activityStats)}`);
-    assert.equal(lines[at + expected.length], ' ', `${mode}: no further activity lines`);
+    assert.deepEqual(lines.slice(at, at + expected.length), expected, name);
+    assert.equal(lines[at + expected.length], ' ', `${name}: no further activity lines`);
     const reset = controls(tree).find((c) => c.key === 'reset-activity-stats');
     reset.onPress();
-    assert.deepEqual(calls, [['resetActivityStats']], `${mode}: the stored counts can always be reset`);
+    assert.deepEqual(calls, [['resetActivityStats']], `${name}: the stored counts can always be reset`);
   }
 });

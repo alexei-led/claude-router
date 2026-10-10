@@ -38,6 +38,7 @@ import {
   GATEWAY_SETTINGS,
   missingCredentials,
   NOT_A_TIER_REASON,
+  storeAgreementLine,
 } from '../lib/display.mjs';
 import { clip, observedActivity, promptIndex } from '../lib/facts.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
@@ -146,10 +147,20 @@ async function updateView($, router, patch) {
   await $.state.set(VIEW, router.view);
 }
 
+// The counts kept across sessions for the view, read when the session starts and the pane opens: another session
+// may have added to them. A failed read keeps what the view has; it never breaks a turn or a render.
+async function storeView($) {
+  try {
+    return { activityStore: readStore(await $.store.get(STORE_KEY)) };
+  } catch {
+    return {};
+  }
+}
+
 // A notice answers the last press in the pane, so the pane opens without one; the last write keeps its Undo in the
 // status bar.
 async function openPane($, router) {
-  await updateView($, router, { notice: null });
+  await updateView($, router, { notice: null, ...(await storeView($)) });
   await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
 }
 
@@ -289,6 +300,7 @@ function detailText(config, view) {
     `Observed: ${view.actualModel ?? 'no response yet'}`,
     `Reason: ${view.reason}`,
     ...activityDetailLines(config, view),
+    storeAgreementLine(view),
     view.error || missing ? classifierStatus(config, view.error ?? missing) : `${activeClassifier(config).label} ready`,
     `Context: ${view.contextKnown ? `${view.contextTokens} tokens (estimate)` : 'unknown'}`,
     `Observed cache: ${view.cacheRead ?? 'unknown'} read, ${view.cacheWrite ?? 'unknown'} written tokens`,
@@ -479,6 +491,7 @@ async function recordActivity($, router, turn) {
         tierSwitches: turn.switched === 'tier' ? 1 : 0,
         activitySwitches: turn.switched === 'activity' ? 1 : 0,
         wouldDiffer: turn.wouldDiffer,
+        wouldUsd: turn.wouldUsd,
         shadow: turn.mode === 'shadow',
       }),
     });
@@ -486,16 +499,17 @@ async function recordActivity($, router, turn) {
     const store = readStore(await $.store.get(STORE_KEY));
     // Writing counts read before a reset would bring them back; this turn's are lost instead.
     if (router.statsResets !== resets) return;
-    await $.store.set(
-      STORE_KEY,
-      recordStore(store, {
-        predicted: turn.predicted,
-        observed,
-        runEnded: ended,
-        lateral: turn.lateral,
-        wouldDiffer: turn.wouldDiffer,
-      }),
-    );
+    const written = recordStore(store, {
+      predicted: turn.predicted,
+      observed,
+      runEnded: ended,
+      lateral: turn.lateral,
+      wouldDiffer: turn.wouldDiffer,
+      wouldUsd: turn.wouldUsd,
+    });
+    await $.store.set(STORE_KEY, written);
+    // A reset during the write emptied the view; these counts are older than it.
+    if (router.statsResets === resets) await updateView($, router, { activityStore: written });
   } catch {}
 }
 
@@ -503,7 +517,7 @@ async function recordActivity($, router, turn) {
 async function flushRun($, run) {
   try {
     const store = readStore(await $.store.get(STORE_KEY));
-    const ended = { predicted: null, observed: null, runEnded: run, lateral: null, wouldDiffer: null };
+    const ended = { predicted: null, observed: null, runEnded: run, lateral: null, wouldDiffer: null, wouldUsd: null };
     await $.store.set(STORE_KEY, recordStore(store, ended));
   } catch {}
 }
@@ -666,6 +680,7 @@ function paneActions($, router, view) {
         .catch(() => false);
       await updateView($, router, {
         activityStats: null,
+        ...(cleared ? { activityStore: emptyStore() } : {}),
         notice: cleared ? 'Activity stats reset.' : 'Session activity stats reset. Saved stats could not be cleared.',
       });
     },
@@ -758,6 +773,7 @@ export function register(on, options) {
         routeDraft: null,
         lastWrite: null,
         bandDetail: (await $.store.get(BAND_DETAIL).catch(() => false)) === true,
+        ...(await storeView($)),
       });
     } catch (error) {
       await updateView($, router, {
@@ -923,6 +939,8 @@ export function register(on, options) {
       ...initialView(router.view?.nativeModel ?? ''),
       mode: 'auto',
       credentials: router.view?.credentials ?? null,
+      // Counts kept across sessions: the next session starts from them.
+      activityStore: router.view?.activityStore ?? null,
       health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
       configPath: router.config.nativePath,
       phase: router.view?.phase === 'unavailable' ? 'unavailable' : 'ready',

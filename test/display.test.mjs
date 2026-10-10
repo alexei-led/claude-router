@@ -11,6 +11,7 @@ import {
   missingText,
   routeLabel,
   sparkline,
+  storeAgreementLine,
   switchCount,
   usageMetrics,
 } from '../lib/display.mjs';
@@ -185,4 +186,26 @@ test('/router without a UI surface names the activity and its route, and nothing
     ['off', { ...haiku, ...ops }, []],
   ])
     assert.deepEqual(activityDetailLines({ ...DEFAULTS, activityRouting: mode }, view), expected, `${mode}`);
+});
+
+test('the /router agreement line adds code, ops and explore only when those were answered', () => {
+  const store = (confusion) => ({
+    version: 1,
+    confusion,
+    runs: {},
+    lateral: { taken: 0, refused: 0 },
+    shadow: { differs: 0, turns: 0 },
+  });
+  for (const [name, activityStore, expected] of [
+    ['no store', null, 'Agreement across sessions: no labelled turns yet'],
+    ['a corrupted store', { version: 1 }, 'Agreement across sessions: no labelled turns yet'],
+    ['only uncertain answers', store({ uncertain: { talk: 3 } }), 'Agreement across sessions: no labelled turns yet'],
+    ['no code, ops or explore', store({ plan: { talk: 2, ops: 2 } }), 'Agreement across sessions: 2 of 4 turns (50%)'],
+    [
+      'with code, ops and explore',
+      store({ code: { code: 9, read: 1 }, plan: { ops: 2 } }),
+      'Agreement across sessions: 9 of 12 turns (75%) · code/ops/explore 9 of 10 (90%)',
+    ],
+  ])
+    assert.equal(storeAgreementLine({ activityStore }), expected, name);
 });

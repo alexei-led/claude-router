@@ -593,17 +593,39 @@ test('Reset activity stats clears the session counts and the saved ones', async 
   await h.event('turn.complete', { turnId: 't1' });
   assert.equal(h.view().activityStats.byActivity.code.turns, 1);
   assert.equal(h.preferences.get('activity:stats:v1').shadow.turns, 1);
+  assert.equal(h.view().activityStore.shadow.turns, 1);
   await press(h, 'tab-usage');
   await press(h, 'reset-activity-stats');
   assert.equal(h.view().activityStats, null);
+  assert.deepEqual(h.view().activityStore, h.preferences.get('activity:stats:v1'));
+  assert.ok(texts(await h.render()).includes('  no turns recorded yet'));
   assert.equal(h.view().notice, 'Activity stats reset.');
   assert.deepEqual(h.preferences.get('activity:stats:v1'), {
     version: 1,
     confusion: {},
     runs: {},
     lateral: { taken: 0, refused: 0 },
+    shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
+  });
+});
+
+test('opening the pane reloads the counts another session added', async () => {
+  const h = harness();
+  await start(h);
+  assert.equal(h.view().activityStore.lateral.taken, 0);
+  h.preferences.set('activity:stats:v1', {
+    version: 1,
+    confusion: { ops: { ops: 3 } },
+    runs: {},
+    lateral: { taken: 2, refused: 0 },
     shadow: { differs: 0, turns: 0 },
   });
+  await h.event('command.run', { command: 'router', args: '' });
+  assert.equal(h.view().activityStore.lateral.taken, 2);
+  await press(h, 'tab-usage');
+  const lines = texts(await h.render());
+  assert.ok(lines.includes('Agreement  classifier vs tools: 3 of 3 turns (100%)'));
+  assert.ok(lines.includes('Code/ops/explore  classifier vs tools: 3 of 3 turns (100%)'));
 });
 
 test('Reset activity stats during a turn completion is not undone by that turn', async () => {
@@ -652,8 +674,47 @@ test('Reset activity stats during a turn completion is not undone by that turn',
     confusion: {},
     runs: {},
     lateral: { taken: 0, refused: 0 },
-    shadow: { differs: 0, turns: 0 },
+    shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
   });
+});
+
+test('Reset activity stats while a turn writes its counts leaves the readout empty', async () => {
+  const STORE = 'activity:stats:v1';
+  let gate = null;
+  const preferences = new (class extends Map {
+    set(key, value) {
+      super.set(key, value);
+      if (key !== STORE || !gate) return this;
+      const { promise, resolve } = Promise.withResolvers();
+      gate.resolve = resolve;
+      gate.reached();
+      return promise;
+    }
+  })();
+  const h = harness({ typesafe_api_key: 'synthetic-key' }, preferences);
+  h.http(async () => ({
+    ok: true,
+    status: 200,
+    headers: {},
+    text: JSON.stringify(
+      jevResponse('low', { micro: 0, low: 0.95, medium: 0.05, high: 0, uncertain: 0 }, 0, { code: 0.9, ops: 0.1 }),
+    ),
+  }));
+  await start(h);
+  await drain(h.step(step));
+  const reached = Promise.withResolvers();
+  gate = { reached: reached.resolve };
+  const completing = h.event('turn.complete', { turnId: 't1' });
+  await reached.promise;
+  const write = gate;
+  gate = null;
+  await press(h, 'tab-usage');
+  await press(h, 'reset-activity-stats');
+  write.resolve();
+  await completing;
+  assert.equal(h.preferences.get(STORE).lateral.taken, 0);
+  assert.deepEqual(h.view().activityStore, h.preferences.get(STORE));
+  assert.ok(texts(await h.render()).includes('  no turns recorded yet'));
 });
 
 test('Reset routes keeps pending activity edits and the mode', async () => {

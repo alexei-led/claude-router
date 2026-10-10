@@ -54,7 +54,9 @@ The script writes aggregate counts, reason histograms, route transitions, and sh
 
 ## Activity routing
 
-Activity routing has no measured result. The replay above predates it and covers tiers only. The pane counts turns, requests, switches, and the turns `on` would route differently, and it shows no dollar figure for them. Two checks look at the classifier's activity label.
+Activity routing has no measured result. The replay above predates it and covers tiers only. The pane counts turns, requests, switches, and the turns `on` would route differently, with a configured list-price estimate of those turns' next requests, not a measured saving. Two checks look at the classifier's activity label.
+
+The figures for turning activity routing on by default (plan §11: tool agreement of at least 80% on `code` against `ops` and `explore`, a negative would-route estimate, the number of activity switches) are read from the Usage tab's **ACROSS SESSIONS** block, which shows the counts kept since the last reset: **Code/ops/explore** for the tool agreement on turns the classifier answered `code`, `ops` or `explore`, **Agreement** and **Mismatch** for all of them, **Shadow** for the would-route count and estimate, **Lateral** for activity switches. `/router` without a UI surface prints both agreements. The underlying counts are the `activity:stats:v1` store described in [Architecture](architecture.md).
 
 ### Tool agreement
 
@@ -79,10 +81,10 @@ The classifier's activity agrees with the turn when the bucket is one it allows:
 | `explore` | `read`, `talk`         |
 | `plan`    | `talk`, `read`, `docs` |
 | `review`  | `read`, `talk`         |
-| `ops`     | `ops`                  |
+| `ops`     | `ops`, `read`          |
 | `docs`    | `docs`                 |
 
-Agreement is a weak check. It tells `ops` from `code` from `explore` well. It cannot tell `plan` from `review`, and it says nothing about whether the route was good enough. It does catch the costly mistake, a cheap route on a coding turn. The Usage tab shows the session's count as `Agreement`, over the turns where the classifier gave an activity at or above `activityMass`, in `on` too when the route kept another activity. The counts kept across sessions hold the classifier's raw answer, `uncertain` and no answer included, against the bucket. They are not shown in the pane.
+Agreement is a weak check. It tells `code` from `ops` and `explore` well, but not `ops` from `explore` when the commands only read. It cannot tell `plan` from `review`, and it says nothing about whether the route was good enough. It does catch the costly mistake, a cheap route on a coding turn. The Usage tab shows the session's count as `Agreement`, over the turns where the classifier gave an activity at or above `activityMass`, in `on` too when the route kept another activity. The counts kept across sessions hold the classifier's raw answer, `uncertain` and no answer included, against the bucket. The pane's **ACROSS SESSIONS** block counts agreement over the answers that name an activity; `uncertain` and no answer appear only in **Labelled**.
 
 ### Activity probe set
 
