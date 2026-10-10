@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.7.0 (2026-10-10)
+
+Activity routing is now on by default, with a new default matrix that uses Opus, Sonnet and Haiku. The Usage tab shows what routing cost against running every reply on your own model. The band has one routing on/off control.
+
+### Changed
+
+- Activity routing is on by default. At `low`, `code`, `debug`, `plan` and `review` run on Sonnet 5.5 at `high`; at `medium`, `ops` runs on Haiku 5.5 at `high`. Every other cell, and every turn without an activity, uses the base route, which is unchanged: `micro` Haiku 5.5 · `medium`, `low` Haiku 5.5 · `high`, `medium` Opus 5.5 · `medium`, `high` Opus 5.5 · `xhigh`. 1.6's Sonnet 5.5 · `medium` cells for `docs`, `explore` and `ops` are gone. [Activity routing](docs/activity-routing.md) gives the reason for each cell, from Anthropic's model cards and a list-price replay of real sessions; it does not measure answer quality.
+- Haiku 5.5 is priced at 5x on every rate above 100,000 prompt tokens, as Anthropic lists it. Switch-tax estimates and comparisons for Haiku routes rise there, and a decision near its bar can change: for example, an effort-only `micro` → `low` upgrade at 400K tokens now waits. The new model field `longContext` (`above`, `multiplier`, or `null`) holds it.
+- The band has one routing control at a time. While routing is on, **Turn off** sits on the hover row next to the pins. While it is off, the first line reads `○ Routing off [ Turn on ] · every turn uses <model>`, and **Turn on** stays at any width. The pane header is one radio pair, `ROUTING [ ◉ on ] [ ○ off ]`; its hotkeys `o` and `f`, and the `/router` commands, are unchanged.
+- The Now tab's **Replies** count and the two-row band count a switch as a change of model or effort, so a move from Sonnet to Haiku inside `low` counts.
+- Wording: "base route" replaces "tier route", the Usage tab's "Lateral" line is now **Activity moves**, and **Reset activity stats** is now **Reset stats**, which also clears routing vs your model.
+
+### Added
+
+- **Routing vs your model**, the Usage tab's first section: routed replies against the same tokens on your model (the session's model and effort before routing), for this session and since the last reset, at configured list prices. The difference splits into cheaper models, stronger than yours, and cache writes from switches. It reads `too early` under 10 routed replies. It is an estimate, not a bill: output length is held the same, on a Claude plan it stands for quota, and answer quality is not measured. The two-row band shows the session figure, such as `vs your model −22% (−$1.84, list prices)`, and `/router` without a pane prints one line with it.
+- **Activity threshold** (`policy.activityMass`) on the Routing tab under **POLICY**. Every activity-routing setting is now editable in the pane: the mode, each cell's model and effort, adding or removing a cell, and the threshold.
+- The Routing tab leads **ACTIVITIES** with the mode, and **OVERRIDES** says whether the overrides are in use and, if not, why.
+- [Activity routing](docs/activity-routing.md): what it does, the default matrix with its reasons, how to change any cell in `router.json` or the pane, and the limits of the estimates.
+
+### Fixed
+
+- When routing is unavailable (an old Claude Code, v0.8 gateway settings, an invalid `router.json`), the pane header and `/router` say so with the reason instead of offering on and off.
+- When the routed model is not available, the fallback no longer takes another activity's cell: a session limited to Sonnet keeps its session effort on such a turn instead of running Sonnet · `high` labelled `code`.
+
+### Upgrade notes
+
+- A `router.json` without `activityRouting` now runs `on`. 1.6 removed the key when you chose its default, `shadow`, so if you chose `shadow` in 1.6, run `/router activities shadow` again.
+- An activity override that sets only `model` or only `effort` takes the other field from 1.7's built-in cell, or from the base route where 1.7 has none (`explore` and `docs` at `medium`, `docs` at `low`). Write both fields to keep a 1.6 Sonnet · `medium` cell.
+- A session started on Sonnet 5.5 starts with routing on, because Sonnet runs the `code` cell at `low`. To stay on Sonnet, use `/model` or `/router off`.
+- If your `router.json` points the `haiku` alias at another model by setting only `id`, add `"longContext": null`, or it inherits the 5x surcharge.
+- 1.6 does not read `models.<alias>.longContext`; remove it before downgrading.
+
 ## 1.6.1 (2026-10-10)
 
 ### Added
