@@ -77,7 +77,7 @@ The **Routing** tab edits the routes, the activity overrides, and the policy. In
 | 1 Now        | The current tier, model, activity, and reason; the classifier's support for each tier with a **pin** button; the last 30 replies by tier and activity; context and cache.                            |
 | 2 Routing    | The model and effort for each tier, the baseline tier, the cache cost of each step up; the activity matrix and overrides; downgrade votes, payback horizon, and credits cap; the `router.json` path. |
 | 3 Classifier | The classifier rows with their credentials state, the active classifier's deadline and health, and the credentials each classifier needs.                                                            |
-| 4 Usage      | Claude-reported cost, context and cache detail, input per reply, quota, activity counts for this session, and configured-price estimates.                                                            |
+| 4 Usage      | Claude-reported cost, context and cache detail, input per reply, quota, activity counts for this session and across sessions, and configured-price estimates.                                      |
 
 **Routing on** and **Routing off** stay at the top of every tab. **?** shows what the estimates leave out.
 
@@ -145,9 +145,11 @@ The band's activity label appears only when the activity applies, so a weak or `
 
 - **Now**: the **Activity** line names the classifier's choice with its share and the two next-best answers, such as `code 84%   debug 8% · plan 5%`. The **Route** line shows the route the cell resolves to. **Replies** has a letter row under the strip.
 - **Routing**: the **ACTIVITIES** matrix shows the effective routes per tier, with `·` where a cell uses the tier's route, and counts the distinct routes, because each is its own cache. **OVERRIDES** lists each override with a model, an effort, and **remove**, plus a selector to add one and the mode selector. Edits join the routing draft: **Save** and **Discard** apply as for routes. Yellow notes flag an override with no effect (`same as base`), one stronger than the tier above, and one that adds a cache.
-- **Usage**: **ACTIVITY · this session** lists turns, requests, and share per activity, the switches split by tier and by activity, and **Agreement**, how often the tools a turn used fit the classifier's activity (see [Evaluation](evaluation.md#tool-agreement)). In `shadow` the **Shadow** line counts how many turns `on` would have routed differently. **Reset activity stats** clears the session counts and the counts kept across sessions. These are counts, not dollar figures.
+- **Usage**: **ACTIVITY · this session** lists turns, requests, and share per activity, the switches split by tier and by activity, and **Agreement**, how often the tools a turn used fit the classifier's activity (see [Evaluation](evaluation.md#tool-agreement)). In `shadow` the **Shadow** line counts how many turns `on` would have routed differently, such as `on would route 5 of 20 turns differently · est. −$0.300 … −$0.120 at list prices`. The estimate sums, over those turns, what the next request on the route `on` would use would cost against the route that ran, as a low and a high scenario at the configured list prices in `router.json`. Minus means cheaper. It covers only turns after a measured reply, and adds `for 3` when only three of the turns have one. It is not a measured saving.
 
-`/router` without a UI surface adds an `Activity: ops (81%)` line and the resolved route.
+**ACROSS SESSIONS · since the last reset** shows the counts kept across sessions: the turns labelled from their tools, **Agreement** over them, the two most frequent mismatches as `predicted → observed count` (`code → read 3`), lateral switches taken and refused, and the **Shadow** line summed over all shadow turns. This agreement compares the classifier's raw answer, so it can differ from the session's. The pane reads these counts when the session starts and when it opens, and after each turn. **Reset activity stats** clears the session counts and the counts kept across sessions.
+
+`/router` without a UI surface adds an `Activity: ops (81%)` line, the resolved route, and `Agreement across sessions: 19 of 22 turns (86%)`.
 
 ## Change routing
 
