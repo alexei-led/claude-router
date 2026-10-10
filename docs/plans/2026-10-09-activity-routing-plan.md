@@ -507,9 +507,10 @@ activity and stats, UI; then the hook wiring and docs.
 | 3 | 1.7.0 | `on` by default, the §3.1 matrix | Shipped on vendor benchmarks and a list-price replay of one developer's sessions, not on two weeks of shadow data. Probe accuracy: Jev and OpenAI 70 of 70, Clef and Clef Flash 69, Ollama 66 (`docs/evaluation.md`); Jev p95 latency 299 ms with the activity question. The shadow criteria below are still tracked in the Usage tab |
 
 Still tracked after 1.7.0, in the Usage tab's ACROSS SESSIONS block: tool agreement ≥ 80% on `code` vs
-`ops`/`explore` (**Code/ops/explore**); p95 Jev latency up by ≤ 150 ms (**Latency**, a bucket bound such as `≤ 350 ms`);
-no rise in tool-error escalations after activity downgrades (**Escalations**, `after a cheaper activity move: 1 in 12
-moves`). If they fail, a patch release sets `activityRouting` to
+`ops`/`explore` (**Code/ops/explore**); p95 Jev latency ≤ 450 ms, the probe's 299 ms plus a 150 ms budget (**Latency**,
+a bucket bound such as `≤ 350 ms`); at most 1 escalation in 10 cheaper activity moves (**Escalations**, `after a
+cheaper activity move: 1 in 12 moves`). Both are absolute: the pane keeps no baseline without the activity question or
+without activity moves, and the escalation ceiling is a judgement, not a measured rate. If they fail, a patch release sets `activityRouting` to
 `shadow` or `off` by default; a user can do the same with `/router activities shadow|off`.
 
 ## 12. Risks and open questions

@@ -471,6 +471,8 @@ async function decideTurn($, router, e, signal, step) {
           turns: facts.turns,
           signal: controller.signal,
         });
+    // The wait for advice alone, comparable with the activity probe's p95; the routing after it is not the classifier's.
+    const adviceMs = pin || !classifierTimed(result.error) ? null : Date.now() - adviceStarted;
     if (controller.signal.aborted || (await $.session.id()) !== sessionId || (await modeOf($, router)) !== 'auto')
       return null;
     const previous = loop.decision;
@@ -490,7 +492,6 @@ async function decideTurn($, router, e, signal, step) {
     if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
       $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
     const activity = turnActivity(cfg, result.advice, previous, selected.decision);
-    const adviceMs = pin || !classifierTimed(result.error) ? null : Date.now() - adviceStarted;
     router.turnActivities.set(e.turnId, {
       ...activity,
       reason: selected.decision.reason,

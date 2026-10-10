@@ -612,6 +612,20 @@ test('shadow asks and shows what on would do, and never changes the routed model
   assert.match(text, /^Route: low \+ code would use Sonnet 5\.5 · high \(shadow; using Haiku 5\.5 · high\)$/m);
 });
 
+test('the classifier latency is the wait for its answer, not the routing after it', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
+  answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  const set = h.$.state.set;
+  h.$.state.set = async (...args) => {
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    return set(...args);
+  };
+  await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
+  assert.deepEqual(h.preferences.get('activity:metrics:v1').latency.jev, [1, ...Array(21).fill(0)]);
+});
+
 test('shadow prices what on would route differently and the counts across sessions reach the view', async () => {
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ activityRouting: 'shadow' }));
