@@ -684,6 +684,84 @@ test('a Manual turn ends the watch a cheaper move started while routing was turn
   assert.equal(h.view().activityMetrics.downMoves.escalations, 0);
 });
 
+test('turning routing off mid-turn and straight back on does not keep the watch for that move', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(
+    CONFIG,
+    JSON.stringify({ activityRouting: 'on', activities: { ops: { low: { model: 'haiku', effort: 'medium' } } } }),
+  );
+  h.model('claude-sonnet-5-5');
+  answering(
+    h,
+    jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+  );
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  h.messages(async () => [user('Next.')]);
+  await drain(h.step({ ...step, turnId: 't2', model: 'claude-sonnet-5-5' }));
+  assert.equal(h.loop().decision.reason, 'activity-down');
+  await h.event('command.run', { command: 'router', args: 'off' });
+  h.messages(async () => [user('Next.'), assistant('done', ['Bash'])]);
+  await h.event('turn.complete', { turnId: 't2' });
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  const failing = [
+    user('Fix the test.'),
+    assistant('running', ['Bash']),
+    toolResult('error: test_login failed', { isError: true }),
+    assistant('editing', ['Edit']),
+    toolResult('error: test_login failed', { isError: true }),
+    user('Next.'),
+  ];
+  await h.event('turn.start', { turnId: 't4', text: 'Next.' });
+  h.messages(async () => failing);
+  await drain(h.step({ ...step, turnId: 't4', model: 'claude-sonnet-5-5' }));
+  assert.equal(h.loop().decision.escalated, true);
+  h.messages(async () => [...failing, assistant('done', ['Bash'])]);
+  await h.event('turn.complete', { turnId: 't4' });
+  assert.equal(h.view().activityMetrics.downMoves.escalations, 0);
+});
+
+test('turning routing off and back on before the turn finishes does not keep the watch for that move', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(
+    CONFIG,
+    JSON.stringify({ activityRouting: 'on', activities: { ops: { low: { model: 'haiku', effort: 'medium' } } } }),
+  );
+  h.model('claude-sonnet-5-5');
+  answering(
+    h,
+    jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+  );
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  h.messages(async () => [user('Next.')]);
+  await drain(h.step({ ...step, turnId: 't2', model: 'claude-sonnet-5-5' }));
+  assert.equal(h.loop().decision.reason, 'activity-down');
+  await h.event('command.run', { command: 'router', args: 'off' });
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  h.messages(async () => [user('Next.'), assistant('done', ['Bash'])]);
+  await h.event('turn.complete', { turnId: 't2' });
+  const failing = [
+    user('Fix the test.'),
+    assistant('running', ['Bash']),
+    toolResult('error: test_login failed', { isError: true }),
+    assistant('editing', ['Edit']),
+    toolResult('error: test_login failed', { isError: true }),
+    user('Next.'),
+  ];
+  await h.event('turn.start', { turnId: 't4', text: 'Next.' });
+  h.messages(async () => failing);
+  await drain(h.step({ ...step, turnId: 't4', model: 'claude-sonnet-5-5' }));
+  assert.equal(h.loop().decision.escalated, true);
+  h.messages(async () => [...failing, assistant('done', ['Bash'])]);
+  await h.event('turn.complete', { turnId: 't4' });
+  assert.equal(h.view().activityMetrics.downMoves.escalations, 0);
+});
+
 test('with activity routing on, a turn without an activity answer keeps the activity but ends the run', async () => {
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
