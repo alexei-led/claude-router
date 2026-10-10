@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The band names the activity with a verb in orange italic, `high  coding → Opus 5.5 · xhigh`, so it no longer reads as part of the model. `ops` reads `running`, `docs` reads `documenting`, and the rest end in `-ing`. The reasons and the switch toast use the same words: `↗ coding`, `↘ running`. In `shadow` the label stays dim.
+- A space now follows the tier chip, so its background no longer runs into the next word.
+
 ## 1.8.0 (2026-10-10)
 
 ### Changed

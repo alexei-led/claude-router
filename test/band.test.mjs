@@ -86,7 +86,7 @@ const modeBands = {
       effort: 'xhigh',
       reason: 'jump',
     },
-    reading: '▂▄▆█ high Opus 5.5 · xhigh',
+    reading: '▂▄▆█ high  Opus 5.5 · xhigh',
     control: { key: 'band-manual', label: 'Turn off', row: 'hover' },
   },
   manual: {
@@ -219,9 +219,9 @@ const activityBand = {
       reason: 'activity-up',
       estimate: { threshold: 0.79, upgradeMass: 0.82 },
     },
-    label: 'code → ',
+    label: 'coding → ',
     route: 'Sonnet 5.5 · medium',
-    reason: '↗ code',
+    reason: '↗ coding',
   },
   shadow: {
     view: {
@@ -240,7 +240,7 @@ const activityBand = {
         reason: 'activity-up',
       },
     },
-    label: 'code (shadow) → ',
+    label: 'coding (shadow) → ',
     route: 'Haiku 5.5 · high',
     reason: '= fits',
   },
@@ -259,7 +259,7 @@ test('a narrow band drops the activity before the reason and keeps the tier and 
       const parts = kept.flatMap((s) => s.parts);
       const name = `${mode} at ${columns}`;
       assert.ok(line(kept).length <= columns - ROUTER_BUTTON_COLUMNS, name);
-      assert.ok(line(kept).startsWith(`▂▄▆█ low ${activity ? label : ''}${route}`), name);
+      assert.ok(line(kept).startsWith(`▂▄▆█ low  ${activity ? label : ''}${route}`), name);
       assert.equal(
         parts.some((p) => p.text === reason),
         why,
@@ -267,14 +267,15 @@ test('a narrow band drops the activity before the reason and keeps the tier and 
       );
       const tag = parts.find((p) => p.text === label);
       assert.equal(Boolean(tag), activity, name);
-      if (tag) assert.equal(tag.style.dimColor === true, mode === 'shadow', name);
+      if (tag)
+        assert.deepEqual(tag.style, mode === 'shadow' ? { dimColor: true } : { color: '#d77757', italic: true }, name);
     }
   }
 });
 
 test('routing off by activity shows no activity in the band', () => {
   const config = { ...DEFAULTS, activityRouting: 'off' };
-  assert.ok(!line(bandSegments(config, activityBand.on.view, null, actions)).includes('code →'));
+  assert.ok(!line(bandSegments(config, activityBand.on.view, null, actions)).includes('coding →'));
 });
 
 test('activity moves name their activity in the band and the switch toast', () => {
@@ -285,12 +286,12 @@ test('activity moves name their activity in the band and the switch toast', () =
       ?.parts[0].text;
   const probabilities = { ops: 0.81, code: 0.1 };
   for (const [view, expected] of [
-    [{ reason: 'activity-up', activity: 'code' }, '↗ code'],
-    [{ reason: 'activity-down', activity: 'ops' }, '↘ ops'],
+    [{ reason: 'activity-up', activity: 'code' }, '↗ coding'],
+    [{ reason: 'activity-down', activity: 'ops' }, '↘ running'],
     [{ reason: 'activity-down', activity: null }, '↘ base'],
     [
       { reason: 'activity-pending', activity: 'code', activityChoice: 'ops', activityProbabilities: probabilities },
-      '… ops: not worth a switch',
+      '… running: not worth a switch',
     ],
     [
       { reason: 'activity-pending', activity: 'code', activityChoice: 'ops', activityProbabilities: { ops: 0.4 } },
@@ -302,7 +303,7 @@ test('activity moves name their activity in the band and the switch toast', () =
   const haiku = { model: 'claude-haiku-5-5', effort: 'high' };
   assert.equal(
     switchToast(config, sonnet, { ...haiku, reason: 'activity-down', activity: 'ops' }, null),
-    'Model changed: Sonnet 5.5 · medium → Haiku 5.5 · high · ops',
+    'Model changed: Sonnet 5.5 · medium → Haiku 5.5 · high · running',
   );
   assert.equal(
     switchToast(config, haiku, { ...sonnet, reason: 'upgrade', activity: 'code' }, null),

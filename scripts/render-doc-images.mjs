@@ -21,7 +21,7 @@ const ACCENT = '#87afff';
 const INK = '#0d1016';
 const BUTTON = '#2e3340';
 
-// Layout: a node becomes lines of runs; each run is { text, fill, bold, bg }, bg being a chip behind the text.
+// Layout: a node becomes lines of runs; each run is { text, fill, bold, italic, bg }, bg being a chip behind the text.
 const width = (line) => line.reduce((n, r) => n + [...r.text].length, 0);
 const pad = (lines, w) =>
   lines.map((line) => (width(line) < w ? [...line, { text: ' '.repeat(w - width(line)) }] : line));
@@ -30,7 +30,7 @@ function lay(node, { hover }) {
   const { type, props } = node;
   if (type === 'Text') {
     const fill = props.dimColor ? DIM : (COLORS[props.color] ?? props.color ?? FG);
-    return [[{ text: props.children ?? '', fill, bold: props.bold, bg: props.backgroundColor }]];
+    return [[{ text: props.children ?? '', fill, bold: props.bold, italic: props.italic, bg: props.backgroundColor }]];
   }
   if (type === 'Button') {
     const text = props.plain ? props.label : `[ ${props.label} ]`;
@@ -77,7 +77,7 @@ function runsSvg(lines, x0, y0) {
       }
       if (run.text.trim()) {
         out.push(
-          `<text x="${x.toFixed(1)}" y="${y0 + row * LH}" fill="${run.fill ?? FG}"${run.bold ? ' font-weight="700"' : ''} xml:space="preserve">${esc(run.text)}</text>`,
+          `<text x="${x.toFixed(1)}" y="${y0 + row * LH}" fill="${run.fill ?? FG}"${run.bold ? ' font-weight="700"' : ''}${run.italic ? ' font-style="italic"' : ''} xml:space="preserve">${esc(run.text)}</text>`,
         );
       }
       col += [...run.text].length;
