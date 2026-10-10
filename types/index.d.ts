@@ -158,6 +158,8 @@ declare module 'claude-code' {
     tiers?: (RouterTier | null)[];
     // Aligned with `history` and `tiers`.
     activities?: (RouterActivity | null)[];
+    // The (model, effort) each reply's request went out with, aligned with tiers; null where routing did not choose.
+    routes?: (string | null)[];
     activityStats?: RouterActivitySession | null;
     // The counts kept across sessions as last read or written.
     activityStore?: RouterActivityStore | null;

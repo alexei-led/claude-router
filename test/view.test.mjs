@@ -11,8 +11,14 @@ const usage = (input, read, write) => ({
 });
 
 test('responseMetrics sums the input counters and appends the reading with its tier and activity', () => {
-  const view = { ...initialView('claude-sonnet-5-5'), history: [10], tiers: ['low'], activities: ['code'] };
-  assert.deepEqual(responseMetrics(view, { usage: usage(1, 2, 3) }, 'micro', 'ops'), {
+  const view = {
+    ...initialView('claude-sonnet-5-5'),
+    history: [10],
+    tiers: ['low'],
+    activities: ['code'],
+    routes: ['claude-sonnet-5-5@high'],
+  };
+  assert.deepEqual(responseMetrics(view, { usage: usage(1, 2, 3) }, 'micro', 'ops', 'claude-haiku-5-5@medium'), {
     actualModel: 'claude-haiku-4-5',
     cacheRead: 2,
     cacheWrite: 3,
@@ -21,6 +27,7 @@ test('responseMetrics sums the input counters and appends the reading with its t
     history: [10, 6],
     tiers: ['low', 'micro'],
     activities: ['code', 'ops'],
+    routes: ['claude-sonnet-5-5@high', 'claude-haiku-5-5@medium'],
   });
 });
 

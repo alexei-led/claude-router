@@ -199,7 +199,13 @@ test('the Now tab shows the activity reading and the route its cell resolves to 
 });
 
 test('REPLIES letters each reply by its activity under its tier, aligned from the newest', () => {
-  const lines = texts(pane({ tiers: ['low', 'low', 'medium', 'low'], activities: ['ops', null, 'docs'] }));
+  const lines = texts(
+    pane({
+      tiers: ['low', 'low', 'medium', 'low'],
+      activities: ['ops', null, 'docs'],
+      routes: ['h@high', 'h@high', 'o@medium', 'h@high'],
+    }),
+  );
   const at = lines.indexOf('  2 switches');
   assert.deepEqual(lines.slice(at + 1, at + 6), ['  ', '·', 'o', '·', 'w']);
   assert.ok(lines.includes('  c code  d debug  e explore  p plan  r review  o ops  w docs'));

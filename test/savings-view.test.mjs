@@ -66,6 +66,7 @@ const view = (props) => ({
   actualModel: 'claude-haiku-5-5',
   effort: 'high',
   tiers: ['low', 'low', 'high'],
+  routes: ['claude-haiku-5-5@high', 'claude-haiku-5-5@high', 'claude-opus-5-5@xhigh'],
   savingsStore: STORE,
   ...props,
 });

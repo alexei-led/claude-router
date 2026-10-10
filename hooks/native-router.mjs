@@ -518,9 +518,15 @@ async function decideTurn($, router, e, signal, step) {
 
 // A routed reply's metrics in the view, labelled with the turn's activity when its tier served it, and added to the
 // turn's activity record.
-async function publishReply($, router, turnId, response, tier) {
+async function publishReply($, router, turnId, response, tier, route) {
   const turn = router.turnActivities.get(turnId);
-  const metrics = responseMetrics(router.view, response, tier, tier ? (turn?.label ?? null) : null);
+  const metrics = responseMetrics(
+    router.view,
+    response,
+    tier,
+    tier ? (turn?.label ?? null) : null,
+    tier ? route : null,
+  );
   await updateView($, router, metrics);
   if (turn)
     router.turnActivities.set(turnId, {
@@ -548,7 +554,7 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   if (!written.isSet) return;
   // A substituted reply is not the tier's: the strip and trend must not count it as one.
   const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
-  await publishReply($, router, turnId, response, tier);
+  await publishReply($, router, turnId, response, tier, `${request.model}@${request.effort ?? 'session'}`);
   if (compared?.reply) await addSavings($, router, turnId, compared.reply, tier);
 }
 

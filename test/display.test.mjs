@@ -125,22 +125,18 @@ test('a route label adds the effort only when there is one', () => {
     assert.equal(routeLabel(model, effort), expected);
 });
 
-test('a switch is a route change between consecutive routed replies', () => {
-  const on = loadConfig();
-  const off = loadConfig({ userFile: { activityRouting: 'off' } });
-  for (const [config, tiers, activities, expected, name] of [
-    [on, [], [], 0, 'no replies'],
-    [on, ['low'], ['code'], 0, 'one reply'],
-    [on, ['low', 'low'], ['code', 'code'], 0, 'same cell'],
-    [on, ['low', 'high', 'high'], [null, null, null], 1, 'tier change'],
-    [on, ['low', 'high', 'low'], [null, null, null], 2, 'there and back'],
-    [on, ['low', null, 'high'], [null, null, null], 0, 'an unrouted reply breaks no run'],
-    [on, ['low', 'low'], ['code', 'ops'], 1, 'code on Sonnet, then ops on Haiku inside low'],
-    [on, ['low', 'low'], ['ops', 'explore'], 0, 'two activities on the same base route'],
-    [off, ['low', 'low'], ['code', 'ops'], 0, 'activities do not route while activity routing is off'],
-    [on, ['low', 'low', 'low'], ['code', 'code', 'ops'], 1, 'activities align with the last replies'],
+test('a switch is a change of the route a reply went out with', () => {
+  for (const [routes, expected, name] of [
+    [[], 0, 'no replies'],
+    [['haiku@high'], 0, 'one reply'],
+    [['sonnet@high', 'sonnet@high'], 0, 'same route'],
+    [['haiku@high', 'opus@xhigh', 'opus@xhigh'], 1, 'one change'],
+    [['haiku@high', 'opus@xhigh', 'haiku@high'], 2, 'there and back'],
+    [['haiku@high', null, 'opus@xhigh'], 0, 'an unrouted reply breaks no run'],
+    [['sonnet@high', 'haiku@high'], 1, 'a move inside a tier: Sonnet for code, then Haiku for ops'],
+    [['opus@medium', 'opus@high'], 1, 'an effort change'],
   ])
-    assert.equal(switchCount(config, tiers, activities), expected, name);
+    assert.equal(switchCount(routes), expected, name);
 });
 
 test('a classifier status names the classifier and the setting it lacks', () => {
