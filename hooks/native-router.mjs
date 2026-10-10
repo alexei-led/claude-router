@@ -108,8 +108,8 @@ function createRouter(options) {
     // one activity, flushed to the store when it ends.
     turnActivities: new Map(),
     run: null,
-    // Whether the route running now came from a cheaper activity move, until another route change (advanceDown).
-    afterDown: false,
+    // The route a cheaper activity move went to, while the turns stay on it (advanceDown); else null.
+    afterDown: null,
     // Each turn's routing-vs-your-model totals until turn.complete adds them to the store.
     turnSavings: new Map(),
     // The totals kept across sessions: this session's record (`{ sessionId, record }`), held here so a refresh never
@@ -494,6 +494,9 @@ async function decideTurn($, router, e, signal, step) {
     router.turnActivities.set(e.turnId, {
       ...activity,
       reason: selected.decision.reason,
+      escalated: Boolean(selected.decision.escalated),
+      pinned: selected.decision.pinned,
+      route: `${selected.decision.model}@${selected.decision.effort ?? 'session'}`,
       classifier: cfg.classifier,
       adviceMs,
       sessionId,
@@ -870,7 +873,7 @@ function paneActions($, router, view) {
     resetStats: async () => {
       router.statsResets += 1;
       router.run = null;
-      router.afterDown = false;
+      router.afterDown = null;
       router.turnSavings.clear();
       const clear = (key, value) =>
         $.store
@@ -1148,7 +1151,7 @@ export function register(on, options) {
     router.turnSavings.clear();
     const run = router.run;
     router.run = null;
-    router.afterDown = false;
+    router.afterDown = null;
     if (run) await flushRun($, run);
     router.view = {
       ...initialView(router.view?.nativeModel ?? ''),

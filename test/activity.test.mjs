@@ -417,6 +417,29 @@ test('escalation keeps the failure for later when no tier above runs a stronger 
   assert.equal(base.state.escalatedSignature, 'boom');
 });
 
+test('a decision says whether a failure asked for an escalation, also when the cash gate held it', () => {
+  const failure = { signature: 'boom' };
+  const creditsOpus = fixed({ activityRouting: 'on', models: { opus: { billing: 'credits', input: 10 } } });
+  for (const [name, setup, expected] of [
+    ['an escalation', { activity: 'code', label: labelOf('code'), failure }, ['escalation', true]],
+    [
+      'held by the cash gate',
+      { config: creditsOpus, activity: 'code', label: labelOf('code'), failure, tokens: 300_000 },
+      ['cash-gate', true],
+    ],
+    ['no failure', { activity: 'code', label: labelOf('code') }, ['same-tier', false]],
+    [
+      'no tier above helps',
+      { config: docsFlat, activity: 'docs', label: labelOf('docs'), failure },
+      ['same-tier', false],
+    ],
+    ['a pin', { activity: 'code', pin: 'high', failure }, ['pinned', false]],
+  ]) {
+    const { decision } = turn(setup);
+    assert.deepEqual([decision.reason, decision.escalated], expected, name);
+  }
+});
+
 test('with the shipped matrix, a failing ops turn at low or medium escalates to the high route', () => {
   const shipped = loadConfig();
   for (const [tier, activity, expected] of [

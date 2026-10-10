@@ -232,6 +232,8 @@ declare module 'claude-code' {
       // The applied activity; `wouldRoute` is set only in shadow mode.
       activity?: RouterActivity | null;
       lateral?: RouterLateral;
+      // A failure asked for an escalation this turn, also one the cash gate held or context-fit replaced.
+      escalated?: boolean;
       wouldRoute?: RouterWouldRoute | null;
       pinned: boolean;
       requestedPin: RouterTier | null;

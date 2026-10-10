@@ -590,41 +590,57 @@ test('the metrics keep a bounded latency histogram per classifier and its p95 is
   assert.deepEqual(readMetrics(metrics), metrics);
 });
 
-test('escalations after a cheaper activity move: a move starts the watch, one escalation or another switch ends it', () => {
-  const on = (reason, extra = {}) => ({ mode: 'on', reason, lateral: null, switched: null, ...extra });
-  const down = on('activity-down', { lateral: 'taken', switched: 'activity' });
+test('escalations after a cheaper activity move: a move starts the watch, one escalation or another route ends it', () => {
+  const HAIKU = 'claude-haiku-5-5@high';
+  const SONNET = 'claude-sonnet-5-5@high';
+  const OPUS = 'claude-opus-5-5@xhigh';
+  const on = (reason, route, extra = {}) => ({
+    mode: 'on',
+    reason,
+    lateral: null,
+    escalated: false,
+    pinned: false,
+    route,
+    ...extra,
+  });
+  const down = on('activity-down', HAIKU, { lateral: 'taken' });
+  const escalation = on('escalation', OPUS, { escalated: true });
   for (const [name, turns, events] of [
-    ['an escalation right after', [down, on('escalation', { switched: 'tier' })], ['moved', 'escalated']],
+    ['an escalation right after', [down, escalation], ['moved', 'escalated']],
+    ['an escalation after quiet turns', [down, on('same-tier', HAIKU), escalation], ['moved', null, 'escalated']],
+    ['one escalation counts once', [down, escalation, escalation], ['moved', 'escalated', null]],
+    ['another route ends the watch', [down, on('upgrade', SONNET), escalation], ['moved', null, null]],
     [
-      'an escalation after quiet turns',
-      [down, on('same-tier'), on('escalation', { switched: 'tier' })],
-      ['moved', null, 'escalated'],
+      'a pin and the return to the cheaper route keep the watch',
+      [down, on('pinned', OPUS, { pinned: true }), on('same-tier', HAIKU), escalation],
+      ['moved', null, null, 'escalated'],
     ],
     [
-      'one escalation counts once',
-      [down, on('escalation', { switched: 'tier' }), on('escalation', { switched: 'tier' })],
-      ['moved', 'escalated', null],
+      'a return from a pin to another route ends it',
+      [down, on('pinned', OPUS, { pinned: true }), on('upgrade', SONNET), escalation],
+      ['moved', null, null, null],
     ],
+    ['an escalation the cash gate held', [down, on('cash-gate', HAIKU, { escalated: true })], ['moved', 'escalated']],
     [
-      'another switch ends the watch',
-      [down, on('upgrade', { switched: 'tier' }), on('escalation', { switched: 'tier' })],
-      ['moved', null, null],
+      'an escalation context-fit replaced',
+      [down, on('context-fit', OPUS, { escalated: true })],
+      ['moved', 'escalated'],
     ],
     [
       'a refused cheaper move starts nothing',
-      [on('activity-pending', { lateral: 'refused' }), on('escalation', { switched: 'tier' })],
+      [on('activity-pending', SONNET, { lateral: 'refused' }), escalation],
       [null, null],
     ],
     [
       'shadow never counts',
       [
         { ...down, mode: 'shadow' },
-        { ...on('escalation'), mode: 'shadow' },
+        { ...escalation, mode: 'shadow' },
       ],
       [null, null],
     ],
   ]) {
-    let after = false;
+    let after = null;
     const seen = turns.map((turn) => {
       const step = advanceDown(after, turn);
       after = step.after;

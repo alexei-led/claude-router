@@ -416,7 +416,8 @@ a coding turn. No text is stored, only the bucket.
 
   And `activity:metrics:v1`, each part read on its own:
   - classifier latency per classifier id, a 22-bucket histogram for at most 8 ids;
-  - cheaper activity moves taken in `on`, and the escalations that followed one before any other route change.
+  - cheaper activity moves taken in `on`, and the escalations that followed one while the turns stayed on its route; a
+    pin in between does not end the watch, and an escalation the cash gate held or context-fit replaced counts.
 
   1.7.0 reads any other key in its store as a corrupt value and empties it, so new counts go under the second key and
   survive a downgrade. Both are bounded in size and cleared by the **Reset stats** button in the Usage tab.
