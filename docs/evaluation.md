@@ -121,7 +121,7 @@ Method, per main reply that routing chose:
 
 Checks:
 
-- Unit tests (`test/savings.test.mjs`) cover a session that saves, one that costs more with Haiku as your model, equal routes at exactly 0, cache expiry at 5m and 1h, a compaction, the 100K surcharge, an unpriced model, and a corrupted store.
+- Unit tests (`test/savings.test.mjs`) cover a session that saves, one that costs more with Haiku as your model, equal routes at exactly 0, cache expiry at 5m and 1h, a compaction, a change of your model or effort, the 100K surcharge, an unpriced model, and a corrupted store. `test/hook-routing.test.mjs` covers two sessions finishing turns at the same moment.
 - A one-off replay, not checked in, of this machine's main-conversation transcripts from 2026-10-01 to 2026-10-10 (nine sessions with 10 or more replies) gave $0.00 for every session that ran only on the model it was compared with: three on Opus 5.5, one on Haiku 5.5. Every main-conversation cache write in them was a one-hour write, which is what the lifetime rule gives on this Max plan.
 - A live Claude Code 2.1.296 session on 2026-10-10, Opus 5.5 at `high` with turns pinned to Haiku 5.5, showed **Routed replies $0.48** beside **Cost $0.480 reported by Claude** for the same 16 replies; its last Haiku reply had a 114K-token prompt, which agrees only at the 5x rate. A Haiku 5.5 session with a pinned Opus turn showed $0.45 routed against $0.446 reported.
 
@@ -132,7 +132,7 @@ Limits:
 - Your model's cache is simulated, and a five-minute session that the lifetime rule takes for one hour (a plan subscriber billed as overage) would read too much cache on your side.
 - A route that changes only the effort costs the same per token; it shows only its cache writes.
 - Subagents, classifier charges and replies with routing off are not counted. On a Claude plan the dollars stand for quota, not cash.
-- The saved column keeps one record per session, so sessions finishing turns at the same moment both count. Claude Code's store has no atomic update, which leaves three gaps: the same session open in two Claude Code processes at once can lose one's turn; a turn finishing in another process during **Reset stats** can bring back that session's total from before the reset; and the activity counts across sessions are still one shared record, where two sessions finishing turns at the same moment can lose one turn's counts. The pane reads every session's record when it opens, so that read grows with the number of sessions since the last reset.
+- The saved column keeps one record per session, so sessions finishing turns at the same moment both count. Claude Code's store has no atomic update, which leaves three gaps: the same session open in two Claude Code processes at once can lose one's turn; a turn finishing in another process during **Reset stats** can bring back that session's total from before the reset; and the activity counts across sessions are still one shared record, where two sessions finishing turns at the same moment can lose one turn's counts. The router reads every session's record at session start and when the pane opens, so that read grows with the number of sessions since the last reset.
 
 ## Historical method and limits
 

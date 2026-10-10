@@ -806,6 +806,24 @@ test('a session usage without rate limits prices cache writes at five minutes', 
   assert.ok(Math.abs(h.view().savings.routedUsd - usd) < 1e-12);
 });
 
+test('turns on an unchanged session model and effort keep your model’s cache warm', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, jevResponse('low', LOW));
+  h.usage({ startedAt: 0, context: { tokens: 8000 } });
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-haiku-5-5');
+  await turn(h, 't2', 'claude-haiku-5-5');
+  assert.deepEqual(
+    h.requests.map((request) => request.effort),
+    ['high', 'high'],
+  );
+  assert.deepEqual([h.loop().yours.model, h.loop().yours.effort], ['claude-haiku-5-5', 'medium']);
+  const first = (0.1 * (100 + 200 * 1.25) + 0.01 * 800 + 0.5 * 10) / 1e6;
+  // The second reply reads the whole previous prompt on your model's cache and writes nothing.
+  const warm = (0.1 * 100 + 0.01 * 1_000 + 0.5 * 10) / 1e6;
+  assert.ok(Math.abs(h.view().savings.yoursUsd - (first + warm)) < 1e-12);
+});
+
 test('a reply whose cache lifetime cannot be read is not counted, and your model’s cache still follows it', async () => {
   const h = harness(JEV_KEY);
   answering(h, jevResponse('low', LOW));
