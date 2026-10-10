@@ -69,8 +69,12 @@ declare module 'claude-code' {
     lateral: { taken: number; refused: number };
     // A 1.6.0 store has `differs` and `turns` only; readStore fills the rest with zeros.
     shadow: RouterActivityShadow;
-    // Classifier wait per turn by classifier id, in LATENCY_BOUNDS buckets plus one above; at most 8 ids. Cheaper
-    // activity moves taken in 'on' and the escalations that followed one. A 1.7.0 store has neither; readStore fills them.
+  }
+  // Cross-session readings under store key 'activity:metrics:v1'. Classifier wait per turn by classifier id, in
+  // LATENCY_BOUNDS buckets plus one above; at most 8 ids. Cheaper activity moves taken in 'on' and the escalations that
+  // followed one.
+  interface RouterActivityMetrics {
+    version: 1;
     latency: Record<string, number[]>;
     downMoves: { moves: number; escalations: number };
   }
@@ -176,6 +180,7 @@ declare module 'claude-code' {
     activityStats?: RouterActivitySession | null;
     // The counts kept across sessions as last read or written.
     activityStore?: RouterActivityStore | null;
+    activityMetrics?: RouterActivityMetrics | null;
     savings?: RouterSavingsSession | null;
     savingsStore?: RouterSavingsStore | null;
     configPath?: string | null;

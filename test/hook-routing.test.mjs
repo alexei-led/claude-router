@@ -539,10 +539,14 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
     runs: { code: [1, 0, 0, 0, 0] },
     lateral: { taken: 1, refused: 0 },
     shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
+  });
+  assert.deepEqual(h.preferences.get('activity:metrics:v1'), {
+    version: 1,
     // Two timed classifier answers in the fastest bucket, and one cheaper activity move with no escalation yet.
     latency: { jev: [2, ...Array(21).fill(0)] },
     downMoves: { moves: 1, escalations: 0 },
   });
+  assert.deepEqual(h.view().activityMetrics, h.preferences.get('activity:metrics:v1'));
 
   await h.event('session.end', { reason: 'clear' });
   assert.deepEqual(h.preferences.get(STATS).runs, { code: [1, 0, 0, 0, 0], ops: [1, 0, 0, 0, 0] });

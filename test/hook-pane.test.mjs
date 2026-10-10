@@ -636,6 +636,7 @@ test('Reset stats clears activity and routing vs your model, the session counts 
   assert.equal(h.view().activityStore.shadow.turns, 1);
   assert.equal(h.view().savings.replies, 1);
   assert.equal(h.preferences.get('savings:v1:s1').replies, 1);
+  assert.ok(h.preferences.get('activity:metrics:v1').latency.jev);
   h.preferences.set('savings:v1:s0', h.preferences.get('savings:v1:s1'));
   await press(h, 'tab-usage');
   await press(h, 'reset-stats');
@@ -656,6 +657,9 @@ test('Reset stats clears activity and routing vs your model, the session counts 
     runs: {},
     lateral: { taken: 0, refused: 0 },
     shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
+  });
+  assert.deepEqual(h.preferences.get('activity:metrics:v1'), {
+    version: 1,
     latency: {},
     downMoves: { moves: 0, escalations: 0 },
   });
@@ -727,8 +731,6 @@ test('Reset stats during a turn completion is not undone by that turn', async ()
     runs: {},
     lateral: { taken: 0, refused: 0 },
     shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
-    latency: {},
-    downMoves: { moves: 0, escalations: 0 },
   });
 });
 
@@ -767,6 +769,7 @@ test('Reset stats while a turn writes its counts leaves the readout empty', asyn
   write.resolve();
   await completing;
   assert.equal(h.preferences.get(STORE).lateral.taken, 0);
+  assert.deepEqual(h.preferences.get('activity:metrics:v1').latency, {});
   assert.deepEqual(h.view().activityStore, h.preferences.get(STORE));
   assert.ok(texts(await h.render()).includes('  no turns recorded yet'));
 });

@@ -408,15 +408,18 @@ a coding turn. No text is stored, only the bucket.
 
 - **Session**: in the view, alongside `tiers`: an `activities` array aligned with the last 30 replies, and
   per-activity counters for turns, requests, tokens and estimated cost. Reset at session start.
-- **Across sessions**: one `$.store` key, `activity:stats:v1`, holding counts only:
+- **Across sessions**: `$.store` key `activity:stats:v1`, holding counts only, in 1.7.0's shape:
   - a predicted × observed confusion matrix;
   - run lengths per activity;
   - lateral switches taken and refused, read from the decision's `lateral` field, so a hold or the cash gate counts;
-  - shadow would-route counts;
+  - shadow would-route counts.
+
+  And `activity:metrics:v1`, each part read on its own:
   - classifier latency per classifier id, a 22-bucket histogram for at most 8 ids;
   - cheaper activity moves taken in `on`, and the escalations that followed one before any other route change.
 
-  It is bounded in size and has a **Reset** button in the Usage tab.
+  1.7.0 reads any other key in its store as a corrupt value and empties it, so new counts go under the second key and
+  survive a downgrade. Both are bounded in size and cleared by the **Reset stats** button in the Usage tab.
 
 ### 8.3 Probe set
 

@@ -365,6 +365,9 @@ pane(
       runs: {},
       lateral: { taken: 9, refused: 4 },
       shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
+    },
+    activityMetrics: {
+      version: 1,
       latency: { jev: [0, 0, 12, 40, 24, 3, 2, ...Array(15).fill(0)] },
       downMoves: { moves: 7, escalations: 0 },
     },

@@ -5,12 +5,15 @@ import {
   advanceDown,
   advanceRun,
   agrees,
+  emptyMetrics,
   emptySession,
   emptyStore,
   latencyP95,
   mostlyOn,
   OBSERVED,
+  readMetrics,
   readStore,
+  recordMetrics,
   recordStore,
   recordTurn,
   storeSummary,
@@ -282,21 +285,13 @@ test('readStore keeps a valid store and falls back to an empty one for any bad s
     runs: { code: [1, 0, 2, 0, 3] },
     lateral: { taken: 2, refused: 1 },
     shadow: shadowOf(3, 10, 2, -0.5, 0.25),
-    latency: { jev: [0, 0, 0, 0, 5, 1, ...Array(16).fill(0)] },
-    downMoves: { moves: 3, escalations: 1 },
   };
   assert.deepEqual(readStore(valid), valid);
   assert.deepEqual(readStore(structuredClone(emptyStore())), emptyStore());
-  const { latency: _, downMoves: __, ...v170 } = valid;
-  assert.deepEqual(
-    readStore(v170),
-    { ...valid, latency: {}, downMoves: { moves: 0, escalations: 0 } },
-    'a 1.7.0 store loads with no latency and no cheaper moves',
-  );
-  const before = { ...v170, shadow: { differs: 3, turns: 10 } };
+  const before = { ...valid, shadow: { differs: 3, turns: 10 } };
   assert.deepEqual(
     readStore(before),
-    { ...valid, shadow: shadowOf(3, 10), latency: {}, downMoves: { moves: 0, escalations: 0 } },
+    { ...valid, shadow: shadowOf(3, 10) },
     'a 1.6.0 store loads with a zero estimate',
   );
   assert.deepEqual(before.shadow, { differs: 3, turns: 10 }, 'the value read is not changed');
@@ -337,19 +332,57 @@ test('readStore keeps a valid store and falls back to an empty one for any bad s
     ['an infinite estimate', mutate((v) => (v.shadow.maxUsd = Number.POSITIVE_INFINITY))],
     ['a fractional estimated count', mutate((v) => (v.shadow.estimated = 1.5))],
     ['shadow with an extra key', mutate((v) => (v.shadow.saved = 1))],
-    ['latency as an array', mutate((v) => (v.latency = []))],
-    ['too few latency buckets', mutate((v) => (v.latency.jev = [1, 2]))],
-    ['a negative latency count', mutate((v) => (v.latency.jev[0] = -1))],
-    [
-      'more classifiers than the bound',
-      mutate((v) => {
-        for (let i = 0; i < 9; i += 1) v.latency[`c${i}`] = Array(22).fill(0);
-      }),
-    ],
-    ['downMoves missing a key', mutate((v) => delete v.downMoves.escalations)],
-    ['downMoves with a string count', mutate((v) => (v.downMoves.moves = '3'))],
   ])
     assert.deepEqual(readStore(value), emptyStore(), name);
+});
+
+test('the stats store keeps the 1.7.0 key set, which 1.7.0 reads back, whatever the turn measured', () => {
+  const store = recordStore(emptyStore(), {
+    predicted: 'code',
+    observed: 'code',
+    runEnded: { activity: 'code', length: 2 },
+    lateral: 'taken',
+    wouldDiffer: true,
+    classifier: 'jev',
+    adviceMs: 240,
+    downMove: 'moved',
+  });
+  assert.deepEqual(Object.keys(store), ['version', 'confusion', 'runs', 'lateral', 'shadow']);
+  assert.deepEqual(readStore(store), store);
+});
+
+test('readMetrics keeps each part it can read and drops only a bad one', () => {
+  const latency = { jev: [0, 0, 0, 0, 5, 1, ...Array(16).fill(0)] };
+  const downMoves = { moves: 3, escalations: 1 };
+  const valid = { version: 1, latency, downMoves };
+  const none = { moves: 0, escalations: 0 };
+  assert.deepEqual(readMetrics(valid), valid);
+  assert.deepEqual(readMetrics(structuredClone(emptyMetrics())), emptyMetrics());
+  for (const [name, value, expected] of [
+    ['undefined', undefined, emptyMetrics()],
+    ['null', null, emptyMetrics()],
+    ['an array', [], emptyMetrics()],
+    ['a future version', { ...valid, version: 2 }, emptyMetrics()],
+    ['latency as an array', { ...valid, latency: [] }, { version: 1, latency: {}, downMoves }],
+    ['too few latency buckets', { ...valid, latency: { jev: [1, 2] } }, { version: 1, latency: {}, downMoves }],
+    [
+      'a negative latency count',
+      { ...valid, latency: { jev: [-1, ...Array(21).fill(0)] } },
+      { version: 1, latency: {}, downMoves },
+    ],
+    [
+      'more classifiers than the bound',
+      { ...valid, latency: Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`c${i}`, Array(22).fill(0)])) },
+      { version: 1, latency: {}, downMoves },
+    ],
+    ['downMoves missing a key', { ...valid, downMoves: { moves: 3 } }, { version: 1, latency, downMoves: none }],
+    [
+      'downMoves with a string count',
+      { ...valid, downMoves: { moves: '3', escalations: 1 } },
+      { version: 1, latency, downMoves: none },
+    ],
+  ])
+    assert.deepEqual(readMetrics(value), expected, name);
 });
 
 test('advanceRun extends a run of the same activity and closes it on a change', () => {
@@ -530,8 +563,6 @@ test('storeSummary counts labelled turns, agreement over activity rows, and the 
     ],
     lateral: { taken: 4, refused: 2 },
     shadow: shadowOf(0, 0),
-    latency: {},
-    downMoves: { moves: 0, escalations: 0 },
   });
   assert.deepEqual(storeSummary(emptyStore()), {
     labelled: 0,
@@ -540,33 +571,23 @@ test('storeSummary counts labelled turns, agreement over activity rows, and the 
     disagreements: [],
     lateral: { taken: 0, refused: 0 },
     shadow: shadowOf(0, 0),
-    latency: {},
-    downMoves: { moves: 0, escalations: 0 },
   });
 });
 
-test('the store keeps a bounded latency histogram per classifier and its p95 is a bucket bound', () => {
-  let store = emptyStore();
-  const turn = (classifier, adviceMs) => ({
-    predicted: null,
-    observed: 'talk',
-    runEnded: null,
-    lateral: null,
-    wouldDiffer: null,
-    classifier,
-    adviceMs,
-  });
-  for (const ms of [...Array(18).fill(240), 299, 301, 7000]) store = recordStore(store, turn('jev', ms));
-  for (const ms of [null, -1, Number.NaN]) store = recordStore(store, turn('jev', ms));
-  store = recordStore(store, turn(null, 100));
-  assert.deepEqual(latencyP95(store.latency.jev), { ms: 350, over: false, turns: 21 });
+test('the metrics keep a bounded latency histogram per classifier and its p95 is a bucket bound', () => {
+  let metrics = emptyMetrics();
+  const turn = (classifier, adviceMs) => ({ classifier, adviceMs, downMove: null });
+  for (const ms of [...Array(18).fill(240), 299, 301, 7000]) metrics = recordMetrics(metrics, turn('jev', ms));
+  for (const ms of [null, -1, Number.NaN]) metrics = recordMetrics(metrics, turn('jev', ms));
+  metrics = recordMetrics(metrics, turn(null, 100));
+  assert.deepEqual(latencyP95(metrics.latency.jev), { ms: 350, over: false, turns: 21 });
   assert.deepEqual(latencyP95([...Array(21).fill(0), 3]), { ms: 5000, over: true, turns: 3 });
   assert.equal(latencyP95(undefined), null);
   assert.equal(latencyP95(Array(22).fill(0)), null);
-  for (let i = 0; i < 12; i += 1) store = recordStore(store, turn(`c${i}`, 100));
-  assert.equal(Object.keys(store.latency).length, 8);
-  assert.ok(Object.hasOwn(store.latency, 'jev'));
-  assert.deepEqual(readStore(store), store);
+  for (let i = 0; i < 12; i += 1) metrics = recordMetrics(metrics, turn(`c${i}`, 100));
+  assert.equal(Object.keys(metrics.latency).length, 8);
+  assert.ok(Object.hasOwn(metrics.latency, 'jev'));
+  assert.deepEqual(readMetrics(metrics), metrics);
 });
 
 test('escalations after a cheaper activity move: a move starts the watch, one escalation or another switch ends it', () => {
@@ -611,15 +632,8 @@ test('escalations after a cheaper activity move: a move starts the watch, one es
     });
     assert.deepEqual(seen, events, name);
   }
-  let store = emptyStore();
+  let metrics = emptyMetrics();
   for (const downMove of ['moved', 'escalated', 'moved', null, 'bogus'])
-    store = recordStore(store, {
-      predicted: null,
-      observed: 'talk',
-      runEnded: null,
-      lateral: null,
-      wouldDiffer: null,
-      downMove,
-    });
-  assert.deepEqual(store.downMoves, { moves: 2, escalations: 1 });
+    metrics = recordMetrics(metrics, { classifier: null, adviceMs: null, downMove });
+  assert.deepEqual(metrics.downMoves, { moves: 2, escalations: 1 });
 });

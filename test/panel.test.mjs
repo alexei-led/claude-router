@@ -393,6 +393,9 @@ const STORE = {
   runs: {},
   lateral: { taken: 4, refused: 2 },
   shadow: { differs: 6, turns: 18, estimated: 6, minUsd: -0.42, maxUsd: 0.18 },
+};
+const METRICS = {
+  version: 1,
   latency: { jev: [0, 0, 0, 3, 15, 1, 1, ...Array(15).fill(0)], openai: [9, ...Array(21).fill(0)] },
   downMoves: { moves: 12, escalations: 1 },
 };
@@ -447,8 +450,6 @@ test('the Usage tab shows the session activity block and the counts across sessi
         confusion: { debug: { code: 2, talk: 1 } },
         lateral: { taken: 0, refused: 0 },
         shadow: { differs: 0, turns: 0 },
-        latency: {},
-        downMoves: { moves: 0, escalations: 0 },
       },
       [
         ...OFF_LINES,
@@ -457,6 +458,8 @@ test('the Usage tab shows the session activity block and the counts across sessi
         'Labelled   3 turns',
         'Agreement  classifier vs tools: 2 of 3 turns (67%)',
         'Mismatch   debug → talk 1',
+        'Escalations  after a cheaper activity move: 1 in 12 moves',
+        'Latency    Jev p95 ≤ 350 ms · 20 turns',
       ],
     ],
     [
@@ -547,7 +550,7 @@ test('the Usage tab shows the session activity block and the counts across sessi
     const tree = renderPanel(
       ELEMENTS,
       { ...DEFAULTS, activityRouting: mode },
-      view({ tab: 'usage', activityStats, activityStore }),
+      view({ tab: 'usage', activityStats, activityStore, activityMetrics: METRICS }),
       null,
       recorded,
     );
@@ -562,6 +565,34 @@ test('the Usage tab shows the session activity block and the counts across sessi
     const reset = controls(tree).find((c) => c.key === 'reset-stats');
     reset.onPress();
     assert.deepEqual(calls, [['resetStats']], `${name}: the stored counts can always be reset`);
+  }
+});
+
+test('Escalations and Latency show only with readable data, and a bad latency hides only its line', () => {
+  const escalations = 'Escalations  after a cheaper activity move: 1 in 12 moves';
+  const latency = 'Latency    Jev p95 ≤ 350 ms · 20 turns';
+  for (const [name, activityMetrics, expected] of [
+    ['both', METRICS, [escalations, latency]],
+    ['none saved', null, []],
+    ['latency from an older bucket set', { ...METRICS, latency: { jev: [1, 2, 3] } }, [escalations]],
+    ['no cheaper moves', { ...METRICS, downMoves: { moves: 0, escalations: 0 } }, [latency]],
+    ['another classifier only', { ...METRICS, latency: { openai: METRICS.latency.openai } }, [escalations]],
+  ]) {
+    const lines = texts(
+      renderPanel(
+        ELEMENTS,
+        { ...DEFAULTS, activityRouting: 'on' },
+        view({ tab: 'usage', activityStore: STORE, activityMetrics }),
+        null,
+        actions,
+      ),
+    );
+    assert.deepEqual(
+      lines.filter((line) => line.startsWith('Escalations') || line.startsWith('Latency')),
+      expected,
+      name,
+    );
+    assert.ok(lines.includes('Labelled   22 turns'), `${name}: the stats store still shows`);
   }
 });
 
