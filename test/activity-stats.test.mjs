@@ -420,6 +420,12 @@ test('the sessions’ metrics add up since the last reset, within the classifier
     ],
     ['a bad and a missing value', [{ version: 2 }, undefined, record(20, {}, 1, 0)], null, record(20, {}, 1, 0)],
     ['ids past the bound', [record(1, many, 0, 0), record(2, { jev: bucket(0) }, 0, 0)], null, record(1, many, 0, 0)],
+    [
+      'a classifier id that names an Object.prototype member',
+      [record(1, { toString: bucket(0) }, 0, 0), record(2, { toString: bucket(0) }, 0, 0)],
+      null,
+      record(1, { toString: bucket(0).map((n) => n * 2) }, 0, 0),
+    ],
   ])
     assert.deepEqual(mergeMetrics(values, resetAt), expected, name);
   const merged = mergeMetrics([record(1, many, 0, 0), record(2, { jev: bucket(0) }, 0, 0)]);

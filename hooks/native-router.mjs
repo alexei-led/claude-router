@@ -684,7 +684,8 @@ async function flushSavings($, router, totals) {
 }
 
 // A finished turn's activity stats: the session counts in the view and the counts kept across sessions. Stats never
-// break a turn: a failed read or write loses this turn's counts only.
+// break a turn: a failed read or write loses this turn's counts, except the session's metrics record, which is held in
+// memory and written again with the next turn.
 async function recordActivity($, router, turn) {
   try {
     if ((await $.session.id()) !== turn.sessionId) return;
