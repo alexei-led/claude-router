@@ -10,6 +10,13 @@
 
 - An effort-only move on Opus 5.5, Sonnet 5.5, Haiku 5.5 or Fable 5.1, such as Opus at `medium` to `high`, is no longer priced as a cache write. These models keep one prompt cache across efforts with an API key or a Claude subscription, so the policy stops holding back moves that cost nothing, and Routing vs your model stops counting them as off your cache. On Amazon Bedrock, Google Cloud, Microsoft Foundry, a custom `ANTHROPIC_BASE_URL` or with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`, each effort still has its own cache.
 
+## 1.8.1 (2026-10-10)
+
+### Changed
+
+- The band names the activity with a verb in orange italic, `high  coding → Opus 5.5 · xhigh`, so it no longer reads as part of the model. `ops` reads `running`, `docs` reads `documenting`, and the rest end in `-ing`. The reasons and the switch toast use the same words: `↗ coding`, `↘ running`. In `shadow` the label stays dim.
+- A space now follows the tier chip, so its background no longer runs into the next word.
+
 ## 1.8.0 (2026-10-10)
 
 ### Changed

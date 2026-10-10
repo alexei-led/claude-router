@@ -37,8 +37,8 @@ Router draws one line above the prompt. The line ends with a **Router** button t
 Read the first line of the picture from left to right:
 
 - **Tier meter** `▂▄▆█`: one bar per tier, lit up to the current tier in its color, like signal strength.
-- **Tier, activity, and model**: the route for this turn. The activity, such as `code →`, sits between the tier and the model; see [Route by activity](#route-by-activity). **fallback** means Claude Code answered with another model.
-- **Reason**: one or two words with a direction, such as `↑ jump`, `↓ downgrade`, `= fits`, or `… waiting to go down`. An activity move reads `↗ code` or `↘ ops`, and a refused one `… ops: not worth a switch`.
+- **Tier, activity, and model**: the route for this turn. The activity sits between the tier and the model as a verb in orange italic, such as `coding →`: `coding`, `debugging`, `exploring`, `planning`, `reviewing`, `running` (commands: git, builds, tests, CI) or `documenting`. See [Route by activity](#route-by-activity). **fallback** means Claude Code answered with another model.
+- **Reason**: one or two words with a direction, such as `↑ jump`, `↓ downgrade`, `= fits`, or `… waiting to go down`. An activity move reads `↗ coding` or `↘ running`, and a refused one `… running: not worth a switch`.
 - **Classifier support**: what the active classifier, such as Jev or Clef Flash, gave the switch against the bar the policy required, such as `Jev 88% ≥ 82%`. When whole percents would read as equal, it shows tenths: `Jev 81.0% < 81.4%`.
 - **Switch cost**: `switch cost ≈ $0.37`, the policy's price for the switch it weighed this turn, mostly the prompt cache the other model must write. For a move to a cheaper model it is net of what that model saves over the next turns. The higher the cost, the higher the bar a stronger model must clear.
 - **ctx** and **cache hit**: context use and the share of input read from the cache on the last reply. They turn yellow at 60% context and red at 80%.

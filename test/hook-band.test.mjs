@@ -8,7 +8,7 @@ test('the band shows the tier meter, route, reason and context after a routed re
   await h.event('command.run', { command: 'router', args: 'pin high' });
   await drain(h.step(step));
   const { line, controls: buttons } = await band(h);
-  assert.match(line, /▂▄▆█ high Opus 5\.5 · xhigh/);
+  assert.match(line, /▂▄▆█ high {2}Opus 5\.5 · xhigh/);
   assert.match(line, /⏵ pinned/);
   assert.match(line, /ctx \d+% · cache hit \d+%/);
   assert.ok(buttons.some((node) => node.key === 'details'));
@@ -21,7 +21,7 @@ test('a narrow band drops context and reason before the route', async () => {
   await h.event('command.run', { command: 'router', args: 'pin high' });
   await drain(h.step(step));
   const { line } = await band(h, { bodyColumns: 40 });
-  assert.match(line, /high Opus 5\.5 · xhigh/);
+  assert.match(line, /high {2}Opus 5\.5 · xhigh/);
   assert.doesNotMatch(line, /ctx|pinned/);
 });
 

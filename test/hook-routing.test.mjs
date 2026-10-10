@@ -527,16 +527,16 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   assert.equal(h.view().mode, 'auto');
   assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-sonnet-5-5', 'high']);
   let line = (await band(h)).line;
-  assert.match(line, / low code → Sonnet 5\.5 · high/);
+  assert.match(line, / low {2}coding → Sonnet 5\.5 · high/);
   assert.match(line, /ctx \d+% · cache hit \d+%/);
   await turn(h, 't2', 'claude-sonnet-5-5', ['Bash']);
   assert.deepEqual([h.requests[1].model, h.requests[1].effort], ['claude-haiku-5-5', 'high']);
   assert.deepEqual([h.loop().decision.reason, h.loop().lastActivity], ['activity-down', 'ops']);
   assert.equal(h.toasts.length, 1);
-  assert.match(h.toasts[0], /^Model changed: Sonnet 5\.5 · high → Haiku 5\.5 · high · ops/);
+  assert.match(h.toasts[0], /^Model changed: Sonnet 5\.5 · high → Haiku 5\.5 · high · running/);
   line = (await band(h)).line;
-  assert.match(line, / low ops → Haiku 5\.5 · high/);
-  assert.match(line, /↘ ops/);
+  assert.match(line, / low {2}running → Haiku 5\.5 · high/);
+  assert.match(line, /↘ running/);
   assert.deepEqual(h.view().activities, ['code', 'ops']);
   const { byActivity, ...counts } = h.view().activityStats;
   assert.deepEqual(
@@ -871,7 +871,7 @@ test('shadow asks and shows what on would do, and never changes the routed model
     lateral: 'taken',
     difference: null,
   });
-  assert.match((await band(h)).line, / low code \(shadow\) → Haiku 5\.5 · high/);
+  assert.match((await band(h)).line, / low {2}coding \(shadow\) → Haiku 5\.5 · high/);
   assert.deepEqual(h.view().activityStats.shadow, { differs: 1, turns: 1, estimated: 0, minUsd: 0, maxUsd: 0 });
   assert.deepEqual(h.view().activityStats.agreement, { matched: 0, total: 1 });
   assert.deepEqual(h.preferences.get(STATS).shadow, { differs: 1, turns: 1, estimated: 0, minUsd: 0, maxUsd: 0 });
