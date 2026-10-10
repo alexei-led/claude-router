@@ -572,7 +572,10 @@ test('shadow prices what on would route differently and the counts across sessio
   assert.ok(lines.includes('Agreement  classifier vs tools: 2 of 2 turns (100%)'));
   h.surfaces([]);
   const detail = async (r) => (await r.event('command.run', { command: 'router', args: '' })).text;
-  assert.match(await detail(h), /^Agreement across sessions: 2 of 2 turns \(100%\)$/m);
+  assert.match(
+    await detail(h),
+    /^Agreement across sessions: 2 of 2 turns \(100%\) · code\/ops\/explore 2 of 2 \(100%\)$/m,
+  );
   await h.event('session.end', { reason: 'clear' });
 
   const reloaded = harness(JEV_KEY, h.preferences);

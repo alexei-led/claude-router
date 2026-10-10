@@ -278,7 +278,7 @@ const STATS = {
 };
 const STORE = {
   version: 1,
-  confusion: { code: { code: 10, read: 3 }, ops: { ops: 4, code: 1 }, uncertain: { talk: 2 } },
+  confusion: { code: { code: 10, read: 3 }, ops: { ops: 4, code: 1 }, debug: { code: 2 }, uncertain: { talk: 2 } },
   runs: {},
   lateral: { taken: 4, refused: 2 },
   shadow: { differs: 6, turns: 18, estimated: 6, minUsd: -0.42, maxUsd: 0.18 },
@@ -304,8 +304,9 @@ const ACROSS = 'ACROSS SESSIONS · since the last reset';
 const ACROSS_LINES = [
   ' ',
   ACROSS,
-  'Labelled   20 turns',
-  'Agreement  classifier vs tools: 14 of 18 turns (78%)',
+  'Labelled   22 turns',
+  'Agreement  classifier vs tools: 16 of 20 turns (80%)',
+  'Code/ops/explore  classifier vs tools: 14 of 18 turns (78%)',
   'Mismatch   code → read 3 · ops → code 1',
   'Lateral    4 taken · 2 refused',
   'Shadow     on would route 6 of 18 turns differently · est. −$0.420 … +$0.180 at list prices',
@@ -319,6 +320,25 @@ test('the Usage tab shows the session activity block and the counts across sessi
     ['off, nothing recorded', 'off', null, null, OFF_LINES],
     ['off, counts from earlier sessions', 'off', null, STORE, [...OFF_LINES, ...ACROSS_LINES]],
     ['off, a corrupted store', 'off', null, { ...STORE, version: 2 }, OFF_LINES],
+    [
+      'off, no code, ops or explore answers',
+      'off',
+      null,
+      {
+        ...STORE,
+        confusion: { debug: { code: 2, talk: 1 } },
+        lateral: { taken: 0, refused: 0 },
+        shadow: { differs: 0, turns: 0 },
+      },
+      [
+        ...OFF_LINES,
+        ' ',
+        ACROSS,
+        'Labelled   3 turns',
+        'Agreement  classifier vs tools: 2 of 3 turns (67%)',
+        'Mismatch   debug → talk 1',
+      ],
+    ],
     [
       'shadow, nothing yet',
       'shadow',

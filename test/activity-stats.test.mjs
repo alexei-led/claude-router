@@ -427,14 +427,16 @@ test('storeSummary counts labelled turns, agreement over activity rows, and the 
       code: { code: 10, read: 3, ops: 1 },
       ops: { ops: 4, code: 3 },
       explore: { read: 5, talk: 1, code: 1 },
+      plan: { talk: 2, ops: 1 },
       uncertain: { talk: 6 },
       none: { read: 2 },
     },
     lateral: { taken: 4, refused: 2 },
   });
   assert.deepEqual(storeSummary(store), {
-    labelled: 36,
-    agreement: { matched: 20, total: 28 },
+    labelled: 39,
+    agreement: { matched: 22, total: 31 },
+    focus: { matched: 20, total: 28 },
     disagreements: [
       { predicted: 'code', observed: 'read', n: 3 },
       { predicted: 'ops', observed: 'code', n: 3 },
@@ -445,6 +447,7 @@ test('storeSummary counts labelled turns, agreement over activity rows, and the 
   assert.deepEqual(storeSummary(emptyStore()), {
     labelled: 0,
     agreement: { matched: 0, total: 0 },
+    focus: { matched: 0, total: 0 },
     disagreements: [],
     lateral: { taken: 0, refused: 0 },
     shadow: shadowOf(0, 0),

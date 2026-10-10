@@ -623,7 +623,9 @@ test('opening the pane reloads the counts another session added', async () => {
   await h.event('command.run', { command: 'router', args: '' });
   assert.equal(h.view().activityStore.lateral.taken, 2);
   await press(h, 'tab-usage');
-  assert.ok(texts(await h.render()).includes('Agreement  classifier vs tools: 3 of 3 turns (100%)'));
+  const lines = texts(await h.render());
+  assert.ok(lines.includes('Agreement  classifier vs tools: 3 of 3 turns (100%)'));
+  assert.ok(lines.includes('Code/ops/explore  classifier vs tools: 3 of 3 turns (100%)'));
 });
 
 test('Reset activity stats during a turn completion is not undone by that turn', async () => {
