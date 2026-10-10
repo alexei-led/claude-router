@@ -127,14 +127,13 @@
 <text x="39.6" y="354" fill="#d0d0d0" xml:space="preserve">Routing </text>
 <rect x="102.0" y="340" width="23.4" height="18" rx="4" fill="#2a3040"/>
 <text x="102.0" y="354" fill="#8b93a7" xml:space="preserve">off</text>
-<text x="125.4" y="354" fill="#d0d0d0" xml:space="preserve"> · </text>
-<text x="148.8" y="354" fill="#d0d0d0" xml:space="preserve">every turn uses </text>
-<text x="273.6" y="354" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5</text>
-<text x="351.6" y="354" fill="#7c7c7c" xml:space="preserve"> (/model)</text>
-<text x="421.8" y="354" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<rect x="460.8" y="340" width="85.8" height="18" rx="4" fill="#87afff"/>
-<text x="460.8" y="354" fill="#0d1016" font-weight="700" xml:space="preserve">[ Turn on ]</text>
-<text x="562.2" y="354" fill="#d0d0d0" xml:space="preserve">Router</text>
+<rect x="133.2" y="340" width="85.8" height="18" rx="4" fill="#87afff"/>
+<text x="133.2" y="354" fill="#0d1016" font-weight="700" xml:space="preserve">[ Turn on ]</text>
+<text x="219.0" y="354" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="258.0" y="354" fill="#d0d0d0" xml:space="preserve">every turn uses </text>
+<text x="382.8" y="354" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5</text>
+<text x="460.8" y="354" fill="#7c7c7c" xml:space="preserve"> (/model)</text>
+<text x="546.6" y="354" fill="#d0d0d0" xml:space="preserve">Router</text>
 <text class="cap" x="20" y="393">Activity routing on: an ops turn at low moves to the cheaper route</text>
 <rect x="12" y="401" width="897.6" height="29" rx="5" fill="#232323"/>
 <text x="24.0" y="419" fill="#5f9fe0" xml:space="preserve">▂</text>
