@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.1 (2026-10-10)
+
+### Added
+
+- The **Shadow** line on the Usage tab now estimates what the turns `on` would route differently would cost on their next request, as a range at the configured list prices in `router.json`, such as `est. −$0.300 … −$0.120 at list prices`. It is an estimate, not a measured saving.
+- **ACROSS SESSIONS** on the Usage tab shows the activity counts kept since the last reset: labelled turns, tool agreement, the two most frequent mismatches, lateral switches taken and refused, and the shadow readout with its estimate. `/router` without a UI surface prints the agreement across sessions. **Reset activity stats** clears it too.
+
 ## 1.6.0 (2026-10-10)
 
 The classifier now also names the turn's **activity**: what the turn produces (`code`, `debug`, `explore`, `plan`, `review`, `ops`, `docs`, or `uncertain`). The route can then depend on tier and activity, so a `low` coding turn can run on Sonnet 5.5 while a `low` git turn stays on Haiku 5.5. Routing does not change until you opt in.
