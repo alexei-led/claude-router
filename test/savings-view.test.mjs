@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { renderBand } from '../lib/band.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
-import { savingsLine } from '../lib/display.mjs';
+import { savingsLine, TIER_COLOR } from '../lib/display.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { ELEMENTS, screen } from './harness.mjs';
 
@@ -162,6 +162,23 @@ test('the Usage tab opens with routing vs your model, each number on the line th
     ],
   ])
     assert.deepEqual(section(props), expected, name);
+});
+
+test('your model takes the color of the tier that runs it at your effort', () => {
+  const colorOf = (props) => {
+    const tree = renderPanel(ELEMENTS, DEFAULTS, view({ ...props, savings: SAVES }), null, actions);
+    const found = [];
+    (function walk(node) {
+      if (node?.type === 'Text' && node.props.children === yourModel(props)) found.push(node.props.color);
+      if (Array.isArray(node?.props?.children)) node.props.children.forEach(walk);
+    })(tree);
+    return found[0];
+  };
+  const yourModel = ({ nativeModel, nativeEffort }) =>
+    `${nativeModel.includes('opus') ? 'Opus' : 'Haiku'} 5.5 · ${nativeEffort}`;
+  assert.equal(colorOf(OPUS), TIER_COLOR.high);
+  assert.equal(colorOf({ ...OPUS, nativeEffort: 'medium' }), TIER_COLOR.medium);
+  assert.equal(colorOf(HAIKU), TIER_COLOR.low);
 });
 
 test('a narrow pane keeps every sentence whole and indented', () => {
