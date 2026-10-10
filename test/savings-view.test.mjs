@@ -144,6 +144,16 @@ test('the Usage tab opens with routing vs your model, each number on the line th
       ],
     ],
     [
+      'routing unavailable',
+      { ...OPUS, mode: 'auto', phase: 'unavailable', error: 'requires Claude Code 2.1.289 or newer', savings: null },
+      [
+        'ROUTING VS YOUR MODEL · Opus 5.5 · xhigh   this session   since Oct 10',
+        '  Routing is unavailable: every reply this session used your model.',
+        '  Difference                               $0.00          −$11.42 −22%',
+        ...FOOTER,
+      ],
+    ],
+    [
       'a first session, before any reply',
       { ...OPUS, savings: null, savingsStore: null },
       [
@@ -253,6 +263,10 @@ test('/router without a surface says the session against your model in one line'
     [
       { nativeModel: 'claude-sonnet-5-5', nativeEffort: 'medium', savings: null },
       'vs your model (Sonnet 5.5 · medium): no routed replies this session; −$11.42 (−22%) since Oct 10',
+    ],
+    [
+      { ...OPUS, phase: 'unavailable', savings: null },
+      'vs your model (Opus 5.5 · xhigh): no routed replies this session; −$11.42 (−22%) since Oct 10',
     ],
     [
       { ...OPUS, savings: null, savingsStore: 'corrupted' },
