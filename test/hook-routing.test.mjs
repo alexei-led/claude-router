@@ -482,14 +482,14 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
     byActivity: { code: reply, ops: reply },
     switches: { tier: 0, activity: 1 },
     agreement: { matched: 2, total: 2 },
-    shadow: { differs: 0, turns: 0 },
+    shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
   });
   assert.deepEqual(h.preferences.get(STATS), {
     version: 1,
     confusion: { code: { code: 1 }, ops: { ops: 1 } },
     runs: { code: [1, 0, 0, 0, 0] },
     lateral: { taken: 1, refused: 0 },
-    shadow: { differs: 0, turns: 0 },
+    shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
   });
 
   await h.event('session.end', { reason: 'clear' });
@@ -539,16 +539,76 @@ test('shadow asks and shows what on would do, and never changes the routed model
     model: 'claude-sonnet-5-5',
     effort: 'medium',
     reason: 'activity-up',
+    difference: null,
   });
   assert.match((await band(h)).line, / low code \(shadow\) → Haiku 5\.5 · high/);
-  assert.deepEqual(h.view().activityStats.shadow, { differs: 1, turns: 1 });
+  assert.deepEqual(h.view().activityStats.shadow, { differs: 1, turns: 1, estimated: 0, minUsd: 0, maxUsd: 0 });
   assert.deepEqual(h.view().activityStats.agreement, { matched: 0, total: 1 });
-  assert.deepEqual(h.preferences.get(STATS).shadow, { differs: 1, turns: 1 });
+  assert.deepEqual(h.preferences.get(STATS).shadow, { differs: 1, turns: 1, estimated: 0, minUsd: 0, maxUsd: 0 });
   assert.deepEqual(h.preferences.get(STATS).confusion, { code: { read: 1 } });
   h.surfaces([]);
   const { text } = await h.event('command.run', { command: 'router', args: '' });
   assert.match(text, /^Activity: code \(90%\)$/m);
   assert.match(text, /^Route: low \+ code would use Sonnet 5\.5 · medium \(shadow; using Haiku 5\.5 · high\)$/m);
+});
+
+test('shadow prices what on would route differently and the counts across sessions reach the view', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  assert.equal(h.view().activityStore.shadow.turns, 0);
+  await turn(h, 't1', 'claude-haiku-5-5', ['Edit']);
+  await turn(h, 't2', 'claude-haiku-5-5', ['Edit']);
+  const { minUsd, maxUsd } = h.view().wouldRoute.difference;
+  assert.ok(minUsd > 0 && maxUsd > minUsd, 'Sonnet for code costs more than the Haiku that ran');
+  const shadow = { differs: 2, turns: 2, estimated: 1, minUsd, maxUsd };
+  assert.deepEqual(h.view().activityStats.shadow, shadow);
+  assert.deepEqual(h.preferences.get(STATS).shadow, shadow);
+  assert.deepEqual(h.view().activityStore, h.preferences.get(STATS));
+  await press(h, 'tab-usage');
+  const lines = texts(await h.render());
+  const est = '· est. +$0.000 … +$0.035';
+  assert.ok(lines.includes(`Shadow     on would route 2 of 2 turns differently ${est} for 1 at list prices`));
+  assert.ok(lines.includes('Agreement  classifier vs tools: 2 of 2 turns (100%)'));
+  h.surfaces([]);
+  const detail = async (r) => (await r.event('command.run', { command: 'router', args: '' })).text;
+  assert.match(await detail(h), /^Agreement across sessions: 2 of 2 turns \(100%\)$/m);
+  await h.event('session.end', { reason: 'clear' });
+
+  const reloaded = harness(JEV_KEY, h.preferences);
+  await reloaded.event('session.start', { cwd: '/fixture' });
+  assert.equal(reloaded.view().activityStats, null);
+  assert.deepEqual(reloaded.view().activityStore, h.preferences.get(STATS));
+  await press(reloaded, 'tab-usage');
+  const across = texts(await reloaded.render());
+  assert.ok(across.includes('Labelled   2 turns'));
+  assert.ok(across.includes(`Shadow     on would route 2 of 2 turns differently ${est} for 1 at list prices`));
+});
+
+test('a corrupted or unreadable stats store shows an empty readout and never breaks the session', async () => {
+  for (const [name, preferences] of [
+    ['corrupted', new Map([[STATS, { version: 1, confusion: 'text' }]])],
+    [
+      'unreadable',
+      {
+        get: (key) => {
+          if (key === STATS) throw new Error('store down');
+        },
+        set: () => {},
+      },
+    ],
+  ]) {
+    const h = harness(JEV_KEY, preferences);
+    await h.event('session.start', { cwd: '/fixture' });
+    assert.equal(h.view().phase, 'ready', name);
+    await press(h, 'tab-usage');
+    const lines = texts(await h.render());
+    const at = lines.indexOf('ACROSS SESSIONS · since the last reset');
+    assert.equal(lines[at + 1], '  no turns recorded yet', name);
+    h.surfaces([]);
+    const { text } = await h.event('command.run', { command: 'router', args: '' });
+    assert.match(text, /^Agreement across sessions: no labelled turns yet$/m, name);
+  }
 });
 
 test('/router activities writes the mode to router.json, off stops the question, and Undo restores it', async () => {

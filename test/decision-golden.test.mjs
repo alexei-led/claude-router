@@ -407,7 +407,11 @@ test('shadow applies the recorded decision and reports exactly what on applies',
     const shadow = normalize(scenarios({ configs: inMode('shadow'), activity }));
     for (const [name, expected] of Object.entries(golden))
       assert.deepEqual(shadow[name], expected, `${activity.choice}: ${name}`);
-    const would = scenarios({ configs: inMode('shadow'), activity, view: (loop) => loop.decision.wouldRoute });
+    const would = scenarios({
+      configs: inMode('shadow'),
+      activity,
+      view: (loop) => route({ decision: loop.decision.wouldRoute }),
+    });
     const on = scenarios({ configs: inMode('on'), activity, view: route });
     // A tool continuation may refit the applied route; wouldRoute describes the turn's first request.
     for (const name of Object.keys(on).filter((n) => !n.includes(' continue ')))

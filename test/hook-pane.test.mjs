@@ -593,17 +593,37 @@ test('Reset activity stats clears the session counts and the saved ones', async 
   await h.event('turn.complete', { turnId: 't1' });
   assert.equal(h.view().activityStats.byActivity.code.turns, 1);
   assert.equal(h.preferences.get('activity:stats:v1').shadow.turns, 1);
+  assert.equal(h.view().activityStore.shadow.turns, 1);
   await press(h, 'tab-usage');
   await press(h, 'reset-activity-stats');
   assert.equal(h.view().activityStats, null);
+  assert.deepEqual(h.view().activityStore, h.preferences.get('activity:stats:v1'));
+  assert.ok(texts(await h.render()).includes('  no turns recorded yet'));
   assert.equal(h.view().notice, 'Activity stats reset.');
   assert.deepEqual(h.preferences.get('activity:stats:v1'), {
     version: 1,
     confusion: {},
     runs: {},
     lateral: { taken: 0, refused: 0 },
+    shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
+  });
+});
+
+test('opening the pane reloads the counts another session added', async () => {
+  const h = harness();
+  await start(h);
+  assert.equal(h.view().activityStore.lateral.taken, 0);
+  h.preferences.set('activity:stats:v1', {
+    version: 1,
+    confusion: { ops: { ops: 3 } },
+    runs: {},
+    lateral: { taken: 2, refused: 0 },
     shadow: { differs: 0, turns: 0 },
   });
+  await h.event('command.run', { command: 'router', args: '' });
+  assert.equal(h.view().activityStore.lateral.taken, 2);
+  await press(h, 'tab-usage');
+  assert.ok(texts(await h.render()).includes('Agreement  classifier vs tools: 3 of 3 turns (100%)'));
 });
 
 test('Reset activity stats during a turn completion is not undone by that turn', async () => {
@@ -652,7 +672,7 @@ test('Reset activity stats during a turn completion is not undone by that turn',
     confusion: {},
     runs: {},
     lateral: { taken: 0, refused: 0 },
-    shadow: { differs: 0, turns: 0 },
+    shadow: { differs: 0, turns: 0, estimated: 0, minUsd: 0, maxUsd: 0 },
   });
 });
 

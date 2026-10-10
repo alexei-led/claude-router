@@ -10,6 +10,7 @@ import {
   readStore,
   recordStore,
   recordTurn,
+  storeSummary,
   turnActivity,
 } from '../lib/activity-stats.mjs';
 import { ACTIVITIES, DEFAULTS } from '../lib/config.mjs';
@@ -24,8 +25,16 @@ const turn = (extra = {}) => ({
   tierSwitches: 0,
   activitySwitches: 0,
   wouldDiffer: null,
+  wouldUsd: null,
   shadow: false,
   ...extra,
+});
+const shadowOf = (differs, turns, estimated = 0, minUsd = 0, maxUsd = 0) => ({
+  differs,
+  turns,
+  estimated,
+  minUsd,
+  maxUsd,
 });
 
 test('every activity allows a set of buckets, and agreement follows it', () => {
@@ -95,7 +104,34 @@ test('session switches and shadow counters add up', () => {
   ])
     session = recordTurn(session, turn(extra));
   assert.deepEqual(session.switches, { tier: 2, activity: 3 });
-  assert.deepEqual(session.shadow, { differs: 1, turns: 3 });
+  assert.deepEqual(session.shadow, shadowOf(1, 3));
+});
+
+test('the shadow estimate sums the ranges of differing turns only, and counts the turns it covers', () => {
+  const range = (minUsd, maxUsd) => ({ minUsd, maxUsd });
+  const cases = [
+    { wouldDiffer: true, wouldUsd: range(-0.25, -0.125) },
+    { wouldDiffer: true, wouldUsd: range(0.5, 1) },
+    { wouldDiffer: true, wouldUsd: null },
+    { wouldDiffer: false, wouldUsd: range(1, 2) },
+    { wouldDiffer: true, wouldUsd: range(Number.NaN, 1) },
+  ];
+  let session = emptySession();
+  let store = emptyStore();
+  for (const c of cases) {
+    session = recordTurn(session, turn({ shadow: true, ...c }));
+    store = recordStore(store, { predicted: 'code', observed: 'code', runEnded: null, lateral: null, ...c });
+  }
+  session = recordTurn(session, turn({ shadow: false, wouldDiffer: true, wouldUsd: range(9, 9) }));
+  assert.deepEqual(session.shadow, shadowOf(4, 5, 2, 0.25, 0.875));
+  assert.deepEqual(store.shadow, shadowOf(4, 5, 2, 0.25, 0.875));
+});
+
+test('a session view saved by 1.6.0 keeps counting with the estimate', () => {
+  const old = { ...emptySession(), shadow: { differs: 2, turns: 4 } };
+  const shadow = recordTurn(old, turn({ shadow: true, wouldDiffer: true, wouldUsd: { minUsd: -0.5, maxUsd: -0.25 } }));
+  assert.deepEqual(shadow.shadow, shadowOf(3, 5, 1, -0.5, -0.25));
+  assert.deepEqual(recordTurn(old, turn()).shadow, shadowOf(2, 4));
 });
 
 test('recordTurn returns a new session and treats bad numbers as zero', () => {
@@ -150,7 +186,7 @@ test('the store counts lateral outcomes and the shadow readout', () => {
   ])
     store = recordStore(store, { predicted: 'ops', observed: 'ops', runEnded: null, lateral, wouldDiffer });
   assert.deepEqual(store.lateral, { taken: 1, refused: 2 });
-  assert.deepEqual(store.shadow, { differs: 2, turns: 3 });
+  assert.deepEqual(store.shadow, shadowOf(2, 3));
 });
 
 test('the store drops labels it does not know, so its key set stays fixed', () => {
@@ -199,10 +235,17 @@ test('readStore keeps a valid store and falls back to an empty one for any bad s
     confusion: { code: { code: 4, ops: 1 }, none: { talk: 2 } },
     runs: { code: [1, 0, 2, 0, 3] },
     lateral: { taken: 2, refused: 1 },
-    shadow: { differs: 3, turns: 10 },
+    shadow: shadowOf(3, 10, 2, -0.5, 0.25),
   };
   assert.deepEqual(readStore(valid), valid);
   assert.deepEqual(readStore(structuredClone(emptyStore())), emptyStore());
+  const before = { ...valid, shadow: { differs: 3, turns: 10 } };
+  assert.deepEqual(
+    readStore(before),
+    { ...valid, shadow: shadowOf(3, 10) },
+    'a 1.6.0 store loads with a zero estimate',
+  );
+  assert.deepEqual(before.shadow, { differs: 3, turns: 10 }, 'the value read is not changed');
   const mutate = (change) => {
     const copy = structuredClone(valid);
     change(copy);
@@ -235,6 +278,11 @@ test('readStore keeps a valid store and falls back to an empty one for any bad s
     ['lateral with an extra key', mutate((v) => (v.lateral.other = 1))],
     ['shadow missing a key', mutate((v) => delete v.shadow.turns)],
     ['shadow as a number', mutate((v) => (v.shadow = 7))],
+    ['part of the estimate', mutate((v) => delete v.shadow.maxUsd)],
+    ['an estimate as a string', mutate((v) => (v.shadow.minUsd = '-0.5'))],
+    ['an infinite estimate', mutate((v) => (v.shadow.maxUsd = Number.POSITIVE_INFINITY))],
+    ['a fractional estimated count', mutate((v) => (v.shadow.estimated = 1.5))],
+    ['shadow with an extra key', mutate((v) => (v.shadow.saved = 1))],
   ])
     assert.deepEqual(readStore(value), emptyStore(), name);
 });
@@ -324,8 +372,21 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       'shadow',
       advice('code', 0.7),
       haiku,
-      { ...haiku, activity: null, reason: 'hold', wouldRoute: { ...sonnet, activity: 'code', reason: 'activity-up' } },
-      { answer: 'code', label: 'code', predicted: 'code', switched: null, lateral: 'taken', wouldDiffer: true },
+      {
+        ...haiku,
+        activity: null,
+        reason: 'hold',
+        wouldRoute: { ...sonnet, activity: 'code', reason: 'activity-up', difference: { minUsd: 0.01, maxUsd: 0.1 } },
+      },
+      {
+        answer: 'code',
+        label: 'code',
+        predicted: 'code',
+        switched: null,
+        lateral: 'taken',
+        wouldDiffer: true,
+        wouldUsd: { minUsd: 0.01, maxUsd: 0.1 },
+      },
     ],
     [
       'shadow: a weak label is none, the same route does not differ',
@@ -352,5 +413,40 @@ test('turnActivity labels a routed turn per mode and names what moved the route'
       { answer: null, label: null, predicted: null, switched: null, lateral: null, wouldDiffer: null },
     ],
   ])
-    assert.deepEqual(turnActivity(config(mode), answer, previous, decision), { mode, ...expected }, name);
+    assert.deepEqual(
+      turnActivity(config(mode), answer, previous, decision),
+      { mode, wouldUsd: null, ...expected },
+      name,
+    );
+});
+
+test('storeSummary counts labelled turns, agreement over activity rows, and the two largest disagreements', () => {
+  const store = readStore({
+    ...emptyStore(),
+    confusion: {
+      code: { code: 10, read: 3, ops: 1 },
+      ops: { ops: 4, code: 3 },
+      explore: { read: 5, talk: 1, code: 1 },
+      uncertain: { talk: 6 },
+      none: { read: 2 },
+    },
+    lateral: { taken: 4, refused: 2 },
+  });
+  assert.deepEqual(storeSummary(store), {
+    labelled: 36,
+    agreement: { matched: 20, total: 28 },
+    disagreements: [
+      { predicted: 'code', observed: 'read', n: 3 },
+      { predicted: 'ops', observed: 'code', n: 3 },
+    ],
+    lateral: { taken: 4, refused: 2 },
+    shadow: shadowOf(0, 0),
+  });
+  assert.deepEqual(storeSummary(emptyStore()), {
+    labelled: 0,
+    agreement: { matched: 0, total: 0 },
+    disagreements: [],
+    lateral: { taken: 0, refused: 0 },
+    shadow: shadowOf(0, 0),
+  });
 });
