@@ -142,14 +142,17 @@ test('the first turn of a session switches on one classifier answer', async () =
   }
 });
 
-test('a fresh session starts Auto on a model some tier routes to and Manual on any other', async () => {
-  for (const [model, mode, effort] of [
-    ['claude-opus-5-5', 'auto', 'medium'],
-    ['claude-haiku-5-5', 'auto', 'high'],
-    ['claude-sonnet-5-5', 'manual', 'low'],
-    ['claude-fable-5-1', 'manual', 'low'],
+test('a fresh session starts Auto on a model some route runs and Manual on any other', async () => {
+  // With activity routing on, the default, Sonnet runs the code cell at low; in shadow only the tier routes count.
+  for (const [model, file, mode, effort] of [
+    ['claude-opus-5-5', {}, 'auto', 'medium'],
+    ['claude-haiku-5-5', {}, 'auto', 'high'],
+    ['claude-sonnet-5-5', {}, 'auto', 'high'],
+    ['claude-sonnet-5-5', { activityRouting: 'shadow' }, 'manual', 'low'],
+    ['claude-fable-5-1', {}, 'manual', 'low'],
   ]) {
     const h = harness();
+    h.files.set(CONFIG, JSON.stringify(file));
     h.model(model);
     await start(h);
     await drain(h.step({ ...step, model, effort: 'low' }));
@@ -161,6 +164,7 @@ test('a fresh session starts Auto on a model some tier routes to and Manual on a
 
 test('a fresh session on a model no tier routes to says why routing starts off, until the mode changes', async () => {
   const h = harness();
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'shadow' }));
   h.model('claude-sonnet-5-5');
   await start(h);
   const line = (await band(h)).line;
@@ -452,6 +456,24 @@ async function turn(h, turnId, model, tools = []) {
 }
 
 const reply = { turns: 1, requests: 1, inputTokens: 1100, outputTokens: 10 };
+const MEDIUM = { micro: 0, low: 0.05, medium: 0.95, high: 0, uncertain: 0 };
+
+test('with no router.json, a fresh session asks the activity and runs its default route', async () => {
+  for (const [model, answer, activity, expected] of [
+    ['claude-haiku-5-5', jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }), 'code', ['claude-sonnet-5-5', 'high']],
+    ['claude-opus-5-5', jevResponse('medium', MEDIUM, 0, { ops: 0.9, code: 0.1 }), 'ops', ['claude-haiku-5-5', 'high']],
+    ['claude-haiku-5-5', jevResponse('low', LOW, 0, { explore: 0.9 }), 'explore', ['claude-haiku-5-5', 'high']],
+  ]) {
+    const h = harness(JEV_KEY);
+    h.model(model);
+    const bodies = answering(h, answer);
+    await h.event('session.start', { cwd: '/fixture' });
+    await turn(h, 't1', model, ['Edit']);
+    assert.ok(bodies[0].questions.activity, activity);
+    assert.deepEqual([h.requests[0].model, h.requests[0].effort], expected, activity);
+    assert.equal(h.loop().decision.activity, activity);
+  }
+});
 
 test('with activity routing on, an ops turn moves from Sonnet to Haiku inside its tier and records it', async () => {
   const h = harness(JEV_KEY);
@@ -465,15 +487,15 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
   assert.equal(h.view().mode, 'auto');
-  assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-sonnet-5-5', 'medium']);
+  assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-sonnet-5-5', 'high']);
   let line = (await band(h)).line;
-  assert.match(line, / low code → Sonnet 5\.5 · medium/);
+  assert.match(line, / low code → Sonnet 5\.5 · high/);
   assert.match(line, /ctx \d+% · cache \d+%/);
   await turn(h, 't2', 'claude-sonnet-5-5', ['Bash']);
   assert.deepEqual([h.requests[1].model, h.requests[1].effort], ['claude-haiku-5-5', 'high']);
   assert.deepEqual([h.loop().decision.reason, h.loop().lastActivity], ['activity-down', 'ops']);
   assert.equal(h.toasts.length, 1);
-  assert.match(h.toasts[0], /^Model changed: Sonnet 5\.5 · medium → Haiku 5\.5 · high · ops/);
+  assert.match(h.toasts[0], /^Model changed: Sonnet 5\.5 · high → Haiku 5\.5 · high · ops/);
   line = (await band(h)).line;
   assert.match(line, / low ops → Haiku 5\.5 · high/);
   assert.match(line, /↘ ops/);
@@ -524,6 +546,7 @@ test('with activity routing on, a turn without an activity answer keeps the acti
 
 test('shadow asks and shows what on would do, and never changes the routed model', async () => {
   const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'shadow' }));
   const bodies = answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-haiku-5-5', ['Read']);
@@ -537,7 +560,7 @@ test('shadow asks and shows what on would do, and never changes the routed model
     activity: 'code',
     tier: 'low',
     model: 'claude-sonnet-5-5',
-    effort: 'medium',
+    effort: 'high',
     reason: 'activity-up',
     difference: null,
   });
@@ -549,11 +572,12 @@ test('shadow asks and shows what on would do, and never changes the routed model
   h.surfaces([]);
   const { text } = await h.event('command.run', { command: 'router', args: '' });
   assert.match(text, /^Activity: code \(90%\)$/m);
-  assert.match(text, /^Route: low \+ code would use Sonnet 5\.5 · medium \(shadow; using Haiku 5\.5 · high\)$/m);
+  assert.match(text, /^Route: low \+ code would use Sonnet 5\.5 · high \(shadow; using Haiku 5\.5 · high\)$/m);
 });
 
 test('shadow prices what on would route differently and the counts across sessions reach the view', async () => {
   const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'shadow' }));
   answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
   await h.event('session.start', { cwd: '/fixture' });
   assert.equal(h.view().activityStore.shadow.turns, 0);
@@ -579,6 +603,7 @@ test('shadow prices what on would route differently and the counts across sessio
   await h.event('session.end', { reason: 'clear' });
 
   const reloaded = harness(JEV_KEY, h.preferences);
+  reloaded.files.set(CONFIG, JSON.stringify({ activityRouting: 'shadow' }));
   await reloaded.event('session.start', { cwd: '/fixture' });
   assert.equal(reloaded.view().activityStats, null);
   assert.deepEqual(reloaded.view().activityStore, h.preferences.get(STATS));
@@ -622,8 +647,8 @@ test('/router activities writes the mode to router.json, off stops the question,
   assert.ok(bodies[0].questions.activity);
   const command = async (args) => (await h.event('command.run', { command: 'router', args })).text;
   assert.equal(await command('activities later'), 'Choose activities off, shadow, on.');
-  assert.equal(await command('activities shadow'), 'Activity routing is already shadow.');
-  assert.equal(await command('activities off'), 'Saved: activity routing shadow → off. Applies from the next turn.');
+  assert.equal(await command('activities on'), 'Activity routing is already on.');
+  assert.equal(await command('activities off'), 'Saved: activity routing on → off. Applies from the next turn.');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { activityRouting: 'off' });
   await turn(h, 't2', 'claude-haiku-5-5');
   assert.equal(bodies.length, 2);
@@ -653,7 +678,7 @@ test('a failing stats store or transcript never breaks a turn', async () => {
   answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-haiku-5-5', ['Edit']);
-  assert.equal(h.requests[0].model, 'claude-haiku-5-5');
+  assert.equal(h.requests[0].model, 'claude-sonnet-5-5');
   assert.equal(h.view().activityStats.byActivity.code.turns, 1);
   await h.event('turn.start', { turnId: 't2', text: 'Next.' });
   await drain(h.step({ ...step, turnId: 't2' }));

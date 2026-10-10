@@ -148,7 +148,7 @@ const recording = () => {
     ),
   };
 };
-const sonnetLow = { tier: 'low', selectedModel: 'claude-sonnet-5-5', effort: 'medium', activity: 'code' };
+const sonnetLow = { tier: 'low', selectedModel: 'claude-sonnet-5-5', effort: 'high', activity: 'code' };
 const haikuLow = { tier: 'low', selectedModel: 'claude-haiku-5-5', effort: 'high', activity: 'code' };
 const reading = { activityChoice: 'code', activityProbabilities: { code: 0.81, ops: 0.09, explore: 0.06, plan: 0 } };
 const would = (activity, model, effort) => ({ wouldRoute: { activity, tier: 'low', model, effort, reason: 'x' } });
@@ -156,13 +156,13 @@ const after = (lines, label) => (lines.includes(label) ? lines[lines.indexOf(lab
 
 test('the Now tab shows the activity reading and the route its cell resolves to in each mode', () => {
   for (const [mode, props, route] of [
-    ['on', sonnetLow, 'low + code → Sonnet 5.5 · medium   (override)   base: Haiku 5.5 · high'],
+    ['on', sonnetLow, 'low + code → Sonnet 5.5 · high   (override)   base: Haiku 5.5 · high'],
     ['on', { ...haikuLow, activity: 'ops' }, 'low + ops → Haiku 5.5 · high (base)'],
     ['on', { ...haikuLow, activity: null }, 'low → Haiku 5.5 · high (base)'],
     [
       'shadow',
-      { ...haikuLow, ...would('code', 'claude-sonnet-5-5', 'medium') },
-      'low + code would use Sonnet 5.5 · medium (shadow; using Haiku 5.5 · high)',
+      { ...haikuLow, ...would('code', 'claude-sonnet-5-5', 'high') },
+      'low + code would use Sonnet 5.5 · high (shadow; using Haiku 5.5 · high)',
     ],
     [
       'shadow',
@@ -212,13 +212,13 @@ const rowWarnings = (tree, activity, tier) => {
 test('the default overrides draw five distinct routes and warn about nothing', () => {
   const tree = routing(DEFAULTS);
   assert.deepEqual(matrix(tree), [
-    'ACTIVITIES · routing shadow',
+    'ACTIVITIES · routing on',
     'micro    low      medium   high',
     '  base                          H·med    H·high   O·med    O·xh',
-    '  code debug plan review        ·        S·med    ·        ·',
-    '  explore ops                   ·        ·        S·med    ·',
-    '  docs                          ·        S·med    S·med    ·',
-    '  5 distinct routes = 5 caches once activity routing is on',
+    '  code debug plan review        ·        S·high   ·        ·',
+    '  explore docs                  ·        ·        ·        ·',
+    '  ops                           ·        ·        H·high   ·',
+    '  5 distinct routes = 5 caches',
   ]);
   for (const [activity, tiers] of Object.entries(DEFAULTS.activities))
     for (const tier of Object.keys(tiers)) assert.equal(rowWarnings(tree, activity, tier), '', `${activity} ${tier}`);
@@ -245,12 +245,12 @@ test('the routing draft lists activity edits and the mode in the router.json dif
   const config = loadConfig();
   let draft = routeDraftOf(config, {});
   draft = editActivity(draft, config, 'code', 'high', 'effort', 'max');
-  draft = editActivity(draft, config, 'docs', 'low', 'remove');
-  draft = { ...draft, activityRouting: 'on' };
+  draft = editActivity(draft, config, 'review', 'low', 'remove');
+  draft = { ...draft, activityRouting: 'shadow' };
   const changes = routingChanges(config, view({ routeDraft: draft }));
   assert.deepEqual(changes.cells, [
     ['code', 'high'],
-    ['docs', 'low'],
+    ['review', 'low'],
   ]);
   assert.equal(changes.mode, true);
   assert.equal(changes.count, 3);
@@ -259,10 +259,10 @@ test('the routing draft lists activity edits and the mode in the router.json dif
   assert.deepEqual(lines.slice(at + 1, at + 7), [
     '- activities.code.high           no override',
     '+ activities.code.high           Opus 5.5 · max',
-    '- activities.docs.low            Sonnet 5.5 · medium',
-    '+ activities.docs.low            no override',
-    '- activityRouting                shadow',
-    '+ activityRouting                on',
+    '- activities.review.low          Sonnet 5.5 · high',
+    '+ activities.review.low          no override',
+    '- activityRouting                on',
+    '+ activityRouting                shadow',
   ]);
   assert.ok(lines.includes('● 3 unsaved routing changes  '));
   assert.equal(routingChanges(config, view()).count, 0);
@@ -274,7 +274,7 @@ test('a removed built-in override is not listed and can be added back', () => {
   const keys = controls(tree).map((c) => c.key);
   assert.ok(!keys.includes('activity-model-code-low'));
   assert.ok(keys.includes('activity-model-debug-low'));
-  assert.ok(matrix(tree).includes('  code                          ·        ·        ·        ·'));
+  assert.ok(matrix(tree).includes('  code explore docs             ·        ·        ·        ·'));
   const add = controls(tree).find((c) => c.key === 'activity-add');
   assert.ok(add.options.some((o) => o.value === 'code.low'));
   assert.equal(routingChanges(config, view()).count, 0);
@@ -283,18 +283,18 @@ test('a removed built-in override is not listed and can be added back', () => {
 test('the Routing tab controls call the pane actions with the activity and tier', () => {
   const { calls, actions: recorded } = recording();
   const found = (key) => controls(routing(DEFAULTS, null, recorded)).find((c) => c.key === key);
-  found('activity-mode').onSelect('on');
+  found('activity-mode').onSelect('shadow');
   found('activity-model-code-low').onSelect('opus');
   found('activity-effort-code-low').onSelect('session');
-  found('activity-effort-docs-medium').onSelect('high');
+  found('activity-effort-ops-medium').onSelect('medium');
   found('activity-remove-ops-medium').onPress();
   found('activity-add').onSelect('code.high');
   found('activity-add').onSelect('');
   assert.deepEqual(calls, [
-    ['activityMode', 'on'],
+    ['activityMode', 'shadow'],
     ['activityModel', 'code', 'low', 'opus'],
     ['activityEffort', 'code', 'low', null],
-    ['activityEffort', 'docs', 'medium', 'high'],
+    ['activityEffort', 'ops', 'medium', 'medium'],
     ['removeActivity', 'ops', 'medium'],
     ['addActivity', 'code', 'high'],
   ]);

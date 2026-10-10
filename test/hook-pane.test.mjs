@@ -463,7 +463,8 @@ test('a switch clears the previous classifier readings, so no label claims them'
 
 test('a turn classified when the switch lands keeps its route, and its answer touches neither health nor status', async () => {
   const h = harness({ typesafe_api_key: 'synthetic-key', ...CLOUDFLARE_KEYS });
-  h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } } }));
+  // Activity routing off: Sonnet runs no route, so the policy route differs from the engine model.
+  h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } }, activityRouting: 'off' }));
   h.model('claude-sonnet-5-5');
   let release;
   h.http(
@@ -542,7 +543,7 @@ test('activity edits join the routing draft: Save writes them with the mode, and
   const h = harness();
   await start(h);
   await press(h, 'tab-routing');
-  await press(h, 'activity-mode', 'on');
+  await press(h, 'activity-mode', 'shadow');
   await press(h, 'activity-model-code-low', 'opus');
   await press(h, 'activity-remove-ops-medium');
   await press(h, 'activity-add', 'review.high');
@@ -551,11 +552,11 @@ test('activity edits join the routing draft: Save writes them with the mode, and
   assert.match(h.view().notice, /^Saved: 4 routing changes\./);
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
     activities: {
-      code: { low: { model: 'opus', effort: 'medium' } },
+      code: { low: { model: 'opus', effort: 'high' } },
       review: { high: { model: 'opus', effort: 'max' } },
       ops: { medium: { model: 'opus', effort: 'medium' } },
     },
-    activityRouting: 'on',
+    activityRouting: 'shadow',
   });
   assert.equal(h.view().routeDraft, null);
   await press(h, 'undo');
@@ -569,17 +570,18 @@ test('a pending activity edit survives another pane write and saves later', asyn
   await press(h, 'activity-model-code-low', 'opus');
   await press(h, 'tab-classifier');
   await press(h, 'timeoutMs', '500');
-  assert.deepEqual(h.view().routeDraft.activities.code.low, { model: 'opus', effort: 'medium' });
+  assert.deepEqual(h.view().routeDraft.activities.code.low, { model: 'opus', effort: 'high' });
   await press(h, 'tab-routing');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
     classifiers: { jev: { timeoutMs: 500 } },
-    activities: { code: { low: { model: 'opus', effort: 'medium' } } },
+    activities: { code: { low: { model: 'opus', effort: 'high' } } },
   });
 });
 
 test('Reset activity stats clears the session counts and the saved ones', async () => {
   const h = harness({ typesafe_api_key: 'synthetic-key' });
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'shadow' }));
   h.http(async () => ({
     ok: true,
     status: 200,
@@ -721,13 +723,13 @@ test('Reset routes keeps pending activity edits and the mode', async () => {
   const h = harness();
   await start(h);
   await press(h, 'tab-routing');
-  await press(h, 'activity-mode', 'on');
+  await press(h, 'activity-mode', 'shadow');
   await press(h, 'activity-model-code-low', 'opus');
   await press(h, 'reset-routes');
   assert.equal(h.view().notice, 'Routes already at defaults.');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
-    activities: { code: { low: { model: 'opus', effort: 'medium' } } },
-    activityRouting: 'on',
+    activities: { code: { low: { model: 'opus', effort: 'high' } } },
+    activityRouting: 'shadow',
   });
 });

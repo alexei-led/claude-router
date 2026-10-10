@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync } from 'node:fs';
 import test from 'node:test';
+import { isDeepStrictEqual } from 'node:util';
 import { ACTIVITIES, loadConfig, TIERS } from '../lib/config.mjs';
 import { decide, initialState } from '../lib/policy.mjs';
 import { chooseRoute, continueRoute, emptyLoop } from '../lib/route.mjs';
@@ -23,15 +24,23 @@ const tiny = {
   billing: 'plan',
   efforts: [],
 };
+// The record is the 1.5 tier routing, so the configs route with activity routing off; the tests below run the same
+// scenarios in the other modes.
+const OFF = { activityRouting: 'off' };
 const CONFIGS = {
-  defaults: loadConfig({}),
+  defaults: loadConfig({ userFile: OFF }),
   // Window diversity, a route that keeps the session effort and a model with no effort field.
   mixed: loadConfig({
-    userFile: { models: { tiny }, routes: { micro: { model: 'tiny' }, low: { model: 'sonnet', effort: null } } },
+    userFile: {
+      ...OFF,
+      models: { tiny },
+      routes: { micro: { model: 'tiny' }, low: { model: 'sonnet', effort: null } },
+    },
   }),
-  metered: loadConfig({ userFile: { models: { opus: { billing: 'credits', input: 10 } } } }),
+  metered: loadConfig({ userFile: { ...OFF, models: { opus: { billing: 'credits', input: 10 } } } }),
   allCredits: loadConfig({
     userFile: {
+      ...OFF,
       models: { opus: { billing: 'credits' }, sonnet: { billing: 'credits' }, haiku: { billing: 'credits' } },
       policy: { cashCapUsd: 0 },
     },
@@ -413,8 +422,9 @@ test('shadow applies the recorded decision and reports exactly what on applies',
       view: (loop) => route({ decision: loop.decision.wouldRoute }),
     });
     const on = scenarios({ configs: inMode('on'), activity, view: route });
-    // A tool continuation may refit the applied route; wouldRoute describes the turn's first request.
-    for (const name of Object.keys(on).filter((n) => !n.includes(' continue ')))
+    // A tool continuation may refit the applied route; wouldRoute describes the turn's first request. A fresh loop is
+    // no decision.
+    for (const name of Object.keys(on).filter((n) => !n.includes(' continue ') && !n.includes(' empty-loop ')))
       assert.deepEqual(would[name], on[name], `${activity.choice}: ${name}`);
   }
 });
@@ -426,4 +436,19 @@ test('on with overrides equal to the base routes decides as recorded: equal rout
     for (const [name, expected] of Object.entries(golden))
       assert.deepEqual(on[name], expected, `${activity.choice}: ${name}`);
   }
+});
+
+// `on`, the default, also finds the session model among the overrides (plan §6). Without an activity answer it decides
+// as recorded, except where that matters: a Sonnet session whose routes are unavailable falls back to the Sonnet cell
+// at Sonnet's route, and a Haiku session on routes without Haiku starts at the ops cell.
+test('on without an activity answer decides as recorded, except where the session model is an override model', () => {
+  const on = normalize(scenarios({ configs: inMode('on') }));
+  const differs = Object.keys(golden).filter((name) => !isDeepStrictEqual(on[name], golden[name]));
+  const fallbacks = ['available-sonnet', 'available-default'].flatMap((label) =>
+    ['low->high', 'high->micro', 'low->high pinned', 'medium->micro pinned'].map((s) => `defaults ${label} ${s}`),
+  );
+  assert.deepEqual(differs, [...fallbacks, 'mixed empty-loop claude-haiku-5-5']);
+  for (const name of fallbacks)
+    assert.deepEqual([on[name].tier, on[name].model, on[name].effort], ['low', 'claude-sonnet-5-5', 'high'], name);
+  assert.equal(on['mixed empty-loop claude-haiku-5-5'].lastRoute, 'medium');
 });
