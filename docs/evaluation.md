@@ -96,16 +96,17 @@ node scripts/probe-activity.mjs [classifier]
 
 The script sends each prompt to one classifier as the router would ask it, with activity routing forced to `shadow`. It reads credentials as `probe-classifier.mjs` does and needs a classifier you can reach. The run is billed on a paid classifier, and it is run by hand, not in CI. It writes accuracy, an expected-by-answered confusion matrix, p50 and p95 latency against the classifier's deadline, and error counts to `experiments/mod-router/results/activity-probe-<classifier>.json`. For Ollama the latency covers both requests. It never prints a key.
 
-Four probe results are checked in, all run on 2026-10-10 with the synthetic set above: Jev against the live typesafe.ai API, Clef and Clef Flash against the live Cloudflare API, Ollama with `qwen3.5:9b` on an Apple M2 Pro laptop:
+Five probe results are checked in, all run on 2026-10-10 with the synthetic set above: Jev against the live typesafe.ai API, OpenAI against the live Decisions API, Clef and Clef Flash against the live Cloudflare API, Ollama with `qwen3.5:9b` on an Apple M2 Pro laptop:
 
 | Classifier |  Correct | p50 latency | p95 latency | Result file                                                                                          |
 | ---------- | -------: | ----------: | ----------: | ---------------------------------------------------------------------------------------------------- |
 | Jev        | 70 of 70 |      260 ms |      299 ms | [`activity-probe-jev.json`](../experiments/mod-router/results/activity-probe-jev.json)               |
+| OpenAI     | 70 of 70 |      161 ms |      286 ms | [`activity-probe-openai.json`](../experiments/mod-router/results/activity-probe-openai.json)         |
 | Clef       | 69 of 70 |      444 ms |      883 ms | [`activity-probe-clef.json`](../experiments/mod-router/results/activity-probe-clef.json)             |
 | Clef Flash | 69 of 70 |      470 ms |      874 ms | [`activity-probe-clef-flash.json`](../experiments/mod-router/results/activity-probe-clef-flash.json) |
 | Ollama     | 66 of 70 |     2986 ms |     3483 ms | [`activity-probe-ollama.json`](../experiments/mod-router/results/activity-probe-ollama.json)         |
 
-Ollama's latency covers both requests and stays inside its 5000 ms deadline; on slower hardware the activity step is skipped when less than 300 ms remain. They measure the label on synthetic prompts, not routing quality or savings. OpenAI has no probe result yet. The activity question costs Jev almost no time: 30 alternating pairs of the same prompts, with and without it, gave p50 259 ms both ways and p95 300 ms without, 306 ms with. The pane shows no probe accuracy. `policy.activityMass` was not tuned on any classifier; run the probe before you trust it with a new one.
+Ollama's latency covers both requests and stays inside its 5000 ms deadline; on slower hardware the activity step is skipped when less than 300 ms remain. They measure the label on synthetic prompts, not routing quality or savings. The activity question costs little time: 30 alternating pairs of the same prompts, with and without it, gave Jev p50 259 ms both ways and p95 300 ms without, 306 ms with; OpenAI p50 163 ms and 162 ms, p95 296 ms and 349 ms. OpenAI's first request of a run took about 2.3 s of its 3000 ms deadline. The pane shows no probe accuracy. `policy.activityMass` was not tuned on any classifier; run the probe before you trust it with a new one.
 
 ## Historical method and limits
 
