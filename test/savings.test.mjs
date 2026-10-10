@@ -132,7 +132,7 @@ test('replies on your own route differ by exactly zero, whatever the API cached'
 });
 
 test('your cache reads the previous prompt only inside the session cache lifetime', () => {
-  const state = { total: 50_000, at: 0, onYours: true };
+  const state = { total: 50_000, at: 0, onYours: true, model: OPUS.model, effort: OPUS.effort };
   const counts = { input: 1_000, write: 59_000 };
   for (const [ttl, minutes, read, write] of [
     ['5m', 4, 50_000, 9_000],
@@ -156,7 +156,7 @@ test('a compaction leaves your cache nothing to read, whether seen as a shrink o
   const after = { input: 2, write: 20_000 };
   const shrunk = compareReply(
     DEFAULTS,
-    { total: 200_000, at: 0, onYours: false },
+    { total: 200_000, at: 0, onYours: false, ...OPUS },
     {
       usage: usage(after),
       served: HAIKU,
@@ -177,6 +177,20 @@ test('a compaction leaves your cache nothing to read, whether seen as a shrink o
     now: 0,
   });
   assert.equal(fresh.reply.yoursUsd, fresh.reply.routedUsd);
+});
+
+test('a new model or effort for your model starts its cache cold, whatever the old one had cached', () => {
+  const { state } = session(OPUS, [
+    [OPUS, { write: 40_000 }],
+    [HAIKU, { read: 40_000, write: 2_000 }],
+  ]);
+  const next = { usage: usage({ write: 45_000 }), served: HAIKU, ttl: '5m', now: 3 * MINUTE };
+  for (const yours of [SONNET, OPUS_MEDIUM]) {
+    const changed = compareReply(DEFAULTS, state, { ...next, yours });
+    assert.deepEqual(changed, compareReply(DEFAULTS, null, { ...next, yours }), yours.effort);
+  }
+  const kept = compareReply(DEFAULTS, state, { ...next, yours: { ...OPUS, model: 'claude-opus-5-5[1m]' } });
+  assert.ok(kept.reply.yoursUsd < compareReply(DEFAULTS, null, { ...next, yours: OPUS }).reply.yoursUsd);
 });
 
 test('the same model at another effort is no price difference, only the cache its switch rewrote', () => {
@@ -211,7 +225,7 @@ test('a model without a configured price is not compared, and the cache simulati
     now: 0,
   });
   assert.equal(result.reply, null);
-  assert.deepEqual(result.state, { total: 1_002, at: 0, onYours: false });
+  assert.deepEqual(result.state, { total: 1_002, at: 0, onYours: false, ...OPUS });
   const unpriced = loadConfig({ userFile: { models: { opus: { output: undefined } } } });
   assert.equal(
     compareReply(unpriced, null, { usage: usage(), served: OPUS, yours: OPUS, ttl: '5m', now: 0 }).reply,
@@ -229,7 +243,7 @@ test('a reply with an unknown cache lifetime is not compared, and the cache simu
     now: 0,
   });
   assert.equal(result.reply, null);
-  assert.deepEqual(result.state, { total: 1_002, at: 0, onYours: false });
+  assert.deepEqual(result.state, { total: 1_002, at: 0, onYours: false, ...OPUS });
 });
 
 test('a served snapshot or a context suffix prices as its configured model', () => {
