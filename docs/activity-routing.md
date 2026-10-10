@@ -10,8 +10,8 @@ They do not measure this router's answer quality or your bill.
 
 ## What it does
 
-For each new turn the classifier answers two questions in one request: the tier and the activity. The router looks up
-the route for that pair. A route is a model and an effort.
+For each new turn the classifier answers two questions, the tier and the activity, in the same request (Ollama makes
+a second call). The router looks up the route for that pair. A route is a model and an effort.
 
 | Activity  | The turn produces                                               |
 | --------- | --------------------------------------------------------------- |
@@ -24,8 +24,9 @@ the route for that pair. A route is a model and an effort.
 | `docs`    | Prose for people: README, docs, comments, commit messages       |
 
 Most cells use the tier's own route, the **base route**. A few cells have an **override**. When the activity is
-unclear, or the classifier gives it less than 60% probability, the router uses the base route. A pinned turn uses the
-pinned tier's base route.
+unclear, or the classifier gives it less than 60% probability, the router moves back to the base route if the move
+passes the cache check below. When the classifier gives no activity answer at all, the running activity stays. A pinned
+turn uses the pinned tier's base route.
 
 The router compares routes, not labels. If the new activity resolves to the route already running, nothing changes.
 A move to a cheaper route must pay back its cache write first. A move to a stronger route needs the classifier's
@@ -51,11 +52,11 @@ Why each row:
 - **`ops` at `medium`: Haiku · high.** Command runs last many requests, so Haiku pays back its cache write. Haiku is
   weaker on multi-step tool work, so `ops` at `high` stays on Opus. Repeated tool errors move an `ops` turn to the
   `high` route, Opus · xhigh.
-- **`explore` and `docs`.** Moving them saved nothing in the replay, or cost answer quality. They keep the base
-  routes.
+- **`explore` and `docs`.** Moving them saved nothing in the replay. Haiku also scores lower on research
+  benchmarks: 50.1% on Humanity's Last Exam with tools against 63.0% for Opus at `medium`. They keep the base routes.
 
-The matrix uses five routes on three models. Each (model, effort) pair keeps its own cache, so this is one cache more
-than the base routes alone.
+The matrix uses five routes on three models. The router counts each (model, effort) pair as its own cache, so this is
+one more than the base routes alone.
 
 ## Which model fits which work
 
@@ -106,15 +107,17 @@ At 350,000 tokens of context, the typical size in that sample, at list prices:
   the defaults do not move `medium` or `high` work to Sonnet.
 
 The router does this sum for every move with the prices in `router.json`, and stays on the running route when a
-cheaper one would not pay back.
+cheaper one would not pay back. The table uses Haiku's price above 100,000 tokens. `router.json` lists Haiku's price
+for prompts up to 100,000 tokens, so above that the router underestimates Haiku's cost and moves to it sooner than
+this table suggests.
 
 ## Turn it off or back to shadow
 
-| Mode     | What the router does                                                                 |
-| -------- | ------------------------------------------------------------------------------------ |
-| `on`     | The default. Asks the activity and runs the override when the cell has one.          |
-| `shadow` | Asks the activity and shows what `on` would run. The base routes run. 1.6's default. |
-| `off`    | Does not ask the activity. The base routes run, and the classifier request is 1.5's. |
+| Mode     | What the router does                                                                       |
+| -------- | ------------------------------------------------------------------------------------------ |
+| `on`     | The default. Asks the activity and runs the override when the cell has one.                |
+| `shadow` | Asks the activity and shows what `on` would run. The base routes run. 1.6's default.       |
+| `off`    | Does not ask the activity: the classifier is asked for the tier only. The base routes run. |
 
 Pick one of:
 
@@ -134,24 +137,27 @@ turn, whatever the activity mode.
 ## Change a cell
 
 **In the pane.** Open `/router` and press `2`. **ACTIVITIES** shows the mode, then the route each cell runs, with `·`
-for the base route, and counts the routes. **OVERRIDES** lists each override with a model, an effort, and **remove**.
+for the base route, and counts the routes. Routes are abbreviated, such as `S·high` for Sonnet · high, and activities
+with the same cells share a row. **OVERRIDES** lists each override with a model, an effort, and **remove**.
 **add an override…** adds one for an activity and tier. Edits are a draft: the status bar lists the `router.json`
 lines they change. **Save** (`s`) writes them, **Discard** (`d`) drops them, and **Undo** (`u`) reverts the last
-write. A yellow note flags an override that has no effect, one stronger than the tier above, or one that adds a cache.
+write. A yellow note flags an override that has no effect, one stronger than the tier above, or the only cell or tier
+on its (model, effort) pair, which adds a cache.
 
 **In `router.json`.** `activities.<activity>.<tier>` takes `model`, `effort`, or both. A field you leave out keeps its
-default. This runs `code` at `low` on Sonnet at `medium` and adds `max` effort for hard code:
+default. This runs `code` at `low` on Sonnet at `xhigh` and adds `max` effort for hard code:
 
 ```json
 {
   "activities": {
-    "code": { "low": { "effort": "medium" }, "high": { "effort": "max" } }
+    "code": { "low": { "effort": "xhigh" }, "high": { "effort": "max" } }
   }
 }
 ```
 
 A cell cannot be `null`. To drop a built-in override, set the cell to the tier's base route, or press **remove** in
-the pane, which writes that for you:
+the pane, which writes that for you. The cell keeps that route if you later change the tier's route; remove it again
+then:
 
 ```json
 { "activities": { "ops": { "medium": { "model": "opus", "effort": "medium" } } } }
@@ -189,12 +195,16 @@ label was right, not the classifier's probabilities.
 1.6 shipped activity routing in `shadow`. 1.7 turns it `on`, with the matrix above.
 
 - A `router.json` that sets `activityRouting` keeps it. A file without it now runs `on`. To keep 1.6's behavior, run
-  `/router activities shadow`.
+  `/router activities shadow`. Choosing `shadow` in 1.6 removed the key, because `shadow` was the default then. If you
+  chose `shadow` in 1.6, run `/router activities shadow` again after upgrading.
 - A session started on Sonnet 5.5 used to start with routing off, because no tier route used Sonnet. Sonnet now runs
   the `code` cell at `low`, so the session starts with routing on and the router may move it to Haiku or Opus. To
-  stay on Sonnet, choose it with `/model`, which turns routing off, or run `/router activities shadow`.
-- Overrides you saved stay as written. An override that only sets a field, such as `"effort"`, now merges over the
-  new built-in for that cell.
+  stay on Sonnet in this session, choose it with `/model` or run `/router off`. To make future Sonnet sessions start
+  with routing off, also run `/router activities shadow`.
+- Overrides you saved stay as written. An override that sets only one field, such as `"effort"`, takes the other from
+  1.7's built-in for that cell, or from the base route where 1.7 has none (`explore` and `docs` at `medium`, `docs` at
+  `low`). 1.6's overrides in those cells and in `ops` at `medium` were Sonnet, so such a cell now runs another model.
+  Write both `model` and `effort` to keep Sonnet.
 - If you removed a 1.6 built-in override that 1.7 no longer has, such as `docs` at `low`, the pane lists it with
   "same as base: no effect". Press **remove** and **Save** to drop it.
 - 1.6 reads the same keys. A file without `activityRouting` runs `shadow` under 1.6.

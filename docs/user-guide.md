@@ -24,7 +24,7 @@ In Claude Code:
    - **OpenAI**: an OpenAI API key. The prompt text goes to OpenAI.
    - **Ollama**: no credential. Run `ollama serve` and pull the model; the prompt text stays on this machine.
 3. To use another classifier, open the pane's **Classifier** tab and select its row. See [Choose the classifier](#choose-the-classifier).
-4. Check the band above the prompt: `Routing on · ready`. On a model that no tier routes to, the session starts with routing off and the band says why; run `/router auto` to route.
+4. Check the band above the prompt: `Routing on · ready`. On a model that no tier routes to, and that no activity override uses with activity routing `on`, the session starts with routing off and the band says why; run `/router auto` to route.
 
 Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers optional settings and migrations.
 
@@ -125,10 +125,10 @@ The mode decides what happens with the label:
 | Mode     | What the router does                                                                                 |
 | -------- | ---------------------------------------------------------------------------------------------------- |
 | `on`     | The default. Applies the activity overrides.                                                         |
-| `shadow` | Shows the activity, records the stats, and works out what `on` would run. The tier route still runs. |
-| `off`    | Asks nothing new. The routes are the tier routes.                                                    |
+| `shadow` | Shows the activity, records the stats, and works out what `on` would run. The base route still runs. |
+| `off`    | Does not ask the activity: the classifier is asked for the tier only. The base routes run.           |
 
-To turn activity routing off or back to `shadow`, run `/router activities off` or `/router activities shadow`, or set **Activity routing** at the top of the Routing tab's **ACTIVITIES** and press **Save**. Routing itself stays on: only the activity overrides stop. Upgrading from 1.6, where `shadow` was the default, a `router.json` without `activityRouting` now runs `on`.
+To turn activity routing off or back to `shadow`, run `/router activities off` or `/router activities shadow`, or set **Activity routing** at the top of the Routing tab's **ACTIVITIES** and press **Save**. Routing itself stays on: only the activity overrides stop. Upgrading from 1.6, where `shadow` was the default, a `router.json` without `activityRouting` now runs `on`. Choosing `shadow` in 1.6 removed the key, because `shadow` was the default then: if you chose `shadow` in 1.6, run `/router activities shadow` again after upgrading.
 
 In `shadow` you can see what `on` would do without it running. The band marks the label `(shadow)` and dims it, and the **Now** tab says `low + code would use Sonnet 5.5 · high (shadow; using Haiku 5.5 · high)`, or `same route` when both agree. In `on` the **Now** tab reads `low + code → Sonnet 5.5 · high (override)` with the tier's base route next to it, or `(base)` when the cell has no override.
 
@@ -136,9 +136,9 @@ How the router moves inside a tier:
 
 - It compares routes, not labels. If the new activity resolves to the route already running, nothing switches.
 - A move to a stronger route needs the classifier's support, as an upgrade between tiers does. A move to a cheaper one must pay back its cache write within the payback horizon. One vote is enough for either, because the activity is a fact about this turn.
-- An activity applies only when the classifier gives it at least 60% probability (`policy.activityMass`). Below that, or on `uncertain`, the turn goes back to its tier's route, if the move passes the same checks. Tool continuations inside a turn keep the turn's route. When the classifier sees a new prompt as a continuation of the task, the activity may only move to a stronger route: `explore` can become `code`, but not the other way. Ollama does not answer the continuation question, so this rule does not apply to it.
-- A pinned turn uses the pin's tier route and shows no activity.
-- When the classifier gives no answer at all (a timeout, a failure, a pause, or a missing key), the running route stays. When it answers the tier but gives no usable activity, only the running activity stays: the tier answer still applies, so the turn can change tier and keeps its activity there. In `shadow` and `off` the tier route always runs, as in 1.5.
+- An activity applies only when the classifier gives it at least 60% probability (`policy.activityMass`). Below that, or on `uncertain`, the turn goes back to its base route, if the move passes the same checks. Tool continuations inside a turn keep the turn's route. When the classifier sees a new prompt as a continuation of the task, the activity may only move to a stronger route: `explore` can become `code`, but not the other way. Ollama does not answer the continuation question, so this rule does not apply to it.
+- A pinned turn uses the pin's base route and shows no activity.
+- When the classifier gives no answer at all (a timeout, a failure, a pause, or a missing key), the running route stays. When it answers the tier but gives no usable activity, only the running activity stays: the tier answer still applies, so the turn can change tier and keeps its activity there. In `shadow` and `off` the base route always runs.
 - A fresh session starts with routing on when the session model is a tier's route. With activity routing `on`, a model that only an activity override uses also counts: Sonnet 5.5 on the defaults. In `off` and `shadow` it does not.
 
 The band's activity label appears only when the activity applies, so a weak or `uncertain` answer shows none. The two-row band and the **Replies** strip show the activities of recent replies.
@@ -146,10 +146,10 @@ The band's activity label appears only when the activity applies, so a weak or `
 ### Read the activity on the pane
 
 - **Now**: the **Activity** line names the classifier's choice with its share and the two next-best answers, such as `code 84%   debug 8% · plan 5%`. The **Route** line shows the route the cell resolves to. **Replies** has a letter row under the strip.
-- **Routing**: **ACTIVITIES** starts with the **Activity routing** selector (`off`, `shadow`, `on`) and what the mode does. The matrix under it shows the effective routes per tier, with `·` where a cell uses the tier's route, and counts the distinct routes, because each is its own cache. **OVERRIDES** says whether the overrides are in use, then lists each override with a model, an effort, and **remove**, plus a selector to add one. **Activity threshold** under **POLICY** is the least probability at which an activity applies. Edits join the routing draft: **Save** and **Discard** apply as for routes. Yellow notes flag an override with no effect (`same as base`), one stronger than the tier above, and one that adds a cache.
+- **Routing**: **ACTIVITIES** starts with the **Activity routing** selector (`off`, `shadow`, `on`) and what the mode does. The matrix under it shows the effective routes per tier, with `·` where a cell uses the base route, and counts the distinct routes, because the router counts each as its own cache. Routes are abbreviated, such as `S·high` for Sonnet · high, and activities with the same cells share a row. **OVERRIDES** says whether the overrides are in use, then lists each override with a model, an effort, and **remove**, plus a selector to add one. **Activity threshold** under **POLICY** is the least probability at which an activity applies. Edits join the routing draft: **Save** and **Discard** apply as for routes. Yellow notes flag an override with no effect (`same as base`), one stronger than the tier above, and the only cell or tier on its (model, effort) pair, which adds a cache.
 - **Usage**: **ACTIVITY · this session** lists turns, requests, and share per activity, the switches split by tier and by activity, and **Agreement**, how often the tools a turn used fit the classifier's activity (see [Evaluation](evaluation.md#tool-agreement)). In `shadow` the **Shadow** line counts how many turns `on` would have routed differently, such as `on would route 5 of 20 turns differently · est. −$0.300 … −$0.120 at list prices`. The estimate sums, over those turns, what the next request on the route `on` would use would cost against the route that ran, as a low and a high scenario at the configured list prices in `router.json`. Minus means cheaper. It covers only turns after a measured reply, and adds `for 3` when only three of the turns have one. It is not a measured saving.
 
-**ACROSS SESSIONS · since the last reset** shows the counts kept across sessions: the turns labelled from their tools, **Agreement** over them, **Code/ops/explore**, the same agreement over the turns the classifier answered `code`, `ops` or `explore` (omitted when there are none), the two most frequent mismatches as `predicted → observed count` (`code → read 3`), lateral switches taken and refused, and the **Shadow** line summed over all shadow turns. This agreement compares the classifier's raw answer, so it can differ from the session's. The pane reads these counts when the session starts and when it opens, and after each turn. **Reset activity stats** clears the session counts and the counts kept across sessions.
+**ACROSS SESSIONS · since the last reset** shows the counts kept across sessions: the turns labelled from their tools, **Agreement** over them, **Code/ops/explore**, the same agreement over the turns the classifier answered `code`, `ops` or `explore` (omitted when there are none), the two most frequent mismatches as `predicted → observed count` (`code → read 3`), **Activity moves**, the moves to another route inside a tier, taken and refused, and the **Shadow** line summed over all shadow turns. This agreement compares the classifier's raw answer, so it can differ from the session's. The pane reads these counts when the session starts and when it opens, and after each turn. **Reset activity stats** clears the session counts and the counts kept across sessions.
 
 `/router` without a UI surface adds an `Activity: ops (81%)` line, the resolved route, and `Agreement across sessions: 19 of 22 turns (86%) · code/ops/explore 9 of 10 (90%)`.
 
@@ -167,7 +167,7 @@ The band's activity label appears only when the activity applies, so a weak or `
 | **on** / **off** on the pane (`o` / `f`) | The same as `/router auto` and `/router off`.                                                             |
 | **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.                                      |
 
-A pin does not change the next turn after the pinned turn finishes. A fresh session on a model that one of the tiers routes to starts with routing on. A fresh session on any other model starts with routing off. `/clear` starts the new session with routing on. Resuming a saved session restores its saved routing on or off.
+A pin does not change the next turn after the pinned turn finishes. A fresh session on a model that a tier routes to, or with activity routing `on` a model an activity override uses (Sonnet 5.5 on the defaults), starts with routing on. A fresh session on any other model starts with routing off. `/clear` starts the new session with routing on. Resuming a saved session restores its saved routing on or off.
 
 ## Edit routes and policy
 
@@ -186,7 +186,7 @@ Under **Policy** on the same tab, pick the values. One **Save** writes them with
 - **Votes to go down:** 1, 2, or 3 consecutive votes before a cheaper tier. A new or reset history needs one.
 - **Payback horizon:** 1, 3, 5, or 10 later turns used by the downgrade estimate.
 - **Credits cap:** $0.50, $1, $2, or $5 for an estimated cold cache write on a `credits` model.
-- **Activity threshold:** 50%, 60%, 70%, or 80%, the least probability at which the classifier's activity applies. Below it the tier's route runs. See [Activity routing](activity-routing.md#change-a-cell).
+- **Activity threshold:** 50%, 60%, 70%, or 80%, the least probability at which the classifier's activity applies. Below it the base route runs. See [Activity routing](activity-routing.md#change-a-cell).
 
 **Reset policy to defaults** loads the built-in values; **Save** then removes your policy overrides. The current turn keeps the settings it started with. A save preserves unrelated `router.json` keys and refuses to write through a symlink. When validation fails, the pane names the setting and leaves the file unchanged.
 

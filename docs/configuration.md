@@ -63,61 +63,62 @@ Prices are configured list-price inputs for estimates. They are not a subscripti
 
 The classifier also names the activity of a turn: what the turn produces. `activityRouting` decides what the router does with it. [Activity routing](activity-routing.md) explains the defaults for end users.
 
-| `activityRouting` | Behavior                                                                                                 |
-| ----------------- | -------------------------------------------------------------------------------------------------------- |
-| `off`             | Asks nothing new. The classifier requests are the ones 1.5 sent, and routes are exactly the tier routes. |
-| `shadow`          | Asks, shows the activity, records stats, and computes what `on` would run. The tier routes still run.    |
-| `on`              | The default since 1.7. Applies the `activities` overrides below.                                         |
+| `activityRouting` | Behavior                                                                                              |
+| ----------------- | ----------------------------------------------------------------------------------------------------- |
+| `off`             | Does not ask the activity: the classifier is asked for the tier only. The base routes run.            |
+| `shadow`          | Asks, shows the activity, records stats, and computes what `on` would run. The base routes still run. |
+| `on`              | The default since 1.7. Applies the `activities` overrides below.                                      |
 
-The seven activities are `code`, `debug`, `explore`, `plan`, `review`, `ops`, and `docs`. The classifier may also answer `uncertain`. In `on`, an activity applies only when its probability is at least `policy.activityMass`. Below that, or on `uncertain`, the turn goes back to its tier's route, if the move passes the cache checks. When the classifier gives no usable activity answer, the running activity stays and the tier answer still applies. When it gives no answer at all, the running route stays. In `off` and `shadow`, the tier route runs.
+The seven activities are `code`, `debug`, `explore`, `plan`, `review`, `ops`, and `docs`. The classifier may also answer `uncertain`. In `on`, an activity applies only when its probability is at least `policy.activityMass`. Below that, or on `uncertain`, the turn goes back to its base route, if the move passes the cache checks. When the classifier gives no usable activity answer, the running activity stays and the tier answer still applies. When it gives no answer at all, the running route stays. In `off` and `shadow`, the base route runs.
 
-`activities` maps an activity to a tier to a route override. An override may set `model`, `effort`, or both. A field it leaves out comes from the tier's route:
+`activities` maps an activity to a tier to a route override. An override may set `model`, `effort`, or both. A field it leaves out comes from the built-in override for that cell, or from the tier's own route, the **base route**, where there is none:
 
 ```
 route(tier, activity) = { ...routes[tier], ...activities[activity][tier] }
 ```
 
-The built-in overrides run only with `activityRouting: "on"`. Cells marked `·` have no override:
+The built-in overrides run only with `activityRouting: "on"`. A `·` cell uses the base route:
 
-| Activity                          | `micro` | `low`         | `medium`     | `high` |
-| --------------------------------- | ------- | ------------- | ------------ | ------ |
-| `code`, `debug`, `plan`, `review` | `·`     | Sonnet · high | `·`          | `·`    |
-| `ops`                             | `·`     | `·`           | Haiku · high | `·`    |
-| `explore`, `docs`                 | `·`     | `·`           | `·`          | `·`    |
+| Activity                          | `micro`        | `low`             | `medium`         | `high`       |
+| --------------------------------- | -------------- | ----------------- | ---------------- | ------------ |
+| Base route                        | Haiku · medium | Haiku · high      | Opus · medium    | Opus · xhigh |
+| `code`, `debug`, `plan`, `review` | ·              | **Sonnet · high** | ·                | ·            |
+| `ops`                             | ·              | ·                 | **Haiku · high** | ·            |
+| `explore`, `docs`                 | ·              | ·                 | ·                | ·            |
 
 - `code`, `debug`, `plan`, `review` at `low` run on Sonnet at `high`. Coding is where Haiku 5.5 trails most (Terminal-Bench 4.0: Haiku 39.2%, Sonnet 70.6%). Sonnet at `medium` scored below Haiku at `high` on FrontierCode Main (about 37% against 42%); at `high` it scored about 49%.
 - `ops` at `medium` runs on Haiku at `high`. Command runs last long enough for Haiku to repay its cache write: about 4 requests from Opus at 350,000 tokens of context, against a median run of 6 to 11 requests in one developer's sessions. Haiku is weaker on multi-step tool work (OSWorld 2.1: about 61% against 79% for Opus at `medium`), so `ops` at `high` stays on Opus, and repeated tool errors move an `ops` turn to the `high` route.
-- `explore` and `docs` keep the base routes: moving them saved nothing in that replay, or cost answer quality.
+- `explore` and `docs` keep the base routes: moving them saved nothing in that replay, and Haiku scores lower on research benchmarks (Humanity's Last Exam with tools: 50.1% against 63.0% for Opus at `medium`).
 
-These are vendor benchmarks and a list-price replay, not measurements of this router, and they are not a claim of equal quality. The overrides add one (model, effort) pair the base routes do not use, Sonnet at `high`, so activity routing adds one cache. [Activity routing](activity-routing.md) has the evidence per cell and its limits.
+These are vendor benchmarks and a list-price replay, not measurements of this router, and they are not a claim of equal quality. The overrides add one (model, effort) pair the base routes do not use, Sonnet at `high`. The router counts each pair as its own cache, so activity routing adds one. [Activity routing](activity-routing.md) has the evidence per cell and its limits.
 
-A user file merges over these overrides one field at a time, as `routes` does. This sets only the effort of the built-in `code` override at `low`, so the cell runs Sonnet at `medium`, and adds a new override at `high`:
+A user file merges over these overrides one field at a time, as `routes` does. This sets only the effort of the built-in `code` override at `low`, so the cell runs Sonnet at `xhigh`, and adds a new override at `high`:
 
 ```json
 {
   "activities": {
-    "code": { "low": { "effort": "medium" }, "high": { "effort": "max" } }
+    "code": { "low": { "effort": "xhigh" }, "high": { "effort": "max" } }
   }
 }
 ```
 
-An override for a cell with no built-in names both fields, or inherits the missing one from the tier's route. This runs `docs` at `medium` on Sonnet at the base route's `medium` effort:
+An override for a cell with no built-in names both fields, or inherits the missing one from the base route. This runs `docs` at `medium` on Sonnet at the base route's `medium` effort:
 
 ```json
 { "activities": { "docs": { "medium": { "model": "sonnet" } } } }
 ```
 
 - `effort: null` keeps the session effort, as in `routes`.
-- A cell cannot be `null`. To drop a built-in override, set it to the tier's route, for example `"ops": { "medium": { "model": "opus", "effort": "medium" } }`. The pane writes this for you when you remove an override.
+- A cell cannot be `null`. To drop a built-in override, set it to the base route, for example `"ops": { "medium": { "model": "opus", "effort": "medium" } }`. The pane writes this for you when you remove an override. The cell keeps that route if you later change the tier's route; remove it again then.
 - An override applies to whatever the tier's route is. If you move `routes.low` to Opus, the built-in `code` override at `low` still runs Sonnet. Set it to match, or remove it.
 - Unknown activities and tiers, unknown model aliases, and invalid efforts make the file invalid, like any other invalid setting. The pane refuses to save one and names it, such as `activities.code.low.model is not in models`.
-- Each distinct (model, effort) pair is its own cache. The Routing tab counts them.
+- The router counts each distinct (model, effort) pair as its own cache. The Routing tab counts them.
 
-`policy.activityMass` (default `0.6`) is the lowest probability at which an activity applies. The Routing tab sets it as **Activity threshold** under POLICY, from 50% to 80%. It has not been tuned on any classifier. Probabilities differ between classifiers, so recalibrate it from the [probe set](evaluation.md#activity-probe-set) if you change classifier.
+`policy.activityMass` (default `0.6`) is the lowest probability at which an activity applies. The Routing tab sets it as **Activity threshold** under POLICY, from 50% to 80%. It has not been tuned on any classifier, and the probe results do not record probabilities, so there is no data to tune it on yet.
 
 Switch the mode with `/router activities off|shadow|on`, or with the **Activity routing** selector at the top of the Routing tab's ACTIVITIES section. The command writes `router.json` at once; the selector joins the Routing draft and writes on **Save**. Choosing `on`, the default, removes the key from the file.
 
-**Upgrade from 1.6.** 1.6 defaulted to `shadow` with Sonnet at `medium` in every override. A file without `activityRouting` now runs `on`; a file that sets it keeps its mode. A session started on Sonnet 5.5 now starts with routing on, because Sonnet runs the `code` cell at `low`; choose it with `/model` to keep it. Cells you saved stay as written, and a cell that sets one field merges over the new built-in. A 1.6 removal of a built-in that 1.7 no longer has, such as `docs` at `low`, stays in the file as the tier's route; the pane lists it as "same as base: no effect", and **remove** drops it.
+**Upgrade from 1.6.** 1.6 defaulted to `shadow` with Sonnet at `medium` in every override. A file without `activityRouting` now runs `on`; a file that sets it keeps its mode. Choosing `shadow` in 1.6 removed the key, because `shadow` was the default then: if you chose `shadow` in 1.6, run `/router activities shadow` again after upgrading. A session started on Sonnet 5.5 now starts with routing on, because Sonnet runs the `code` cell at `low`; to stay on Sonnet in that session, choose it with `/model` or run `/router off`, and run `/router activities shadow` to make future Sonnet sessions start with routing off. Cells you saved stay as written. A cell that sets one field takes the other from 1.7's built-in for that cell, or from the base route where 1.7 has none (`explore` and `docs` at `medium`, `docs` at `low`). 1.6's overrides in those cells and in `ops` at `medium` were Sonnet, so such a cell now runs another model; write both fields to keep Sonnet. A 1.6 removal of a built-in that 1.7 no longer has, such as `docs` at `low`, stays in the file as the tier's route; the pane lists it as "same as base: no effect", and **remove** drops it.
 
 **Rollback.** To go back to 1.6 behavior without downgrading, set `"activityRouting": "shadow"`, or `off`. Router 1.6 reads the same keys; under 1.6 a file without `activityRouting` runs `shadow` with 1.6's overrides. Router 1.5 rejects unknown keys and makes routing unavailable. Before you install 1.5 again, remove `activities`, `activityRouting`, and `policy.activityMass` from `router.json`. The pane writes them when you set the mode to `off` or `shadow`, change the activity threshold, or edit or remove an override.
 
