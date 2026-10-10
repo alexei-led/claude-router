@@ -54,11 +54,12 @@ test('a pending pin shows on the Now tab with unpin', () => {
 test('help explains what the numbers are and that savings are not measured', () => {
   const lines = texts(pane({ help: true }));
   const at = lines.indexOf('ABOUT THESE NUMBERS');
-  assert.deepEqual(lines.slice(at, at + 6), [
+  assert.deepEqual(lines.slice(at, at + 7), [
     'ABOUT THESE NUMBERS',
     'Cost, context and cache are Claude readings. $ estimates use the',
     'list prices in router.json; plan prices are equivalents, not cash.',
-    'Routing savings are not measured. Cache benefit is before writes.',
+    'Routing vs your model holds tokens and output length the same',
+    'and does not measure answer quality. Cache benefit is before writes.',
     'The context bar uses the routed model’s window, 20% in reserve.',
     'A switch estimate prices 5m–1h cache writes; minus means cheaper.',
   ]);
@@ -418,9 +419,13 @@ test('the Usage tab shows the session activity block and the counts across sessi
     const lines = texts(tree);
     const at = lines.findIndex((l) => l.startsWith('ACTIVITY'));
     assert.deepEqual(lines.slice(at, at + expected.length), expected, name);
-    assert.equal(lines[at + expected.length], ' ', `${name}: no further activity lines`);
-    const reset = controls(tree).find((c) => c.key === 'reset-activity-stats');
+    assert.deepEqual(
+      lines.slice(at + expected.length, at + expected.length + 2),
+      ['  clears activity stats and routing vs your model, this session and saved', ' '],
+      `${name}: the reset says what it clears, and no further activity lines`,
+    );
+    const reset = controls(tree).find((c) => c.key === 'reset-stats');
     reset.onPress();
-    assert.deepEqual(calls, [['resetActivityStats']], `${name}: the stored counts can always be reset`);
+    assert.deepEqual(calls, [['resetStats']], `${name}: the stored counts can always be reset`);
   }
 });

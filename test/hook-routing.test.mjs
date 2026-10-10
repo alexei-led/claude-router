@@ -723,3 +723,60 @@ test('with activity routing on, a continuation that falls back to the native mod
   await drain(h.step({ ...step, index: 1, messageCount: 3 }));
   assert.deepEqual([h.requests[1].model, h.view().tier, h.view().activity], ['claude-haiku-5-5', null, null]);
 });
+
+const SAVINGS = 'savings:v1';
+
+test('a routed reply is priced against your model in the session totals and, at turn end, the store', async () => {
+  // A plan subscriber's replies report plan rate limits, and Claude Code then caches the main conversation for 1h.
+  for (const [rateLimits, writeMultiplier] of [
+    [[], 1.25],
+    [[{ kind: 'five_hour', percentUsed: 10 }], 2],
+  ]) {
+    const h = harness(JEV_KEY);
+    answering(h, jevResponse('low', LOW));
+    h.usage({ startedAt: 0, context: { tokens: 8000 }, rateLimits });
+    await h.event('session.start', { cwd: '/fixture' });
+    await turn(h, 't1', 'claude-haiku-5-5');
+    assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-haiku-5-5', 'high']);
+    // Haiku at high against the session's Haiku at medium: one price, and the API read what a single cache would.
+    const usd = (0.1 * (100 + 200 * writeMultiplier) + 0.01 * 800 + 0.5 * 10) / 1e6;
+    const { savings } = h.view();
+    assert.equal(savings.replies, 1);
+    assert.ok(Math.abs(savings.routedUsd - usd) < 1e-12);
+    assert.equal(savings.yoursUsd, savings.routedUsd);
+    assert.deepEqual(savings.tiers, { low: 1 });
+    assert.deepEqual([h.loop().yours.total, h.loop().yours.onYours], [1100, false]);
+    assert.equal(h.preferences.get(SAVINGS).replies, 1);
+    assert.ok(Number.isFinite(h.preferences.get(SAVINGS).since));
+    assert.deepEqual(h.view().savingsStore, h.preferences.get(SAVINGS));
+  }
+});
+
+test('with routing off a reply is not counted, and your model’s cache still follows it', async () => {
+  const h = harness(JEV_KEY);
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('command.run', { command: 'router', args: 'off' });
+  await turn(h, 't1', 'claude-haiku-5-5');
+  assert.equal(h.requests[0].effort, 'medium');
+  assert.equal(h.view().savings, null);
+  assert.deepEqual([h.loop().yours.total, h.loop().yours.onYours], [1100, true]);
+  assert.equal(h.preferences.get(SAVINGS), undefined);
+  h.surfaces([]);
+  const { text } = await h.event('command.run', { command: 'router', args: '' });
+  assert.match(text, /^vs your model \(Haiku 5\.5 · medium\): no routed replies this session$/m);
+});
+
+test('a usage reading the readout cannot use, or a corrupted saved total, never breaks a turn', async () => {
+  const h = harness(JEV_KEY, new Map([[SAVINGS, { version: 9, replies: 'many' }]]));
+  answering(h, jevResponse('low', LOW));
+  h.usage({ context: { tokens: 8000 } });
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-haiku-5-5');
+  assert.equal(h.requests.length, 1);
+  assert.equal(h.view().savings, null);
+  assert.equal(h.view().savingsStore.replies, 0);
+  h.usage({ context: { tokens: 8000 }, rateLimits: [] });
+  await turn(h, 't2', 'claude-haiku-5-5');
+  assert.equal(h.view().savings.replies, 1);
+  assert.equal(h.preferences.get(SAVINGS).replies, 1);
+});

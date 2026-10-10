@@ -70,13 +70,14 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
     await pane.press({ key: 'tab-usage' });
     await pane.redraw();
     expect(await pane.find({ type: 'Text', text: /Cost.*\$0.250/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /ROUTING VS YOUR MODEL/ })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /Next-turn difference\s+−\$0.020 to \+\$0.030/ })).toBeDefined();
     await pane.press({ key: 'help' });
     await pane.redraw();
-    expect(await pane.find({ type: 'Text', text: /Routing savings are not measured/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /does not measure answer quality/ })).toBeDefined();
     await pane.press({ key: 'help' });
     await pane.redraw();
-    expect(await pane.find({ type: 'Text', text: /Routing savings are not measured/ })).toBeUndefined();
+    expect(await pane.find({ type: 'Text', text: /does not measure answer quality/ })).toBeUndefined();
     await pane.press({ key: 'tab-classifier' });
     await pane.redraw();
     expect(await pane.find({ key: 'classifier-jev' })).toBeDefined();

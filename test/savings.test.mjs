@@ -6,12 +6,12 @@ import {
   addReply,
   compareReply,
   EARLY_REPLIES,
-  emptyStore,
+  emptySavingsStore,
   emptyTotals,
   modelSpec,
   readout,
-  readStore,
-  recordStore,
+  readSavingsStore,
+  recordSavingsStore,
   requestUsd,
   sessionCacheTtl,
 } from '../lib/savings.mjs';
@@ -283,18 +283,18 @@ test('a missing or corrupted store reads as empty, and a turn adds to it from it
     'x',
     [],
     { version: 2 },
-    { ...emptyStore(), replies: -1 },
-    { ...emptyStore(), x: 1 },
+    { ...emptySavingsStore(), replies: -1 },
+    { ...emptySavingsStore(), x: 1 },
   ])
-    assert.deepEqual(readStore(value), emptyStore());
+    assert.deepEqual(readSavingsStore(value), emptySavingsStore());
   const turn = addReply(
     emptyTotals(),
     { routedUsd: 1, yoursUsd: 3, cheaperUsd: -2, strongerUsd: 0, switchUsd: 0 },
     'low',
   );
-  const once = recordStore(readStore(undefined), turn, 5);
-  assert.deepEqual(once, { ...emptyStore(), since: 5, replies: 1, routedUsd: 1, yoursUsd: 3, cheaperUsd: -2 });
-  assert.deepEqual(readStore(once), once);
-  assert.equal(recordStore(once, turn, 9).since, 5);
-  assert.equal(recordStore(once, emptyTotals(), 9), once);
+  const once = recordSavingsStore(readSavingsStore(undefined), turn, 5);
+  assert.deepEqual(once, { ...emptySavingsStore(), since: 5, replies: 1, routedUsd: 1, yoursUsd: 3, cheaperUsd: -2 });
+  assert.deepEqual(readSavingsStore(once), once);
+  assert.equal(recordSavingsStore(once, turn, 9).since, 5);
+  assert.equal(recordSavingsStore(once, emptyTotals(), 9), once);
 });

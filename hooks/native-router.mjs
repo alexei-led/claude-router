@@ -38,6 +38,7 @@ import {
   GATEWAY_SETTINGS,
   missingCredentials,
   NOT_A_TIER_REASON,
+  savingsLine,
   storeAgreementLine,
 } from '../lib/display.mjs';
 import { clip, observedActivity, promptIndex } from '../lib/facts.mjs';
@@ -55,6 +56,16 @@ import {
   prepareLoop,
   resetHistory,
 } from '../lib/route.mjs';
+import {
+  addReply,
+  compareReply,
+  emptySavingsStore,
+  emptyTotals,
+  readSavingsStore,
+  recordSavingsStore,
+  SAVINGS_KEY,
+  sessionCacheTtl,
+} from '../lib/savings.mjs';
 import { CLEARED_READINGS, continuationView, healthOf, initialView, responseMetrics } from '../lib/view.mjs';
 
 // The engine follows $ only into functions declared in this file, never across an import: every helper that takes $
@@ -88,6 +99,8 @@ function createRouter(options) {
     // one activity, flushed to the store when it ends.
     turnActivities: new Map(),
     run: null,
+    // Each turn's routing-vs-your-model totals until turn.complete adds them to the store.
+    turnSavings: new Map(),
     // Bumped by Reset activity stats, so a store write that read the counts before the reset skips.
     statsResets: 0,
   };
@@ -150,11 +163,14 @@ async function updateView($, router, patch) {
 // The counts kept across sessions for the view, read when the session starts and the pane opens: another session
 // may have added to them. A failed read keeps what the view has; it never breaks a turn or a render.
 async function storeView($) {
+  const out = {};
   try {
-    return { activityStore: readStore(await $.store.get(STORE_KEY)) };
-  } catch {
-    return {};
-  }
+    out.activityStore = readStore(await $.store.get(STORE_KEY));
+  } catch {}
+  try {
+    out.savingsStore = readSavingsStore(await $.store.get(SAVINGS_KEY));
+  } catch {}
+  return out;
 }
 
 // A notice answers the last press in the pane, so the pane opens without one; the last write keeps its Undo in the
@@ -301,6 +317,7 @@ function detailText(config, view) {
     `Reason: ${view.reason}`,
     ...activityDetailLines(config, view),
     storeAgreementLine(view),
+    savingsLine(view),
     view.error || missing ? classifierStatus(config, view.error ?? missing) : `${activeClassifier(config).label} ready`,
     `Context: ${view.contextKnown ? `${view.contextTokens} tokens (estimate)` : 'unknown'}`,
     `Observed cache: ${view.cacheRead ?? 'unknown'} read, ${view.cacheWrite ?? 'unknown'} written tokens`,
@@ -345,6 +362,9 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, router)
       stopReason: response.stopReason,
       now: Date.now(),
     });
+    // Routing chose nothing here, so the reply is not counted; your model's cache still follows it.
+    const compared = await compareYours($, router, loop, response, e.effort ?? null, nativeModel);
+    if (compared) observed.yours = compared.state;
     const written = await $.state.set(ref, observed, { ifVersion: version });
     if (written.isSet) await updateView($, router, responseMetrics(router.view, response, null));
   }
@@ -463,6 +483,81 @@ async function publishReply($, router, turnId, response, tier) {
       inputTokens: turn.inputTokens + (metrics.inputTokens ?? 0),
       outputTokens: turn.outputTokens + (metrics.outputTokens ?? 0),
     });
+}
+
+// A routed reply written to the loop at `loopVersion`, then published: the view's metrics and the routing-vs-your-model
+// totals. A lost write publishes nothing.
+async function observeRouted($, router, { turnId, cfg, loop, loopVersion, request, response, nativeModel }) {
+  const observed = observeResponse(loop, {
+    usage: response.usage,
+    requestedModel: request.model,
+    effort: request.effort ?? null,
+    stopReason: response.stopReason,
+    now: Date.now(),
+  });
+  if (response.stopReason === null) observed.suspended = true;
+  const compared = await compareYours($, router, loop, response, request.effort ?? null, nativeModel, cfg);
+  if (compared) observed.yours = compared.state;
+  const written = await $.state.set({ ...LOOP, id: 'main' }, observed, { ifVersion: loopVersion });
+  if (!written.isSet) return;
+  // A substituted reply is not the tier's: the strip and trend must not count it as one.
+  const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
+  await publishReply($, router, turnId, response, tier);
+  if (compared?.reply) await addSavings($, router, turnId, compared.reply, tier);
+}
+
+// The main conversation's prompt-cache lifetime by Claude Code's rule (sessionCacheTtl). $.env.get takes literal
+// names only. A plan subscriber is one whose replies report plan rate limits.
+async function cacheTtlOf($) {
+  const settings = await $.settings.read();
+  const usage = await $.session.usage();
+  return sessionCacheTtl({
+    force5m: await $.env.get('FORCE_PROMPT_CACHING_5M'),
+    envTtl: await $.env.get('CLAUDE_CODE_PROMPT_CACHE_TTL'),
+    settingTtl: settings.promptCacheTtl,
+    enable1h: await $.env.get('ENABLE_PROMPT_CACHING_1H'),
+    subscriber: usage.rateLimits.some((limit) => limit.kind === 'five_hour' || limit.kind === 'seven_day'),
+  });
+}
+
+// A main reply against your model (compareReply): the loop's next `yours` state and the reply's prices, or null. The
+// readout never breaks a turn: any failure leaves the loop's state and the totals as they were.
+async function compareYours($, router, loop, response, servedEffort, nativeModel, cfg = router.config) {
+  try {
+    if (!response.usage?.model) return null;
+    const view = router.view ?? (await readView($, router));
+    return compareReply(cfg, loop.yours ?? null, {
+      usage: response.usage,
+      served: { model: response.usage.model, effort: servedEffort },
+      yours: { model: nativeModel, effort: view.nativeEffort ?? null },
+      ttl: await cacheTtlOf($),
+      now: Date.now(),
+    });
+  } catch {
+    return null;
+  }
+}
+
+// A routed reply's prices added to the session totals in the view and to the turn's totals for the store.
+async function addSavings($, router, turnId, reply, tier) {
+  try {
+    const view = router.view ?? (await readView($, router));
+    router.turnSavings.set(turnId, addReply(router.turnSavings.get(turnId) ?? emptyTotals(), reply, tier));
+    await updateView($, router, { savings: addReply(view.savings ?? emptyTotals(), reply, tier) });
+  } catch {}
+}
+
+// A finished turn's totals added to the totals kept across sessions, with the guard recordActivity uses: totals read
+// before a reset are not written back.
+async function flushSavings($, router, totals) {
+  try {
+    const resets = router.statsResets;
+    const store = readSavingsStore(await $.store.get(SAVINGS_KEY));
+    if (router.statsResets !== resets) return;
+    const written = recordSavingsStore(store, totals, Date.now());
+    await $.store.set(SAVINGS_KEY, written);
+    if (router.statsResets === resets) await updateView($, router, { savingsStore: written });
+  } catch {}
 }
 
 // A finished turn's activity stats: the session counts in the view and the counts kept across sessions. Stats never
@@ -671,17 +766,29 @@ function paneActions($, router, view) {
         withActivities(file, { base: { activityRouting: from }, activityRouting: mode }),
       );
     },
-    resetActivityStats: async () => {
+    // One reset for both readouts: activity stats and routing vs your model, this session's and the saved ones.
+    resetStats: async () => {
       router.statsResets += 1;
       router.run = null;
-      const cleared = await $.store
-        .set(STORE_KEY, emptyStore())
-        .then(() => true)
-        .catch(() => false);
+      router.turnSavings.clear();
+      const clear = (key, value) =>
+        $.store
+          .set(key, value)
+          .then(() => true)
+          .catch(() => false);
+      const [activity, savings] = await Promise.all([
+        clear(STORE_KEY, emptyStore()),
+        clear(SAVINGS_KEY, emptySavingsStore()),
+      ]);
       await updateView($, router, {
         activityStats: null,
-        ...(cleared ? { activityStore: emptyStore() } : {}),
-        notice: cleared ? 'Activity stats reset.' : 'Session activity stats reset. Saved stats could not be cleared.',
+        savings: null,
+        ...(activity ? { activityStore: emptyStore() } : {}),
+        ...(savings ? { savingsStore: emptySavingsStore() } : {}),
+        notice:
+          activity && savings
+            ? 'Stats reset: activity and routing vs your model, this session and saved.'
+            : 'This session’s stats reset. Saved stats could not be cleared.',
       });
     },
     discardRouting: () => updateView($, router, { routeDraft: null, tuning: null, tuningBase: null, notice: null }),
@@ -823,6 +930,7 @@ export function register(on, options) {
       const saved = await rememberMode($, mode);
       await updateView($, router, {
         mode,
+        nativeEffort: e.effort ?? null,
         ...(!saved ? { notice: 'Resume preference could not be saved. Current mode remains active.' } : {}),
       });
     }
@@ -879,20 +987,8 @@ export function register(on, options) {
     if (loop.decision.effort === null) delete request.effort;
     else request.effort = loop.decision.effort;
     const response = yield* next(request);
-    if (!next.signal.aborted && (await $.session.id()) === sessionId) {
-      const observed = observeResponse(loop, {
-        usage: response.usage,
-        requestedModel: request.model,
-        effort: request.effort ?? null,
-        stopReason: response.stopReason,
-        now: Date.now(),
-      });
-      if (response.stopReason === null) observed.suspended = true;
-      const written = await $.state.set(ref, observed, { ifVersion: loopVersion });
-      // A substituted reply is not the tier's: the strip and trend must not count it as one.
-      const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
-      if (written.isSet) await publishReply($, router, e.turnId, response, tier);
-    }
+    if (!next.signal.aborted && (await $.session.id()) === sessionId)
+      await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
     return response;
   });
 
@@ -911,6 +1007,9 @@ export function register(on, options) {
     const turn = router.turnActivities.get(e.turnId);
     router.turnActivities.delete(e.turnId);
     if (turn && turn.mode !== 'off') await recordActivity($, router, turn);
+    const savings = router.turnSavings.get(e.turnId);
+    router.turnSavings.delete(e.turnId);
+    if (savings) await flushSavings($, router, savings);
     return next(e);
   });
 
@@ -932,6 +1031,7 @@ export function register(on, options) {
     router.prompts.clear();
     router.turnConfigs.clear();
     router.turnActivities.clear();
+    router.turnSavings.clear();
     const run = router.run;
     router.run = null;
     if (run) await flushRun($, run);
@@ -941,6 +1041,7 @@ export function register(on, options) {
       credentials: router.view?.credentials ?? null,
       // Counts kept across sessions: the next session starts from them.
       activityStore: router.view?.activityStore ?? null,
+      savingsStore: router.view?.savingsStore ?? null,
       health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
       configPath: router.config.nativePath,
       phase: router.view?.phase === 'unavailable' ? 'unavailable' : 'ready',
@@ -1007,6 +1108,9 @@ export function register(on, options) {
     const modelOptions = Object.keys(router.config.models).filter((alias) =>
       isModelAllowed(router.config.models[alias].id, settings.availableModels, view.nativeModel),
     );
-    return renderPanel(elements, router.config, view, usage, paneActions($, router, view), { modelOptions });
+    return renderPanel(elements, router.config, view, usage, paneActions($, router, view), {
+      modelOptions,
+      columns: e.props.bodyColumns,
+    });
   });
 }
