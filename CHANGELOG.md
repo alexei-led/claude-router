@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.3 (2026-10-10)
+
+### Fixed
+
+- Turning routing off while a turn runs ends the watch behind **Escalations**, even when routing is back on by the time the turn finishes. Before, that turn could start the watch again for its cheaper activity move, and a later escalation counted against it. Routing itself is unchanged.
+
 ## 1.7.2 (2026-10-10)
 
 ### Fixed
