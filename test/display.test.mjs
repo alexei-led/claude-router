@@ -14,6 +14,7 @@ import {
   storeAgreementLine,
   switchCount,
   usageMetrics,
+  whyText,
 } from '../lib/display.mjs';
 
 test('unknown metrics stay unknown and zero is a real reading', () => {
@@ -218,4 +219,61 @@ test('the /router agreement line adds code, ops and explore only when those were
     ],
   ])
     assert.equal(storeAgreementLine({ activityStore }), expected, name);
+});
+
+test('Why names the cell for an activity move or a stay on an override, and keeps the reason otherwise', () => {
+  const on = { ...DEFAULTS, activityRouting: 'on' };
+  for (const [name, config, view, expected] of [
+    [
+      'a move up to an override',
+      on,
+      { tier: 'low', activity: 'code', reason: 'activity-up' },
+      'code at low runs on Sonnet 5.5 · high',
+    ],
+    [
+      'a move down to an override',
+      on,
+      { tier: 'medium', activity: 'ops', reason: 'activity-down' },
+      'ops at medium runs on Haiku 5.5 · high',
+    ],
+    [
+      'a move back to the base route',
+      on,
+      { tier: 'low', activity: null, reason: 'activity-down' },
+      'low runs on its base route, Haiku 5.5 · high',
+    ],
+    [
+      'a stay on an override',
+      on,
+      { tier: 'low', activity: 'debug', reason: 'same-tier' },
+      'debug at low runs on Sonnet 5.5 · high',
+    ],
+    [
+      'a stay on a cell without an override',
+      on,
+      { tier: 'low', activity: 'ops', reason: 'same-tier' },
+      'the task fits the current tier',
+    ],
+    [
+      'a refused move on an override',
+      on,
+      { tier: 'low', activity: 'code', reason: 'activity-pending' },
+      'a route for the activity does not pay back yet',
+    ],
+    ['a hold on an override', on, { tier: 'low', activity: 'code', reason: 'hold' }, 'staying after an escalation'],
+    [
+      'a tier move onto an override',
+      on,
+      { tier: 'low', activity: 'code', reason: 'downgrade' },
+      'enough support for a cheaper model',
+    ],
+    [
+      'shadow keeps the reason',
+      { ...DEFAULTS, activityRouting: 'shadow' },
+      { tier: 'low', activity: 'code', reason: 'same-tier' },
+      'the task fits the current tier',
+    ],
+    ['before a turn', on, { tier: null, activity: null, reason: 'ready' }, 'ready for the next turn'],
+  ])
+    assert.equal(whyText(config, view), expected, name);
 });

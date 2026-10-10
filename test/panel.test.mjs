@@ -193,6 +193,8 @@ test('the Now tab shows the activity reading and the route its cell resolves to 
     const lines = texts(renderPanel(ELEMENTS, config, view({ ...props, ...reading }), null, actions));
     const name = `${mode} ${JSON.stringify(props)}`;
     assert.equal(after(lines, 'Route     '), route, name);
+    if (mode === 'on' && props === sonnetLow)
+      assert.equal(after(lines, 'Why       '), 'code at low runs on Sonnet 5.5 · high');
     assert.equal(after(lines, 'Activity  '), mode === 'off' ? null : 'code 81%', name);
     if (mode !== 'off') assert.equal(lines[lines.indexOf('Activity  ') + 2], '   ops 9% · explore 6%', name);
   }
