@@ -131,6 +131,19 @@ test('the hover row drops its labels and the row choice before the pins, and kee
     );
 });
 
+test('a narrow two-row band keeps 1 row beside Turn off, the only way back to one row', () => {
+  const view = { ...modeBands.auto.view, bandDetail: true };
+  for (const [columns, expected] of [
+    [60, '[ Turn off ]  [ 1 row ]'],
+    [40, '[ Turn off ]  [ 1 row ]'],
+  ])
+    assert.equal(
+      drawn(renderBand(elements, DEFAULTS, view, null, { columns }, actions).props.children[2]),
+      expected,
+      `${columns} columns`,
+    );
+});
+
 test('a narrow manual band drops the explanation before the model and keeps Turn on', () => {
   const { view } = modeBands.manual;
   for (const [columns, expected] of [
