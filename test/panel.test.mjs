@@ -609,6 +609,22 @@ test('Escalations and Latency show only with readable data, and a bad latency hi
     );
     assert.ok(lines.includes('Labelled   22 turns'), `${name}: the stats store still shows`);
   }
+  // A classifier id that names an Object.prototype member reads no latency rather than the prototype's function.
+  const proto = { ...DEFAULTS.classifiers.jev, label: 'Proto' };
+  const config = { ...DEFAULTS, activityRouting: 'on', classifier: 'toString', classifiers: { toString: proto } };
+  const lines = texts(
+    renderPanel(
+      ELEMENTS,
+      config,
+      view({ tab: 'usage', activityStore: STORE, activityMetrics: METRICS }),
+      null,
+      actions,
+    ),
+  );
+  assert.deepEqual(
+    lines.filter((line) => line.startsWith('Latency')),
+    [],
+  );
 });
 
 test('an activity shows its cost only when every reply was priced', () => {
