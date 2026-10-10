@@ -134,13 +134,6 @@ test('a classifier without credentials names the missing setting and offers Set 
   await press(h, 'tab-classifier');
   const pane = await h.render();
   assert.ok(texts(pane).includes('○ no API key  '));
-  assert.ok(
-    texts(pane).some(
-      (line) =>
-        line.trim() ===
-        'Jev: API key · Clef, Clef Flash: API token, account ID · OpenAI: API key · Ollama: no key needed',
-    ),
-  );
   assert.ok(controls(pane).some((node) => node.key === 'key-jev' && node.label === 'Set up'));
   assert.equal(
     controls(pane).find((node) => node.key === 'key-clef'),

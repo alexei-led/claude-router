@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The pane has five tabs: Now, Routes, Policy, Classifier, Usage (`1`–`5`). The old Routing tab is split in two, and each tab now answers one question.
+- **Routes** is one grid of tiers by activities. Each cell shows the model it runs: `·` for the tier's model, `°` for a built-in default, **●** for an unsaved edit. Select a cell to edit it. **remove** is now **Use tier model**, and **Restore default** puts a built-in override back. `5 distinct routes · 3 caches` now reads `3 prompt caches in use: one per model`, with what a cold cache costs.
+- **Policy** writes each control as a sentence, such as `Going down  after 2 ▾ agreeing turns`, shows the default beside a changed value, and says when the credits cap has no effect.
+- **Now** leads with the next turn's model and why. The letter row under the replies strip (`eeccoo…`) is gone; replies are counted per tier and per activity instead, such as `coding 12 · exploring 4`.
+- **Classifier** compares the classifiers in one table (where the prompt goes, probe, p95 wait, status) and flags a deadline shorter than the real wait. The counts across sessions moved here from Usage.
+- **Usage** opens with the answer, such as `Routing saved $1.84 (22%) this session vs Opus 5.5 · xhigh`. Claude's readings fold to one line behind **details**.
+
+### Fixed
+
+- The Now picture in the docs showed `0 switches` next to a strip with three tier changes.
+
 ## 1.9.0 (2026-10-10)
 
 ### Added

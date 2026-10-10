@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 657 515" role="img" aria-labelledby="title desc">
+  <title id="title">Router pane, Policy tab</title>
+  <desc id="desc">Each policy control inside the sentence it completes: the start tier, votes and payback horizon for going down, the support needed to go up, the activity threshold and the credits cap, with the default shown beside a changed value, the router.json file, and the unsaved change with Save and Discard.</desc>
+  <style>
+    text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; }
+    .cap { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; fill: #9a988f; }
+  </style>
+  <rect width="657" height="515" rx="8" fill="#1c1c1c"/>
+<rect x="10" y="10" width="637" height="495" rx="6" fill="none" stroke="#3f5f8f"/>
+<text x="24.0" y="34" fill="#5fafd7" font-weight="700" xml:space="preserve">ROUTING</text>
+<rect x="94.2" y="20" width="62.4" height="18" rx="4" fill="#87afff"/>
+<text x="94.2" y="34" fill="#0d1016" font-weight="700" xml:space="preserve">[ ◉ on ]</text>
+<rect x="164.4" y="20" width="70.2" height="18" rx="4" fill="#2e3340"/>
+<text x="164.4" y="34" fill="#d0d0d0" xml:space="preserve">[ ○ off ]</text>
+<text x="250.2" y="34" fill="#87d787" xml:space="preserve">Jev ready · 347 ms</text>
+<rect x="24.0" y="39" width="54.6" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="53" fill="#d0d0d0" xml:space="preserve">[ Now ]</text>
+<rect x="86.4" y="39" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="86.4" y="53" fill="#d0d0d0" xml:space="preserve">[ Routes ]</text>
+<rect x="172.2" y="39" width="93.6" height="18" rx="4" fill="#87afff"/>
+<text x="172.2" y="53" fill="#0d1016" font-weight="700" xml:space="preserve">[ Policy ● ]</text>
+<rect x="273.6" y="39" width="109.2" height="18" rx="4" fill="#2e3340"/>
+<text x="273.6" y="53" fill="#d0d0d0" xml:space="preserve">[ Classifier ]</text>
+<rect x="390.6" y="39" width="70.2" height="18" rx="4" fill="#2e3340"/>
+<text x="390.6" y="53" fill="#d0d0d0" xml:space="preserve">[ Usage ]</text>
+<rect x="468.6" y="39" width="39.0" height="18" rx="4" fill="#2e3340"/>
+<text x="468.6" y="53" fill="#d0d0d0" xml:space="preserve">[ ? ]</text>
+<text x="24.0" y="91" fill="#5fafd7" font-weight="700" xml:space="preserve">POLICY</text>
+<text x="70.8" y="91" fill="#7c7c7c" xml:space="preserve"> · how readily the router changes models · edit, then Save</text>
+<text x="24.0" y="129" fill="#d0d0d0" font-weight="700" xml:space="preserve">Start</text>
+<text x="125.4" y="129" fill="#d0d0d0" xml:space="preserve">at </text>
+<text x="148.8" y="129" fill="#d0d0d0" xml:space="preserve">low ▾</text>
+<text x="24.0" y="148" fill="#7c7c7c" xml:space="preserve">             when the session’s model is no tier’s model</text>
+<text x="24.0" y="167" fill="#d0d0d0" font-weight="700" xml:space="preserve">Going down</text>
+<text x="125.4" y="167" fill="#d0d0d0" xml:space="preserve">after </text>
+<text x="172.2" y="167" fill="#d0d0d0" xml:space="preserve">3 ▾</text>
+<text x="195.6" y="167" fill="#d0d0d0" xml:space="preserve"> agreeing turns </text>
+<text x="320.4" y="167" fill="#d7af5f" xml:space="preserve">●</text>
+<text x="336.0" y="167" fill="#7c7c7c" xml:space="preserve">default 2</text>
+<text x="125.4" y="186" fill="#d0d0d0" xml:space="preserve">if a cache write pays back within </text>
+<text x="390.6" y="186" fill="#d0d0d0" xml:space="preserve">5 turns ▾</text>
+<text x="24.0" y="205" fill="#d0d0d0" font-weight="700" xml:space="preserve">Going up</text>
+<text x="125.4" y="205" fill="#7c7c7c" xml:space="preserve">needs Jev support of 75%, up to 90% as the switch costs more</text>
+<text x="24.0" y="224" fill="#d0d0d0" font-weight="700" xml:space="preserve">Activities</text>
+<text x="125.4" y="224" fill="#d0d0d0" xml:space="preserve">apply at </text>
+<text x="195.6" y="224" fill="#d0d0d0" xml:space="preserve">60% ▾</text>
+<text x="234.6" y="224" fill="#d0d0d0" xml:space="preserve"> certainty or more </text>
+<text x="24.0" y="243" fill="#7c7c7c" xml:space="preserve">             else a new task runs its tier’s model; a continuation keeps it</text>
+<text x="24.0" y="262" fill="#d0d0d0" font-weight="700" xml:space="preserve">Credits</text>
+<text x="125.4" y="262" fill="#d0d0d0" xml:space="preserve">cap one cold cache write at </text>
+<text x="343.8" y="262" fill="#d0d0d0" xml:space="preserve">$2.00 ▾</text>
+<text x="24.0" y="281" fill="#7c7c7c" xml:space="preserve">             no model in router.json bills credits, so this has no effect</text>
+<rect x="24.0" y="305" width="218.4" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="319" fill="#d0d0d0" xml:space="preserve">[ Reset policy to defaults ]</text>
+<text x="24.0" y="357" fill="#5fafd7" font-weight="700" xml:space="preserve">FILE</text>
+<text x="55.2" y="357" fill="#d0d0d0" xml:space="preserve">  ~/.claude/router.json  </text>
+<rect x="250.2" y="343" width="62.4" height="18" rx="4" fill="#2e3340"/>
+<text x="250.2" y="357" fill="#d0d0d0" xml:space="preserve">[ copy ]</text>
+<text x="24.0" y="376" fill="#7c7c7c" xml:space="preserve">Subagents: on. Agents that pin no model get one at spawn, kept for every step.</text>
+<text x="24.0" y="414" fill="#7c7c7c" xml:space="preserve">router.json changes:</text>
+<text x="24.0" y="433" fill="#e06c6c" xml:space="preserve">- policy.downgradeVotes          2</text>
+<text x="24.0" y="452" fill="#87d787" xml:space="preserve">+ policy.downgradeVotes          3</text>
+<text x="24.0" y="471" fill="#d7af5f" xml:space="preserve">● 1 unsaved routing change  </text>
+<rect x="242.4" y="457" width="62.4" height="18" rx="4" fill="#87afff"/>
+<text x="242.4" y="471" fill="#0d1016" font-weight="700" xml:space="preserve">[ Save ]</text>
+<rect x="312.6" y="457" width="85.8" height="18" rx="4" fill="#2e3340"/>
+<text x="312.6" y="471" fill="#d0d0d0" xml:space="preserve">[ Discard ]</text>
+<rect x="24.0" y="476" width="70.2" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="490" fill="#d0d0d0" xml:space="preserve">[ Close ]</text>
+</svg>

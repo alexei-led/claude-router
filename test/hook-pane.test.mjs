@@ -18,14 +18,15 @@ import { jevResponse } from './helpers.mjs';
 test('clear discards unsaved tuning and preserves active configuration', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-policy');
   await press(h, 'horizon', '10');
   assert.equal(h.view().tuning.horizon, 10);
   await h.event('session.end', { reason: 'clear' });
   h.clear();
   await drain(h.step({ ...step, turnId: 't2' }));
   assert.equal(h.view().tuning, null);
-  await press(h, 'tab-routing');
+  await press(h, 'tab-policy');
   assert.equal(controls(await h.render()).find((node) => node.key === 'horizon').value, '5');
 });
 
@@ -42,7 +43,8 @@ test('saved tuning cannot change a classification already in progress', async ()
   const pending = drain(h.step(step));
   for (let i = 0; i < 100 && !resolve; i += 1) await Promise.resolve();
   assert.ok(resolve);
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-policy');
   await press(h, 'downgradeVotes', '1');
   await press(h, 'save-routing');
   resolve({
@@ -71,9 +73,13 @@ test('saved tuning cannot change a classification already in progress', async ()
 test('a saved route edit writes router.json and routes the next turn', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-routing');
-  await press(h, 'route-model-medium', 'sonnet');
-  await press(h, 'route-effort-medium', 'xhigh');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-medium');
+  await press(h, 'route-medium-model', 'sonnet');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-medium');
+  await press(h, 'route-medium-effort', 'xhigh');
   assert.ok(texts(await h.render()).some((line) => /\+ routes\.medium\s+Sonnet 5\.5 · xhigh/.test(line)));
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { routes: { medium: { model: 'sonnet', effort: 'xhigh' } } });
@@ -88,8 +94,10 @@ test('a saved route edit writes router.json and routes the next turn', async () 
 test('session effort on a tier sends the effort Claude Code asked for', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-routing');
-  await press(h, 'route-effort-high', 'session');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-high');
+  await press(h, 'route-high-effort', 'session');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)).routes.high, { model: 'opus', effort: null });
   await h.event('turn.start', { turnId: 't2', text: 'Next.' });
@@ -102,7 +110,7 @@ test('reset to defaults removes saved route overrides and keeps other settings',
   const h = harness();
   h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } }, classifiers: { jev: { timeoutMs: 900 } } }));
   await start(h);
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
   await press(h, 'reset-routes');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifiers: { jev: { timeoutMs: 900 } } });
@@ -112,15 +120,18 @@ test('a model without effort levels has no effort control and drops the chosen e
   const h = harness();
   h.files.set(CONFIG, TINY_ROUTER);
   await start(h);
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-micro');
   assert.equal(
-    controls(await h.render()).find((node) => node.key === 'route-effort-micro'),
+    controls(await h.render()).find((node) => node.key === 'route-micro-effort'),
     undefined,
   );
-  await press(h, 'route-model-high', 'tiny');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-high');
+  await press(h, 'route-high-model', 'tiny');
   assert.deepEqual(h.view().routeDraft.routes.high, { model: 'tiny', effort: null });
   assert.equal(
-    controls(await h.render()).find((node) => node.key === 'route-effort-high'),
+    controls(await h.render()).find((node) => node.key === 'route-high-effort'),
     undefined,
   );
 });
@@ -129,8 +140,9 @@ test('model choices follow the availableModels allowlist', async () => {
   const h = harness();
   h.settings({ availableModels: ['sonnet'] });
   await start(h);
-  await press(h, 'tab-routing');
-  const select = controls(await h.render()).find((node) => node.key === 'route-model-low');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-low');
+  const select = controls(await h.render()).find((node) => node.key === 'route-low-model');
   assert.deepEqual(
     select.options.map((option) => option.value),
     ['haiku', 'sonnet'],
@@ -145,8 +157,10 @@ test('a save that fails validation names the setting, leaves router.json unchang
     const h = harness();
     await start(h);
     h.files.set(CONFIG, content);
-    await press(h, 'tab-routing');
-    await press(h, 'route-model-medium', 'sonnet');
+    await press(h, 'tab-routes');
+    await press(h, 'tab-routes');
+    await press(h, 'cell-tier-medium');
+    await press(h, 'route-medium-model', 'sonnet');
     await press(h, 'save-routing');
     assert.match(h.view().notice, reason);
     assert.match(h.view().notice, /unchanged/);
@@ -160,12 +174,15 @@ test('the pane refuses to save through a symlinked router.json', async () => {
   await start(h);
   h.files.set(CONFIG, '{}');
   h.links.add(CONFIG);
-  await press(h, 'tab-routing');
-  await press(h, 'route-model-medium', 'sonnet');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-medium');
+  await press(h, 'route-medium-model', 'sonnet');
   await press(h, 'save-routing');
   assert.match(h.view().notice, /symlink/);
   assert.equal(h.files.get(CONFIG), '{}');
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-policy');
   await press(h, 'horizon', '10');
   await press(h, 'save-routing');
   assert.match(h.view().notice, /symlink/);
@@ -176,7 +193,8 @@ test('a tuning save writes only the changed value and keeps edits made on disk',
   const h = harness();
   await start(h);
   h.files.set(CONFIG, JSON.stringify({ classifiers: { jev: { timeoutMs: 900 } } }));
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-policy');
   await press(h, 'horizon', '10');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
@@ -195,13 +213,14 @@ test('the activity threshold is a policy draft: Save writes only a difference fr
     text: JSON.stringify(jevResponse('low', LOW, 0, { code: 0.79, ops: 0.21 })),
   }));
   await h.event('session.start', { cwd: '/fixture' });
-  await press(h, 'tab-routing');
+  await press(h, 'tab-policy');
   const threshold = controls(await h.render()).find((c) => c.key === 'activityMass');
   assert.deepEqual(
     threshold.options.map((o) => o.label),
     ['50%', '60%', '70%', '80%'],
   );
   assert.equal(threshold.value, '0.6');
+  await press(h, 'tab-policy');
   await press(h, 'activityMass', '0.8');
   assert.equal(h.files.get(CONFIG), undefined);
   const lines = texts(await h.render());
@@ -216,6 +235,7 @@ test('the activity threshold is a policy draft: Save writes only a difference fr
   await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
   await drain(h.step(step));
   assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-haiku-5-5', 'high']);
+  await press(h, 'tab-policy');
   await press(h, 'activityMass', '0.6');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
@@ -226,8 +246,11 @@ test('the activity threshold is a policy draft: Save writes only a difference fr
 test('one routing save writes routes and policy together and keeps edits made on disk', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-routing');
-  await press(h, 'route-model-micro', 'sonnet');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-micro');
+  await press(h, 'route-micro-model', 'sonnet');
+  await press(h, 'tab-policy');
   await press(h, 'horizon', '10');
   h.files.set(
     CONFIG,
@@ -240,9 +263,12 @@ test('one routing save writes routes and policy together and keeps edits made on
     policy: { downgradeHorizonTurns: 10 },
   });
   assert.equal(h.view().notice, 'Saved: 2 routing changes. Applies from the next turn.');
+  await press(h, 'tab-policy');
   await press(h, 'downgradeVotes', '3');
   h.files.set(CONFIG, JSON.stringify({ classifiers: { jev: { timeoutMs: 3000 } } }));
-  await press(h, 'route-model-micro', 'haiku');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-micro');
+  await press(h, 'route-micro-model', 'haiku');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
     classifiers: { jev: { timeoutMs: 3000 } },
@@ -254,8 +280,11 @@ test('Undo puts back only what the routing save changed, keeping an edit made on
   const h = harness();
   await start(h);
   h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } }, policy: { cashCapUsd: 5 } }));
-  await press(h, 'tab-routing');
-  await press(h, 'route-model-medium', 'sonnet');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-medium');
+  await press(h, 'route-medium-model', 'sonnet');
+  await press(h, 'tab-policy');
   await press(h, 'horizon', '10');
   await press(h, 'save-routing');
   h.files.set(CONFIG, JSON.stringify({ ...JSON.parse(h.files.get(CONFIG)), classifier: 'clef' }));
@@ -284,8 +313,11 @@ test('Undo writes back what the file held before the save, not what the session 
   h.files.set(CONFIG, JSON.stringify({ routes: { high: { model: 'sonnet' } } }));
   await start(h);
   h.files.set(CONFIG, JSON.stringify({ routes: { high: { model: 'sonnet' } }, policy: { downgradeHorizonTurns: 3 } }));
-  await press(h, 'tab-routing');
-  await press(h, 'route-effort-high', 'low');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-high');
+  await press(h, 'route-high-effort', 'low');
+  await press(h, 'tab-policy');
   await press(h, 'horizon', '10');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
@@ -302,17 +334,27 @@ test('Undo writes back what the file held before the save, not what the session 
 test('after an Undo, a pending draft compares against the restored values, so picking an undone value again saves', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-policy');
   await press(h, 'cashCapUsd', '5');
-  await press(h, 'route-model-high', 'sonnet');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-high');
+  await press(h, 'route-high-model', 'sonnet');
   await press(h, 'save-routing');
+  await press(h, 'tab-policy');
   await press(h, 'downgradeVotes', '3');
-  await press(h, 'route-model-micro', 'sonnet');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-micro');
+  await press(h, 'route-micro-model', 'sonnet');
   await press(h, 'undo');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
-  assert.equal(controls(await h.render()).find((node) => node.key === 'route-model-high').value, 'opus');
+  await press(h, 'cell-tier-high');
+  assert.equal(controls(await h.render()).find((node) => node.key === 'route-high-model').value, 'opus');
+  await press(h, 'tab-policy');
   await press(h, 'cashCapUsd', '5');
-  await press(h, 'route-model-high', 'sonnet');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-high');
+  await press(h, 'route-high-model', 'sonnet');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
     routes: { micro: { model: 'sonnet', effort: 'medium' }, high: { model: 'sonnet', effort: 'xhigh' } },
@@ -336,12 +378,17 @@ test('the pane opens without the last notice and keeps Undo for the last write',
 test('a reset notice counts only its own section', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-routing');
-  await press(h, 'route-model-medium', 'sonnet');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-medium');
+  await press(h, 'route-medium-model', 'sonnet');
+  await press(h, 'tab-policy');
   await press(h, 'reset-policy');
   assert.equal(h.view().notice, 'Policy already at defaults.');
   await press(h, 'discard-routing');
+  await press(h, 'tab-policy');
   await press(h, 'horizon', '10');
+  await press(h, 'tab-routes');
   await press(h, 'reset-routes');
   assert.equal(h.view().notice, 'Routes already at defaults.');
 });
@@ -350,12 +397,15 @@ test('Reset policy after an Undo compares against the saved values, not an older
   const h = harness();
   h.files.set(CONFIG, JSON.stringify({ policy: { cashCapUsd: 5 } }));
   await start(h);
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-policy');
   await press(h, 'cashCapUsd', '2');
   await press(h, 'save-routing');
+  await press(h, 'tab-policy');
   await press(h, 'horizon', '10');
   await press(h, 'undo');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { policy: { cashCapUsd: 5 } });
+  await press(h, 'tab-policy');
   await press(h, 'reset-policy');
   assert.match(h.view().notice, /^Policy defaults loaded/);
   await press(h, 'save-routing');
@@ -366,11 +416,13 @@ test('policy defaults load as a draft and Save removes the overrides', async () 
   const h = harness();
   h.files.set(CONFIG, JSON.stringify({ policy: { downgradeVotes: 3, cashCapUsd: 5, upgradeVotes: 3 } }));
   await start(h);
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-policy');
   await press(h, 'reset-policy');
   assert.equal(JSON.parse(h.files.get(CONFIG)).policy.downgradeVotes, 3);
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { policy: { upgradeVotes: 3 } });
+  await press(h, 'tab-policy');
   await press(h, 'reset-policy');
   assert.equal(h.view().notice, 'Policy already at defaults.');
   assert.equal(
@@ -382,21 +434,24 @@ test('policy defaults load as a draft and Save removes the overrides', async () 
 test('an unsaved routing draft shows on every tab, Discard drops it, and a new session clears it', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-routing');
-  await press(h, 'route-model-medium', 'sonnet');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-tier-medium');
+  await press(h, 'route-medium-model', 'sonnet');
   await press(h, 'tab-classifier');
   let pane = await h.render();
-  assert.equal(controls(pane).find((node) => node.key === 'tab-routing').label, 'Routing ●');
+  assert.equal(controls(pane).find((node) => node.key === 'tab-routes').label, 'Routes ●');
   assert.ok(texts(pane).includes('● 1 unsaved routing change  '));
   assert.ok(controls(pane).some((node) => node.key === 'save-routing'));
   await press(h, 'discard-routing');
   pane = await h.render();
-  assert.equal(controls(pane).find((node) => node.key === 'tab-routing').label, 'Routing');
+  assert.equal(controls(pane).find((node) => node.key === 'tab-routes').label, 'Routes');
   assert.equal(
     controls(pane).find((node) => node.key === 'save-routing'),
     undefined,
   );
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-policy');
   await press(h, 'baseline', 'medium');
   await h.event('session.start', { cwd: '/fixture' });
   assert.equal(h.view().routeDraft, null);
@@ -423,13 +478,13 @@ test('a classifier row switches at once, Undo from any tab returns to the previo
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifier: 'clef-flash' });
   assert.deepEqual(h.view().health, { failures: 0, pausedUntil: 0, classifier: 'clef-flash' });
   let pane = await h.render();
-  assert.equal(controls(pane).find((node) => node.key === 'classifier-clef-flash').label, '◉ Clef Flash ');
-  assert.equal(controls(pane).find((node) => node.key === 'classifier-jev').label, '○ Jev        ');
+  assert.equal(controls(pane).find((node) => node.key === 'classifier-clef-flash').label, '◉ Clef Flash');
+  assert.equal(controls(pane).find((node) => node.key === 'classifier-jev').label, '○ Jev       ');
   assert.equal(controls(pane).find((node) => node.key === 'timeoutMs').value, '3000');
   assert.ok(
     texts(pane).some((line) => /^Saved: classifier Jev → Clef Flash\. Applies from the next turn\./.test(line)),
   );
-  assert.ok(texts(pane).some((line) => /Sends .*api\.cloudflare\.com/.test(line)));
+  assert.ok(texts(pane).includes('prompt + 6 recent turns → api.cloudflare.com'));
   await press(h, 'tab-now');
   await press(h, 'undo');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
@@ -534,7 +589,8 @@ test('a pane save that adopts a hand-edited classifier starts it clean', async (
   await drain(h.step(step));
   assert.equal(h.view().health.failures, 1);
   h.files.set(CONFIG, JSON.stringify({ classifier: 'clef' }));
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-policy');
   await press(h, 'horizon', '10');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { classifier: 'clef', policy: { downgradeHorizonTurns: 10 } });
@@ -564,7 +620,7 @@ test('a classifier switch that cannot write leaves the classifier and router.jso
   await press(h, 'classifier-clef');
   assert.match(h.view().notice, /Not saved: router\.json is a symlink/);
   assert.equal(h.files.get(CONFIG), '{}');
-  assert.equal(controls(await h.render()).find((node) => node.key === 'classifier-jev').label, '◉ Jev        ');
+  assert.equal(controls(await h.render()).find((node) => node.key === 'classifier-jev').label, '◉ Jev       ');
   assert.ok(texts(await h.render()).some((line) => /^Jev: no API key/.test(line)));
 });
 
@@ -580,12 +636,17 @@ test('two presses on one drawn pane open and close help again', async () => {
 test('activity edits join the routing draft: Save writes them with the mode, and Undo removes them', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
   await press(h, 'activity-mode', 'shadow');
-  await press(h, 'activity-model-code-low', 'opus');
-  await press(h, 'activity-remove-ops-medium');
-  await press(h, 'activity-add', 'review.high');
-  await press(h, 'activity-effort-review-high', 'max');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-code-low');
+  await press(h, 'activity-code-low-model', 'opus');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-ops-medium');
+  await press(h, 'activity-tier-ops-medium');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-review-high');
+  await press(h, 'activity-review-high-effort', 'max');
   await press(h, 'save-routing');
   assert.match(h.view().notice, /^Saved: 4 routing changes\./);
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
@@ -604,12 +665,14 @@ test('activity edits join the routing draft: Save writes them with the mode, and
 test('a pending activity edit survives another pane write and saves later', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-routing');
-  await press(h, 'activity-model-code-low', 'opus');
+  await press(h, 'tab-routes');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-code-low');
+  await press(h, 'activity-code-low-model', 'opus');
   await press(h, 'tab-classifier');
   await press(h, 'timeoutMs', '500');
   assert.deepEqual(h.view().routeDraft.activities.code.low, { model: 'opus', effort: 'high' });
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {
     classifiers: { jev: { timeoutMs: 500 } },
@@ -650,8 +713,9 @@ test('Reset stats clears activity and routing vs your model, the session counts 
     ['savings:reset:v1'],
   );
   assert.ok(Number.isFinite(h.preferences.get('savings:reset:v1')));
-  assert.ok(texts(await h.render()).includes('  no turns recorded yet'));
   assert.equal(h.view().notice, 'Stats reset: activity and routing vs your model, this session and saved.');
+  await press(h, 'tab-classifier');
+  assert.ok(!texts(await h.render()).includes('ACROSS SESSIONS · since the last reset'));
   assert.deepEqual(h.preferences.get('activity:stats:v1'), {
     version: 1,
     confusion: {},
@@ -684,7 +748,7 @@ test('opening the pane reloads the counts another session added', async () => {
   });
   await h.event('command.run', { command: 'router', args: '' });
   assert.equal(h.view().activityStore.lateral.taken, 2);
-  await press(h, 'tab-usage');
+  await press(h, 'tab-classifier');
   const lines = texts(await h.render());
   assert.ok(lines.includes('Agreement  classifier vs tools: 3 of 3 turns (100%)'));
   assert.ok(lines.includes('Code/ops/explore  classifier vs tools: 3 of 3 turns (100%)'));
@@ -778,27 +842,33 @@ test('Reset stats while a turn writes its counts leaves the readout empty', asyn
   assert.equal(h.preferences.get('activity:metrics:v1:s1'), undefined);
   assert.deepEqual(h.view().activityMetrics.latency, {});
   assert.deepEqual(h.view().activityStore, h.preferences.get(STORE));
-  assert.ok(texts(await h.render()).includes('  no turns recorded yet'));
+  await press(h, 'tab-classifier');
+  assert.ok(!texts(await h.render()).includes('ACROSS SESSIONS · since the last reset'));
 });
 
 test('a 1.6 removal of a cell 1.7 no longer overrides shows as no effect, and remove drops it from router.json', async () => {
   const h = harness();
   h.files.set(CONFIG, JSON.stringify({ activities: { docs: { low: { model: 'haiku', effort: 'high' } } } }));
   await start(h);
-  await press(h, 'tab-routing');
-  assert.ok(texts(await h.render()).includes('  same as base: no effect'));
-  await press(h, 'activity-remove-docs-low');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-docs-low');
+  assert.ok(texts(await h.render()).includes('same as the tier’s model: no effect'));
+  await press(h, 'activity-tier-docs-low');
   await press(h, 'save-routing');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
-  assert.ok(!controls(await h.render()).some((c) => c.key === 'activity-model-docs-low'));
+  const pane = await h.render();
+  assert.ok(texts(pane).includes('runs the tier’s model'));
+  assert.ok(!controls(pane).some((c) => c.key === 'activity-tier-docs-low'));
 });
 
 test('Reset routes keeps pending activity edits and the mode', async () => {
   const h = harness();
   await start(h);
-  await press(h, 'tab-routing');
+  await press(h, 'tab-routes');
   await press(h, 'activity-mode', 'shadow');
-  await press(h, 'activity-model-code-low', 'opus');
+  await press(h, 'tab-routes');
+  await press(h, 'cell-code-low');
+  await press(h, 'activity-code-low-model', 'opus');
   await press(h, 'reset-routes');
   assert.equal(h.view().notice, 'Routes already at defaults.');
   await press(h, 'save-routing');

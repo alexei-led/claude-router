@@ -66,13 +66,18 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
       },
     });
     expect(await pane.find({ type: 'Text', text: /Context.*15%.*1.00M/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /Cache.*80%/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /2 switches/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /80% reused on the last reply/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /2 model switches/ })).toBeDefined();
     await pane.press({ key: 'tab-usage' });
     await pane.redraw();
-    expect(await pane.find({ type: 'Text', text: /Cost.*\$0.250/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /cost \$0.250/ })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /ROUTING VS YOUR MODEL/ })).toBeDefined();
+    await pane.press({ key: 'usage-detail' });
+    await pane.redraw();
     expect(await pane.find({ type: 'Text', text: /Next-turn difference\s+−\$0.020 to \+\$0.030/ })).toBeDefined();
+    await pane.press({ key: 'usage-detail' });
+    await pane.redraw();
+    expect(await pane.find({ type: 'Text', text: /Next-turn difference/ })).toBeUndefined();
     await pane.press({ key: 'help' });
     await pane.redraw();
     expect(await pane.find({ type: 'Text', text: /does not measure answer quality/ })).toBeDefined();
@@ -86,10 +91,15 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
     expect(await pane.find({ key: 'key-clef' })).toBeDefined();
     expect(await pane.find({ key: 'timeoutMs' })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /no account ID/ })).toBeDefined();
-    await pane.press({ key: 'tab-routing' });
+    await pane.press({ key: 'tab-routes' });
     await pane.redraw();
-    expect(await pane.find({ key: 'route-model-medium' })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /same model, new effort/ })).toBeDefined();
+    await pane.press({ key: 'cell-tier-medium' });
+    await pane.redraw();
+    expect(await pane.find({ key: 'route-medium-model' })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /prompt caches in use/ })).toBeDefined();
+    await pane.press({ key: 'tab-policy' });
+    await pane.redraw();
+    expect(await pane.find({ key: 'downgradeVotes' })).toBeDefined();
     await pane.press({ key: 'tab-now' });
     await pane.redraw();
     await pane.press({ key: 'manual' });
@@ -126,8 +136,9 @@ test('unknown readings remain unknown and the band preserves other Mods', async 
         view: {},
       },
     });
-    expect(await pane.find({ type: 'Text', text: /Cost.*not reported/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /Cache.*unknown/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /cost not reported/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /Context\s+unknown/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: 'no reply yet' })).toBeDefined();
     await pane.unmount();
     const band = await $.ui.mount({
       plugin: 'router',
