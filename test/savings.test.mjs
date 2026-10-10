@@ -288,6 +288,18 @@ test('the readout rounds to cents so the shown parts add up to the shown differe
   assert.equal(readout(emptyTotals()).share, null);
 });
 
+test('rounding never shows a negative switch part: cheaper models take the shortfall', () => {
+  for (const [usd, expected] of [
+    [{ routedUsd: 0.094, yoursUsd: 0.098, cheaperUsd: -0.004, strongerUsd: 0, switchUsd: 0 }, [-0.01, -0.01, 0, 0]],
+    [{ routedUsd: 0.096, yoursUsd: 0.098, cheaperUsd: -0.002, strongerUsd: 0, switchUsd: 0 }, [0, 0, 0, 0]],
+    [{ routedUsd: 0.109, yoursUsd: 0.1, cheaperUsd: -0.001, strongerUsd: 0.006, switchUsd: 0.004 }, [0.01, 0, 0.01, 0]],
+  ]) {
+    const r = readout({ ...emptyTotals(), replies: EARLY_REPLIES, ...usd });
+    const shown = [r.differenceUsd, r.cheaperUsd, r.strongerUsd, r.switchUsd].map((part) => part + 0);
+    assert.deepEqual(shown, expected, JSON.stringify(usd));
+  }
+});
+
 test('a missing or corrupted store reads as empty, and a turn adds to it from its first reply', () => {
   for (const value of [
     undefined,
