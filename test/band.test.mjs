@@ -310,7 +310,7 @@ test('activity moves name their activity in the band and the switch toast', () =
   );
 });
 
-test('a held switch shows the classifier against its bar without a rounding tie, and what the switch would cost', () => {
+test('a held switch shows the classifier against its bar without a rounding tie, and the switch cost', () => {
   const held = {
     mode: 'auto',
     phase: 'routed',
@@ -325,8 +325,7 @@ test('a held switch shows the classifier against its bar without a rounding tie,
     fitSegments(bandSegments(DEFAULTS, held, null, actions), columns)
       .map((s) => line([s]))
       .join('  ·  ');
-  assert.match(at(200), /Jev 81\.0% < 81\.4% {2}· {2}switch ≈ \$0\.37 \(cold cache\)$/);
-  assert.match(at(106), /81\.4% {2}· {2}switch ≈ \$0\.37$/);
+  assert.match(at(200), /Jev 81\.0% < 81\.4% {2}· {2}switch cost ≈ \$0\.37$/);
   assert.match(at(100), /Jev 81\.0% < 81\.4%$/);
   const free = { ...held, estimate: { taxUsd: 0, threshold: 0.75, upgradeMass: 0.6 } };
   assert.match(line(bandSegments(DEFAULTS, free, null, actions)), /Jev 60% < 75%$/);

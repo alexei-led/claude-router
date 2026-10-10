@@ -40,7 +40,7 @@ Read the first line of the picture from left to right:
 - **Tier, activity, and model**: the route for this turn. The activity, such as `code →`, sits between the tier and the model; see [Route by activity](#route-by-activity). **fallback** means Claude Code answered with another model.
 - **Reason**: one or two words with a direction, such as `↑ jump`, `↓ downgrade`, `= fits`, or `… waiting to go down`. An activity move reads `↗ code` or `↘ ops`, and a refused one `… ops: not worth a switch`.
 - **Classifier support**: what the active classifier, such as Jev or Clef Flash, gave the switch against the bar the policy required, such as `Jev 88% ≥ 82%`. When whole percents would read as equal, it shows tenths: `Jev 81.0% < 81.4%`.
-- **Switch cost**: `switch ≈ $0.37 (cold cache)`, the estimated cost of a model switch this turn. The new model starts with a cold prompt cache and writes the context again. The higher this cost, the higher the bar a stronger model must clear.
+- **Switch cost**: `switch cost ≈ $0.37`, the policy's price for the switch it weighed this turn, mostly the prompt cache the other model must write. For a move to a cheaper model it is net of what that model saves over the next turns. The higher the cost, the higher the bar a stronger model must clear.
 - **ctx** and **cache hit**: context use and the share of input read from the cache on the last reply. They turn yellow at 60% context and red at 80%.
 
 | Band shows                                      | Meaning                                                                                                               |

@@ -73,6 +73,7 @@ import {
   emptyTotals,
   mergeSavingsStores,
   modelAlias,
+  modelEntry,
   readSavingsStore,
   recordSavingsStore,
   SAVINGS_PREFIX,
@@ -186,7 +187,7 @@ async function updateView($, router, patch) {
   // The session readout is against the model /model selects now, so a /model change shows the whole session against
   // the new one.
   if ('nativeModel' in patch || 'savingsBy' in patch)
-    router.view.savings = router.view.savingsBy?.[modelAlias(router.config, router.view.nativeModel)] ?? null;
+    router.view.savings = modelEntry(router.view.savingsBy, modelAlias(router.config, router.view.nativeModel)) ?? null;
   await $.state.set(VIEW, router.view);
 }
 

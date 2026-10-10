@@ -3,6 +3,7 @@ import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { resetHistory } from '../lib/route.mjs';
 import {
+  addReplies,
   addReply,
   compareReply,
   EARLY_REPLIES,
@@ -362,4 +363,13 @@ test('the totals kept across sessions add up every session’s record since the 
   assert.deepEqual(mergeSavingsStores([]), emptySavingsStore());
   assert.deepEqual(mergeSavingsStores([record(9, 2, 1), record(5, 3, 0.5)], 7), record(9, 2, 1));
   assert.deepEqual(mergeSavingsStores([record(9, 2, 1)], 9), record(9, 2, 1));
+});
+
+test('a model named after an Object method keeps its own session totals and every other model’s', () => {
+  const reply = { routedUsd: 1, yoursUsd: 2, cheaperUsd: -1, strongerUsd: 0, switchUsd: 0, strongerModel: null };
+  const byModel = addReplies({}, { toString: reply, opus: reply }, 'low');
+  assert.deepEqual(
+    [byModel.toString.replies, byModel.opus.replies, Object.keys(byModel)],
+    [1, 1, ['toString', 'opus']],
+  );
 });

@@ -61,7 +61,7 @@
 <text x="351.6" y="300" fill="#d0d0d0" xml:space="preserve">   2%  </text>
 <rect x="406.2" y="286" width="54.6" height="18" rx="4" fill="#2e3340"/>
 <text x="406.2" y="300" fill="#d0d0d0" xml:space="preserve">[ pin ]</text>
-<text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">  switch needs 82% · Jev gave 88% up · switch ≈ $0.48 (cold cache)</text>
+<text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">  switch needs 82% · Jev gave 88% up · switch cost ≈ $0.48</text>
 <text x="24.0" y="338" fill="#7c7c7c" xml:space="preserve">  Pins serve the next turn only.</text>
 <text x="24.0" y="376" fill="#5fafd7" font-weight="700" xml:space="preserve">REPLIES · last 20</text>
 <text x="39.6" y="395" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
