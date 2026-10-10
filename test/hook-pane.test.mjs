@@ -605,8 +605,9 @@ test('Reset stats clears activity and routing vs your model, the session counts 
   assert.equal(h.view().savingsStore.replies, 0);
   assert.deepEqual(
     [...h.preferences.keys()].filter((key) => key.startsWith('savings:')),
-    [],
+    ['savings:reset:v1'],
   );
+  assert.ok(Number.isFinite(h.preferences.get('savings:reset:v1')));
   assert.ok(texts(await h.render()).includes('  no turns recorded yet'));
   assert.equal(h.view().notice, 'Stats reset: activity and routing vs your model, this session and saved.');
   assert.deepEqual(h.preferences.get('activity:stats:v1'), {

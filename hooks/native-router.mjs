@@ -58,6 +58,7 @@ import {
 } from '../lib/route.mjs';
 import {
   addReply,
+  afterReset,
   compareReply,
   emptySavingsStore,
   emptyTotals,
@@ -65,6 +66,7 @@ import {
   readSavingsStore,
   recordSavingsStore,
   SAVINGS_PREFIX,
+  SAVINGS_RESET_KEY,
   sessionCacheTtl,
 } from '../lib/savings.mjs';
 import { CLEARED_READINGS, continuationView, healthOf, initialView, responseMetrics } from '../lib/view.mjs';
@@ -166,21 +168,25 @@ async function updateView($, router, patch) {
   await $.state.set(VIEW, router.view);
 }
 
-// This session's record kept across sessions, read from the store once per session.
+// This session's record kept across sessions, read from the store once per session, and the last reset (ms) from
+// any session, read each time: a Reset in another session empties a record held from before it.
 async function ownSavings($, router) {
   const sessionId = await $.session.id();
-  if (router.savingsOwn?.sessionId === sessionId) return router.savingsOwn;
-  const record = readSavingsStore(await $.store.get(`${SAVINGS_PREFIX}${sessionId}`));
-  // Another call may have read it meanwhile and a turn added to it: that one stands.
-  if (router.savingsOwn?.sessionId !== sessionId) router.savingsOwn = { sessionId, record };
-  return router.savingsOwn;
+  const resetAt = await $.store.get(SAVINGS_RESET_KEY);
+  if (router.savingsOwn?.sessionId !== sessionId) {
+    const record = readSavingsStore(await $.store.get(`${SAVINGS_PREFIX}${sessionId}`));
+    // Another call may have read it meanwhile and a turn added to it: that one stands.
+    if (router.savingsOwn?.sessionId !== sessionId) router.savingsOwn = { sessionId, record };
+  }
+  router.savingsOwn.record = afterReset(router.savingsOwn.record, resetAt);
+  return { own: router.savingsOwn, resetAt };
 }
 
-// Every other session's record, added up.
-async function otherSavings($, sessionId) {
+// Every other session's record since the last reset, added up.
+async function otherSavings($, sessionId, resetAt) {
   const own = `${SAVINGS_PREFIX}${sessionId}`;
   const keys = (await $.store.keys()).filter((key) => key.startsWith(SAVINGS_PREFIX) && key !== own);
-  return mergeSavingsStores(await Promise.all(keys.map((key) => $.store.get(key))));
+  return mergeSavingsStores(await Promise.all(keys.map((key) => $.store.get(key))), resetAt);
 }
 
 // The view's totals kept across sessions, from what the router holds; nothing until a read succeeded.
@@ -196,8 +202,8 @@ async function storeView($, router) {
     out.activityStore = readStore(await $.store.get(STORE_KEY));
   } catch {}
   try {
-    const own = await ownSavings($, router);
-    router.savingsOthers = await otherSavings($, own.sessionId);
+    const { own, resetAt } = await ownSavings($, router);
+    router.savingsOthers = await otherSavings($, own.sessionId, resetAt);
   } catch {}
   return out;
 }
@@ -588,8 +594,10 @@ async function addSavings($, router, turnId, reply, tier) {
 async function flushSavings($, router, totals) {
   try {
     const resets = router.statsResets;
-    const own = await ownSavings($, router);
-    router.savingsOthers ??= await otherSavings($, own.sessionId);
+    const { own, resetAt } = await ownSavings($, router);
+    // The others held from before a reset in another session are read again.
+    if (!router.savingsOthers || afterReset(router.savingsOthers, resetAt) !== router.savingsOthers)
+      router.savingsOthers = await otherSavings($, own.sessionId, resetAt);
     if (router.statsResets !== resets) return;
     own.record = recordSavingsStore(own.record, totals, Date.now());
     await $.store.set(`${SAVINGS_PREFIX}${own.sessionId}`, own.record);
@@ -814,6 +822,8 @@ function paneActions($, router, view) {
           .then(() => true)
           .catch(() => false);
       const clearSavings = async () => {
+        // Written first, so a session still holding its record from before the reset drops it.
+        await $.store.set(SAVINGS_RESET_KEY, Date.now());
         const keys = (await $.store.keys()).filter((key) => key.startsWith(SAVINGS_PREFIX));
         await Promise.all(keys.map((key) => $.store.delete(key)));
         router.savingsOwn = null;

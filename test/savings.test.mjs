@@ -355,4 +355,6 @@ test('the totals kept across sessions add up every session’s record since the 
     ...record(5, 5, 1.5),
   });
   assert.deepEqual(mergeSavingsStores([]), emptySavingsStore());
+  assert.deepEqual(mergeSavingsStores([record(9, 2, 1), record(5, 3, 0.5)], 7), record(9, 2, 1));
+  assert.deepEqual(mergeSavingsStores([record(9, 2, 1)], 9), record(9, 2, 1));
 });

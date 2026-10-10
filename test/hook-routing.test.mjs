@@ -810,6 +810,31 @@ test('two sessions finishing turns at the same moment both add to the totals kep
   assert.equal(sessions[0].view().savingsStore.replies, 2);
 });
 
+test('a Reset in one session drops what another session still holds from before it', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1_000 });
+  const preferences = new Map();
+  const [a, b] = [harness(JEV_KEY, preferences), harness(JEV_KEY, preferences)];
+  b.clear('s2');
+  answering(b, jevResponse('low', LOW));
+  await b.event('session.start', { cwd: '/fixture' });
+  await turn(b, 't1', 'claude-haiku-5-5');
+  assert.equal(preferences.get(`${SAVINGS}s2`).replies, 1);
+  await a.event('session.start', { cwd: '/fixture' });
+  t.mock.timers.tick(1);
+  await press(a, 'tab-usage');
+  await press(a, 'reset-stats');
+  t.mock.timers.tick(1);
+  const before = preferences.get(`${SAVINGS}s2`);
+  assert.equal(before, undefined);
+  await turn(b, 't2', 'claude-haiku-5-5');
+  const record = preferences.get(`${SAVINGS}s2`);
+  assert.equal(record.replies, 1);
+  assert.deepEqual([preferences.get('savings:reset:v1'), record.since], [1_001, 1_002]);
+  assert.equal(b.view().savingsStore.replies, 1);
+  await a.event('command.run', { command: 'router', args: '' });
+  assert.equal(a.view().savingsStore.replies, 1);
+});
+
 test('with routing off a reply is not counted, and your model’s cache still follows it', async () => {
   const h = harness(JEV_KEY);
   await h.event('session.start', { cwd: '/fixture' });
