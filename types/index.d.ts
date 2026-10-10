@@ -47,9 +47,10 @@ declare module 'claude-code' {
     requests: number;
     inputTokens: number;
     outputTokens: number;
-    // The list price of the priced replies (null: none had one) and routed replies by `model@effort`; absent in views
-    // saved by 1.7.0.
+    // The list price of the priced replies (null: none had one), how many replies had a price, and routed replies by
+    // `model@effort`; absent in views saved by 1.7.0.
     routedUsd?: number | null;
+    pricedRequests?: number;
     routes?: Record<string, number>;
   }
   // Per-session activity stats; 'none' counts turns without an applied or accepted activity.

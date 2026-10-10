@@ -370,6 +370,7 @@ const STATS = {
       inputTokens: 0,
       outputTokens: 0,
       routedUsd: 4.213,
+      pricedRequests: 71,
       routes: { 'claude-sonnet-5-5@high': 60, 'claude-opus-5-5@medium': 11 },
     },
     explore: {
@@ -378,6 +379,7 @@ const STATS = {
       inputTokens: 0,
       outputTokens: 0,
       routedUsd: 0.31,
+      pricedRequests: 22,
       routes: { 'claude-haiku-5-5@session': 22 },
     },
     // Counts saved by 1.7.0: no cost or routes.
@@ -606,6 +608,30 @@ test('Escalations and Latency show only with readable data, and a bad latency hi
       name,
     );
     assert.ok(lines.includes('Labelled   22 turns'), `${name}: the stats store still shows`);
+  }
+});
+
+test('an activity shows its cost only when every reply was priced', () => {
+  const code = STATS.byActivity.code;
+  for (const [name, counts, expected] of [
+    ['all priced', code, '     12        71   100%      $4.21   Sonnet 5.5 · high'],
+    ['one reply unpriced', { ...code, pricedRequests: 70 }, '     12        71   100%          —   Sonnet 5.5 · high'],
+    [
+      'a 1.7.0 row priced after an upgrade',
+      { ...code, routedUsd: 0.05, pricedRequests: undefined },
+      '     12        71   100%          —   Sonnet 5.5 · high',
+    ],
+  ]) {
+    const lines = texts(
+      renderPanel(
+        ELEMENTS,
+        { ...DEFAULTS, activityRouting: 'on' },
+        view({ tab: 'usage', activityStats: { ...STATS, byActivity: { code: counts } } }),
+        null,
+        actions,
+      ),
+    );
+    assert.equal(lines[lines.indexOf('  code     ') + 2], expected, name);
   }
 });
 

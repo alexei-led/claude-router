@@ -78,7 +78,7 @@ test('a session accumulates turns, requests and tokens per activity, and none wi
   session = recordTurn(session, turn({ requests: 2, inputTokens: 500, outputTokens: 50 }));
   session = recordTurn(session, turn({ activity: 'ops', observed: 'ops', requests: 1 }));
   session = recordTurn(session, turn({ activity: null, observed: 'talk', requests: 4 }));
-  const unpriced = { routedUsd: null, routes: {} };
+  const unpriced = { routedUsd: null, pricedRequests: 0, routes: {} };
   assert.deepEqual(session.byActivity, {
     code: { turns: 2, requests: 5, inputTokens: 1500, outputTokens: 250, ...unpriced },
     ops: { turns: 1, requests: 1, inputTokens: 1000, outputTokens: 200, ...unpriced },
@@ -86,21 +86,27 @@ test('a session accumulates turns, requests and tokens per activity, and none wi
   });
 });
 
-test('a session adds each activity’s reply cost and routes, also to counts saved by 1.7.0', () => {
+test('a session adds each activity’s reply cost, priced replies and routes, also to counts saved by 1.7.0', () => {
   const saved = { byActivity: { code: { turns: 1, requests: 2, inputTokens: 10, outputTokens: 1 } } };
   let session = { ...emptySession(), ...saved };
-  session = recordTurn(session, turn({ routedUsd: null, routes: {} }));
-  assert.deepEqual([session.byActivity.code.routedUsd, session.byActivity.code.routes], [null, {}]);
-  session = recordTurn(session, turn({ routedUsd: 0.5, routes: { 'claude-sonnet-5-5@high': 2 } }));
+  session = recordTurn(session, turn({ routedUsd: null, pricedRequests: 0, routes: {} }));
+  const { routedUsd, pricedRequests, routes } = session.byActivity.code;
+  assert.deepEqual([routedUsd, pricedRequests, routes], [null, 0, {}]);
+  session = recordTurn(session, turn({ routedUsd: 0.5, pricedRequests: 2, routes: { 'claude-sonnet-5-5@high': 2 } }));
   session = recordTurn(
     session,
-    turn({ routedUsd: 0.25, routes: { 'claude-sonnet-5-5@high': 1, 'claude-opus-5-5@medium': 3, bad: -1 } }),
+    turn({
+      routedUsd: 0.25,
+      pricedRequests: 3,
+      routes: { 'claude-sonnet-5-5@high': 1, 'claude-opus-5-5@medium': 3, bad: -1 },
+    }),
   );
+  const code = session.byActivity.code;
   assert.deepEqual(
-    [session.byActivity.code.routedUsd, session.byActivity.code.routes],
-    [0.75, { 'claude-sonnet-5-5@high': 3, 'claude-opus-5-5@medium': 3 }],
+    [code.routedUsd, code.pricedRequests, code.routes],
+    [0.75, 5, { 'claude-sonnet-5-5@high': 3, 'claude-opus-5-5@medium': 3 }],
   );
-  assert.equal(session.byActivity.code.turns, 4);
+  assert.deepEqual([code.turns, code.requests], [4, 11], 'the 1.7.0 replies stay unpriced');
 });
 
 test('mostlyOn picks the route with the most replies, ties in name order, none without replies', () => {
@@ -192,6 +198,7 @@ test('recordTurn returns a new session and treats bad numbers as zero', () => {
     inputTokens: 0,
     outputTokens: 0,
     routedUsd: null,
+    pricedRequests: 0,
     routes: {},
   });
   assert.deepEqual(after.switches, { tier: 0, activity: 0 });

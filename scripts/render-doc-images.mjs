@@ -335,6 +335,7 @@ pane(
           inputTokens: 0,
           outputTokens: 0,
           routedUsd: 3.12,
+          pricedRequests: 41,
           routes: { 'claude-sonnet-5-5@high': 30, 'claude-opus-5-5@xhigh': 11 },
         },
         ops: {
@@ -343,6 +344,7 @@ pane(
           inputTokens: 0,
           outputTokens: 0,
           routedUsd: 0.41,
+          pricedRequests: 15,
           routes: { 'claude-haiku-5-5@high': 15 },
         },
         explore: {
@@ -351,6 +353,7 @@ pane(
           inputTokens: 0,
           outputTokens: 0,
           routedUsd: 0.38,
+          pricedRequests: 8,
           routes: { 'claude-haiku-5-5@high': 8 },
         },
       },

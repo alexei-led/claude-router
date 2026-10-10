@@ -504,6 +504,7 @@ async function decideTurn($, router, e, signal, step) {
       inputTokens: 0,
       outputTokens: 0,
       routedUsd: null,
+      pricedRequests: 0,
       routes: {},
     });
     await updateView($, router, {
@@ -560,6 +561,7 @@ async function publishReply($, router, turnId, response, tier, route, routedUsd)
       inputTokens: turn.inputTokens + (metrics.inputTokens ?? 0),
       outputTokens: turn.outputTokens + (metrics.outputTokens ?? 0),
       routedUsd: Number.isFinite(routedUsd) ? (turn.routedUsd ?? 0) + routedUsd : turn.routedUsd,
+      pricedRequests: turn.pricedRequests + (Number.isFinite(routedUsd) ? 1 : 0),
       routes: tier ? { ...turn.routes, [route]: (turn.routes[route] ?? 0) + 1 } : turn.routes,
     });
 }
@@ -676,6 +678,7 @@ async function recordActivity($, router, turn) {
         inputTokens: turn.inputTokens,
         outputTokens: turn.outputTokens,
         routedUsd: turn.routedUsd,
+        pricedRequests: turn.pricedRequests,
         routes: turn.routes,
         tierSwitches: turn.switched === 'tier' ? 1 : 0,
         activitySwitches: turn.switched === 'activity' ? 1 : 0,

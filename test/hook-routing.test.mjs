@@ -520,8 +520,8 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   assert.deepEqual(
     Object.fromEntries(Object.entries(byActivity).map(([name, { routedUsd, ...rest }]) => [name, rest])),
     {
-      code: { ...reply, routes: { 'claude-sonnet-5-5@high': 1 } },
-      ops: { ...reply, routes: { 'claude-haiku-5-5@high': 1 } },
+      code: { ...reply, pricedRequests: 1, routes: { 'claude-sonnet-5-5@high': 1 } },
+      ops: { ...reply, pricedRequests: 1, routes: { 'claude-haiku-5-5@high': 1 } },
     },
   );
   // Each activity's cost is its replies' share of the routed total.
