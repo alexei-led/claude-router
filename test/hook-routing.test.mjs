@@ -752,16 +752,45 @@ test('a routed reply is priced against your model in the session totals and, at 
   }
 });
 
-test('two sessions finishing turns at the same moment both add to the totals kept across sessions', async () => {
-  const reads = [];
-  let gated = false;
+test('opening the pane while a turn writes its saved total counts the turn once', async () => {
+  let gate = null;
   const preferences = new (class extends Map {
-    get(key) {
-      if (!gated || !key.startsWith(SAVINGS)) return super.get(key);
-      const value = super.get(key);
+    set(key, value) {
+      super.set(key, value);
+      if (!gate || !key.startsWith(SAVINGS)) return this;
+      gate.reached();
+      return gate.written;
+    }
+  })();
+  const h = harness(JEV_KEY, preferences);
+  answering(h, jevResponse('low', LOW));
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('turn.start', { turnId: 't1', text: 'Next.' });
+  await drain(h.step({ ...step, model: 'claude-haiku-5-5' }));
+  const reached = Promise.withResolvers();
+  const written = Promise.withResolvers();
+  gate = { reached: reached.resolve, written: written.promise };
+  const completing = h.event('turn.complete', { turnId: 't1' });
+  await reached.promise;
+  gate = null;
+  await h.event('command.run', { command: 'router', args: '' });
+  written.resolve();
+  await completing;
+  assert.equal(h.view().savingsStore.replies, 1);
+  await h.event('command.run', { command: 'router', args: '' });
+  assert.equal(h.view().savingsStore.replies, 1);
+});
+
+test('two sessions finishing turns at the same moment both add to the totals kept across sessions', async () => {
+  const writes = [];
+  let gated = false;
+  // Each write lands only once both sessions have sent theirs.
+  const preferences = new (class extends Map {
+    set(key, value) {
+      if (!gated || !key.startsWith(SAVINGS)) return super.set(key, value);
       const { promise, resolve } = Promise.withResolvers();
-      reads.push(() => resolve(value));
-      if (reads.length === 2) for (const release of reads) release();
+      writes.push(() => resolve(super.set(key, value)));
+      if (writes.length === 2) for (const write of writes) write();
       return promise;
     }
   })();
@@ -776,7 +805,7 @@ test('two sessions finishing turns at the same moment both add to the totals kep
   gated = true;
   await Promise.all(sessions.map((h) => h.event('turn.complete', { turnId: 't1' })));
   gated = false;
-  assert.equal(reads.length, 2);
+  assert.equal(writes.length, 2);
   await sessions[0].event('command.run', { command: 'router', args: '' });
   assert.equal(sessions[0].view().savingsStore.replies, 2);
 });
