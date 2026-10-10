@@ -3,7 +3,9 @@ import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { resetHistory } from '../lib/route.mjs';
 import {
+  addReplies,
   addReply,
+  compareModels,
   compareReply,
   EARLY_REPLIES,
   emptySavingsStore,
@@ -168,9 +170,14 @@ test('a compaction leaves your cache nothing to read, whether seen as a shrink o
   );
   near(shrunk.reply.yoursUsd, (4 * (2 + 20_000 * 2) + 20 * 500) / 1e6);
   // resetHistory clears the state: the next reply on your route is its own price again.
-  const loop = resetHistory({ generation: 0, state: {}, would: null, yours: { total: 9, at: 0, onYours: false } });
-  assert.equal(loop.yours, null);
-  const fresh = compareReply(DEFAULTS, loop.yours, {
+  const loop = resetHistory({
+    generation: 0,
+    state: {},
+    would: null,
+    yoursBy: { opus: { total: 9, at: 0, onYours: false } },
+  });
+  assert.deepEqual(loop.yoursBy, {});
+  const fresh = compareReply(DEFAULTS, loop.yoursBy.opus ?? null, {
     usage: usage(after),
     served: OPUS,
     yours: OPUS,
@@ -357,4 +364,25 @@ test('the totals kept across sessions add up every session’s record since the 
   assert.deepEqual(mergeSavingsStores([]), emptySavingsStore());
   assert.deepEqual(mergeSavingsStores([record(9, 2, 1), record(5, 3, 0.5)], 7), record(9, 2, 1));
   assert.deepEqual(mergeSavingsStores([record(9, 2, 1)], 9), record(9, 2, 1));
+});
+
+test('a model named after an Object method keeps its own session totals and every other model’s', () => {
+  const reply = { routedUsd: 1, yoursUsd: 2, cheaperUsd: -1, strongerUsd: 0, switchUsd: 0, strongerModel: null };
+  const byModel = addReplies({}, { toString: reply, opus: reply }, 'low');
+  assert.deepEqual(
+    [byModel.toString.replies, byModel.opus.replies, Object.keys(byModel)],
+    [1, 1, ['toString', 'opus']],
+  );
+});
+
+test('a reply that cannot be priced against your model, one named after an Object method, is no reply', () => {
+  const config = {
+    ...DEFAULTS,
+    models: { ...DEFAULTS.models, toString: { ...DEFAULTS.models.haiku, id: 'claude-toy-1' } },
+  };
+  const input = { usage: usage({ write: 1000 }), served: OPUS, effort: 'high', now: 0, yours: 'claude-toy-1' };
+  assert.equal(compareModels(config, {}, { ...input, ttl: 'never' }).reply, null);
+  assert.equal(compareModels(config, {}, { ...input, ttl: '1h' }).reply.routedUsd > 0, true);
+  const named = { ...DEFAULTS, models: { ...DEFAULTS.models, null: { ...DEFAULTS.models.haiku, id: 'claude-toy-2' } } };
+  assert.equal(compareModels(named, {}, { ...input, ttl: '1h', yours: 'claude-fable-5-1' }).reply, null);
 });

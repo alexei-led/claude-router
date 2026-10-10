@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { DEFAULTS } from '../lib/config.mjs';
+import { modelAlias } from '../lib/savings.mjs';
 import {
   answering,
   band,
@@ -15,6 +17,9 @@ import {
   texts,
 } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
+
+// Your model's simulated cache: the one kept for the model /model selects.
+const yours = (h) => h.loop().yoursBy[modelAlias(DEFAULTS, h.view().nativeModel)];
 
 test('frozen native state reads do not restore consumed pins or drop first response usage', async () => {
   const h = harness();
@@ -506,7 +511,7 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-sonnet-5-5', 'high']);
   let line = (await band(h)).line;
   assert.match(line, / low code → Sonnet 5\.5 · high/);
-  assert.match(line, /ctx \d+% · cache \d+%/);
+  assert.match(line, /ctx \d+% · cache hit \d+%/);
   await turn(h, 't2', 'claude-sonnet-5-5', ['Bash']);
   assert.deepEqual([h.requests[1].model, h.requests[1].effort], ['claude-haiku-5-5', 'high']);
   assert.deepEqual([h.loop().decision.reason, h.loop().lastActivity], ['activity-down', 'ops']);
@@ -1083,11 +1088,29 @@ test('a routed reply is priced against your model in the session totals and, at 
     assert.ok(Math.abs(savings.routedUsd - usd) < 1e-12);
     assert.equal(savings.yoursUsd, savings.routedUsd);
     assert.deepEqual(savings.tiers, { low: 1 });
-    assert.deepEqual([h.loop().yours.total, h.loop().yours.onYours], [1100, false]);
+    assert.deepEqual([yours(h).total, yours(h).onYours], [1100, false]);
     assert.equal(h.preferences.get(`${SAVINGS}s1`).replies, 1);
     assert.ok(Number.isFinite(h.preferences.get(`${SAVINGS}s1`).since));
     assert.deepEqual(h.view().savingsStore, h.preferences.get(`${SAVINGS}s1`));
   }
+});
+
+test('a /model change shows the whole session against the new model; the store keeps each reply against its own', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, jevResponse('low', LOW));
+  h.usage({ startedAt: 0, context: { tokens: 8000 }, rateLimits: [] });
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'claude-haiku-5-5');
+  const { savingsBy } = h.view();
+  assert.deepEqual(Object.keys(savingsBy).sort(), ['haiku', 'opus', 'sonnet']);
+  assert.deepEqual(h.view().savings, savingsBy.haiku);
+  assert.ok(
+    savingsBy.opus.yoursUsd > savingsBy.sonnet.yoursUsd && savingsBy.sonnet.yoursUsd > savingsBy.haiku.yoursUsd,
+  );
+  h.model('claude-opus-5-5');
+  await h.event('command.run', { command: 'model', origin: { kind: 'user' } });
+  assert.deepEqual(h.view().savings, savingsBy.opus);
+  assert.equal(h.preferences.get(`${SAVINGS}s1`).yoursUsd, savingsBy.haiku.yoursUsd);
 });
 
 test('opening the pane while a turn writes its saved total counts the turn once', async () => {
@@ -1251,7 +1274,7 @@ test('with routing off a reply is not counted, and your model’s cache still fo
   await turn(h, 't1', 'claude-haiku-5-5');
   assert.equal(h.requests[0].effort, 'medium');
   assert.equal(h.view().savings, null);
-  assert.deepEqual([h.loop().yours.total, h.loop().yours.onYours], [1100, true]);
+  assert.deepEqual([yours(h).total, yours(h).onYours], [1100, true]);
   assert.equal(h.preferences.get(`${SAVINGS}s1`), undefined);
   h.surfaces([]);
   const { text } = await h.event('command.run', { command: 'router', args: '' });
@@ -1280,7 +1303,7 @@ test('turns on an unchanged session model and effort keep your model’s cache w
     h.requests.map((request) => request.effort),
     ['high', 'high'],
   );
-  assert.deepEqual([h.loop().yours.model, h.loop().yours.effort], ['claude-haiku-5-5', 'medium']);
+  assert.deepEqual([yours(h).model, yours(h).effort], ['claude-haiku-5-5', 'medium']);
   const first = (0.1 * (100 + 200 * 1.25) + 0.01 * 800 + 0.5 * 10) / 1e6;
   // The second reply reads the whole previous prompt on your model's cache and writes nothing.
   const warm = (0.1 * 100 + 0.01 * 1_000 + 0.5 * 10) / 1e6;
@@ -1293,7 +1316,7 @@ test('a reply whose cache lifetime cannot be read is not counted, and your model
   await h.event('session.start', { cwd: '/fixture' });
   await h.event('command.run', { command: 'router', args: 'off' });
   await turn(h, 't1', 'claude-haiku-5-5');
-  assert.equal(h.loop().yours.onYours, true);
+  assert.equal(yours(h).onYours, true);
   await h.event('command.run', { command: 'router', args: 'auto' });
   const usage = h.$.session.usage;
   h.$.session.usage = async () => {
@@ -1302,7 +1325,7 @@ test('a reply whose cache lifetime cannot be read is not counted, and your model
   await turn(h, 't2', 'claude-haiku-5-5');
   assert.equal(h.requests.at(-1).effort, 'high');
   assert.equal(h.view().savings, null);
-  assert.equal(h.loop().yours.onYours, false);
+  assert.equal(yours(h).onYours, false);
   h.$.session.usage = usage;
   await turn(h, 't3', 'claude-haiku-5-5');
   assert.equal(h.view().savings.replies, 1);

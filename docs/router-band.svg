@@ -23,10 +23,10 @@
 <text x="507.6" y="56" fill="#7c7c7c" xml:space="preserve">  ·  </text>
 <text x="546.6" y="56" fill="#d0d0d0" xml:space="preserve">ctx </text>
 <text x="577.8" y="56" fill="#87d787" xml:space="preserve">40%</text>
-<text x="601.2" y="56" fill="#d0d0d0" xml:space="preserve"> · cache </text>
-<text x="671.4" y="56" fill="#87d787" xml:space="preserve">100%</text>
-<text x="718.2" y="56" fill="#d0d0d0" xml:space="preserve">Router</text>
-<text class="cap" x="20" y="95">Two rows, with the hover row shown: recent replies by tier, the session against your model, pins, Turn off</text>
+<text x="601.2" y="56" fill="#d0d0d0" xml:space="preserve"> · cache hit </text>
+<text x="702.6" y="56" fill="#87d787" xml:space="preserve">100%</text>
+<text x="749.4" y="56" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text class="cap" x="20" y="95">Two rows, with the hover row shown: the session against your model, pins, Turn off</text>
 <rect x="12" y="103" width="897.6" height="67" rx="5" fill="#232323"/>
 <text x="24.0" y="121" fill="#e0708a" xml:space="preserve">▂</text>
 <text x="31.8" y="121" fill="#e0708a" xml:space="preserve">▄</text>
@@ -41,35 +41,16 @@
 <text x="367.2" y="121" fill="#7c7c7c" xml:space="preserve">  ·  </text>
 <text x="406.2" y="121" fill="#d0d0d0" xml:space="preserve">ctx </text>
 <text x="437.4" y="121" fill="#87d787" xml:space="preserve">40%</text>
-<text x="460.8" y="121" fill="#d0d0d0" xml:space="preserve"> · cache </text>
-<text x="531.0" y="121" fill="#87d787" xml:space="preserve">100%</text>
-<text x="577.8" y="121" fill="#d0d0d0" xml:space="preserve">Router</text>
-<text x="24.0" y="140" fill="#7c7c7c" xml:space="preserve">replies </text>
-<text x="86.4" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
-<text x="94.2" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
-<text x="102.0" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
-<text x="109.8" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
-<text x="117.6" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
-<text x="125.4" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
-<text x="133.2" y="140" fill="#d7af5f" xml:space="preserve">█</text>
-<text x="141.0" y="140" fill="#d7af5f" xml:space="preserve">█</text>
-<text x="148.8" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
-<text x="156.6" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
-<text x="164.4" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
-<text x="172.2" y="140" fill="#5f9fe0" xml:space="preserve">█</text>
-<text x="180.0" y="140" fill="#e0708a" xml:space="preserve">█</text>
-<text x="187.8" y="140" fill="#e0708a" xml:space="preserve">█</text>
-<text x="195.6" y="140" fill="#e0708a" xml:space="preserve">█</text>
-<text x="203.4" y="140" fill="#e0708a" xml:space="preserve">█</text>
-<text x="211.2" y="140" fill="#e0708a" xml:space="preserve">█</text>
-<text x="219.0" y="140" fill="#e0708a" xml:space="preserve">█</text>
-<text x="226.8" y="140" fill="#e0708a" xml:space="preserve">█</text>
-<text x="234.6" y="140" fill="#e0708a" xml:space="preserve">█</text>
-<text x="242.4" y="140" fill="#7c7c7c" xml:space="preserve">  0 switches · cache saved ≈ $1.52</text>
-<text x="507.6" y="140" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="546.6" y="140" fill="#d0d0d0" xml:space="preserve">vs your model </text>
-<text x="655.8" y="140" fill="#6fcf97" xml:space="preserve">−22%</text>
-<text x="687.0" y="140" fill="#7c7c7c" xml:space="preserve"> (−$1.84, list prices)</text>
+<text x="460.8" y="121" fill="#d0d0d0" xml:space="preserve"> · cache hit </text>
+<text x="562.2" y="121" fill="#87d787" xml:space="preserve">100%</text>
+<text x="609.0" y="121" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text x="24.0" y="140" fill="#7c7c7c" xml:space="preserve">session  </text>
+<text x="94.2" y="140" fill="#6fcf97" font-weight="700" xml:space="preserve">saved $1.84 (22%)</text>
+<text x="226.8" y="140" fill="#d0d0d0" xml:space="preserve"> vs Opus 5.5 · xhigh</text>
+<text x="382.8" y="140" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="421.8" y="140" fill="#7c7c7c" xml:space="preserve">64 replies</text>
+<text x="499.8" y="140" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="538.8" y="140" fill="#7c7c7c" xml:space="preserve">cold-cache writes +$0.47</text>
 <text x="24.0" y="159" fill="#7c7c7c" xml:space="preserve">pin next turn </text>
 <rect x="133.2" y="145" width="70.2" height="18" rx="4" fill="#2e3340"/>
 <text x="133.2" y="159" fill="#d0d0d0" xml:space="preserve">[ micro ]</text>
@@ -103,9 +84,9 @@
 <text x="554.4" y="224" fill="#7c7c7c" xml:space="preserve">  ·  </text>
 <text x="593.4" y="224" fill="#d0d0d0" xml:space="preserve">ctx </text>
 <text x="624.6" y="224" fill="#87d787" xml:space="preserve">40%</text>
-<text x="648.0" y="224" fill="#d0d0d0" xml:space="preserve"> · cache </text>
-<text x="718.2" y="224" fill="#87d787" xml:space="preserve">100%</text>
-<text x="765.0" y="224" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text x="648.0" y="224" fill="#d0d0d0" xml:space="preserve"> · cache hit </text>
+<text x="749.4" y="224" fill="#87d787" xml:space="preserve">100%</text>
+<text x="796.2" y="224" fill="#d0d0d0" xml:space="preserve">Router</text>
 <text class="cap" x="20" y="263">No classifier key: routing keeps the model and offers Set up</text>
 <rect x="12" y="271" width="897.6" height="29" rx="5" fill="#232323"/>
 <text x="24.0" y="289" fill="#f0b429" xml:space="preserve">⚠ Jev: no API key</text>
@@ -151,9 +132,9 @@
 <text x="367.2" y="419" fill="#7c7c7c" xml:space="preserve">  ·  </text>
 <text x="406.2" y="419" fill="#d0d0d0" xml:space="preserve">ctx </text>
 <text x="437.4" y="419" fill="#87d787" xml:space="preserve">40%</text>
-<text x="460.8" y="419" fill="#d0d0d0" xml:space="preserve"> · cache </text>
-<text x="531.0" y="419" fill="#87d787" xml:space="preserve">100%</text>
-<text x="577.8" y="419" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text x="460.8" y="419" fill="#d0d0d0" xml:space="preserve"> · cache hit </text>
+<text x="562.2" y="419" fill="#87d787" xml:space="preserve">100%</text>
+<text x="609.0" y="419" fill="#d0d0d0" xml:space="preserve">Router</text>
 <text class="cap" x="20" y="458">Activity routing in shadow: the label is shown, the base route still runs</text>
 <rect x="12" y="466" width="897.6" height="29" rx="5" fill="#232323"/>
 <text x="24.0" y="484" fill="#5f9fe0" xml:space="preserve">▂</text>
@@ -169,7 +150,7 @@
 <text x="429.6" y="484" fill="#7c7c7c" xml:space="preserve">  ·  </text>
 <text x="468.6" y="484" fill="#d0d0d0" xml:space="preserve">ctx </text>
 <text x="499.8" y="484" fill="#87d787" xml:space="preserve">40%</text>
-<text x="523.2" y="484" fill="#d0d0d0" xml:space="preserve"> · cache </text>
-<text x="593.4" y="484" fill="#87d787" xml:space="preserve">100%</text>
-<text x="640.2" y="484" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text x="523.2" y="484" fill="#d0d0d0" xml:space="preserve"> · cache hit </text>
+<text x="624.6" y="484" fill="#87d787" xml:space="preserve">100%</text>
+<text x="671.4" y="484" fill="#d0d0d0" xml:space="preserve">Router</text>
 </svg>

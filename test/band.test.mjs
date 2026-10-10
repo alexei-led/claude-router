@@ -309,3 +309,24 @@ test('activity moves name their activity in the band and the switch toast', () =
     'Model changed: Haiku 5.5 · high → Sonnet 5.5 · medium · upgrade',
   );
 });
+
+test('a held switch shows the classifier against its bar without a rounding tie, and the switch cost', () => {
+  const held = {
+    mode: 'auto',
+    phase: 'routed',
+    tier: 'low',
+    selectedModel: 'claude-haiku-5-5',
+    effort: 'high',
+    activity: 'review',
+    reason: 'activity-pending',
+    estimate: { taxUsd: 0.37, threshold: 0.8138, upgradeMass: 0.81 },
+  };
+  const at = (columns) =>
+    fitSegments(bandSegments(DEFAULTS, held, null, actions), columns)
+      .map((s) => line([s]))
+      .join('  ·  ');
+  assert.match(at(200), /Jev 81\.0% < 81\.4% {2}· {2}switch cost ≈ \$0\.37$/);
+  assert.match(at(100), /Jev 81\.0% < 81\.4%$/);
+  const free = { ...held, estimate: { taxUsd: 0, threshold: 0.75, upgradeMass: 0.6 } };
+  assert.match(line(bandSegments(DEFAULTS, free, null, actions)), /Jev 60% < 75%$/);
+});
