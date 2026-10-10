@@ -7,6 +7,10 @@
 - The **Shadow** line on the Usage tab now estimates what the turns `on` would route differently would cost on their next request, as a range at the configured list prices in `router.json`, such as `est. −$0.300 … −$0.120 at list prices`. It is an estimate, not a measured saving.
 - **ACROSS SESSIONS** on the Usage tab shows the activity counts kept since the last reset: labelled turns, tool agreement overall and on `code`, `ops` and `explore` turns, the two most frequent mismatches, lateral switches taken and refused, and the shadow readout with its estimate. `/router` without a UI surface prints the agreement across sessions. **Reset activity stats** clears it too.
 
+### Changed
+
+- Tool agreement counts a turn that only ran read-only commands, such as `git status`, as agreeing with `ops`. It used to count as a mismatch, which understated agreement on `ops`. Counts already stored are not recomputed.
+
 ### Upgrade notes
 
 - Downgrading to 1.6.0 resets the activity counts kept across sessions: 1.6.0 does not read the shadow estimate 1.6.1 stores.

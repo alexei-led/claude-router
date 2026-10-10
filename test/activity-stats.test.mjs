@@ -55,7 +55,7 @@ test('every activity allows a set of buckets, and agreement follows it', () => {
     ['review', 'read', true],
     ['review', 'docs', false],
     ['ops', 'ops', true],
-    ['ops', 'read', false],
+    ['ops', 'read', true],
     ['docs', 'docs', true],
     ['docs', 'code', false],
     ['uncertain', 'talk', false],

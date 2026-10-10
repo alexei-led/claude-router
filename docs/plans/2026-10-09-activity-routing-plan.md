@@ -360,7 +360,7 @@ Predicted activities map to the buckets they allow:
 - `explore` → {read, talk}
 - `plan` → {talk, read, docs}
 - `review` → {read, talk}
-- `ops` → {ops}
+- `ops` → {ops, read} (a read-only Bash turn such as `git status` is still ops)
 - `docs` → {docs}
 
 Agreement means the observed bucket is in the allowed set. It is a weak oracle: it tells `ops` from `code` from
