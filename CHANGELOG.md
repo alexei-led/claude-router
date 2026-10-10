@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.4 (2026-10-10)
+
+### Fixed
+
+- Routing turned off while a turn's record is being saved ends the escalation watch, as it already did for the rest of the turn. Before, a switch of routing off and back on during that last step could start the watch again for the turn's cheaper move. Routing itself is unchanged.
+
 ## 1.7.3 (2026-10-10)
 
 ### Fixed
