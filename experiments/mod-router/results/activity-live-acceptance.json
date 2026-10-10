@@ -1,0 +1,50 @@
+{
+  "description": "Live activity-routing acceptance (plan §10 Live, §11): interactive Claude Code sessions in agterm with the router loaded from --plugin-dir, Jev classifier, throwaway git projects. Counts from the session transcripts (main conversation, responses deduplicated by message id). No prompt text, paths or session ids.",
+  "date": "2026-10-10",
+  "claudeCode": "2.1.296",
+  "runs": [
+    {
+      "router": "1.6.0 candidate",
+      "mode": "shadow then on",
+      "chain": ["haiku-5-5", "sonnet-5-5", "haiku-5-5", "opus-5-5", "sonnet-5-5"],
+      "reasons": ["shadow labels only", "↗ code", "continuation keeps", "↘ ops", "pinned", "↗ code"],
+      "toolUseEveryTurn": true,
+      "apiErrors": 0
+    },
+    {
+      "router": "1.6.0 candidate",
+      "mode": "on, session started on Sonnet (override cell)",
+      "chain": ["sonnet-5-5", "opus-5-5", "haiku-5-5", "sonnet-5-5"],
+      "startMode": "routing on (override cell found)",
+      "apiErrors": 0
+    },
+    {
+      "router": "1.7.0 (main 3f57ca5)",
+      "mode": "on (default), then shadow, then on",
+      "chain": ["sonnet-5-5", "haiku-5-5", "opus-5-5", "sonnet-5-5", "haiku-5-5"],
+      "responses": 16,
+      "responsesWithToolUse": 9,
+      "shadow": "labels shown with (shadow); requests on base routes; /router activities on restores the default and removes the key from router.json",
+      "apiErrors": 0
+    },
+    {
+      "router": "1.7.0 (main 3f57ca5)",
+      "mode": "on (default)",
+      "purpose": "thinking blocks across a Haiku detour (plan §12 risk)",
+      "chain": ["opus-5-5", "haiku-5-5", "opus-5-5"],
+      "perResponse": {
+        "opus-5-5 before": "thinking 3/3, tool_use 2/3",
+        "haiku-5-5": "tool_use 1/2",
+        "opus-5-5 after": "thinking 2/3, tool_use 2/3"
+      },
+      "cells": [
+        "medium code → Opus·medium",
+        "medium ops → Haiku·high (1.7 override)",
+        "medium code → Opus·medium (↗ code)"
+      ],
+      "apiErrors": 0
+    }
+  ],
+  "storeRoundTrip": "ACROSS SESSIONS read counts written by earlier sessions, including 1.6.0-shaped records, in the real engine",
+  "result": "pass"
+}
