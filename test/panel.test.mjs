@@ -395,6 +395,51 @@ test('a selected tier cell edits the tier’s own model and shows its prices, an
   );
 });
 
+test('a route that leaves the effort to the session reads inherit in the grid', () => {
+  const draft = {
+    ...routeDraftOf(DEFAULTS, {}),
+    routes: { ...DEFAULTS.routes, micro: { model: 'haiku', effort: null } },
+  };
+  assert.equal(grid(routesTab(DEFAULTS, draft))[1].split(/\s{2,}/)[1], 'haiku·inherit●');
+  const narrow = grid(routesTab(DEFAULTS, draft, {}, actions, { columns: 70 }));
+  assert.equal(narrow[1].split(/\s{2,}/)[1], 'haiku·inh●');
+});
+
+test('a cell on its tier’s model that equals its built-in default does not say the default is removed', () => {
+  const draft = {
+    ...routeDraftOf(DEFAULTS, {}),
+    routes: { ...DEFAULTS.routes, medium: { model: 'haiku', effort: 'high' } },
+  };
+  assert.deepEqual(editor(routesTab(DEFAULTS, draft, { routeCell: 'ops.medium' })).slice(1), [
+    '                      runs the tier’s model',
+  ]);
+});
+
+test('the one-more-cache warning counts the overrides in every activity mode', () => {
+  // Sonnet runs one tier and four built-in overrides: no cell is alone on it, in shadow as in on.
+  const sonnetTier = (mode) => ({
+    ...DEFAULTS,
+    activityRouting: mode,
+    routes: { ...DEFAULTS.routes, medium: { model: 'sonnet', effort: 'xhigh' } },
+  });
+  for (const mode of ['on', 'shadow'])
+    assert.ok(
+      !screen(routesTab(sonnetTier(mode), null, { routeCell: 'code.low' })).some((l) => l.includes('one more cache')),
+      mode,
+    );
+  // Where efforts cache apart, Haiku at max for one cell is a new cache, in shadow as in on.
+  for (const mode of ['on', 'shadow']) {
+    const config = { ...DEFAULTS, activityRouting: mode, effortSplitsCache: true };
+    const draft = editActivity(routeDraftOf(config, {}), config, 'ops', 'low', 'effort', 'max');
+    assert.ok(
+      screen(routesTab(config, draft, { routeCell: 'ops.low' })).includes(
+        '                      ! a model + effort only this cell uses: one more cache',
+      ),
+      mode,
+    );
+  }
+});
+
 test('the Routes controls call the pane actions with the cell they edit', () => {
   const { calls, actions: recorded } = recording();
   const found = (key, routeCell) =>
