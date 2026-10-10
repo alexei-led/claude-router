@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.0 (2026-10-10)
+
+### Changed
+
+- The band's second row now shows one thing: this session against your model, by name. For example, `session  saved $1.84 (22%) vs Opus 5.5 · xhigh  ·  64 replies  ·  cold-cache writes +$0.47`, or `extra $2.48 (×5.0) vs Haiku 5.5 · high` when routing cost more. The strip of recent replies, the switch count and the last reply's cache saving are gone from the band. The reply count drops first on a short row, then the cost part.
+- Your model is the one `/model` selects now. Each routed reply is priced against every model in `router.json`, so after a `/model` change the band and the Usage tab show the whole session against the new model. The Usage tab adds `vs other models: Sonnet 5.5 extra $2.28 · Haiku 5.5 extra $6.19`. The totals kept across sessions still price each reply against the model selected when it ran.
+- The first band row shows the switch cost, `switch cost ≈ $0.37`, next to the decision it explains. A classifier figure shows tenths when whole percents would read as equal: `Jev 81.0% < 81.4%`, not `81% < 81%`. `cache` now reads `cache hit`.
+- The words are plainer. `tax` is now **switch cost**, `cache saved` and **Cache read benefit** are now **cache hits saved**, and `vs your model −5% (−$0.89, list prices)` is now `saved $0.89 (5%) vs <model>`.
+
 ## 1.7.4 (2026-10-10)
 
 ### Fixed
