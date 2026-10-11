@@ -56,6 +56,7 @@ import {
 import { clip, observedActivity, promptIndex } from '../lib/facts.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
 import {
+  canMoveUp,
   cellForModel,
   chooseRoute,
   continueRoute,
@@ -64,6 +65,7 @@ import {
   isNativeFallback,
   isSameModel,
   nativeFacts,
+  observedMove,
   observeResponse,
   prepareLoop,
   resetHistory,
@@ -178,6 +180,8 @@ function createRouter(options) {
     // Each routed turn's activity record until turn.complete adds it to the stats, and the session's open run of
     // one activity, flushed to the store when it ends.
     turnActivities: new Map(),
+    // Each turn's classifier review in flight or answered (reviewMidTurn): `{ controller, facts, answer }`.
+    reviews: new Map(),
     run: null,
     // The route a cheaper activity move went to, while the turns stay on it (advanceDown); else null.
     afterDown: null,
@@ -689,6 +693,98 @@ async function decideTurn($, router, e, signal, step) {
     router.controllers.delete(controller);
     if (router.turnControllers.get(e.turnId) === controller) router.turnControllers.delete(e.turnId);
   }
+}
+
+// A tool continuation whose turn shows stronger work than its route was chosen for moves up once (observedMove). The
+// transcript is read only when some activity's route at this tier is stronger than the running one.
+async function moveOnObserved($, router, cfg, loop, e, context) {
+  if (!canMoveUp(cfg, loop.decision, e.effort)) return loop;
+  const messages = await $.session.messages({ as: 'api' });
+  const facts = nativeFacts(cfg, loop, {
+    messages,
+    prompt: router.prompts.get(e.turnId),
+    effort: e.effort,
+    turnId: e.turnId,
+    contextTokens: context.tokens,
+  });
+  const observed = observedActivity(messages, promptIndex(messages));
+  const moved = observedMove(cfg, loop, { observed, facts, now: Date.now() });
+  if (moved === loop) return loop;
+  $.ui.toast(switchToast(cfg, loop.decision, moved.decision, moved.decision.estimate));
+  // Replies from here on are labelled with the moved activity; the classifier's answer stays as recorded.
+  const turn = router.turnActivities.get(e.turnId);
+  if (turn) router.turnActivities.set(e.turnId, { ...turn, label: moved.decision.activity });
+  return moved;
+}
+
+// Inside a turn the classifier is asked again every `policy.reviewEveryRequests` requests, in the background: a step
+// never waits for it. The answer applies at the first step after it arrives, as a decision on the same task
+// (sameTaskOf), so the tier and the activity can move either way: up on the usual votes, down only past the dwell and a
+// passed verification. Pinned turns and a native fallback are left alone; a failed read or ask changes nothing.
+async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels }) {
+  const review = router.reviews.get(e.turnId);
+  if (review?.answer) {
+    router.reviews.delete(e.turnId);
+    if (!review.answer.advice || loop.decision?.pinned) return loop;
+    const selected = chooseRoute(cfg, loop, {
+      facts: review.facts,
+      advice: review.answer.advice,
+      pin: null,
+      nativeModel,
+      contextKnown: context.known,
+      availableModels,
+      now: Date.now(),
+    });
+    const previous = loop.decision;
+    if (previous && (previous.model !== selected.decision.model || previous.effort !== selected.decision.effort)) {
+      $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
+      const turn = router.turnActivities.get(e.turnId);
+      if (turn) router.turnActivities.set(e.turnId, { ...turn, label: selected.decision.activity ?? null });
+    }
+    return selected;
+  }
+  const every = cfg.policy.reviewEveryRequests;
+  if (review || every === 0 || !loop.decision?.tier || loop.decision.pinned) return loop;
+  if ((loop.requests ?? 0) - (loop.reviewedAt ?? 0) < every) return loop;
+  const job = { controller: new AbortController(), facts: null, answer: null };
+  router.reviews.set(e.turnId, job);
+  try {
+    const [credentials, messages] = await Promise.all([
+      resolveCredentials(activeClassifier(cfg), (name) => settingOf($, router.options, name)),
+      $.session.messages({ as: 'api' }),
+    ]);
+    job.facts = {
+      ...nativeFacts(cfg, loop, {
+        messages,
+        prompt: router.prompts.get(e.turnId),
+        effort: e.effort,
+        turnId: e.turnId,
+        contextTokens: context.tokens,
+      }),
+      midTurn: true,
+    };
+    clientOf(router, cfg.classifier)
+      .ask({
+        request: (url, init) => $.http.fetch(url, init),
+        sleep: (ms, args) => $.clock.sleep(ms, args),
+        config: cfg,
+        apiKey: credentials.apiKey,
+        endpoint: credentials.endpoint,
+        prompt: job.facts.prompt,
+        turns: job.facts.turns,
+        signal: job.controller.signal,
+      })
+      .then((answer) => {
+        if (router.reviews.get(e.turnId) === job) job.answer = answer;
+      })
+      .catch(() => {
+        if (router.reviews.get(e.turnId) === job) router.reviews.delete(e.turnId);
+      });
+  } catch {
+    router.reviews.delete(e.turnId);
+    return loop;
+  }
+  return { ...loop, reviewedAt: loop.requests ?? 0 };
 }
 
 // A routed reply's metrics in the view, labelled with the turn's activity when its tier served it, and added to the
@@ -1274,6 +1370,8 @@ async function endSession($, router) {
   router.turnConfigs.clear();
   router.turnPins.clear();
   router.turnActivities.clear();
+  for (const review of router.reviews.values()) review.controller.abort();
+  router.reviews.clear();
   router.turnSavings.clear();
   const run = router.run;
   router.run = null;
@@ -1438,6 +1536,8 @@ export function register(on, options) {
       loop = selected.loop;
       loopVersion = selected.version;
     } else {
+      loop = await moveOnObserved($, router, cfg, loop, e, context);
+      loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
       loop = continueRoute(cfg, loop, {
         nativeModel,
         contextTokens: context.tokens,
@@ -1468,6 +1568,8 @@ export function register(on, options) {
     }
     router.turnConfigs.delete(e.turnId);
     router.turnPins.delete(e.turnId);
+    router.reviews.get(e.turnId)?.controller.abort();
+    router.reviews.delete(e.turnId);
     router.turnControllers.get(e.turnId)?.abort();
     if (router.view?.activeTurnId === e.turnId && router.view.phase === 'choosing') {
       router.view = { ...router.view, activeTurnId: null };

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { extractFacts as factsFromRequest, observedActivity, promptIndex } from '../lib/facts.mjs';
+import { extractFacts as factsFromRequest, observedActivity, promptIndex, verifiedSince } from '../lib/facts.mjs';
 import { assistant, body, memory, toolResult, user } from './helpers.mjs';
 
 const CONTEXT = { recentTurns: 4, maxTextChars: 30 };
@@ -375,4 +375,25 @@ test('promptIndex finds the last user prompt, past tool results and system messa
     ['malformed entries', [null, user('a'), { role: 'user' }], 2],
   ])
     assert.equal(promptIndex(messages), expected, name);
+});
+
+test('verifiedSince is true only when the last check since the index passed', () => {
+  const bash = (id, command) => ({
+    role: 'assistant',
+    content: [{ type: 'tool_use', id, name: 'Bash', input: { command } }],
+  });
+  const ran = (id, isError = false) => ({
+    role: 'user',
+    content: [{ type: 'tool_result', tool_use_id: id, is_error: isError }],
+  });
+  for (const [name, messages, from, expected] of [
+    ['a passed test run', [bash('a', 'npm test'), ran('a')], 0, true],
+    ['a failed build', [bash('a', 'cargo build'), ran('a', true)], 0, false],
+    ['a fix after a failure', [bash('a', 'npm test'), ran('a', true), bash('b', 'npm test'), ran('b')], 0, true],
+    ['a failure after a pass', [bash('a', 'npm test'), ran('a'), bash('b', 'npm test'), ran('b', true)], 0, false],
+    ['no check, only commands', [bash('a', 'git status'), ran('a')], 0, false],
+    ['a check before the index', [bash('a', 'npm test'), ran('a'), bash('b', 'ls'), ran('b')], 2, false],
+    ['a check still running', [bash('a', 'npm test')], 0, false],
+  ])
+    assert.equal(verifiedSince(messages, from), expected, name);
 });

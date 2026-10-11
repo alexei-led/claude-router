@@ -9,6 +9,7 @@ import {
   isModelAllowed,
   isNativeFallback,
   nativeFacts,
+  observedMove,
   observeResponse,
   prepareLoop,
   resetHistory,
@@ -476,5 +477,27 @@ test("a route the context outgrows moves up the activity's routes; an unknown co
       input(loop, { advice: { ...vote, activity: label }, ...overrides }, config),
     );
     assert.deepEqual([decision.tier, decision.activity, decision.reason, decision.model], expected, name);
+  }
+});
+
+test('a turn moves up to the route its own tool calls show, never down, and not when pinned or off', () => {
+  const on = loadConfig({ userFile: {} });
+  const off = loadConfig({ userFile: { activityRouting: 'off' } });
+  const routed = (config, activity, pinned = false) => ({
+    ...emptyLoop(config, model),
+    lastRoute: 'medium',
+    lastActivity: activity,
+    decision: { tier: 'medium', activity, model, effort: 'high', reason: 'activity-down', pinned },
+  });
+  for (const [name, config, loop, observed, expected] of [
+    ['ops edits code', on, routed(on, 'ops'), 'code', ['code', 'claude-opus-5-5', 'medium', 'activity-up']],
+    ['ops only runs commands', on, routed(on, 'ops'), 'ops', ['ops', model, 'high', 'activity-down']],
+    ['ops only reads', on, routed(on, 'ops'), 'read', ['ops', model, 'high', 'activity-down']],
+    ['pinned turn', on, routed(on, 'ops', true), 'code', ['ops', model, 'high', 'activity-down']],
+    ['activity routing off', off, routed(off, 'ops'), 'code', ['ops', model, 'high', 'activity-down']],
+  ]) {
+    const facts = nativeFacts(config, loop, context);
+    const { decision } = observedMove(config, loop, { observed, facts, now });
+    assert.deepEqual([decision.activity, decision.model, decision.effort, decision.reason], expected, name);
   }
 });
