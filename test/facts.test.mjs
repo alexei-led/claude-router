@@ -377,7 +377,7 @@ test('promptIndex finds the last user prompt, past tool results and system messa
     assert.equal(promptIndex(messages), expected, name);
 });
 
-test('verifiedSince counts checkers and launchers that name a check, not paths or file names', () => {
+test("verifiedSince counts a check whose status is the command's: checkers and launcher subcommands, alone or in an && list", () => {
   const passed = (command) =>
     verifiedSince(
       [
@@ -398,6 +398,15 @@ test('verifiedSince counts checkers and launchers that name a check, not paths o
     ['node scripts/build-index.mjs', false],
     ['cat sum.test.js', false],
     ['git log --grep test', false],
+    ['python -m pytest', true],
+    ['npm test 2>&1', true],
+    ['npx vitest run', true],
+    ['npm install --save-dev vitest', false],
+    ['npm ls eslint', false],
+    ['npm test; git status --short', false],
+    ['npm test || true', false],
+    ['npm test 2>&1 | tail -5', false],
+    ['npm test &', false],
   ])
     assert.equal(passed(command), expected, command);
 });

@@ -34,8 +34,10 @@ support. The [user guide](user-guide.md#route-by-activity) has the full rules.
 
 The label comes from the prompt, so it can be wrong. A prompt such as "run the worker brief" reads as `ops` and the
 turn may then spend 80 requests writing code. The router therefore also watches the turn's own tool calls. Once the
-turn edits a file, the rest of the turn moves to the `code` route of its tier (or `docs` for doc files) if that route
-is stronger. This move only goes up. The cache cost does not hold it back; only the cash cap on a credits-billed model can. The next turn starts from the moved route.
+turn edits a file, it moves to the `code` route of its tier (or `docs` for doc files) if that route is stronger. This
+move only goes up. The cache cost does not hold it back; only the cash cap on a credits-billed model can. A later
+classifier review in the same turn can move it down again, past the checks in
+[Changes during a task](user-guide.md#changes-during-a-task). The next turn starts from the route the turn ended on.
 
 ## The default matrix
 
@@ -56,7 +58,7 @@ Why each row:
   scores well above Haiku on coding tests. Sonnet at `medium` does not, so it is not used.
 - **`ops` at `medium`: Haiku · high.** Command runs last many requests, so Haiku pays back its cache write. Haiku is
   weaker on multi-step tool work, so `ops` at `high` stays on Opus. Repeated tool errors move an `ops` turn to the
-  `high` route, Opus · xhigh. An `ops` turn that starts editing code moves to Opus · medium for the rest of the turn.
+  `high` route, Opus · xhigh. An `ops` turn that starts editing code moves to Opus · medium.
 - **`explore` and `docs`.** Moving them saved nothing in the replay. Haiku also scores lower on research
   benchmarks: 50.1% on Humanity's Last Exam with tools against 63.0% for Opus at `medium`. They keep the base routes.
 

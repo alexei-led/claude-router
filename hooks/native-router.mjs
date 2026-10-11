@@ -180,7 +180,7 @@ function createRouter(options) {
     // Each routed turn's activity record until turn.complete adds it to the stats, and the session's open run of
     // one activity, flushed to the store when it ends.
     turnActivities: new Map(),
-    // Each turn's classifier review in flight or answered (reviewMidTurn): `{ controller, generation, answer }`.
+    // Each turn's classifier review in flight or answered (reviewMidTurn): `{ controller, generation, observedUpTo, answer }`.
     reviews: new Map(),
     run: null,
     // The route a cheaper activity move went to, while the turns stay on it (advanceDown); else null.
@@ -706,11 +706,22 @@ function stepFacts(cfg, router, loop, e, messages, context) {
   });
 }
 
-// A tool continuation whose turn shows stronger work than its route was chosen for moves up once (observedMove). The
+// The transcript, or null when it cannot be read: a continuation then keeps its route.
+async function transcript($) {
+  try {
+    return await $.session.messages({ as: 'api' });
+  } catch {
+    return null;
+  }
+}
+
+// A tool continuation whose turn shows stronger work than its route was chosen for moves up once (observedMove). Only
+// tool calls after the last applied review count (`loop.observedFrom`): the review judged the ones before. The
 // transcript is read only when some activity's route at this tier is stronger than the running one.
 async function moveOnObserved($, router, cfg, loop, e, context) {
   if (!canMoveUp(cfg, loop.decision, e.effort)) return loop;
-  const messages = await $.session.messages({ as: 'api' });
+  const messages = await transcript($);
+  if (!messages) return loop;
   const facts = stepFacts(cfg, router, loop, e, messages, context);
   const observed = observedActivity(messages, Math.max(promptIndex(messages), (loop.observedFrom ?? 0) - 1));
   const moved = observedMove(cfg, loop, { observed, facts, contextKnown: context.known, now: Date.now() });
@@ -719,6 +730,7 @@ async function moveOnObserved($, router, cfg, loop, e, context) {
   // Replies from here on are labelled with the moved activity; the classifier's answer stays as recorded.
   const turn = router.turnActivities.get(e.turnId);
   if (turn) router.turnActivities.set(e.turnId, { ...turn, label: moved.decision.activity });
+  await updateView($, router, { estimate: moved.decision.estimate ?? null, comparison: null });
   return moved;
 }
 
@@ -733,11 +745,13 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
     // An answer about a history that compaction or a rewind replaced is dropped.
     if (!review.answer.advice || loop.decision?.pinned || review.generation !== loop.generation) return loop;
     // Only the advice is from the review; the checkpoint, context and cache facts are read now.
-    const messages = await $.session.messages({ as: 'api' });
+    const messages = await transcript($);
+    if (!messages) return loop;
+    const advice = review.answer.advice;
     const facts = { ...stepFacts(cfg, router, loop, e, messages, context), midTurn: true };
     const selected = chooseRoute(cfg, loop, {
       facts,
-      advice: review.answer.advice,
+      advice,
       pin: null,
       nativeModel,
       contextKnown: context.known,
@@ -750,18 +764,30 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       const turn = router.turnActivities.get(e.turnId);
       if (turn) router.turnActivities.set(e.turnId, { ...turn, label: selected.decision.activity ?? null });
     }
-    return { ...selected, observedFrom: messages.length };
+    // The pane shows the readings behind the route; a review by a classifier the pane no longer labels keeps them off.
+    if (cfg.classifier === router.config.classifier)
+      await updateView($, router, {
+        comparison: selected.decision.comparison,
+        adviceChoice: advice.choice ?? null,
+        probabilities: advice.probabilities ?? null,
+        estimate: selected.decision.estimate ?? null,
+        activityChoice: advice.activity?.choice ?? null,
+        activityProbabilities: advice.activity?.probabilities ?? null,
+      });
+    // Tool calls up to the review's snapshot were judged by it; later ones can still move the route up.
+    return { ...selected, observedFrom: review.observedUpTo };
   }
   const every = cfg.policy.reviewEveryRequests;
   if (review || every === 0 || !loop.decision?.tier || loop.decision.pinned) return loop;
   if ((loop.requests ?? 0) - (loop.reviewedAt ?? 0) < every) return loop;
-  const job = { controller: new AbortController(), generation: loop.generation, answer: null };
+  const job = { controller: new AbortController(), generation: loop.generation, observedUpTo: 0, answer: null };
   router.reviews.set(e.turnId, job);
   try {
     const [credentials, messages] = await Promise.all([
       resolveCredentials(activeClassifier(cfg), (name) => settingOf($, router.options, name)),
       $.session.messages({ as: 'api' }),
     ]);
+    job.observedUpTo = messages.length;
     const facts = stepFacts(cfg, router, loop, e, messages, context);
     clientOf(router, cfg.classifier)
       .ask({
@@ -1536,8 +1562,9 @@ export function register(on, options) {
       loop = selected.loop;
       loopVersion = selected.version;
     } else {
-      loop = await moveOnObserved($, router, cfg, loop, e, context);
+      // A review answer applies first, so tool calls made after its snapshot can still move the route up.
       loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
+      loop = await moveOnObserved($, router, cfg, loop, e, context);
       loop = continueRoute(cfg, loop, {
         nativeModel,
         contextTokens: context.tokens,

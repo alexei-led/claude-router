@@ -272,7 +272,7 @@ Policy defaults:
 | `downgradePivotUsd`     |   `0.5` | Cost scale used by the downgrade bar. Must be positive.                                            |
 | `downgradeHorizonTurns` |     `5` | Later turns included in a downgrade payback estimate.                                              |
 | `continuationMass`      |   `0.7` | Advice probability at which a new prompt counts as the running task, not a new one.                |
-| `escalationHoldTurns`   |     `2` | Turns held after a repeated tool error escalates the route.                                        |
+| `escalationHoldTurns`   |     `2` | Decisions held after a repeated tool error escalates the route; each turn and in-turn review counts. |
 | `cashCapUsd`            |     `2` | Maximum estimated cold cache write for a `credits` model. It does not cap output or session spend. |
 | `activityMass`          |   `0.6` | Minimum probability for the classifier's activity to apply. Not tuned on any classifier.           |
 | `reviewEveryRequests`   |     `4` | Requests between classifier reviews inside a turn; `0` turns them off. Not tuned.                  |

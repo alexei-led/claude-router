@@ -680,6 +680,72 @@ test('an accepted cheaper activity is not undone by edits the review already saw
   assert.equal(routes.lastIndexOf('claude-opus-5-5@medium') + 1, routes.indexOf('claude-haiku-5-5@high', 1));
 });
 
+test('an edit made after a review was asked moves the route up again once the review applies', async () => {
+  const model = 'claude-opus-5-5';
+  const h = harness(JEV_KEY);
+  h.model(model);
+  answering(h, jevResponse('medium', MEDIUM, 0, { ops: 0.97, code: 0.03 }));
+  const before = [
+    user('Run the brief.'),
+    assistant('fixing', ['Edit']),
+    toolResult('ok'),
+    bash('v', 'npm test'),
+    ran('v'),
+  ];
+  h.messages(async () => before);
+  await start(h);
+  await longTurn(h, model, 10);
+  h.messages(async () => [...before, assistant('fixing more', ['Edit']), toolResult('ok')]);
+  await longTurn(h, model, 12, 10);
+  assert.deepEqual(reviewed(h).slice(-2), ['claude-opus-5-5@medium', 'claude-opus-5-5@medium']);
+  assert.equal(h.loop().decision.activity, 'code');
+});
+
+test('a transcript that cannot be read inside a turn keeps the running route', async () => {
+  const model = 'claude-haiku-5-5';
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ policy: { reviewEveryRequests: 1 } }));
+  h.model(model);
+  answering(
+    h,
+    jevResponse('medium', MEDIUM, 0, { ops: 0.9, code: 0.1 }),
+    jevResponse('high', { high: 0.97, uncertain: 0.03 }),
+  );
+  h.messages(async () => [user('Run the brief.'), assistant('running', ['Bash']), toolResult('ok')]);
+  await start(h);
+  await longTurn(h, model, 2);
+  h.messages(async () => {
+    throw new Error('transcript unavailable');
+  });
+  await longTurn(h, model, 4, 2);
+  assert.deepEqual(reviewed(h), Array(4).fill('claude-haiku-5-5@high'));
+});
+
+test('a step does not wait for the classifier review it starts', { timeout: 5_000 }, async () => {
+  const model = 'claude-haiku-5-5';
+  const h = harness(JEV_KEY);
+  h.model(model);
+  let release;
+  const held = new Promise((resolve) => {
+    release = resolve;
+  });
+  let calls = 0;
+  h.http(async () => {
+    calls += 1;
+    const answer = calls === 1 ? jevResponse('low', LOW) : jevResponse('high', { high: 0.97, uncertain: 0.03 });
+    if (calls > 1) await held;
+    return { ok: true, status: 200, text: JSON.stringify(answer), headers: {} };
+  });
+  await start(h);
+  await longTurn(h, model, 7);
+  assert.equal(calls, 2);
+  assert.deepEqual(reviewed(h), Array(7).fill('claude-haiku-5-5@high'));
+  release();
+  await tick();
+  await longTurn(h, model, 8, 7);
+  assert.equal(reviewed(h).at(-1), 'claude-opus-5-5@xhigh');
+});
+
 test('with activity routing on, an ops turn moves from Sonnet to Haiku inside its tier and records it', async () => {
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
