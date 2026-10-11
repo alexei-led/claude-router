@@ -377,6 +377,31 @@ test('promptIndex finds the last user prompt, past tool results and system messa
     assert.equal(promptIndex(messages), expected, name);
 });
 
+test('verifiedSince counts checkers and launchers that name a check, not paths or file names', () => {
+  const passed = (command) =>
+    verifiedSince(
+      [
+        { role: 'assistant', content: [{ type: 'tool_use', id: 'a', name: 'Bash', input: { command } }] },
+        { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'a', is_error: false }] },
+      ],
+      0,
+    );
+  for (const [command, expected] of [
+    ['npm test', true],
+    ['npm run test:unit', true],
+    ['cd app && CI=1 npm run check', true],
+    ['uv run pytest -q', true],
+    ['go test ./...', true],
+    ['node --test test/a.test.mjs', true],
+    ['./node_modules/.bin/tsc -p tsconfig.json', true],
+    ['make lint', true],
+    ['node scripts/build-index.mjs', false],
+    ['cat sum.test.js', false],
+    ['git log --grep test', false],
+  ])
+    assert.equal(passed(command), expected, command);
+});
+
 test('verifiedSince is true only when the last check since the index passed', () => {
   const bash = (id, command) => ({
     role: 'assistant',
@@ -394,6 +419,19 @@ test('verifiedSince is true only when the last check since the index passed', ()
     ['no check, only commands', [bash('a', 'git status'), ran('a')], 0, false],
     ['a check before the index', [bash('a', 'npm test'), ran('a'), bash('b', 'ls'), ran('b')], 2, false],
     ['a check still running', [bash('a', 'npm test')], 0, false],
+    [
+      'a read of a test file after a failure',
+      [bash('a', 'npm test'), ran('a', true), bash('b', 'git diff -- test/router.test.mjs'), ran('b')],
+      0,
+      false,
+    ],
+    [
+      'a search for a test word after a failure',
+      [bash('a', 'npm test'), ran('a', true), bash('b', 'rg test package.json'), ran('b')],
+      0,
+      false,
+    ],
+    ['a check word inside quotes', [bash('a', 'git commit -m "fix tests; npm test"'), ran('a')], 0, false],
   ])
     assert.equal(verifiedSince(messages, from), expected, name);
 });

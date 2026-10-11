@@ -497,7 +497,48 @@ test('a turn moves up to the route its own tool calls show, never down, and not 
     ['activity routing off', off, routed(off, 'ops'), 'code', ['ops', model, 'high', 'activity-down']],
   ]) {
     const facts = nativeFacts(config, loop, context);
-    const { decision } = observedMove(config, loop, { observed, facts, now });
+    const { decision } = observedMove(config, loop, { observed, facts, contextKnown: true, now });
     assert.deepEqual([decision.activity, decision.model, decision.effort, decision.reason], expected, name);
   }
+});
+
+test('an observed move to a smaller window waits for a measured context, as a routed turn does', () => {
+  const config = loadConfig({ userFile: { models: { tiny }, activities: { code: { medium: { model: 'tiny' } } } } });
+  const loop = {
+    ...emptyLoop(config, model),
+    lastRoute: 'medium',
+    lastActivity: 'ops',
+    decision: { tier: 'medium', activity: 'ops', model, effort: 'high', reason: 'activity-down', pinned: false },
+  };
+  const facts = nativeFacts(config, loop, context);
+  for (const [name, contextKnown, measured, expected] of [
+    ['measured', true, true, 'claude-haiku-4-5'],
+    ['context unknown', false, true, model],
+    ['history not measured', true, false, model],
+  ]) {
+    const { decision } = observedMove(
+      config,
+      { ...loop, historyMeasured: measured },
+      { observed: 'code', facts, contextKnown, now },
+    );
+    assert.equal(decision.model, expected, name);
+  }
+});
+
+test('a shortened history moves the checkpoint and edit cursors to its end and keeps the dwell', () => {
+  const loop = {
+    ...emptyLoop(DEFAULTS, model),
+    lastMessageCount: 200,
+    requests: 30,
+    switchedAt: { requests: 25, messageCount: 180 },
+    observedFrom: 190,
+  };
+  for (const [name, count, expected] of [
+    ['compaction', 20, [{ requests: 25, messageCount: 20 }, 20]],
+    ['growth', 210, [{ requests: 25, messageCount: 180 }, 190]],
+  ]) {
+    const next = prepareLoop(loop, count);
+    assert.deepEqual([next.switchedAt, next.observedFrom], expected, name);
+  }
+  assert.equal(prepareLoop({ ...loop, switchedAt: null }, 20).switchedAt, null);
 });

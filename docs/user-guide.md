@@ -171,8 +171,8 @@ The classifier labels a turn from its prompt, and the work can change after that
 
 On the running task:
 
-- A stronger tier or activity takes the usual votes: two agreeing answers, or one for a clear two-tier jump. Repeated tool errors still escalate at once.
-- A cheaper tier or activity also waits for a checkpoint: at least 8 requests since the last model change (`policy.minDwellRequests`), and the last test, build, lint or type-check command since then passed. While none ran, or the last one failed, the route stays and the band shows `… down after a passed check`. A cheaper activity also needs 90% probability (`policy.downgradeMass`).
+- A stronger tier takes the usual votes: two agreeing answers, or one for a clear two-tier jump. A stronger activity takes one answer whose probability clears the cache check. Repeated tool errors still escalate at once.
+- A cheaper tier or activity also waits for a checkpoint: at least 8 requests since the last model change (`policy.minDwellRequests`), and the last test, build, lint or type-check command since then passed. A check is a test runner, type checker or linter (`pytest`, `tsc`, `eslint`), or a launcher naming one (`npm test`, `go test`, `make lint`). While none ran, or the last one failed, the route stays: for a tier the band shows `… down after a passed check`; a held activity keeps the running one and shows `= fits`. A cheaper activity also needs 90% probability (`policy.downgradeMass`).
 - A cheaper tier lands where the answer as a whole points: when the classifier says `micro` 63% and `low` 30%, the turn moves to `low`, which 93% of the answer supports, instead of staying until `micro` alone reaches 90%.
 - A pinned turn does not move. A new task, a prompt the classifier does not score as a continuation, is routed as a fresh turn. Ollama does not answer the continuation question, so every prompt is a new task to it; reviews inside a turn still apply.
 

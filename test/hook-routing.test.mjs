@@ -594,9 +594,9 @@ const ran = (id, isError = false) => ({
 });
 const reviewed = (h) => h.requests.map((r) => `${r.model}@${r.effort}`);
 
-// Runs one turn of `steps` steps on `model`, letting background classifier reviews answer between steps.
-async function longTurn(h, model, steps) {
-  for (let index = 0; index < steps; index += 1) {
+// Runs steps `from` up to `to` of one turn on `model`, letting background classifier reviews answer between steps.
+async function longTurn(h, model, to, from = 0) {
+  for (let index = from; index < to; index += 1) {
     await drain(h.step({ ...step, model, index, messageCount: 1 + 2 * index }));
     await tick();
   }
@@ -631,6 +631,53 @@ test('inside a turn a cheaper answer moves down only after the dwell and a passe
     assert.equal(reviewed(h).at(-1), expected, name);
     if (!result || result.content[0].is_error) assert.equal(h.loop().decision.reason, 'downgrade-held', name);
   }
+});
+
+test('inside a turn a cheaper answer with its votes waits out the dwell, then moves down', async () => {
+  const model = 'claude-opus-5-5';
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ policy: { reviewEveryRequests: 1 } }));
+  h.model(model);
+  answering(h, jevResponse('medium', MEDIUM), jevResponse('low', { low: 0.99, uncertain: 0.01 }));
+  h.messages(async () => [user('Fix it.'), bash('v', 'npm test'), ran('v')]);
+  await start(h);
+  await longTurn(h, model, 7);
+  assert.deepEqual([reviewed(h).at(-1), h.loop().decision.reason], ['claude-opus-5-5@medium', 'downgrade-held']);
+  await longTurn(h, model, 12, 7);
+  assert.equal(reviewed(h).at(-1), 'claude-haiku-5-5@high');
+});
+
+test('a review answer is decided on the checkpoint at the step it applies to, not the one it was asked at', async () => {
+  const model = 'claude-opus-5-5';
+  const h = harness(JEV_KEY);
+  h.model(model);
+  answering(h, jevResponse('medium', MEDIUM), jevResponse('low', { low: 0.99, uncertain: 0.01 }));
+  h.messages(async () => [user('Fix it.'), bash('v', 'npm test'), ran('v')]);
+  await start(h);
+  await longTurn(h, model, 10);
+  h.messages(async () => [user('Fix it.'), bash('v', 'npm test'), ran('v'), bash('w', 'npm test'), ran('w', true)]);
+  await longTurn(h, model, 11, 10);
+  assert.deepEqual([reviewed(h).at(-1), h.loop().decision.reason], ['claude-opus-5-5@medium', 'downgrade-held']);
+});
+
+test('an accepted cheaper activity is not undone by edits the review already saw', async () => {
+  const model = 'claude-opus-5-5';
+  const h = harness(JEV_KEY);
+  h.model(model);
+  answering(h, jevResponse('medium', MEDIUM, 0, { ops: 0.97, code: 0.03 }));
+  h.messages(async () => [
+    user('Run the brief.'),
+    assistant('fixing', ['Edit']),
+    toolResult('ok'),
+    bash('v', 'npm test'),
+    ran('v'),
+  ]);
+  await start(h);
+  await longTurn(h, model, 14);
+  const routes = reviewed(h);
+  assert.deepEqual([routes[0], routes[1]], ['claude-haiku-5-5@high', 'claude-opus-5-5@medium']);
+  assert.equal(routes.at(-1), 'claude-haiku-5-5@high');
+  assert.equal(routes.lastIndexOf('claude-opus-5-5@medium') + 1, routes.indexOf('claude-haiku-5-5@high', 1));
 });
 
 test('with activity routing on, an ops turn moves from Sonnet to Haiku inside its tier and records it', async () => {

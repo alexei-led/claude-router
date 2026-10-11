@@ -180,7 +180,7 @@ function createRouter(options) {
     // Each routed turn's activity record until turn.complete adds it to the stats, and the session's open run of
     // one activity, flushed to the store when it ends.
     turnActivities: new Map(),
-    // Each turn's classifier review in flight or answered (reviewMidTurn): `{ controller, facts, answer }`.
+    // Each turn's classifier review in flight or answered (reviewMidTurn): `{ controller, generation, answer }`.
     reviews: new Map(),
     run: null,
     // The route a cheaper activity move went to, while the turns stay on it (advanceDown); else null.
@@ -695,20 +695,25 @@ async function decideTurn($, router, e, signal, step) {
   }
 }
 
-// A tool continuation whose turn shows stronger work than its route was chosen for moves up once (observedMove). The
-// transcript is read only when some activity's route at this tier is stronger than the running one.
-async function moveOnObserved($, router, cfg, loop, e, context) {
-  if (!canMoveUp(cfg, loop.decision, e.effort)) return loop;
-  const messages = await $.session.messages({ as: 'api' });
-  const facts = nativeFacts(cfg, loop, {
+// Facts for a step of the running turn, read from the transcript as it is now.
+function stepFacts(cfg, router, loop, e, messages, context) {
+  return nativeFacts(cfg, loop, {
     messages,
     prompt: router.prompts.get(e.turnId),
     effort: e.effort,
     turnId: e.turnId,
     contextTokens: context.tokens,
   });
-  const observed = observedActivity(messages, promptIndex(messages));
-  const moved = observedMove(cfg, loop, { observed, facts, now: Date.now() });
+}
+
+// A tool continuation whose turn shows stronger work than its route was chosen for moves up once (observedMove). The
+// transcript is read only when some activity's route at this tier is stronger than the running one.
+async function moveOnObserved($, router, cfg, loop, e, context) {
+  if (!canMoveUp(cfg, loop.decision, e.effort)) return loop;
+  const messages = await $.session.messages({ as: 'api' });
+  const facts = stepFacts(cfg, router, loop, e, messages, context);
+  const observed = observedActivity(messages, Math.max(promptIndex(messages), (loop.observedFrom ?? 0) - 1));
+  const moved = observedMove(cfg, loop, { observed, facts, contextKnown: context.known, now: Date.now() });
   if (moved === loop) return loop;
   $.ui.toast(switchToast(cfg, loop.decision, moved.decision, moved.decision.estimate));
   // Replies from here on are labelled with the moved activity; the classifier's answer stays as recorded.
@@ -725,9 +730,13 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
   const review = router.reviews.get(e.turnId);
   if (review?.answer) {
     router.reviews.delete(e.turnId);
-    if (!review.answer.advice || loop.decision?.pinned) return loop;
+    // An answer about a history that compaction or a rewind replaced is dropped.
+    if (!review.answer.advice || loop.decision?.pinned || review.generation !== loop.generation) return loop;
+    // Only the advice is from the review; the checkpoint, context and cache facts are read now.
+    const messages = await $.session.messages({ as: 'api' });
+    const facts = { ...stepFacts(cfg, router, loop, e, messages, context), midTurn: true };
     const selected = chooseRoute(cfg, loop, {
-      facts: review.facts,
+      facts,
       advice: review.answer.advice,
       pin: null,
       nativeModel,
@@ -741,28 +750,19 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       const turn = router.turnActivities.get(e.turnId);
       if (turn) router.turnActivities.set(e.turnId, { ...turn, label: selected.decision.activity ?? null });
     }
-    return selected;
+    return { ...selected, observedFrom: messages.length };
   }
   const every = cfg.policy.reviewEveryRequests;
   if (review || every === 0 || !loop.decision?.tier || loop.decision.pinned) return loop;
   if ((loop.requests ?? 0) - (loop.reviewedAt ?? 0) < every) return loop;
-  const job = { controller: new AbortController(), facts: null, answer: null };
+  const job = { controller: new AbortController(), generation: loop.generation, answer: null };
   router.reviews.set(e.turnId, job);
   try {
     const [credentials, messages] = await Promise.all([
       resolveCredentials(activeClassifier(cfg), (name) => settingOf($, router.options, name)),
       $.session.messages({ as: 'api' }),
     ]);
-    job.facts = {
-      ...nativeFacts(cfg, loop, {
-        messages,
-        prompt: router.prompts.get(e.turnId),
-        effort: e.effort,
-        turnId: e.turnId,
-        contextTokens: context.tokens,
-      }),
-      midTurn: true,
-    };
+    const facts = stepFacts(cfg, router, loop, e, messages, context);
     clientOf(router, cfg.classifier)
       .ask({
         request: (url, init) => $.http.fetch(url, init),
@@ -770,8 +770,8 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
         config: cfg,
         apiKey: credentials.apiKey,
         endpoint: credentials.endpoint,
-        prompt: job.facts.prompt,
-        turns: job.facts.turns,
+        prompt: facts.prompt,
+        turns: facts.turns,
         signal: job.controller.signal,
       })
       .then((answer) => {

@@ -9,7 +9,7 @@ The Mod changes only the model and effort in Claude Code's turn hook. Claude Cod
 
 ## Supported classifiers
 
-The active classifier is asked once per logical turn, for the tier and for the turn's activity. Pick one on the pane's **Classifier** tab or in `router.json`; only the active one receives prompt text. With subagent routing `on` (the default), it is also asked once per routed subagent, with the task's description and prompt; set `"subagentRouting": "off"` to keep that text local.
+The active classifier is asked at the start of each logical turn, for the tier and for the turn's activity, and again in the background every 4 requests while the turn runs (`policy.reviewEveryRequests`). Pick one on the pane's **Classifier** tab or in `router.json`; only the active one receives prompt text. With subagent routing `on` (the default), it is also asked once per routed subagent, with the task's description and prompt; set `"subagentRouting": "off"` to keep that text local.
 
 | Classifier | Service                                    | Credential                          | Prompt text goes to       | How it is asked for the activity                                      |
 | ---------- | ------------------------------------------ | ----------------------------------- | ------------------------- | --------------------------------------------------------------------- |
