@@ -407,8 +407,43 @@ test("verifiedSince counts a check whose status is the command's: checkers and l
     ['npm test || true', false],
     ['npm test 2>&1 | tail -5', false],
     ['npm test &', false],
+    ['tsc --version', false],
+    ['pytest --help', false],
+    ['npx tsc --version', false],
+    ['npm --prefix test install', false],
+    ['make -C app lint', false],
   ])
     assert.equal(passed(command), expected, command);
+});
+
+test('verifiedSince does not take a check sent to the background as passed', () => {
+  const launch = (input) => [
+    {
+      role: 'assistant',
+      content: [{ type: 'tool_use', id: 'a', name: 'Bash', input: { command: 'npm test', ...input } }],
+    },
+  ];
+  const result = (text) => ({
+    role: 'user',
+    content: [{ type: 'tool_result', tool_use_id: 'a', is_error: false, content: [{ type: 'text', text }] }],
+  });
+  for (const [name, messages, expected] of [
+    ['finished', [...launch({}), result('42 passing')], true],
+    [
+      'run in background',
+      [...launch({ run_in_background: true }), result('Command running in background with ID: b1')],
+      false,
+    ],
+    [
+      'moved after a timeout',
+      [
+        ...launch({}),
+        result('Command did not complete within its 120s timeout and was moved to the background (ID: b2).'),
+      ],
+      false,
+    ],
+  ])
+    assert.equal(verifiedSince(messages, 0), expected, name);
 });
 
 test('verifiedSince is true only when the last check since the index passed', () => {

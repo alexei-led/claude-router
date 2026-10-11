@@ -525,6 +525,18 @@ test('an observed move to a smaller window waits for a measured context, as a ro
   }
 });
 
+test('the first response a loop serves starts the dwell and the verification window', () => {
+  const initial = { ...emptyLoop(DEFAULTS, model), lastMessageCount: 40 };
+  const first = observeResponse(DEFAULTS, initial, { usage: usage(), requestedModel: model, effort: 'high', now });
+  assert.deepEqual(first.switchedAt, { requests: 1, messageCount: 40 });
+  const same = observeResponse(
+    DEFAULTS,
+    { ...first, lastMessageCount: 42 },
+    { usage: usage(), requestedModel: model, effort: 'high', now },
+  );
+  assert.deepEqual(same.switchedAt, { requests: 1, messageCount: 40 });
+});
+
 test('a shortened history moves the checkpoint and edit cursors to its end and keeps the dwell', () => {
   const loop = {
     ...emptyLoop(DEFAULTS, model),
