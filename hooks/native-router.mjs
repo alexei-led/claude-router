@@ -331,20 +331,18 @@ async function readOthers($, router, kind, { sessionId, resetAt, keys }) {
     // window between the read and the delete stays, as $.store has no conditional delete; it needs that session's write
     // inside it. A record whose delete failed still counts.
     const deleted = new Set();
-    await Promise.all(
+    // Every check settles before the merge, a failed read or delete included.
+    await Promise.allSettled(
       [...gone].map(async (key) => {
         const i = names.indexOf(key);
         const current = await $.store.get(key);
         if (JSON.stringify(current) !== JSON.stringify(values[i])) values[i] = current;
-        else if (
-          await $.store.delete(key).then(
-            () => true,
-            () => false,
-          )
-        )
+        else {
+          await $.store.delete(key);
           deleted.add(key);
+        }
       }),
-    ).catch(() => {});
+    );
     values = values.filter((_, i) => !deleted.has(names[i]));
   }
   const others = merge(values, resetAt);
@@ -899,12 +897,14 @@ async function publishReply($, router, turnId, response, tier, route, routedUsd)
 // A routed reply written to the loop at `loopVersion`, then published: the view's metrics and the routing-vs-your-model
 // totals. A lost write publishes nothing.
 async function observeRouted($, router, { turnId, cfg, loop, loopVersion, request, response, nativeModel }) {
+  // When the reply arrived: the awaits below can cross midnight or the hour it is kept under.
+  const at = Date.now();
   const observed = observeResponse(cfg, loop, {
     usage: response.usage,
     requestedModel: request.model,
     effort: request.effort ?? null,
     stopReason: response.stopReason,
-    now: Date.now(),
+    now: at,
   });
   if (response.stopReason === null) observed.suspended = true;
   const compared = await compareYours($, router, loop, response, request.effort ?? null, nativeModel, cfg);
@@ -927,6 +927,7 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
       yours: idOf(nativeModel),
       byId: Object.fromEntries(Object.entries(compared.replies).map(([alias, r]) => [cfg.models[alias].id, r])),
       usage: response.usage,
+      at,
     });
 }
 
@@ -972,14 +973,14 @@ async function compareYours($, router, loop, response, servedEffort, nativeModel
 
 // A routed reply's prices added to each model's session totals in the view, and the reply, priced against your model
 // now, to the turn's replies for the usage record. `route` is the served model's `id@effort`, `yours` your model's id,
-// `byId` the reply priced against each model as yours, keyed by model id.
-async function addSavings($, router, { turnId, compared, tier, route, yours, byId, usage }) {
+// `byId` the reply priced against each model as yours, keyed by model id; `at` when the reply arrived (ms).
+async function addSavings($, router, { turnId, compared, tier, route, yours, byId, usage, at }) {
   try {
     const view = router.view ?? (await readView($, router));
     if (compared.reply) {
       const turn = router.turnActivities.get(turnId);
       const entry = replyEntry({
-        at: Date.now(),
+        at,
         activity: tier ? (turn?.label ?? null) : null,
         tier,
         route,

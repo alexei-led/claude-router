@@ -154,6 +154,27 @@ test('a models key named after an Object method is counted like any other', () =
   assert.equal(twice.days['2026-10-13'].yours.toString, 2);
 });
 
+test('a model id __proto__ is kept as its own entry, never as the prototype', () => {
+  const odd = { ...entry(NOW), whatIf: JSON.parse('{"__proto__": 0.01}'), yours: '__proto__' };
+  const day = mergeUsage([turnOf(emptyUsage(), [odd], NOW)]).days['2026-10-13'];
+  assert.ok(Object.hasOwn(day.whatIf, '__proto__'));
+  assert.deepEqual(Object.entries(day.whatIf), [['__proto__', [1, 0.01]]]);
+  assert.deepEqual(Object.entries(day.yours), [['__proto__', 1]]);
+});
+
+test('a day with a negative count or cost does not read, apart from the cheaper part', () => {
+  const record = turnOf(emptyUsage(), [entry(NOW)], NOW);
+  const withCell = (sums) => ({
+    ...record,
+    days: { '2026-10-13': { ...record.days['2026-10-13'], cells: { 'code|low|haiku@high': sums } } },
+  });
+  assert.deepEqual(Object.keys(readUsage(withCell([1, 0.02, 0.05, -0.035, 0, 0.005, 1100, 800, 10])).days), [
+    '2026-10-13',
+  ]);
+  assert.deepEqual(readUsage(withCell([1, -1, 1, -2, 0, 0, 0, 0, 0])).days, {});
+  assert.deepEqual(readUsage(withCell([1, 0.02, 0.05, 0.1, 0, 0, 1100, 800, 10])).days, {});
+});
+
 test('records add up day by day, and one from before the last reset reads as empty', () => {
   const a = turnOf(emptyUsage(), [entry(NOW), entry(NOW)], NOW);
   const b = turnOf(emptyUsage(), [entry(at(2026, 10, 12))], at(2026, 10, 12));
