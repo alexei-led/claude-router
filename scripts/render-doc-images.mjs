@@ -342,11 +342,31 @@ pane(
 // reply each kind adds up: your model + cheaper + switch writes = routed.
 const NOW = new Date(2026, 9, 13, 16).getTime();
 const KINDS = {
-  code: ['code', 'medium', 'sonnet@high', { routedUsd: 0.08, yoursUsd: 0.13, cheaperUsd: -0.052, switchUsd: 0.002 }],
-  hard: ['code', 'high', 'opus@xhigh', { routedUsd: 0.13, yoursUsd: 0.13, cheaperUsd: 0, switchUsd: 0 }],
-  ops: ['ops', 'low', 'haiku@high', { routedUsd: 0.03, yoursUsd: 0.12, cheaperUsd: -0.094, switchUsd: 0.004 }],
-  explore: ['explore', 'low', 'haiku@high', { routedUsd: 0.028, yoursUsd: 0.11, cheaperUsd: -0.086, switchUsd: 0.004 }],
-  plan: ['plan', 'micro', 'haiku@low', { routedUsd: 0.012, yoursUsd: 0.09, cheaperUsd: -0.08, switchUsd: 0.002 }],
+  code: [
+    'code',
+    'medium',
+    'claude-sonnet-5-5@high',
+    { routedUsd: 0.08, yoursUsd: 0.13, cheaperUsd: -0.052, switchUsd: 0.002 },
+  ],
+  hard: ['code', 'high', 'claude-opus-5-5@xhigh', { routedUsd: 0.13, yoursUsd: 0.13, cheaperUsd: 0, switchUsd: 0 }],
+  ops: [
+    'ops',
+    'low',
+    'claude-haiku-5-5@high',
+    { routedUsd: 0.03, yoursUsd: 0.12, cheaperUsd: -0.094, switchUsd: 0.004 },
+  ],
+  explore: [
+    'explore',
+    'low',
+    'claude-haiku-5-5@high',
+    { routedUsd: 0.028, yoursUsd: 0.11, cheaperUsd: -0.086, switchUsd: 0.004 },
+  ],
+  plan: [
+    'plan',
+    'micro',
+    'claude-haiku-5-5@low',
+    { routedUsd: 0.012, yoursUsd: 0.09, cheaperUsd: -0.08, switchUsd: 0.002 },
+  ],
 };
 const MIX = ['code', 'code', 'ops', 'explore', 'hard', 'code', 'plan', 'ops', 'code', 'explore', 'hard', 'code'];
 const TOKENS = {
@@ -361,16 +381,16 @@ function usageDay(record, daysAgo, replies) {
     const when = new Date(2026, 9, 13 - daysAgo, 9 + Math.floor((i / replies) * 7), (i * 7) % 60).getTime();
     const entries = MIX.slice(i % MIX.length, (i % MIX.length) + Math.min(3, replies - i)).map((kind) => {
       const [activity, tier, route, prices] = KINDS[kind];
-      const replies = { haiku: 0.2, sonnet: 0.6, opus: 1 };
+      const replies = { 'claude-haiku-5-5': 0.2, 'claude-sonnet-5-5': 0.6, 'claude-opus-5-5': 1 };
       return replyEntry({
         at: when,
         activity,
         tier,
         route,
-        yours: 'opus',
+        yours: 'claude-opus-5-5',
         reply: { strongerUsd: 0, ...prices },
         replies: Object.fromEntries(
-          Object.entries(replies).map(([alias, f]) => [alias, { yoursUsd: prices.yoursUsd * f }]),
+          Object.entries(replies).map(([model, f]) => [model, { yoursUsd: prices.yoursUsd * f }]),
         ),
         usage: TOKENS,
       });

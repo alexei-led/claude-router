@@ -131,6 +131,20 @@ test('a stored record reads day by day: a bad day is dropped and the others stay
     assert.deepEqual(readUsage(value), emptyUsage(), JSON.stringify(value));
 });
 
+test('a model id holding | or @ keeps its day and groups under its whole id', () => {
+  const record = readUsage(turnOf(emptyUsage(), [entry(NOW, { route: 'acme|fast@v2@high' })], NOW));
+  const { cells } = summarize(record, ALL);
+  assert.deepEqual(Object.keys(record.days), ['2026-10-13']);
+  assert.deepEqual(
+    breakdown(cells, 'model').map((group) => group.name),
+    ['acme|fast@v2'],
+  );
+  assert.deepEqual(
+    breakdown(cells, 'activity')[0].children.map((child) => child.name),
+    ['acme|fast@v2@high'],
+  );
+});
+
 test('a models key named after an Object method is counted like any other', () => {
   const odd = { ...entry(NOW), whatIf: { toString: 0.01, constructor: 0.02 }, yours: 'toString' };
   const once = turnOf(emptyUsage(), [odd], NOW);

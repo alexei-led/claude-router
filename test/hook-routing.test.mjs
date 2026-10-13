@@ -516,7 +516,7 @@ test('a substituted reply is not counted as the requested tier, and its usage is
   await h.event('turn.complete', { turnId: step.turnId });
   const cells = Object.keys(summarize(readUsage(h.preferences.get('usage:v1:s1')), { from: null, to: null }).cells);
   assert.equal(cells.length, 1);
-  assert.match(cells[0], /^none\|none\|sonnet@/);
+  assert.match(cells[0], /^none\|none\|claude-sonnet-5-5@/);
 });
 
 test('a 1.1 router.json makes routing unavailable and points to the migration script', async () => {
@@ -1365,8 +1365,8 @@ test('a routed reply is priced against your model in the session totals and, at 
       [1, 1, 1100, 800, 10],
     );
     assert.ok(Math.abs(total.routedUsd - usd) < 1e-6);
-    assert.deepEqual(Object.keys(total.cells), ['none|low|haiku@high']);
-    assert.deepEqual(total.yours, { haiku: 1 });
+    assert.deepEqual(Object.keys(total.cells), ['none|low|claude-haiku-5-5@high']);
+    assert.deepEqual(total.yours, { 'claude-haiku-5-5': 1 });
     assert.ok(Number.isFinite(record.since));
     assert.deepEqual([h.view().usageSession, h.view().usageStore], [record, record]);
     assert.equal(h.preferences.get('savings:v1:s1'), undefined);
@@ -1392,8 +1392,9 @@ test('a /model change shows the whole session against the new model; the usage r
   assert.ok(Math.abs(total.yoursUsd - savingsBy.haiku.yoursUsd) < 1e-6);
   // What the same tokens cost on each model as yours, for What if.
   for (const alias of ['haiku', 'sonnet', 'opus']) {
-    assert.equal(total.whatIf[alias][0], 1);
-    assert.ok(Math.abs(total.whatIf[alias][1] - savingsBy[alias].yoursUsd) < 1e-6);
+    const id = DEFAULTS.models[alias].id;
+    assert.equal(total.whatIf[id][0], 1);
+    assert.ok(Math.abs(total.whatIf[id][1] - savingsBy[alias].yoursUsd) < 1e-6);
   }
 });
 
@@ -1412,7 +1413,7 @@ test('a reply is kept on the local day it arrived, and the turn and its switch o
   const { days } = readUsage(h.preferences.get(`${USAGE}s1`));
   assert.deepEqual(Object.keys(days).sort(), ['2026-10-12', '2026-10-13']);
   assert.deepEqual([Object.keys(days['2026-10-12'].cells).length, days['2026-10-12'].turns], [1, 0]);
-  assert.deepEqual(days['2026-10-12'].hours, { 23: days['2026-10-12'].cells['none|low|haiku@high'][1] });
+  assert.deepEqual(days['2026-10-12'].hours, { 23: days['2026-10-12'].cells['none|low|claude-haiku-5-5@high'][1] });
   assert.deepEqual([Object.keys(days['2026-10-13'].cells).length, days['2026-10-13'].turns], [0, 1]);
 });
 
@@ -1587,7 +1588,7 @@ test('another session’s usage with no day left in the kept window is deleted w
   const now = new Date(2026, 9, 13, 12).getTime();
   t.mock.timers.enable({ apis: ['Date'], now });
   const day = {
-    cells: { 'none|low|haiku@high': [1, 0.1, 0.2, -0.1, 0, 0, 10, 5, 1] },
+    cells: { 'none|low|claude-haiku-5-5@high': [1, 0.1, 0.2, -0.1, 0, 0, 10, 5, 1] },
     whatIf: {},
     yours: {},
     hours: {},
@@ -1620,7 +1621,7 @@ test('a record another session wrote again after it was read for pruning stays',
   t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 9, 13, 12).getTime() });
   const day = (key) => ({
     [key]: {
-      cells: { 'none|low|haiku@high': [1, 0.1, 0.2, -0.1, 0, 0, 10, 5, 1] },
+      cells: { 'none|low|claude-haiku-5-5@high': [1, 0.1, 0.2, -0.1, 0, 0, 10, 5, 1] },
       whatIf: {},
       yours: {},
       hours: {},
@@ -1641,6 +1642,7 @@ test('a record another session wrote again after it was read for pruning stays',
   const h = harness(JEV_KEY, preferences);
   await h.event('session.start', { cwd: '/fixture' });
   assert.deepEqual(preferences.get(`${USAGE}s0`), fresh);
+  assert.equal(totalOf(h.view().usageStore).replies, 2);
 });
 
 test('Delete history asks again after a tab change, and when the store refuses, this session alone starts over', async () => {

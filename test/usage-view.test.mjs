@@ -13,7 +13,7 @@ const KINDS = {
   code: {
     activity: 'code',
     tier: 'medium',
-    route: 'sonnet@high',
+    route: 'claude-sonnet-5-5@high',
     routedUsd: 0.3,
     yoursUsd: 0.5,
     cheaperUsd: -0.22,
@@ -22,7 +22,7 @@ const KINDS = {
   explore: {
     activity: 'explore',
     tier: 'low',
-    route: 'haiku@high',
+    route: 'claude-haiku-5-5@high',
     routedUsd: 0.05,
     yoursUsd: 0.4,
     cheaperUsd: -0.36,
@@ -31,7 +31,7 @@ const KINDS = {
   hard: {
     activity: 'code',
     tier: 'high',
-    route: 'opus@xhigh',
+    route: 'claude-opus-5-5@xhigh',
     routedUsd: 0.5,
     yoursUsd: 0.5,
     cheaperUsd: 0,
@@ -45,12 +45,12 @@ const reply = (when, kind) => {
     activity,
     tier,
     route,
-    yours: 'opus',
+    yours: 'claude-opus-5-5',
     reply: { strongerUsd: 0, ...prices },
     replies: {
-      haiku: { yoursUsd: prices.yoursUsd * 0.2 },
-      sonnet: { yoursUsd: prices.yoursUsd * 0.6 },
-      opus: { yoursUsd: prices.yoursUsd },
+      'claude-haiku-5-5': { yoursUsd: prices.yoursUsd * 0.2 },
+      'claude-sonnet-5-5': { yoursUsd: prices.yoursUsd * 0.6 },
+      'claude-opus-5-5': { yoursUsd: prices.yoursUsd },
     },
     usage: USAGE,
   });
@@ -195,8 +195,23 @@ test('after /model selects another model, the session still names the model its 
   assert.ok(all.some((line) => line.startsWith('    Your model') && line.endsWith('Opus 5.5')));
 });
 
+test('a models key that names another model later keeps the history under the model that ran', () => {
+  const config = {
+    ...DEFAULTS,
+    models: { ...DEFAULTS.models, opus: { ...DEFAULTS.models.opus, id: 'claude-fable-5-1' } },
+  };
+  const all = screen(
+    renderPanel(ELEMENTS, config, view({ usageGroup: 'model' }), null, recording().actions, { columns: 100, now: NOW }),
+  );
+  assert.ok(
+    all.some((line) => line.includes('▸ Opus 5.5')),
+    all.join('\n'),
+  );
+  assert.ok(!all.some((line) => line.includes('Fable')));
+});
+
 test('a session whose /model changed names every model its replies were priced against', () => {
-  const sonnet = { ...reply(at(2026, 10, 13, 14), 'explore'), yours: 'sonnet' };
+  const sonnet = { ...reply(at(2026, 10, 13, 14), 'explore'), yours: 'claude-sonnet-5-5' };
   const changed = recordUsage(SESSION, [sonnet], { now: at(2026, 10, 13, 14) });
   const all = lines({ usageSession: changed });
   assert.equal(all[4], 'this session · each reply vs the model /model selected: Opus 5.5, Sonnet 5.5');

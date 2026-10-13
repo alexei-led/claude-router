@@ -78,6 +78,7 @@ import {
   mergeSavingsStores,
   modelAlias,
   modelEntry,
+  modelSpec,
   readSavingsStore,
   SAVINGS_PREFIX,
   SAVINGS_RESET_KEY,
@@ -326,15 +327,25 @@ async function readOthers($, router, kind, { sessionId, resetAt, keys }) {
       names.map((key, i) => [key, values[i]]),
       Date.now(),
     );
-    // Read again just before deleting: a session that wrote its record since keeps it. The window between the read and
-    // the delete stays, as $.store has no conditional delete; it needs that session's write inside it.
+    // Read again just before deleting: a session that wrote its record since keeps it, and it counts as written. The
+    // window between the read and the delete stays, as $.store has no conditional delete; it needs that session's write
+    // inside it. A record whose delete failed still counts.
+    const deleted = new Set();
     await Promise.all(
       [...gone].map(async (key) => {
+        const i = names.indexOf(key);
         const current = await $.store.get(key);
-        if (JSON.stringify(current) === JSON.stringify(values[names.indexOf(key)])) await $.store.delete(key);
+        if (JSON.stringify(current) !== JSON.stringify(values[i])) values[i] = current;
+        else if (
+          await $.store.delete(key).then(
+            () => true,
+            () => false,
+          )
+        )
+          deleted.add(key);
       }),
     ).catch(() => {});
-    values = values.filter((_, i) => !gone.has(names[i]));
+    values = values.filter((_, i) => !deleted.has(names[i]));
   }
   const others = merge(values, resetAt);
   router.ledgers[kind] = { ...router.ledgers[kind], others, othersResetAt: resetAt ?? null };
@@ -904,15 +915,17 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
   const route = `${request.model}@${request.effort ?? 'session'}`;
   await publishReply($, router, turnId, response, tier, route, compared?.reply?.routedUsd ?? null);
-  // Kept under the model that served it: a substitute's cost is not the requested model's.
-  const served = response.usage?.model ?? request.model;
+  // Kept by model id, under the model that served it: a substitute's cost is not the requested model's, and a models
+  // key can name another model later.
+  const idOf = (model) => modelSpec(cfg, model)?.id ?? model;
   if (compared)
     await addSavings($, router, {
       turnId,
       compared,
       tier,
-      route: `${modelAlias(cfg, served) ?? served}@${request.effort ?? 'session'}`,
-      yours: modelAlias(cfg, nativeModel),
+      route: `${idOf(response.usage?.model ?? request.model)}@${request.effort ?? 'session'}`,
+      yours: idOf(nativeModel),
+      byId: Object.fromEntries(Object.entries(compared.replies).map(([alias, r]) => [cfg.models[alias].id, r])),
       usage: response.usage,
     });
 }
@@ -958,8 +971,9 @@ async function compareYours($, router, loop, response, servedEffort, nativeModel
 }
 
 // A routed reply's prices added to each model's session totals in the view, and the reply, priced against your model
-// now, to the turn's replies for the usage record. `route` is the request's `alias@effort`, `yours` your model's alias.
-async function addSavings($, router, { turnId, compared, tier, route, yours, usage }) {
+// now, to the turn's replies for the usage record. `route` is the served model's `id@effort`, `yours` your model's id,
+// `byId` the reply priced against each model as yours, keyed by model id.
+async function addSavings($, router, { turnId, compared, tier, route, yours, byId, usage }) {
   try {
     const view = router.view ?? (await readView($, router));
     if (compared.reply) {
@@ -971,7 +985,7 @@ async function addSavings($, router, { turnId, compared, tier, route, yours, usa
         route,
         yours,
         reply: compared.reply,
-        replies: compared.replies,
+        replies: byId,
         usage,
       });
       router.turnUsage.set(turnId, [...(router.turnUsage.get(turnId) ?? []), entry]);

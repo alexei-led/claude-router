@@ -142,9 +142,9 @@ declare module 'claude-code' {
     routed: { on: Record<string, RouterSubagentCounts> };
     passed: Partial<Record<'fork' | 'explicit' | 'teammate' | 'workflow' | 'unlisted', RouterSubagentPassed>>;
   }
-  // One local calendar day of routed replies (lib/usage.mjs). `cells` by 'activity|tier|alias@effort' hold, in order,
+  // One local calendar day of routed replies (lib/usage.mjs). `cells` by 'activity|tier|modelId@effort' hold, in order,
   // replies, routedUsd, yoursUsd, cheaperUsd, strongerUsd, switchUsd, inputTokens, cacheReadTokens, outputTokens.
-  // `whatIf` is [replies, USD] of the same tokens on each models key as yours; `yours` replies by your model's key;
+  // `whatIf` is [replies, USD] of the same tokens on each model id as yours; `yours` replies by your model's id;
   // `hours` routed USD by local hour; `turns` and `switches` count turns on the day they ended.
   interface RouterUsageDay {
     cells: Record<string, number[]>;
@@ -155,7 +155,7 @@ declare module 'claude-code' {
     switches: { tier: number; activity: number };
   }
   // Kept across sessions, one per session under store key 'usage:v1:<session id>' or their sum in the view, by day
-  // ('2026-10-13'), since the first reply after the last reset (ms).
+  // ('2026-10-13'), since its first turn written after the last reset (ms).
   interface RouterUsageStore {
     version: 1;
     since: number | null;
