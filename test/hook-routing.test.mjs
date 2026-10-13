@@ -482,7 +482,7 @@ test('clear after a manual /model choice on a non-baseline model starts Auto', a
   assert.equal(h.preferences.get('mode:s2'), 'auto');
 });
 
-test('replies record the tier that served them and the strip counts switches', async () => {
+test('replies record the tier that served them, and the strip shows a reply routing did not serve as a dot', async () => {
   const h = harness();
   await start(h);
   await h.event('command.run', { command: 'router', args: 'pin high' });
@@ -629,6 +629,29 @@ test('inside a turn the classifier is asked again in the background and a clear 
   assert.deepEqual(reviewed(h).slice(4), ['claude-haiku-5-5@high', 'claude-opus-5-5@xhigh', 'claude-opus-5-5@xhigh']);
   assert.equal(h.loop().decision.reason, 'jump');
   assert.equal(h.toasts.length, 1);
+  const { at, from, to } = h.view().lastSwitch;
+  assert.ok(Number.isFinite(at));
+  assert.deepEqual(
+    [from, to],
+    [
+      { tier: 'low', model: 'claude-haiku-5-5', effort: 'high' },
+      { tier: 'high', model: 'claude-opus-5-5', effort: 'xhigh' },
+    ],
+  );
+});
+
+test('a pinned turn changes the route without becoming the last switch', async () => {
+  const model = 'claude-haiku-5-5';
+  const h = harness(JEV_KEY);
+  h.model(model);
+  answering(h, jevResponse('low', LOW));
+  await start(h);
+  await drain(h.step({ ...step, model }));
+  await h.event('turn.complete', { turnId: step.turnId });
+  await h.event('command.run', { command: 'router', args: 'pin high' });
+  await drain(h.step({ ...step, turnId: 't2', model }));
+  assert.equal(h.requests.at(-1).model, 'claude-opus-5-5');
+  assert.equal(h.view().lastSwitch, null);
 });
 
 test('inside a turn a cheaper answer moves down only after the dwell and a passed verification', async () => {

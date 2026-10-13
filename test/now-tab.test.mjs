@@ -85,6 +85,12 @@ test('a strip cell shows the tier with most replies, the stronger one on a tie, 
   assert.ok(lines({ strip }).includes('  ■ micro 2  ■ low 2  ■ high 1  · not routed 3'));
 });
 
+test('a strip that started after the session’s first reply, as after a restart, says since when', () => {
+  const strip = { per: 1, cells: [{ low: 2 }, { high: 1 }], from: at(2026, 10, 13, 15) };
+  assert.ok(lines({ strip }).includes('  ██  since 15:00'));
+  assert.ok(lines({ strip: { ...strip, from: at(2026, 10, 13, 8) } }).includes('  ██'));
+});
+
 test('a narrow pane merges strip cells in pairs until the strip fits', () => {
   const strip = { per: 1, cells: Array.from({ length: 48 }, () => ({ low: 1 })) };
   for (const [columns, cells, note] of [
@@ -119,6 +125,14 @@ test('the last switch says when and between which tiers, or between routes when 
 
 test('today shows once another session added to it, and each Usage link opens its own period', () => {
   assert.ok(!lines({}).some((line) => line.startsWith('TODAY')), 'today is this session');
+  // This session before and after midnight: today holds only its own replies, so it still repeats the session.
+  const midnight = recordUsage(SESSION, [reply(at(2026, 10, 12, 23), 'code')], { now: at(2026, 10, 12, 23) });
+  assert.ok(!lines({ usageSession: midnight, usageStore: mergeUsage([midnight]) }).some((l) => l.startsWith('TODAY')));
+  // Another session today, and this session's yesterday adding as many replies: today still differs.
+  const other = recordUsage(emptyUsage(), [reply(at(2026, 10, 13, 14), 'code')], { now: NOW });
+  assert.ok(
+    lines({ usageSession: midnight, usageStore: mergeUsage([midnight, other]) }).some((l) => l.startsWith('TODAY')),
+  );
   const { calls, actions } = recording();
   const tree = render({ usageStore: BUSY_DAY }, { actions });
   assert.deepEqual(after(screen(tree), 'TODAY · 21 routed replies · 4 route switches', 2), [

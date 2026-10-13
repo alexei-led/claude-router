@@ -890,8 +890,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
   return { ...loop, reviewedAt: loop.requests ?? 0 };
 }
 
-// A routed reply's metrics in the view, labelled with the turn's activity when its tier served it, and added to the
-// turn's activity record with its list price (`routedUsd`, null when unpriced) and, when its tier served it, its route.
+// A routed reply's metrics in the view, with the tier that served it, and added to the turn's activity record with its list price (`routedUsd`, null when unpriced) and, when its tier served it, its route.
 async function publishReply($, router, turnId, response, tier, route, routedUsd) {
   const turn = router.turnActivities.get(turnId);
   const metrics = responseMetrics(router.view, response, tier, Date.now());

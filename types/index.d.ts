@@ -199,7 +199,8 @@ declare module 'claude-code' {
     // Every reply since Claude Code started the session by tier: each cell counts up to `per` replies, `none` for one
     // routing did not serve; `from` is when the first one arrived (ms).
     strip?: { per: number; cells: Partial<Record<RouterTier | 'none', number>>[]; from?: number | null } | null;
-    // The last route switch at turn start: when, the routes it moved between with their tiers, and the turn's activity.
+    // The last route switch, at turn start or inside a turn: when, the routes it moved between with their tiers, and
+    // the activity the new route runs for.
     lastSwitch?: {
       at: number;
       from: { tier: RouterTier | null; model: string; effort: string | null };

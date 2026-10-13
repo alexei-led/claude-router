@@ -6,7 +6,7 @@ The Now tab shows this session and today instead of the last 30 replies, a windo
 
 ### Changed
 
-- **SESSION** replaces **LAST 30 REPLIES**. Its strip colors every reply of the session by tier; once it fills the pane, cells merge in pairs and the strip says how many replies a cell holds. Its heading gives since when, the replies and the route switches. The switches are the ones the Usage tab counts, so a pin is not one. The replies per tier and per activity follow.
+- **SESSION** replaces **LAST 30 REPLIES**. Its strip colors every reply of the session by tier; past 48 cells, or on a narrow pane, pairs of cells merge and the strip says how many replies a cell holds. After a restart of Claude Code the strip starts again and says since when. Its heading gives since when, the routed replies and the route switches. The switches are the ones the Usage tab counts, so a pin is not one. The replies per tier and per activity follow.
 - **Pin next** replaces the TIERS ladder: one button per tier with the classifier's support, `▶` on the tier that runs now. The tab is four rows shorter.
 
 ### Added
