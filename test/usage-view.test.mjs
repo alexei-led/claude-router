@@ -189,6 +189,12 @@ test('a period sums every session’s days in it, and All adds the undated total
   );
 });
 
+test('after /model selects another model, the session still names the model its replies were priced against', () => {
+  const all = lines({ nativeModel: 'claude-sonnet-5-5', mode: 'manual' });
+  assert.equal(all[4], 'this session · your model Opus 5.5');
+  assert.ok(all.some((line) => line.startsWith('    Your model') && line.endsWith('Opus 5.5')));
+});
+
 test('a session whose /model changed names every model its replies were priced against', () => {
   const sonnet = { ...reply(at(2026, 10, 13, 14), 'explore'), yours: 'sonnet' };
   const changed = recordUsage(SESSION, [sonnet], { now: at(2026, 10, 13, 14) });

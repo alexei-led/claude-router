@@ -326,7 +326,14 @@ async function readOthers($, router, kind, { sessionId, resetAt, keys }) {
       names.map((key, i) => [key, values[i]]),
       Date.now(),
     );
-    await Promise.all([...gone].map((key) => $.store.delete(key).catch(() => {})));
+    // Read again just before deleting: a session that wrote its record since keeps it. The window between the read and
+    // the delete stays, as $.store has no conditional delete; it needs that session's write inside it.
+    await Promise.all(
+      [...gone].map(async (key) => {
+        const current = await $.store.get(key);
+        if (JSON.stringify(current) === JSON.stringify(values[names.indexOf(key)])) await $.store.delete(key);
+      }),
+    ).catch(() => {});
     values = values.filter((_, i) => !gone.has(names[i]));
   }
   const others = merge(values, resetAt);
@@ -897,12 +904,14 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
   const route = `${request.model}@${request.effort ?? 'session'}`;
   await publishReply($, router, turnId, response, tier, route, compared?.reply?.routedUsd ?? null);
+  // Kept under the model that served it: a substitute's cost is not the requested model's.
+  const served = response.usage?.model ?? request.model;
   if (compared)
     await addSavings($, router, {
       turnId,
       compared,
       tier,
-      route: `${modelAlias(cfg, request.model) ?? request.model}@${request.effort ?? 'session'}`,
+      route: `${modelAlias(cfg, served) ?? served}@${request.effort ?? 'session'}`,
       yours: modelAlias(cfg, nativeModel),
       usage: response.usage,
     });

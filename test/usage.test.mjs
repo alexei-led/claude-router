@@ -131,6 +131,15 @@ test('a stored record reads day by day: a bad day is dropped and the others stay
     assert.deepEqual(readUsage(value), emptyUsage(), JSON.stringify(value));
 });
 
+test('a models key named after an Object method is counted like any other', () => {
+  const odd = { ...entry(NOW), whatIf: { toString: 0.01, constructor: 0.02 }, yours: 'toString' };
+  const once = turnOf(emptyUsage(), [odd], NOW);
+  const twice = mergeUsage([once, turnOf(emptyUsage(), [odd], NOW)]);
+  assert.deepEqual(once.days['2026-10-13'].whatIf.toString, [1, 0.01]);
+  assert.deepEqual(twice.days['2026-10-13'].whatIf.constructor, [2, 0.04]);
+  assert.equal(twice.days['2026-10-13'].yours.toString, 2);
+});
+
 test('records add up day by day, and one from before the last reset reads as empty', () => {
   const a = turnOf(emptyUsage(), [entry(NOW), entry(NOW)], NOW);
   const b = turnOf(emptyUsage(), [entry(at(2026, 10, 12))], at(2026, 10, 12));

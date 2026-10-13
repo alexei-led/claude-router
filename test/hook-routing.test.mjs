@@ -507,12 +507,16 @@ test('the router command opens the pane, switches modes and pins, with no setup 
   assert.equal(h.commandCalls(), 0);
 });
 
-test('a substituted reply is not counted as the requested tier', async () => {
+test('a substituted reply is not counted as the requested tier, and its usage is kept under the model that served it', async () => {
   const h = harness();
   await start(h);
   await h.event('command.run', { command: 'router', args: 'pin high' });
   await drain(h.step(step, substituted));
   assert.deepEqual(h.view().tiers, [null]);
+  await h.event('turn.complete', { turnId: step.turnId });
+  const cells = Object.keys(summarize(readUsage(h.preferences.get('usage:v1:s1')), { from: null, to: null }).cells);
+  assert.equal(cells.length, 1);
+  assert.match(cells[0], /^none\|none\|sonnet@/);
 });
 
 test('a 1.1 router.json makes routing unavailable and points to the migration script', async () => {
@@ -1610,6 +1614,33 @@ test('another session’s usage with no day left in the kept window is deleted w
     [h.preferences.has(`${USAGE}s0`), h.preferences.get(`${USAGE}s8`), h.preferences.get(`${USAGE}s9`)],
     [false, widerDay, later],
   );
+});
+
+test('a record another session wrote again after it was read for pruning stays', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 9, 13, 12).getTime() });
+  const day = (key) => ({
+    [key]: {
+      cells: { 'none|low|haiku@high': [1, 0.1, 0.2, -0.1, 0, 0, 10, 5, 1] },
+      whatIf: {},
+      yours: {},
+      hours: {},
+      turns: 1,
+      switches: { tier: 0, activity: 0 },
+    },
+  });
+  const old = { version: 1, since: 1, days: day('2025-01-02') };
+  const fresh = { version: 1, since: 1, days: { ...day('2025-01-02'), ...day('2026-10-13') } };
+  let reads = 0;
+  const preferences = new (class extends Map {
+    get(key) {
+      // The other session writes its record between the read for pruning and the delete.
+      if (key === `${USAGE}s0` && ++reads === 2) super.set(key, fresh);
+      return super.get(key);
+    }
+  })([[`${USAGE}s0`, old]]);
+  const h = harness(JEV_KEY, preferences);
+  await h.event('session.start', { cwd: '/fixture' });
+  assert.deepEqual(preferences.get(`${USAGE}s0`), fresh);
 });
 
 test('Delete history asks again after a tab change, and when the store refuses, this session alone starts over', async () => {
