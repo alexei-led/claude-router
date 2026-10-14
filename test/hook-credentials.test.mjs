@@ -41,13 +41,29 @@ test('each classifier reads its key option, then the environment variables named
       'plugin options',
       CLOUDFLARE_KEYS,
       {},
-      { jev: 'missing-key', clef: null, 'clef-flash': null, 'clef-omni': null, openai: 'missing-key', ollama: null },
+      {
+        jev: 'missing-key',
+        clef: null,
+        'clef-flash': null,
+        'clef-omni': null,
+        openai: 'missing-key',
+        gateway: 'missing-key',
+        ollama: null,
+      },
     ],
     [
       'environment variables',
       {},
       { TYPESAFE_API_KEY: 'k', CLOUDFLARE_API_TOKEN: 't', CLOUDFLARE_ACCOUNT_ID: 'a' },
-      { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null, openai: 'missing-key', ollama: null },
+      {
+        jev: null,
+        clef: null,
+        'clef-flash': null,
+        'clef-omni': null,
+        openai: 'missing-key',
+        gateway: 'missing-key',
+        ollama: null,
+      },
     ],
     [
       'an OpenAI environment variable',
@@ -59,6 +75,7 @@ test('each classifier reads its key option, then the environment variables named
         'clef-flash': 'missing-key',
         'clef-omni': 'missing-key',
         openai: null,
+        gateway: 'missing-key',
         ollama: null,
       },
     ],
@@ -72,6 +89,7 @@ test('each classifier reads its key option, then the environment variables named
         'clef-flash': 'missing-account',
         'clef-omni': 'missing-account',
         openai: 'missing-key',
+        gateway: 'missing-key',
         ollama: null,
       },
     ],
@@ -126,6 +144,124 @@ for (const [id, label] of [
     assert.ok(texts(await h.render()).some((line) => line.startsWith(`${label} ready`)));
   });
 }
+
+const GATEWAY_OPTIONS = {
+  gateway_url: 'https://litellm.example.internal',
+  gateway_model: 'cloudflare/clef-flash',
+  gateway_api_key: 'synthetic-gateway-key',
+};
+
+test('the Gateway classifier asks the gateway URL with the gateway model and a bearer key, all from plugin options', async () => {
+  const h = harness(GATEWAY_OPTIONS);
+  h.files.set(CONFIG, JSON.stringify({ classifier: 'gateway' }));
+  const calls = [];
+  h.http(async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 200, text: CLEF_FLASH_ANSWER, headers: {} };
+  });
+  await start(h);
+  await drain(h.step(step));
+  assert.equal(h.view().credentials.gateway, null);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://litellm.example.internal/v1/systemone');
+  assert.equal(calls[0].init.headers.authorization, 'Bearer synthetic-gateway-key');
+  assert.equal(JSON.parse(calls[0].init.body).model, 'cloudflare/clef-flash');
+  assert.equal(h.view().adviceChoice, 'micro');
+  await press(h, 'tab-classifier');
+  const pane = texts(await h.render());
+  assert.ok(pane.some((line) => line.includes('your gateway URL')));
+  assert.ok(pane.some((line) => line.startsWith('Gateway ready')));
+});
+
+test('each gateway setting reads its plugin option before its environment variables', async () => {
+  for (const [name, options, env, url, model, auth] of [
+    [
+      'plugin options win',
+      GATEWAY_OPTIONS,
+      { LITELLM_API_KEY: 'env', LITELLM_API_BASE: 'https://env.example' },
+      'https://litellm.example.internal/v1/systemone',
+      'cloudflare/clef-flash',
+      'Bearer synthetic-gateway-key',
+    ],
+    [
+      'LiteLLM variables',
+      { gateway_model: 'jev' },
+      { LITELLM_API_KEY: 'env-key', LITELLM_API_BASE: 'https://env.example/v1' },
+      'https://env.example/v1/systemone',
+      'jev',
+      'Bearer env-key',
+    ],
+    [
+      'exported plugin options',
+      {},
+      {
+        CLAUDE_PLUGIN_OPTION_GATEWAY_API_KEY: 'exported',
+        CLAUDE_PLUGIN_OPTION_GATEWAY_URL: 'http://127.0.0.1:4000',
+        CLAUDE_PLUGIN_OPTION_GATEWAY_MODEL: 'jev',
+      },
+      'http://127.0.0.1:4000/v1/systemone',
+      'jev',
+      'Bearer exported',
+    ],
+  ]) {
+    const h = harness(options);
+    for (const [key, value] of Object.entries(env)) h.env.set(key, value);
+    h.files.set(CONFIG, JSON.stringify({ classifier: 'gateway' }));
+    const calls = [];
+    h.http(async (requested, init) => {
+      calls.push({ requested, init });
+      return { ok: true, status: 200, text: CLEF_FLASH_ANSWER, headers: {} };
+    });
+    await start(h);
+    await drain(h.step(step));
+    assert.equal(calls[0]?.requested, url, name);
+    assert.equal(JSON.parse(calls[0].init.body).model, model, name);
+    assert.equal(calls[0].init.headers.authorization, auth, name);
+  }
+});
+
+test('a Gateway classifier without its settings, or on a cleartext URL, sends nothing and names what to fix', async () => {
+  for (const [name, options, env, missing, warning] of [
+    ['no key', { gateway_url: 'https://gw.example', gateway_model: 'jev' }, {}, 'missing-key', /⚠ Gateway: no API key/],
+    ['no URL', { gateway_api_key: 'k', gateway_model: 'jev' }, {}, 'missing-account', /⚠ Gateway: no URL or model/],
+    [
+      'no model',
+      { gateway_api_key: 'k', gateway_url: 'https://gw.example' },
+      {},
+      'missing-account',
+      /⚠ Gateway: no URL or model/,
+    ],
+    [
+      'cleartext off this machine',
+      { gateway_api_key: 'k', gateway_url: 'http://gw.example', gateway_model: 'jev' },
+      {},
+      'bad-url',
+      /⚠ Gateway: URL must be https/,
+    ],
+    [
+      'a generic GATEWAY_API_KEY is not read',
+      { gateway_url: 'https://gw.example', gateway_model: 'jev' },
+      { GATEWAY_API_KEY: 'other-tool' },
+      'missing-key',
+      /no API key/,
+    ],
+  ]) {
+    const h = harness(options);
+    for (const [key, value] of Object.entries(env)) h.env.set(key, value);
+    h.files.set(CONFIG, JSON.stringify({ classifier: 'gateway' }));
+    h.http(async () => assert.fail(`${name}: no request`));
+    await start(h);
+    await drain(h.step(step));
+    assert.equal(h.view().credentials.gateway, missing, name);
+    assert.equal(h.view().error, missing, name);
+    const view = await band(h);
+    assert.match(view.line, warning, name);
+    assert.ok(
+      view.controls.some((node) => node.key === 'band-key'),
+      name,
+    );
+  }
+});
 
 test('a missing account warns in the band and the pane and offers the key dialog', async () => {
   const h = harness({ cloudflare_api_token: 'synthetic-token' });

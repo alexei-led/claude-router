@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Gateway** (`gateway`), a built-in classifier that asks your own LLM gateway, such as a LiteLLM proxy, on `/v1/systemone`. Save three new plugin options with `/plugin configure router`: `gateway_url` (https, or http on localhost), `gateway_model` (the model name the gateway serves, sent as written) and `gateway_api_key` (or `LITELLM_API_BASE` and `LITELLM_API_KEY`), then select its row on the Classifier tab. See [LLM gateway](docs/configuration.md#llm-gateway-litellm).
+- A `router.json` classifier entry can use `{gateway_url}` at the start of its `endpoint` and a `{name}` setting in its `model`, for example the gateway's `/v1/decisions` route.
+
 ## 1.14.0 (2026-10-14)
 
 Subagents now show which model each agent ran on, who picked it, and for which period. See [Understand usage and estimates](docs/user-guide.md#understand-usage-and-estimates).

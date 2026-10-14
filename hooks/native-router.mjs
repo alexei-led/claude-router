@@ -480,8 +480,9 @@ async function setActivityRouting($, router, mode) {
   return router.view.notice;
 }
 
-// The environment variables that stand in for a classifier option: its upper-case name, then the one Claude Code
-// exports for a plugin option. Spelled out because $.env.get takes literal names only. Cases: CLASSIFIER_OPTIONS.
+// The environment variables that stand in for a classifier option: its upper-case name (LITELLM_API_KEY and
+// LITELLM_API_BASE for the gateway key and URL; the gateway model has none), then the one Claude Code exports for a
+// plugin option. Spelled out because $.env.get takes literal names only. Cases: CLASSIFIER_OPTIONS.
 async function envSettingOf($, name) {
   switch (name) {
     case 'typesafe_api_key':
@@ -496,6 +497,13 @@ async function envSettingOf($, name) {
       );
     case 'openai_api_key':
       return (await $.env.get('OPENAI_API_KEY')) || (await $.env.get('CLAUDE_PLUGIN_OPTION_OPENAI_API_KEY'));
+    // Named after LiteLLM rather than a generic GATEWAY_API_KEY, so a key exported for another tool is not picked up.
+    case 'gateway_api_key':
+      return (await $.env.get('LITELLM_API_KEY')) || (await $.env.get('CLAUDE_PLUGIN_OPTION_GATEWAY_API_KEY'));
+    case 'gateway_url':
+      return (await $.env.get('LITELLM_API_BASE')) || (await $.env.get('CLAUDE_PLUGIN_OPTION_GATEWAY_URL'));
+    case 'gateway_model':
+      return await $.env.get('CLAUDE_PLUGIN_OPTION_GATEWAY_MODEL');
     default:
       return null;
   }
@@ -683,6 +691,8 @@ async function decideTurn($, router, e, signal, step) {
           config: cfg,
           apiKey: credentials.apiKey,
           endpoint: credentials.endpoint,
+          model: credentials.model,
+          missing: credentials.missing,
           prompt: facts.prompt,
           turns: facts.turns,
           signal: controller.signal,
@@ -875,6 +885,8 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
         config: cfg,
         apiKey: credentials.apiKey,
         endpoint: credentials.endpoint,
+        model: credentials.model,
+        missing: credentials.missing,
         prompt: facts.prompt,
         turns: facts.turns,
         signal: job.controller.signal,
@@ -1148,6 +1160,8 @@ async function decideSpawn($, router, cfg, e, definition, signal) {
       config: { ...cfg, classifiers: { ...cfg.classifiers, [cfg.classifier]: { ...entry, timeoutMs } } },
       apiKey: credentials.apiKey,
       endpoint: credentials.endpoint,
+      model: credentials.model,
+      missing: credentials.missing,
       prompt: spawnPrompt(cfg, e),
       turns: [],
       signal,

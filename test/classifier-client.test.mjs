@@ -91,6 +91,30 @@ test('native Jev sends the shared contract and reads text and plain headers', as
   assert.equal(result.advice.choice, 'medium');
 });
 
+test('a filled model replaces the entry model in the request, on every request of the turn', async () => {
+  const timing = clock();
+  const bodies = [];
+  const config = loadConfig({
+    userFile: { classifier: 'ollama', activityRouting: 'on', classifiers: { ollama: { model: '{gateway_model}' } } },
+  });
+  const client = new ClassifierClient({ now: timing.now });
+  const result = await client.ask({
+    ...input(timing, async (_url, init) => {
+      bodies.push(JSON.parse(init.body));
+      return local(bodies.length === 1 ? routeAnswer : activityAnswer);
+    }),
+    config,
+    apiKey: null,
+    model: 'qwen3.5:9b',
+  });
+  assert.equal(result.error, null);
+  assert.deepEqual(
+    bodies.map((body) => body.model),
+    ['qwen3.5:9b', 'qwen3.5:9b'],
+  );
+  assert.equal(config.classifiers.ollama.model, '{gateway_model}');
+});
+
 test('the deadline is the active classifier deadline', async () => {
   for (const id of Object.keys(DEFAULTS.classifiers)) {
     const timing = clock();

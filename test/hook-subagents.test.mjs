@@ -145,6 +145,23 @@ test('a classify type asks with the task text alone and runs a clearly hard task
   });
 });
 
+test('a classify type asks the Gateway classifier with its URL, model and bearer key', async () => {
+  const h = await started(
+    { subagentRouting: 'on', classifier: 'gateway' },
+    { gateway_url: 'https://litellm.example.internal', gateway_model: 'jev', gateway_api_key: 'synthetic-gateway-key' },
+  );
+  const calls = [];
+  h.http(async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 200, text: JSON.stringify(HARD), headers: {} };
+  });
+  const { sent } = await h.spawn(spawnInput({ subagentType: 'general-purpose' }));
+  assert.equal(sent.model, 'claude-opus-5-5');
+  assert.equal(calls[0].url, 'https://litellm.example.internal/v1/systemone');
+  assert.equal(calls[0].init.headers.authorization, 'Bearer synthetic-gateway-key');
+  assert.equal(JSON.parse(calls[0].init.body).model, 'jev');
+});
+
 test('a classifier failure keeps core’s model and counts the failure', async () => {
   const h = await started({ subagentRouting: 'on' });
   h.http(async () => ({ ok: false, status: 400, text: '', headers: {} }));
