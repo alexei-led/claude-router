@@ -240,7 +240,10 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
   same-tier moves), estimated cost per mode and the model and effort mix. Then one representative multi-turn task per
   mode in an isolated agterm session: models used, switches, tokens and cost. A mode without a real difference
   somewhere is a finding.
-- [ ] L8. Close test sessions; remove the scratch copy and the isolated config dir.
+- [ ] L8. Close test sessions; remove the scratch copy and the isolated config dir. Deferred: `live/capture.sh` needs
+  the capture session, its login, the plugin copy and the project, so all stay until the manager has run it.
+- [ ] L11. PNG captures of the live band, Now and Policy tabs (`live/capture.sh`, run by the manager with the display
+  awake and the user idle); inspect the crops and commit them before merge.
 
 ### Release
 
@@ -320,3 +323,12 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
   The `router decision` line is the turn-start decision; an activity move later in the turn shows in the usage
   cells only. PNG captures of the live band and pane: the display was asleep (`screencapture` failed even for a
   10 px region), so `live/capture.sh` is handed to the manager; the text layouts match the doc images.
+
+## 9. Follow-ups after 1.15 (no backlog directory in this repo)
+
+- The `router decision` debug line logs the turn-start decision only; an activity move later in the turn shows in the
+  usage cells, not in the log (manager Q2: not for 1.15).
+- The Policy tab shows the base policy bars, not the active mode's patch; the band shows the bar in use (manager Q3;
+  a known limitation in the release notes).
+- An explicit `"mode": "balanced"` in the profile `router.json` shows as `balanced (default)`, not `(profile)`
+  (review nit 12).

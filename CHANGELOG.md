@@ -21,6 +21,10 @@ A routing mode trades cost against answer quality without new routes: `cost`, `b
 
 - The switching cost of two routes that share a prompt cache (one model at two efforts, on an API key or a subscription) is now zero, as the configuration docs said. The estimate charged the new tokens of the next request as a switch cost, though either route writes them. A cheaper effort on the same model was therefore refused on any measured history. In `balanced` a tier switch between such routes, such as Opus at `medium` and at `xhigh`, now needs only the base support (`upgradeBase`, `downgradeMass`); before, the bar rose with that estimate, up to about 0.82 on a cold cache.
 
+### Known limitations
+
+- The Policy tab shows the base policy bars; in `cost` or `quality` the band shows the bar actually in use, such as `Jev 46% < 85%`.
+
 ### Migration
 
 - `router.json` needs no change: without `mode` it runs `balanced`.

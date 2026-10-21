@@ -107,6 +107,29 @@ The steps are fixed rules, with no per-activity exceptions. Two cells go against
 
 With the built-in routes, `cost` at `low` runs Haiku 5.5 at medium, the same route as `micro`.
 
+## Measured impact
+
+One 5-turn coding task (read two files, add a function with tests, run the tests, review, add edge-case tests), the
+same prompts in a new session per mode, Jev classifier, built-in routes. Cost is a list-price estimate of the measured
+tokens ([raw results](../experiments/mod-router/results/mode-live-acceptance.json)).
+
+| Mode     | Replies by route                    | Switches | Output tokens | Estimated cost |
+| -------- | ----------------------------------- | -------- | ------------- | -------------- |
+| cost     | Haiku · medium 2, Sonnet · medium 6 | 1        | 2,860         | $0.166         |
+| balanced | Opus · medium 10                    | 0        | 3,986         | $0.323         |
+| quality  | Opus · high 8                       | 0        | 5,332         | $0.358         |
+
+**These are single runs.** The classifier's answers vary from run to run: its confidence that the first turn was
+`micro` was 92%, 74% and 79% in the three runs, so part of the first-turn difference is classifier noise, not the mode.
+Read the numbers as the direction and rough size of the effect, not as a benchmark.
+
+- `quality` ran the same model as `balanced`, at the same price per token. All of its extra cost is output: 34% more
+  tokens at the higher effort. A list-price estimate can't show this: priced as one nominal turn each, a fixed set of 20
+  prompts comes to $2.916 in both modes ([probe](../experiments/mod-router/results/mode-probe-jev.json)).
+- `cost` spent $0.069 of its $0.166 on one cache write, for the move to Sonnet. A longer session spreads that write
+  over more turns.
+- Every task ended with the tests passing; this run does not compare the quality of the answers.
+
 ## Records
 
 Each decision writes one line to Claude Code's debug log (`claude --debug`): `router decision` with the mode, its
