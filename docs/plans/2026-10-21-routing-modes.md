@@ -58,7 +58,7 @@ Every file:line claim in the design and in the repo brief, checked on `origin/ma
   same-tier stay.
 - **D5. No decision log.** The Mod writes no log file (no `$.log`, no `decisions.jsonl`). The per-decision record is
   `router.turnActivities` (`:713-729`) feeding the view, activity stats and usage. `trace-eval.mjs` replays the 0.8
-  gateway's `~/.claude-team/.../decisions.jsonl` (tier only, no activities, `decide` only). It can replay that trace
+  gateway's `decisions.jsonl` trace (tier only, no activities, `decide` only). It can replay that trace
   per mode by passing `applyMode(config, mode)` as `config`, because the table carries the transformed routes. It
   cannot replay the lateral or pair-aware path. A native per-decision log would be a new feature. Proposal: carry
   `routingMode`, `modeSource`, classified tier and route in the turn record, the view and the usage cells; add the
@@ -209,14 +209,7 @@ on FrontierCode while costing more. They follow from the fixed rules; reported a
 - [x] M2. `$.store`: new `routing-mode:<sessionId>`; `mode:<sessionId>` unchanged.
 - [x] M3. Usage records: version 2 under the same `usage:v1:<sessionId>` keys, as 1.14.0 did for subagents
   (Q2). A 1.14 session reads a version 2 record as empty and never prunes it.
-- [ ] M4. User machine changes, **listed, not applied** (the manager applies after release with approval):
-  - `~/.claude/router.json` (personal, subscription): add `"mode": "<choice>"`; `balanced` needs no key.
-  - `~/.claude-team/router.json` (work): add `"mode": "<choice>"`, e.g. `"cost"`.
-  - Both files today set `routes.high` = Opus/high, so cost at high gives Opus/medium (same as the medium route) and
-    quality at high gives Opus/xhigh.
-  - `~/.claude/profiles/router.json` sets `ANTHROPIC_BASE_URL` to a gateway, so personal sessions split the cache by
-    effort (`effortSplitsCacheOf`): the effort lever there costs a cache write (R2).
-  - No change to `~/.claude/profiles/*` or `~/.claude/scripts/ce`.
+- [x] M4. User config changes are tracked outside the repo; none are applied by this change.
 
 ### Live agterm verification
 
@@ -255,7 +248,7 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
 
 - **R1.** Cost moves high ops to Haiku/high and low coding to Sonnet/medium (§3), against this repo's own model notes.
   Fixed rules, no per-activity floors (design §6). Replay data should check them.
-- **R2.** With `effortSplitsCache` (custom base URL, as the user's personal profile has) the effort lever writes a new
+- **R2.** With `effortSplitsCache` (for example, a custom base URL) the effort lever writes a new
   cache. The tax gate prices it; in cost mode the move may be held often.
 - **R3.** D2 changes balanced in one case: a pane route edit mid-session now waits for the gates.
 - **R4.** `$.session.cwd()` is the launch directory in the harness; whether it moves with a Bash `cd` is not verified
@@ -323,6 +316,11 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
   The `router decision` line is the turn-start decision; an activity move later in the turn shows in the usage
   cells only. PNG captures of the live band and pane: the display was asleep (`screencapture` failed even for a
   10 px region), so `live/capture.sh` is handed to the manager; the text layouts match the doc images.
+- PR #49 review: a session's first loop now reads its model's tier from the configured routes, not the mode's table
+  (cost started an Opus session at high, on Opus/high, above balanced); the matrix also runs on a session already on
+  Opus. A same-task lateral move to a model with a lower input price waits for dwell and a check whatever the output
+  price order. The view keeps a `/router mode` sent while the classifier answers. Test fixes: the split-cache test
+  seeds per-effort keys; the pin test names what it checks. Docs: an effort-only step is free on a shared cache.
 
 ## 9. Follow-ups after 1.15 (no backlog directory in this repo)
 
@@ -332,3 +330,5 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
   a known limitation in the release notes).
 - An explicit `"mode": "balanced"` in the profile `router.json` shows as `balanced (default)`, not `(profile)`
   (review nit 12).
+- `routing-mode:<session id>` store keys are never pruned, as the existing `mode:<session id>` keys are not (review
+  nit 8).

@@ -41,7 +41,7 @@ The default baseline is tier `low`. Each route refers to an alias in `models`.
 
 Every default route names its effort, so no default tier keeps the effort Claude Code sends. The ladder follows Anthropic's published charts. On the OSWorld 2.1 effort chart, Haiku 5.5 at `high` scored above Sonnet 5.5 at `low`, and Haiku at `xhigh` near Sonnet at `medium`, for a fraction of the cost per attempt; OSWorld measures computer use, not coding. On Terminal-Bench 4.0, FrontierCode v1.1, and CursorBench 4.0, Opus 5.5 at `medium` matched or beat Sonnet 5.5 at `xhigh` at 25 to 50% lower cost per task (chart data on anthropic.com/claude-sonnet-5-5). These are routing defaults, not a claim of equal model quality.
 
-`micro` and `low` share a model, so a step between them changes only the effort. The policy prices it as a new messages cache, as it does `medium` to `high`.
+`micro` and `low` share a model, so a step between them changes only the effort, as does `medium` to `high`. The policy prices such a step as no cache write, unless effort splits the cache (see [Optional `router.json`](#optional-routerjson)).
 
 To restore the 1.3 ladder, with Sonnet 5.5 at `low` on the session effort and Haiku 5.5 at `low` effort for `micro`:
 
