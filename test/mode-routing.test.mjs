@@ -145,26 +145,33 @@ test('a classifier failure keeps the route in use after a mode change', () => {
   }
 });
 
+test('a classifier failure during an escalation hold keeps the route in use after a mode change', () => {
+  const held = onOpusXhigh();
+  const loop = turn(inMode('quality'), { ...held, state: { ...held.state, holdUntilTurn: 99 } }, { answer: null });
+  assert.deepEqual([ran_(loop), loop.decision.reason], [`${OPUS}@xhigh`, 'hold']);
+});
+
 // Opus at 200K runs while the configured high route, Sonnet, has 1M: a route edit held by the dwell.
-const smallOpus = { opus: { contextWindow: 200_000 } };
-const heldOnSmallOpus = () => {
-  const edited = loadConfig({ userFile: { models: smallOpus, routes: { high: { model: 'sonnet', effort: 'high' } } } });
-  const loop = turn(edited, onOpusXhigh(loadConfig({ userFile: { models: smallOpus } })), { at: T0 + 10 });
+const heldOnSmallOpus = (models = {}) => {
+  const small = { ...models, opus: { contextWindow: 200_000 } };
+  const edited = loadConfig({ userFile: { models: small, routes: { high: { model: 'sonnet', effort: 'high' } } } });
+  const loop = turn(edited, onOpusXhigh(loadConfig({ userFile: { models: small } })), { at: T0 + 10 });
   assert.deepEqual([ran_(loop), loop.decision.reason], [`${OPUS}@xhigh`, 'downgrade-held']);
   return { edited, loop };
 };
 
-test('a tool continuation fits the context to the route in use, not the configured one', () => {
-  const { edited, loop } = heldOnSmallOpus();
-  const next = continueRoute(edited, loop, {
-    nativeModel: OPUS,
-    contextTokens: 190_000,
-    contextKnown: true,
-    effort: 'high',
+// Haiku at 200K too leaves the tier's configured route, Sonnet, as the only one the context fits.
+for (const models of [{}, { haiku: { contextWindow: 200_000 } }])
+  test(`a tool continuation the route in use cannot hold moves to a route that fits (${JSON.stringify(models)})`, () => {
+    const { edited, loop } = heldOnSmallOpus(models);
+    const next = continueRoute(edited, loop, {
+      nativeModel: OPUS,
+      contextTokens: 190_000,
+      contextKnown: true,
+      effort: 'high',
+    });
+    assert.deepEqual([next.decision.reason, next.decision.model], ['context-fit', 'claude-sonnet-5-5']);
   });
-  assert.equal(next.decision.reason, 'context-fit');
-  assert.notEqual(next.decision.model, OPUS);
-});
 
 test('a turn whose route in use fits the context stays on it when the configured route would not', () => {
   // Sonnet at 200K is configured for high; Opus at 1M runs it.

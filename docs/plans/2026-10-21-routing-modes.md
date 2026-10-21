@@ -321,6 +321,11 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
   Opus. A same-task lateral move to a model with a lower input price waits for dwell and a check whatever the output
   price order. The view keeps a `/router mode` sent while the classifier answers. Test fixes: the split-cache test
   seeds per-effort keys; the pin test names what it checks. Docs: an effort-only step is free on a shared cache.
+- Release review (revmux, 2 rounds): a turn with no classifier answer keeps the route in use, during an escalation
+  hold too; a tool continuation measures its tier at the route it runs and, once the context outgrows it, moves to a
+  configured route that fits, its own tier's first; the first turn's unmeasured-window guard compares against the
+  session's model; escalation without an activity goes to the lowest stronger route. Each fix has a test that fails
+  without it. Docs: the debug line is turn-start only; cost's `high` ops cell has nothing to escalate to.
 
 ## 9. Follow-ups after 1.15 (no backlog directory in this repo)
 
@@ -332,3 +337,8 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
   (review nit 12).
 - `routing-mode:<session id>` store keys are never pruned, as the existing `mode:<session id>` keys are not (review
   nit 8).
+- A session's first turn in `cost` or `quality` builds its incumbent from the mode's table, not from the session's
+  model. With a `router.json` that gives the mode's route a smaller window than the session's model, the unmeasured
+  first turn keeps the session's model but lands on the mode's cell for it (Opus at `high` in `cost`, reason
+  `model-unavailable`) instead of the configured cell. Safe, not exact: fixing it means routing the first turn from the
+  configured routes, which changes balanced golden decisions (release review round 2).
