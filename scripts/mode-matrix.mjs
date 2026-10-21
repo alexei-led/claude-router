@@ -10,7 +10,7 @@ import { chooseRoute, emptyLoop, nativeFacts } from '../lib/route.mjs';
 export const DOC = fileURLToPath(new URL('../docs/routing-modes.md', import.meta.url));
 export const CLASSIFIED = [...TIERS, 'uncertain'];
 export const ACTIVITY_ANSWERS = ACTIVITY_VALUES;
-// The built-in routes, and a profile like the maintainer's: high on Opus at high effort.
+// The built-in routes, and a user-like profile: high on Opus at high effort.
 export const PROFILES = {
   defaults: { label: 'Built-in routes', file: null },
   'opus-high': { label: '`routes.high` = Opus · high', file: { routes: { high: { model: 'opus', effort: 'high' } } } },
@@ -34,15 +34,18 @@ function answer(tier, activity) {
   };
 }
 
-// The decision a session's first turn gets for classifier answer `advice` on a model no route runs, so the loop
-// starts at the baseline tier with no activity and no history: `{ tier, route, model, effort }`.
-export function decision(config, tier, activity) {
-  return decide(config, answer(tier, activity));
+// A session model no route runs, so the loop starts at the baseline tier with no activity.
+export const UNROUTED_MODEL = 'claude-fable-5-1';
+
+// The decision a session's first turn on `nativeModel` gets for classifier answer `advice`, with no history:
+// `{ tier, route, model, effort }`. `config` is the mode's table; the session model names its tier in the
+// `configured` routes, as the hook does.
+export function decision(config, tier, activity, options) {
+  return decide(config, answer(tier, activity), options);
 }
 
-export function decide(config, advice) {
-  const nativeModel = 'claude-fable-5-1';
-  const loop = emptyLoop(config, nativeModel);
+export function decide(config, advice, { configured = config, nativeModel = UNROUTED_MODEL } = {}) {
+  const loop = emptyLoop(configured, nativeModel);
   const facts = nativeFacts(config, loop, {
     messages: [{ role: 'user', content: 'A task.' }],
     prompt: 'A task.',
@@ -61,8 +64,8 @@ export function decide(config, advice) {
   return { tier: d.tier, route: d.route, model: d.model, effort: d.effort };
 }
 
-// Every cell of a profile: `rows[tier][activity][mode]`.
-export function matrix(file) {
+// Every cell of a profile: `rows[tier][activity][mode]`, for a session on `nativeModel`.
+export function matrix(file, nativeModel = UNROUTED_MODEL) {
   const config = loadConfig({ userFile: file });
   return Object.fromEntries(
     CLASSIFIED.map((tier) => [
@@ -73,7 +76,10 @@ export function matrix(file) {
           Object.fromEntries(
             ROUTING_MODES.map((mode) => [
               mode,
-              decision(applyMode(config, { mode, source: 'profile' }), tier, activity),
+              decision(applyMode(config, { mode, source: 'profile' }), tier, activity, {
+                configured: config,
+                nativeModel,
+              }),
             ]),
           ),
         ]),

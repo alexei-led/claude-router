@@ -82,6 +82,8 @@ test('a mode change while the classifier answers keeps that turn’s decision', 
   release();
   await running;
   assert.deepEqual([sent(h), h.loop().decision.reason], [['claude-opus-5-5@xhigh'], 'upgrade']);
+  // The view names the mode the next turn runs, as the command said.
+  assert.deepEqual(h.view().routingMode, { mode: 'cost', source: 'session' });
 });
 
 test('a resumed session keeps its mode override; a new session does not', async () => {
@@ -94,6 +96,25 @@ test('a resumed session keeps its mode override; a new session does not', async 
   resumed.clear('s2');
   await start(resumed);
   assert.deepEqual(resumed.view().routingMode, { mode: 'balanced', source: 'default' });
+});
+
+test('a session on a routed model starts on its configured tier in every mode', async () => {
+  const UNCERTAIN = jevResponse('uncertain', { uncertain: 0.99, medium: 0.01 });
+  const first = {};
+  for (const mode of ['cost', 'balanced', 'quality']) {
+    const h = harness(JEV_KEY);
+    h.files.set(CONFIG, JSON.stringify({ mode }));
+    answering(h, UNCERTAIN);
+    await start(h);
+    await drain(h.step({ ...step, model: 'claude-opus-5-5' }));
+    first[mode] = [h.loop().decision.tier, sent(h)[0]];
+  }
+  // Opus runs medium in the configured routes; cost's table runs Opus only at high.
+  assert.deepEqual(first, {
+    cost: ['medium', 'claude-haiku-5-5@high'],
+    balanced: ['medium', 'claude-opus-5-5@medium'],
+    quality: ['medium', 'claude-opus-5-5@high'],
+  });
 });
 
 test('a pin runs its tier’s configured route in cost mode', async () => {
@@ -120,7 +141,7 @@ test('each decision records the mode, its source, the classified tier and the ro
     modeSource: 'profile',
     classified: 'high',
     tier: 'high',
-    reason: 'same-tier',
+    reason: 'upgrade',
     route: 'claude-opus-5-5@high',
     pinned: false,
   });

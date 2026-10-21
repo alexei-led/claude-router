@@ -847,7 +847,8 @@ async function decideTurn($, router, e, signal, step) {
     await updateView($, router, {
       ...(activity.switched ? switchView(previous, selected.decision, activity.label, Date.now()) : {}),
       phase: 'routed',
-      routingMode,
+      // The session's mode, not this turn's: a `/router mode` sent while the classifier answered names the next turn.
+      routingMode: await routingModeOf($, router),
       selectedModel: selected.decision.model,
       actualModel: null,
       tier: selected.decision.tier,
@@ -1797,7 +1798,8 @@ export function register(on, options) {
     const ref = { ...LOOP, id: 'main' };
     const loaded = await $.state.get(ref);
     let loopVersion = loaded.version;
-    let loop = prepareLoop(loaded.value ?? emptyLoop(cfg, e.model), e.messageCount);
+    // The session's model names its tier in the configured routes: a mode's table can run it at another tier.
+    let loop = prepareLoop(loaded.value ?? emptyLoop(turn.configured, e.model), e.messageCount);
     if (view.phase === 'unavailable' || mode === 'manual') {
       return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'manual', router);
     }

@@ -99,7 +99,7 @@ for (const [index, probe] of probes.entries()) {
     const byMode = Object.fromEntries(
       ROUTING_MODES.map((mode) => {
         const cfg = applyMode(configured, { mode, source: 'profile' });
-        return [mode, { cfg, d: decide(cfg, advice) }];
+        return [mode, { cfg, d: decide(cfg, advice, { configured }) }];
       }),
     );
     row.routes[profile] = Object.fromEntries(
