@@ -223,20 +223,20 @@ on FrontierCode while costing more. They follow from the fixed rules; reported a
 Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch copy of the worktree with
 `--plugin-dir`, the installed router disabled with `--settings`, a throwaway git project.
 
-- [ ] L1. Each mode via profile `router.json`: band and `/router` text show `cost (profile)` etc.; capture `session
+- [x] L1. Each mode via profile `router.json`: band and `/router` text show `cost (profile)` etc.; capture `session
   text`.
-- [ ] L2. `/router mode cost` mid-session: no abort; next turn shows the new preferred route; on a continuation the
+- [x] L2. `/router mode cost` mid-session: no abort; next turn shows the new preferred route; on a continuation the
   route stays pending until dwell (band reason `downgrade-held`).
-- [ ] L3. Project file `{ "mode": "quality" }` beats profile; `/router mode cost` beats project; `/router mode
+- [x] L3. Project file `{ "mode": "quality" }` beats profile; `/router mode cost` beats project; `/router mode
   default` returns to `quality (project)`; a project file with another key is ignored with a notice.
-- [ ] L4. `claude --continue` keeps the session override; a new session does not.
-- [ ] L5. `/router pin high` in cost mode runs Opus/xhigh (base).
-- [ ] L6. Records: the store's usage record holds `cost|…` cells; the view carries `routingMode` and `modeSource`.
-- [ ] L7. Doc screenshots from `npm run docs:images` checked against the live band.
+- [x] L4. `claude --continue` keeps the session override; a new session does not.
+- [x] L5. `/router pin high` in cost mode runs Opus/xhigh (base).
+- [x] L6. Records: the store's usage record holds `cost|…` cells; the view carries `routingMode` and `modeSource`.
+- [x] L7. Doc screenshots from `npm run docs:images` checked against the live band.
 - [x] L9. Live classifier run (added by the manager): a fixed set of ~20 prompts over the tier × activity cells
   that can be triggered, through the real Jev classifier; record the classified tier and activity and the routed
   pair under each mode. Classification mismatches are reported apart from routing bugs.
-- [ ] L10. Impact: on the same prompt set, and a per-mode replay with `trace-eval.mjs` (tier-level; it cannot replay
+- [x] L10. Impact: on the same prompt set, and a per-mode replay with `trace-eval.mjs` (tier-level; it cannot replay
   same-tier moves), estimated cost per mode and the model and effort mix. Then one representative multi-turn task per
   mode in an isolated agterm session: models used, switches, tokens and cost. A mode without a real difference
   somewhere is a finding.
@@ -310,4 +310,13 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
   quality's changes are effort only, and list prices do not depend on effort, so its price per turn equals balanced;
   its real cost is the longer thinking and output, which only the live runs measure. Same numbers on the Opus-high
   profile.
-- Live agterm runs wait for a login of the isolated profile (`CLAUDE_CONFIG_DIR=<scratchpad>/live/config`).
+- Live agterm runs (`experiments/mod-router/results/mode-live-acceptance.json`), Claude Code 2.1.306, isolated
+  `CLAUDE_CONFIG_DIR` with its own login (no installed router there, so no `--settings` needed). L1-L7 pass; details
+  in the file's `checks`. L10, the same 5-turn task per mode in a new session, list-price estimate of the measured
+  tokens: cost $0.166 (Haiku 2, Sonnet 6 replies, 1 activity switch, $0.069 of it the cache write for the move,
+  2,860 output tokens), balanced $0.323 (Opus · medium 10, no switch, 3,986), quality $0.358 (Opus · high 8, no
+  switch, 5,332). Quality's extra cost is all output (+34%); its model and price per token equal balanced. One run per
+  mode: Jev's turn-1 micro confidence varied (92%, 74%, 79%), so the turn-1 tier gap is partly classifier variance.
+  The `router decision` line is the turn-start decision; an activity move later in the turn shows in the usage
+  cells only. PNG captures of the live band and pane: the display was asleep (`screencapture` failed even for a
+  10 px region), so `live/capture.sh` is handed to the manager; the text layouts match the doc images.
