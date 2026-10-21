@@ -297,3 +297,7 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
 - Gate on `4729076`: `npm test` 696 pass, `npm run check` clean, `npm run typecheck` clean, `npm run test:plugin`
   3 + 3 pass.
 - L10 replay part done (numbers above); L9 and the live per-mode runs are Phase 3.
+- D9 approved and fixed (`switchingTaxUsd` is 0 for one cache key). The regression test runs with 600 and 7,000 new
+  tokens; the split-cache test still holds the move by the tax. Golden decisions: 141 estimates changed (tax 0, the
+  bar at its base), no tier, reason, model or effort changed. The decision matrix is unchanged.
+- Phase 3 started.
