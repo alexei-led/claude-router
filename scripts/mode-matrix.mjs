@@ -34,9 +34,13 @@ function answer(tier, activity) {
   };
 }
 
-// The decision a session's first turn gets on a model no route runs, so the loop starts at the baseline tier with
-// no activity and no history: `{ tier, route, model, effort }`.
+// The decision a session's first turn gets for classifier answer `advice` on a model no route runs, so the loop
+// starts at the baseline tier with no activity and no history: `{ tier, route, model, effort }`.
 export function decision(config, tier, activity) {
+  return decide(config, answer(tier, activity));
+}
+
+export function decide(config, advice) {
   const nativeModel = 'claude-fable-5-1';
   const loop = emptyLoop(config, nativeModel);
   const facts = nativeFacts(config, loop, {
@@ -48,7 +52,7 @@ export function decision(config, tier, activity) {
   });
   const { decision: d } = chooseRoute(config, loop, {
     facts,
-    advice: answer(tier, activity),
+    advice,
     pin: null,
     nativeModel,
     contextKnown: true,

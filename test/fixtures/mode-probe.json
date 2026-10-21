@@ -1,0 +1,73 @@
+{
+  "description": "Synthetic prompts for the routing-mode probe (scripts/probe-modes.mjs): each with the tier and activity a reader would expect, across the tier x activity cells a prompt can realistically reach. No real user text.",
+  "probes": [
+    { "text": "Run git status.", "tier": "micro", "activity": "ops" },
+    { "text": "Fix the typo 'recieve' in README.md.", "tier": "micro", "activity": "docs" },
+    { "text": "What is the default port in config.yaml?", "tier": "micro", "activity": "explore" },
+    { "text": "Rename the variable cnt to count in utils.py line 12.", "tier": "micro", "activity": "code" },
+    { "text": "Add a --verbose flag to the CLI that prints each file it processes.", "tier": "low", "activity": "code" },
+    {
+      "text": "The unit test test_parse_date fails with 'invalid month 13'. Find out why and fix it.",
+      "tier": "low",
+      "activity": "debug"
+    },
+    { "text": "Review this 20-line diff to the logger for obvious mistakes.", "tier": "low", "activity": "review" },
+    { "text": "Write a short README section that explains how to run the tests.", "tier": "low", "activity": "docs" },
+    {
+      "text": "Restart the docker compose stack and check that all containers are healthy.",
+      "tier": "low",
+      "activity": "ops"
+    },
+    { "text": "Where in this repo is the HTTP retry logic implemented?", "tier": "low", "activity": "explore" },
+    {
+      "text": "Implement cursor pagination for the /orders API endpoint, with tests.",
+      "tier": "medium",
+      "activity": "code"
+    },
+    {
+      "text": "Requests time out now and then under load in staging. Investigate the connection pool and fix the cause.",
+      "tier": "medium",
+      "activity": "debug"
+    },
+    {
+      "text": "Plan the migration of our settings from YAML files to a SQLite table, step by step.",
+      "tier": "medium",
+      "activity": "plan"
+    },
+    {
+      "text": "Review the pull request that refactors the payment module for correctness and missed edge cases.",
+      "tier": "medium",
+      "activity": "review"
+    },
+    {
+      "text": "Write a GitHub Actions workflow that builds, tests and publishes the Docker image on tags.",
+      "tier": "medium",
+      "activity": "ops"
+    },
+    {
+      "text": "Explain how the login flow works across the gateway, the auth service and the frontend.",
+      "tier": "medium",
+      "activity": "explore"
+    },
+    {
+      "text": "Design and implement a lock-free concurrent hash map in Rust with resizing and a full test suite.",
+      "tier": "high",
+      "activity": "code"
+    },
+    {
+      "text": "A rare data race corrupts the ledger about once a week in production. Find the root cause across the three services and fix it.",
+      "tier": "high",
+      "activity": "debug"
+    },
+    {
+      "text": "Design how to split our monolith into services: data ownership, migration order and a rollback plan.",
+      "tier": "high",
+      "activity": "plan"
+    },
+    {
+      "text": "Do a security review of our OAuth implementation, token storage and session handling.",
+      "tier": "high",
+      "activity": "review"
+    }
+  ]
+}
