@@ -149,14 +149,14 @@ on FrontierCode while costing more. They follow from the fixed rules; reported a
 - [x] C6. `/router mode …` in `routerCommand`, the command description and `argumentHint`.
 - [x] C7. Turn record and view: `routingMode`, `modeSource` next to `tier` and `route` (`:713-756`); `detailText`
   line `Mode: cost (session)`.
-- [ ] C8. `lib/display.mjs`, `lib/panel.mjs`, `lib/band.mjs`: route texts read the effective table (D8); mode and
+- [x] C8. `lib/display.mjs`, `lib/panel.mjs`, `lib/band.mjs`: route texts read the effective table (D8); mode and
   source in the band, the Now tab and the footer; Policy tab mode control with `withMode(file, mode)` in
   `lib/config.mjs` (balanced written as no key).
-- [ ] C9. `lib/usage.mjs`: cell key `mode|activity|tier|id@effort`, record version 2; version 1 records read as
+- [x] C9. `lib/usage.mjs`: cell key `mode|activity|tier|id@effort`, record version 2; version 1 records read as
   `balanced` (every reply before 1.15 ran balanced). Breakdowns keep grouping by activity, model and tier.
-- [ ] C10. `experiments/mod-router/scripts/trace-eval.mjs`: a `--mode` (or per-mode loop) replay through
+- [x] C10. `experiments/mod-router/scripts/trace-eval.mjs`: a `--mode` (or per-mode loop) replay through
   `applyMode`; tier-level only (D5).
-- [ ] C11. `types/index.d.ts`: `RouterRoutingMode`, view and loop fields.
+- [x] C11. `types/index.d.ts`: `RouterRoutingMode`, view and loop fields.
 
 ### Tests
 
@@ -179,11 +179,11 @@ on FrontierCode while costing more. They follow from the fixed rules; reported a
 - [x] T9. Hook tests (`test/hook-routing.test.mjs`): `/router mode cost` does not abort an in-flight turn and applies
   next turn; resume (same session id) keeps it; a new session id does not; project file read from
   `/fixture/project/.claude/router.json`; invalid project file is ignored with a notice.
-- [ ] T10. Usage: version 1 record reads as `balanced` cells; version 2 round trip; merge of mixed versions;
+- [x] T10. Usage: version 1 record reads as `balanced` cells; version 2 round trip; merge of mixed versions;
   `prunedUsage` still never deletes a record it cannot read.
-- [ ] T11. Golden decisions (`test/decision-golden.test.mjs`) unchanged in balanced.
-- [ ] T12. Pane: Policy mode control writes `mode`, Undo restores; override note.
-- [ ] T13. Golden decision matrix (added by the manager, 2026-10-21): every classifier tier (micro, low, medium,
+- [x] T11. Golden decisions (`test/decision-golden.test.mjs`) unchanged in balanced.
+- [x] T12. Pane: Policy mode control writes `mode`, Undo restores; override note.
+- [x] T13. Golden decision matrix (added by the manager, 2026-10-21): every classifier tier (micro, low, medium,
   high, uncertain) × every activity (code, debug, explore, plan, review, ops, docs, uncertain) × every mode, on the
   default config and one user-like profile (the user's `routes.high` = Opus/high). Exact pair per cell, through
   `chooseRoute` on a fresh history. Invariants: micro equal in all modes; balanced equals the 1.14 routing; cost never
@@ -194,20 +194,20 @@ on FrontierCode while costing more. They follow from the fixed rules; reported a
 
 ### Docs
 
-- [ ] W1. `README.md`: one paragraph and the command.
-- [ ] W2. `docs/configuration.md`: `mode`, `modes` with the untuned values and the merge rule, the project file and
+- [x] W1. `README.md`: one paragraph and the command.
+- [x] W2. `docs/configuration.md`: `mode`, `modes` with the untuned values and the merge rule, the project file and
   gitignore note, precedence.
-- [ ] W3. `docs/user-guide.md`: "Choose a routing mode" (command, pane, what changes and when, pins).
-- [ ] W4. `docs/architecture.md` and `docs/native-router.md`: transform, pair-aware gate, route in use, records.
-- [ ] W5. Screenshots: `npm run docs:images` (`scripts/render-doc-images.mjs` draws the band and pane SVGs from the
+- [x] W3. `docs/user-guide.md`: "Choose a routing mode" (command, pane, what changes and when, pins).
+- [x] W4. `docs/architecture.md` and `docs/native-router.md`: transform, pair-aware gate, route in use, records.
+- [x] W5. Screenshots: `npm run docs:images` (`scripts/render-doc-images.mjs` draws the band and pane SVGs from the
   real render functions); add a cost-mode band sample and refresh `router-band.svg`, `router-pane-now.svg`,
   `router-pane-policy.svg`.
 
 ### Config and migration
 
-- [ ] M1. `router.json` without `mode` reads as `balanced`: no migration. `scripts/migrate-config.mjs` unchanged.
-- [ ] M2. `$.store`: new `routing-mode:<sessionId>`; `mode:<sessionId>` unchanged.
-- [ ] M3. Usage records: version 2 under the same `usage:v1:<sessionId>` keys, as 1.14.0 did for subagents
+- [x] M1. `router.json` without `mode` reads as `balanced`: no migration. `scripts/migrate-config.mjs` unchanged.
+- [x] M2. `$.store`: new `routing-mode:<sessionId>`; `mode:<sessionId>` unchanged.
+- [x] M3. Usage records: version 2 under the same `usage:v1:<sessionId>` keys, as 1.14.0 did for subagents
   (Q2). A 1.14 session reads a version 2 record as empty and never prunes it.
 - [ ] M4. User machine changes, **listed, not applied** (the manager applies after release with approval):
   - `~/.claude/router.json` (personal, subscription): add `"mode": "<choice>"`; `balanced` needs no key.
@@ -244,8 +244,8 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
 
 ### Release
 
-- [ ] R1. `CHANGELOG.md` 1.15.0 section with a migration note (usage record version 2; no config migration).
-- [ ] R2. Version 1.15.0 in `package.json` and `.claude-plugin/plugin.json` (Q4 decides where).
+- [x] R1. `CHANGELOG.md` section with a migration note (usage record version 2; no config migration), under `## Unreleased` until the release commit (Q4).
+- [ ] R2. Version 1.15.0 in `package.json` and `.claude-plugin/plugin.json`: a `router 1.15.0` commit on main after the merge (Q4, approved).
 - [ ] R3. PR from `feat/routing-modes`; stop before merge, tag or publish.
 
 ## 6. Risks
@@ -272,3 +272,18 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
 - **Q5.** D2's side effect on pane route edits (R3): accept (recommended, one rule for every pair change), or keep
   pane edits immediate.
 - **Q6.** Mode in usage cells without a new Usage view in 1.15 (recommended), or add a mode grouping to the Usage tab.
+
+## 8. Phase 2 notes (2026-10-21)
+
+- Decided by the manager: D1-D8 accepted; D4 as a same-tier stay on the transformed baseline; R1 documented as known
+  trade-offs; Q1-Q6 as recommended; Q4 follows the repo habit.
+- Deviations from §4: the decision log is a debug-log line (`$.ui.log(..., { to: 'debug' })`, which the engine
+  provides), not only the turn record; `loop.route` is also recorded on the decision (`decision.route`) for in-turn
+  moves. The band shows the mode at the lowest priority, so a narrow band drops it first.
+- Per-mode replay of the gateway trace (`trace-eval.mjs`, 37 replayable advised decisions, tier-level, next request
+  only, list prices). On the trace's own ladder (low = Sonnet at the session effort): cost differs in 5 decisions
+  (4 medium → the low route, 1 micro), quality in all 37 (a session-effort low route has no effort step, so quality
+  moves every low turn to the medium route, Opus · medium). Next-request estimate, warm-to-cold bounds: cost
+  $3.63-$8.83, balanced $5.83-$6.23, quality $5.83-$113.47. On the built-in routes: cost $0.88-$16.88, balanced
+  $3.49-$5.56, quality $3.59-$18.79. The upper bounds price every moved route as a cold write, since the trace never
+  ran it; the replay cannot price effort-dependent output. The live runs (L9, L10) give the measured numbers.
