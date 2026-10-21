@@ -20,9 +20,9 @@ const HIGH = advice('high', { high: 0.99, medium: 0.01 }, { continuation: 0.9 })
 const NEW_TASK = advice('high', { high: 0.99, medium: 0.01 });
 
 // One reply on the route the loop's decision chose, with `fresh` tokens past the cached prefix, which either route
-// writes to the cache.
-function reply(loop, at, fresh = 600) {
-  return observeResponse(base, loop, {
+// writes to the cache. `config` decides the cache keys the reply warms (per effort where effort splits the cache).
+function reply(loop, at, fresh = 600, config = base) {
+  return observeResponse(config, loop, {
     usage: {
       model: OPUS,
       input_tokens: fresh,
@@ -53,7 +53,7 @@ function onOpusXhigh(config = base) {
   let loop = { ...emptyLoop(config, OPUS), lastRoute: 'high' };
   loop = turn(config, loop);
   assert.deepEqual([loop.decision.model, loop.decision.effort], [OPUS, 'xhigh']);
-  for (let i = 0; i < 2; i += 1) loop = reply(loop, T0 + i);
+  for (let i = 0; i < 2; i += 1) loop = reply(loop, T0 + i, 600, config);
   return loop;
 }
 
@@ -106,14 +106,35 @@ test('where effort splits the cache, the switch tax holds the effort lever after
   let loop = onOpusXhigh(split);
   for (let i = 0; i < 8; i += 1) {
     loop = turn(inMode('cost', split), loop, { messages: VERIFIED, at: T0 + 10 + i });
-    loop = reply(loop, T0 + 10 + i);
+    loop = reply(loop, T0 + 10 + i, 600, split);
   }
+  assert.ok(
+    Object.keys(loop.models).some((key) => key.endsWith('@xhigh')),
+    'replies warm a per-effort cache key',
+  );
   assert.equal(ran_(loop), `${OPUS}@xhigh`);
   assert.equal(loop.decision.reason, 'activity-pending');
   assert.ok(loop.decision.estimate.taxUsd > 0);
 });
 
-test('a pin runs the configured route of its tier, not the mode route', () => {
+test('a cost switch to a model with no output price waits out the dwell on the same task', () => {
+  // Cost picks the tier below by input price; with no output price the pair does not order by strength.
+  const local = loadConfig({
+    userFile: {
+      models: {
+        local: { id: 'local-coder', input: 1, cacheRead: 0.1, contextWindow: 1_000_000, billing: 'plan', efforts: [] },
+      },
+      routes: { medium: { model: 'local' } },
+    },
+  });
+  const loop = turn(inMode('cost', local), onOpusXhigh(local), { at: T0 + 10 });
+  assert.deepEqual([ran_(loop), loop.decision.reason], [`${OPUS}@xhigh`, 'downgrade-held']);
+  const moved = turn(inMode('cost', local), onOpusXhigh(local), { answer: NEW_TASK, at: T0 + 10 });
+  assert.equal(moved.decision.model, 'local-coder');
+});
+
+// Pins bypass the mode in the hook, which routes a pinned turn on the configured routes (hook-modes.test.mjs).
+test('a pin runs the configured route of its tier and leaves the route in use alone', () => {
   const loop = turn(base, onOpusXhigh(), { pin: 'medium', at: T0 + 10 });
   assert.equal(ran_(loop), `${OPUS}@medium`);
   assert.deepEqual(loop.route, { model: 'opus', effort: 'xhigh' });
