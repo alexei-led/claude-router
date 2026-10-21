@@ -17,6 +17,10 @@ A routing mode trades cost against answer quality without new routes: `cost`, `b
 - The router keeps the route a turn ran instead of rebuilding it from `router.json`. A mode change, or a route edited mid-session, now reaches the request through the usual checks, not on the next request.
 - A cheaper route inside the same tier on the same task now waits for `minDwellRequests` and a passed check, as a move to a cheaper tier does.
 
+### Fixed
+
+- The switching cost of two routes that share a prompt cache (one model at two efforts, on an API key or a subscription) is now zero, as the configuration docs said. The estimate charged the new tokens of the next request as a switch cost, though either route writes them. A cheaper effort on the same model was therefore refused on any measured history. In `balanced` a tier switch between such routes, such as Opus at `medium` and at `xhigh`, now needs only the base support (`upgradeBase`, `downgradeMass`); before, the bar rose with that estimate, up to about 0.82 on a cold cache.
+
 ### Migration
 
 - `router.json` needs no change: without `mode` it runs `balanced`.

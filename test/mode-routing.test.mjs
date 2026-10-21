@@ -19,15 +19,16 @@ const VERIFIED = [user('Fix it.'), bash('v', 'npm test'), ran('v')];
 const HIGH = advice('high', { high: 0.99, medium: 0.01 }, { continuation: 0.9 });
 const NEW_TASK = advice('high', { high: 0.99, medium: 0.01 });
 
-// One reply on the route the loop's decision chose. No new tokens since the cached prefix: the switch tax is zero.
-function reply(loop, at) {
+// One reply on the route the loop's decision chose, with `fresh` tokens past the cached prefix, which either route
+// writes to the cache.
+function reply(loop, at, fresh = 600) {
   return observeResponse(base, loop, {
     usage: {
       model: OPUS,
-      input_tokens: 0,
+      input_tokens: fresh,
       cache_read_input_tokens: 50_000,
       cache_creation_input_tokens: 0,
-      output_tokens: 0,
+      output_tokens: 500,
     },
     requestedModel: loop.decision.model,
     effort: loop.decision.effort,
@@ -58,7 +59,12 @@ function onOpusXhigh(config = base) {
 
 const ran_ = (loop) => `${loop.decision.model}@${loop.decision.effort}`;
 
-test('a cost switch at high waits out the dwell on the same task, then stays on Opus/high', () => {
+for (const fresh of [600, 7000])
+  test(`a cost switch at high waits out the dwell on the same task, then stays on Opus/high (${fresh} new tokens)`, () => {
+    sameTierCostSwitch(fresh);
+  });
+
+function sameTierCostSwitch(fresh) {
   const cost = inMode('cost');
   let loop = onOpusXhigh();
   // The mode changed the preferred route; the route in use stays until the dwell (4 requests in cost) has passed
@@ -67,7 +73,7 @@ test('a cost switch at high waits out the dwell on the same task, then stays on 
     loop = turn(cost, loop, { messages: i === 0 ? VERIFIED : UNVERIFIED, at: T0 + 10 + i });
     assert.equal(ran_(loop), `${OPUS}@xhigh`, `request ${i}`);
     assert.equal(loop.decision.reason, 'downgrade-held');
-    loop = reply(loop, T0 + 10 + i);
+    loop = reply(loop, T0 + 10 + i, fresh);
   }
   loop = turn(cost, loop, { messages: VERIFIED, at: T0 + 20 });
   assert.equal(ran_(loop), `${OPUS}@high`);
@@ -75,11 +81,11 @@ test('a cost switch at high waits out the dwell on the same task, then stays on 
   assert.deepEqual(loop.route, { model: 'opus', effort: 'high' });
   // Later requests start from the configured route again, never from the one in use: no further step down.
   for (let i = 0; i < 6; i += 1) {
-    loop = reply(loop, T0 + 30 + i);
+    loop = reply(loop, T0 + 30 + i, fresh);
     loop = turn(cost, loop, { messages: VERIFIED, at: T0 + 30 + i });
     assert.equal(ran_(loop), `${OPUS}@high`, `request ${i}`);
   }
-});
+}
 
 test('a cost switch on a new task moves at once, as a tier downgrade would', () => {
   const loop = turn(inMode('cost'), onOpusXhigh(), { answer: NEW_TASK, at: T0 + 10 });
