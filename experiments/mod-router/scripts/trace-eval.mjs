@@ -5,8 +5,9 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { loadConfig, rank, resolveRoute, TIERS } from '../../../lib/config.mjs';
+import { loadConfig, ROUTING_MODES, rank, resolveRoute, TIERS } from '../../../lib/config.mjs';
 import * as nativeCosts from '../../../lib/cost.mjs';
+import { applyMode } from '../../../lib/modes.mjs';
 import { decide, fitTier, initialState } from '../../../lib/policy.mjs';
 import * as legacyCosts from '../lib/legacy-cost.mjs';
 
@@ -367,6 +368,7 @@ function compare(sim, config, row, legacy, now) {
     costs: [],
   };
   record.prefixSensitive = !sameOutcome(record.native.low, record.native.high);
+  record.modes = modeArms(config, row, arms, sim, now);
   if (Number.isFinite(legacy.estimate?.threshold)) {
     const estimates = [legacy, arms.low.outcome, arms.high.outcome].map((arm) => arm.estimate);
     record.thresholdStep = {
@@ -389,6 +391,67 @@ function compare(sim, config, row, legacy, now) {
     }
   }
   return record;
+}
+
+// Each routing mode's native decision on the same state and facts, as a session that has run in that mode: its
+// incumbent is on the mode's route. Tier-level only: the trace has no activities and no route in use, so a move
+// inside a tier (an activity move, or a mode change on a running session) is not replayed. The state chain is the
+// shared legacy one, not re-run per mode. The next request is priced on the chosen route at both prefix bounds.
+function modeArms(config, row, arms, sim, now) {
+  return Object.fromEntries(
+    ROUTING_MODES.map((mode) => {
+      const modeConfig = applyMode(config, { mode, source: 'replay' });
+      const [low, high] = ['low', 'high'].map((bound) =>
+        run(modeConfig, arms[bound].facts, row.advice, sim.state, now, nativeCosts),
+      );
+      const route = resolveRoute(modeConfig, low.tier);
+      const spec = modeConfig.models[route.model];
+      const bounds = (bound) => {
+        const facts = arms[bound].facts;
+        const tokens = nativeCosts.nextContextTokens(facts);
+        const output = (nativeCosts.ratesAt(spec, tokens).output * (sim.lastRequest?.outputTokens ?? 0)) / 1e6;
+        const input = nativeCosts.inputBounds(modeConfig, route, tokens, facts, now);
+        return { min: input.min + output, max: input.max + output };
+      };
+      return [
+        mode,
+        {
+          tier: low.tier,
+          prefixSensitive: low.tier !== high.tier,
+          route: `${spec.id}@${nativeCosts.routeEffort(modeConfig, route, sim.userEffort) ?? 'session'}`,
+          minUsd: bounds('low').min,
+          maxUsd: bounds('high').max,
+        },
+      ];
+    }),
+  );
+}
+
+// The modes over the replayed decisions: tiers, routes, the next request's estimated cost, and how many decisions
+// route differently from balanced.
+export function summarizeModes(records) {
+  return Object.fromEntries(
+    ROUTING_MODES.map((mode) => {
+      const arms = records.map((r) => r.modes[mode]);
+      const tiers = {};
+      const routes = {};
+      for (const arm of arms) {
+        bump(tiers, arm.tier);
+        bump(routes, arm.route);
+      }
+      return [
+        mode,
+        {
+          decisions: arms.length,
+          prefixSensitive: arms.filter((arm) => arm.prefixSensitive).length,
+          tiers,
+          routes,
+          nextRequestUsd: { min: round(sum(arms, 'minUsd')), max: round(sum(arms, 'maxUsd')) },
+          routeDiffersFromBalanced: records.filter((r) => r.modes[mode].route !== r.modes.balanced.route).length,
+        },
+      ];
+    }),
+  );
 }
 
 export function summarizeReplay(results, advisedMain) {
@@ -473,6 +536,10 @@ export function summarizeReplay(results, advisedMain) {
         records.filter((r) => r.incumbentFreshAtBound.high).length,
         records.length,
       ),
+    },
+    modes: {
+      note: 'native decision per routing mode on the shared state chain; tier-level, no activities, no same-tier moves; next-request list-price estimate summed over decisions, at the low and high prefix bounds',
+      ...summarizeModes(records),
     },
     legacyParity: {
       note: 'legacy replay against recorded tier+reason on all replayable main/subagent/workflow turn decisions',

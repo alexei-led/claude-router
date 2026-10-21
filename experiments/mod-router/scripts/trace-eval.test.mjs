@@ -143,6 +143,18 @@ test('summary counts differing decisions, gate reason changes and cost ranges', 
   assert.equal(summary.thresholdStepReached.decisions, 2);
 });
 
+test('each routing mode decides the replayed turns on the same state and prices the next request', () => {
+  const { modes } = summarizeReplay([replaySession(upgradeSession(), TRACE_LADDER)], 2);
+  // The trace's low route takes the session effort: cost has no step there, so it routes as balanced.
+  assert.deepEqual([modes.cost.tiers, modes.cost.routes], [{ low: 2 }, { 'claude-sonnet-5-5@high': 2 }]);
+  assert.deepEqual(modes.cost.nextRequestUsd, modes.balanced.nextRequestUsd);
+  assert.equal(modes.cost.routeDiffersFromBalanced, 0);
+  // Quality's lower upgrade bar takes the 0.83 vote; high runs one effort level more.
+  assert.deepEqual([modes.quality.tiers, modes.quality.routes], [{ high: 2 }, { 'claude-opus-5-5@max': 2 }]);
+  assert.equal(modes.quality.routeDiffersFromBalanced, 2);
+  assert.ok(modes.quality.nextRequestUsd.max > modes.balanced.nextRequestUsd.max);
+});
+
 test('advised decisions without a prior observation are skipped, not replayed', () => {
   const rows = [decision(0, { reason: 'upgrade-pending', advice: advice(0.83), model: 'claude-sonnet-5-5' })];
   const result = replaySession(rows, TRACE_LADDER);
