@@ -5,6 +5,12 @@ declare module 'claude-code' {
   type RouterActivity = 'code' | 'debug' | 'explore' | 'plan' | 'review' | 'ops' | 'docs';
   type RouterActivityAnswer = RouterActivity | 'uncertain';
   type RouterActivityMode = 'off' | 'on';
+  // The routing mode (lib/modes.mjs) and where it comes from, strongest first.
+  type RouterRoutingModeName = 'cost' | 'balanced' | 'quality';
+  interface RouterRoutingMode {
+    mode: RouterRoutingModeName;
+    source: 'session' | 'project' | 'profile' | 'default';
+  }
   // A finished turn's bucket, read from its tool calls.
   type RouterObserved = 'code' | 'docs' | 'ops' | 'read' | 'talk';
   // A route change inside the incumbent's tier: taken, refused (does not pay back, a hold, the cash gate), or none.
@@ -152,6 +158,7 @@ declare module 'claude-code' {
     undated?: RouterSubagentDay;
   }
   // One local calendar day of routed replies (lib/usage.mjs). `cells` by 'activity|tier|modelId@effort' hold, in order,
+  // Cells are keyed 'mode|activity|tier|id@effort' (version 1: 'activity|tier|id@effort', read as balanced). Sums:
   // replies, routedUsd, yoursUsd, cheaperUsd, strongerUsd, switchUsd, inputTokens, cacheReadTokens, outputTokens.
   // `whatIf` is [replies, USD] of the same tokens on each model id as yours; `yours` replies by your model's id;
   // `hours` routed USD by local hour; `turns` and `switches` count turns on the day they ended.
@@ -166,7 +173,7 @@ declare module 'claude-code' {
   // Kept across sessions, one per session under store key 'usage:v1:<session id>' or their sum in the view, by day
   // ('2026-10-13'), since its first turn written after the last reset (ms).
   interface RouterUsageStore {
-    version: 1;
+    version: 1 | 2;
     since: number | null;
     days: Record<string, RouterUsageDay>;
   }
@@ -174,6 +181,10 @@ declare module 'claude-code' {
   interface RouterView {
     phase: 'ready' | 'choosing' | 'routed' | 'manual' | 'unavailable';
     mode: 'auto' | 'manual';
+    // The routing mode the next turn starts with; absent in views saved before 1.15.
+    routingMode?: RouterRoutingMode;
+    // Why the project's .claude/router.json was ignored, or null.
+    projectError?: string | null;
     nativeModel: string;
     // The effort Claude Code sent on the turn's first request, before routing.
     nativeEffort?: string | number | null;
@@ -260,6 +271,8 @@ declare module 'claude-code' {
     lastRoute: RouterTier;
     // The activity of the route running now; absent in loops saved before 1.6.
     lastActivity?: RouterActivity | null;
+    // The route (models key, effort) the last routed decision ran for lastRoute; absent in loops saved before 1.15.
+    route?: RouterRoute | null;
     state: RouterPolicyState;
     models: Record<string, { lastAt: number; prefixTokens: number }>;
     resolutions: Record<string, string>;
