@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { loadConfig } from '../lib/config.mjs';
 import { applyMode } from '../lib/modes.mjs';
-import { chooseRoute, emptyLoop, nativeFacts, observeResponse } from '../lib/route.mjs';
+import { chooseRoute, continueRoute, emptyLoop, nativeFacts, observeResponse } from '../lib/route.mjs';
 import { advice, user } from './helpers.mjs';
 
 const OPUS = 'claude-opus-5-5';
@@ -117,4 +117,75 @@ test('balanced keeps running the route in use when the configured route changes,
   const edited = loadConfig({ userFile: { routes: { high: { model: 'opus', effort: 'high' } } } });
   const loop = turn(edited, onOpusXhigh(), { at: T0 + 10 });
   assert.deepEqual([ran_(loop), loop.decision.reason], [`${OPUS}@xhigh`, 'downgrade-held']);
+});
+
+const SONNET = 'claude-sonnet-5-5';
+const withActivity = (tier, activity, p, continuation = 0) => ({
+  ...advice(tier, { [tier]: 0.99, uncertain: 0.01 }, { continuation }),
+  activity: { choice: activity, probabilities: { [activity]: p, explore: 1 - p } },
+});
+
+// A session that ran a coding turn at low in cost mode: Sonnet at medium.
+function codingInCost() {
+  const cost = inMode('cost');
+  let loop = turn(
+    cost,
+    { ...emptyLoop(cost, SONNET), lastRoute: 'low' },
+    { answer: withActivity('low', 'code', 0.95) },
+  );
+  assert.equal(ran_(loop), `${SONNET}@medium`);
+  loop = reply(loop, T0);
+  return loop;
+}
+
+test('back to balanced, the incumbent cell takes its configured route without a strong label', () => {
+  const loop = turn(base, codingInCost(), { answer: withActivity('low', 'code', 0.7), at: T0 + 10 });
+  assert.equal(ran_(loop), `${SONNET}@high`);
+  assert.equal(loop.decision.reason, 'activity-up');
+});
+
+test('turning activity routing off drops the route the activity ran, at once', () => {
+  const on = turn(
+    base,
+    { ...emptyLoop(base, SONNET), lastRoute: 'low' },
+    { answer: withActivity('low', 'code', 0.95) },
+  );
+  const off = loadConfig({ userFile: { activityRouting: 'off' } });
+  const loop = turn(off, reply(on, T0), { answer: advice('low', { low: 0.99 }, { continuation: 0.9 }), at: T0 + 10 });
+  assert.equal(ran_(loop), 'claude-haiku-5-5@high');
+});
+
+test('a route in use that can no longer run falls back to its cell’s configured route', () => {
+  const loop = onOpusXhigh();
+  const facts = nativeFacts(base, loop, {
+    messages: UNVERIFIED,
+    prompt: 'Fix it.',
+    effort: 'high',
+    turnId: 'tx',
+    contextTokens: 0,
+  });
+  const edited = loadConfig({ userFile: { routes: { high: { model: 'sonnet', effort: 'high' } } } });
+  const next = chooseRoute(edited, loop, {
+    facts,
+    advice: HIGH,
+    pin: null,
+    nativeModel: OPUS,
+    contextKnown: true,
+    availableModels: ['sonnet', 'haiku'],
+    now: T0 + 10,
+  });
+  assert.equal(ran_(next), `${SONNET}@high`);
+});
+
+test('a fit to another tier inside a turn leaves the route in use of the turn’s tier', () => {
+  const loop = onOpusXhigh();
+  const small = loadConfig({ userFile: { models: { opus: { contextWindow: 100_000 } } } });
+  const next = continueRoute(small, loop, {
+    nativeModel: OPUS,
+    contextTokens: 900_000,
+    contextKnown: true,
+    effort: 'high',
+  });
+  assert.equal(next.decision.reason, 'context-fit');
+  assert.deepEqual(next.route, loop.route);
 });

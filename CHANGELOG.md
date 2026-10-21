@@ -20,7 +20,8 @@ A routing mode trades cost against answer quality without new routes: `cost`, `b
 ### Migration
 
 - `router.json` needs no change: without `mode` it runs `balanced`.
-- Usage records are version 2 under the same `usage:v1:<session id>` keys, with the mode in each cell. Records from before read as `balanced`. A session of an older version reads a version 2 record as empty and never deletes it.
+- Usage records are version 2 under the same `usage:v1:<session id>` keys, with the mode in each cell. Records from before read as `balanced`. A session of an older version reads a version 2 record as empty and never deletes it. Going back to 1.14 and resuming a session that 1.15 recorded replaces that session's record with a new one: its 1.15 days are lost.
+- A project's `.claude/router.json` can choose the mode for anyone who runs Claude Code there, with no trust prompt. It cannot change routes, models or the classifier; keep it out of a repo you share if the choice is yours alone.
 
 ## 1.14.0 (2026-10-14)
 

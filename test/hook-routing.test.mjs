@@ -1649,7 +1649,7 @@ test('another session’s usage with no day left in the kept window is deleted w
     switches: { tier: 0, activity: 0 },
   };
   const old = { version: 1, since: 1, days: { '2025-01-02': day } };
-  const later = { version: 2, days: 'kept as written' };
+  const later = { version: 3, days: 'kept as written' };
   const widerDay = {
     version: 1,
     since: 1,

@@ -360,18 +360,24 @@ async function setRoutingMode($, router, value) {
   router.routingModes.set(sessionId, value === 'default' ? null : value);
   const routingMode = await routingModeOf($, router);
   await updateView($, router, { routingMode });
-  return [
-    `Routing mode: ${modeLabel(routingMode)}, from the next turn.`,
-    ...(saved ? [] : ['A resume of this session will not keep it: the preference could not be saved.']),
-  ].join(' ');
+  const unsaved =
+    value === 'default'
+      ? 'A resume of this session may bring the cleared mode back: the store could not be written.'
+      : 'A resume of this session will not keep it: the store could not be written.';
+  return [`Routing mode: ${modeLabel(routingMode)}, from the next turn.`, ...(saved ? [] : [unsaved])].join(' ');
 }
 
-// A project's `.claude/router.json`, which may set only `mode`. Not the profile's own file, when Claude Code runs in
-// the profile's parent directory. A file that does not read is ignored, with the reason for the pane.
+// A project's `.claude/router.json`, which may set only `mode`. Never a profile's own file: not the active profile's,
+// and not in the home directory, whose `.claude` is the default profile. A repo controls this file, so a symlink, which
+// could reach a file outside it, is refused as the profile's is. A file that does not read is ignored, with the reason
+// for the pane.
 async function readProject($, profilePath) {
   try {
-    const path = `${await $.session.cwd()}/.claude/router.json`;
-    if (path === profilePath || !(await $.fs.exists(path))) return { mode: null, error: null };
+    const cwd = await $.session.cwd();
+    const path = `${cwd}/.claude/router.json`;
+    const home = await $.env.get('HOME');
+    if (path === profilePath || cwd === home || !(await $.fs.exists(path))) return { mode: null, error: null };
+    if ((await $.fs.stat(path)).isLink) return { mode: null, error: 'project .claude/router.json is a symlink' };
     return readProjectMode(await $.fs.read(path));
   } catch {
     return { mode: null, error: 'project .claude/router.json could not be read' };
@@ -784,7 +790,8 @@ async function decideTurn($, router, e, signal, step) {
     if (controller.signal.aborted || (await $.session.id()) !== sessionId || (await modeOf($, router)) !== 'auto')
       return null;
     const previous = loop.decision;
-    if (pin) router.turnConfigs.set(e.turnId, { config: cfg, configured: cfg });
+    if (pin)
+      router.turnConfigs.set(e.turnId, { config: { ...cfg, routingMode: step.cfg.routingMode }, configured: cfg });
     const selected = chooseRoute(cfg, loop, {
       facts,
       advice: result.advice,
@@ -823,8 +830,9 @@ async function decideTurn($, router, e, signal, step) {
       escalated: Boolean(selected.decision.escalated),
       pinned: selected.decision.pinned,
       route: `${selected.decision.model}@${selected.decision.effort ?? 'session'}`,
-      routingMode: routingMode.mode,
-      modeSource: routingMode.source,
+      // A pinned turn ran the configured routes, which balanced runs: its replies count there.
+      routingMode: pin ? DEFAULTS.mode : routingMode.mode,
+      modeSource: pin ? 'pin' : routingMode.source,
       classifier: cfg.classifier,
       offSwitches: router.offSwitches,
       adviceMs,

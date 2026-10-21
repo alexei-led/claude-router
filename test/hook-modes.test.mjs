@@ -164,3 +164,45 @@ test('the usage record keeps each reply under the mode it ran in', async () => {
   assert.equal(record.version, 2);
   assert.deepEqual(Object.keys(Object.values(record.days)[0].cells), ['cost|none|high|claude-opus-5-5@high']);
 });
+
+test('a pinned turn’s replies count under balanced, the routes it ran', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ mode: 'cost' }));
+  await start(h);
+  await command(h, 'pin high');
+  await drain(h.step(step));
+  await h.event('turn.complete', { turnId: 't1' });
+  const record = h.preferences.get('usage:v1:s1');
+  assert.deepEqual(Object.keys(Object.values(record.days)[0].cells), ['balanced|none|high|claude-opus-5-5@xhigh']);
+});
+
+test('a store that cannot be written keeps the mode for this process and says what a resume does', async () => {
+  const h = harness(JEV_KEY);
+  await start(h);
+  h.$.store.set = async () => {
+    throw new Error('store down');
+  };
+  h.$.store.delete = h.$.store.set;
+  assert.equal(
+    await command(h, 'mode cost'),
+    'Routing mode: cost (session), from the next turn. A resume of this session will not keep it: the store could not be written.',
+  );
+  assert.equal(
+    await command(h, 'mode default'),
+    'Routing mode: balanced (default), from the next turn. A resume of this session may bring the cleared mode back: the store could not be written.',
+  );
+});
+
+test('a symlinked project file is refused, and the home directory has no project file', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(PROJECT, JSON.stringify({ mode: 'cost' }));
+  h.links.add(PROJECT);
+  await start(h);
+  assert.deepEqual(h.view().routingMode, { mode: 'balanced', source: 'default' });
+  assert.equal(h.view().projectError, 'project .claude/router.json is a symlink');
+  const home = harness(JEV_KEY);
+  home.env.set('HOME', '/fixture/project');
+  home.files.set(PROJECT, JSON.stringify({ routes: {} }));
+  await start(home);
+  assert.equal(home.view().projectError, null);
+});
