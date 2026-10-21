@@ -244,6 +244,20 @@ const states = [
     },
     false,
   ],
+  [
+    'Cost mode for this session: high runs Opus at high instead of xhigh',
+    {
+      ...base,
+      tier: 'high',
+      selectedModel: 'claude-opus-5-5',
+      actualModel: 'claude-opus-5-5',
+      effort: 'high',
+      reason: 'same-tier',
+      estimate: null,
+      routingMode: { mode: 'cost', source: 'session' },
+    },
+    false,
+  ],
 ];
 let y = 30;
 const parts = [];
@@ -261,7 +275,7 @@ writeFileSync(
   `${OUT}/router-band.svg`,
   svg({
     title: 'The Router band above the Claude Code prompt',
-    desc: 'Six band states drawn by the router code: routed to high, two rows with the hover row, a pending pin, a missing classifier key, routing off, and an activity move with activity routing on.',
+    desc: 'Seven band states drawn by the router code: routed to high, two rows with the hover row, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode set for the session.',
     body: parts.join('\n'),
     w: Math.ceil(COLUMNS * CW + 48),
     h: y - 14,

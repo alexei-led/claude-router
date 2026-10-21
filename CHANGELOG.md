@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+A routing mode trades cost against answer quality without new routes: `cost`, `balanced` (the default, unchanged) or `quality`. See [Routing modes](docs/routing-modes.md).
+
+### Added
+
+- `cost` takes the route of the tier below when its model has a lower input price, else one effort level less; `quality` one effort level more, else the route of the tier above. `micro` turns and pins keep the configured route. `docs/routing-modes.md` lists the route of every classifier tier and activity in each mode.
+- Choose the mode for this session with `/router mode cost|balanced|quality` (`/router mode default` clears it; a resume keeps it), for a project with `{ "mode": "cost" }` in `.claude/router.json`, or for the profile with `"mode"` in `router.json` or **Mode** on the Policy tab. A project file with any other key is ignored with a notice.
+- `modes.cost.policy` and `modes.quality.policy` replace those `policy` fields while that mode is active. The built-in values are not tuned on this router.
+- The band, the Now tab and `/router` show the mode and its source, such as `cost (session)`; the prompt footer names a mode other than balanced.
+- Each routing decision writes one `router decision` line to Claude Code's debug log: mode, source, the classifier's tier, the tier and reason chosen, and the route.
+
+### Changed
+
+- The router keeps the route a turn ran instead of rebuilding it from `router.json`. A mode change, or a route edited mid-session, now reaches the request through the usual checks, not on the next request.
+- A cheaper route inside the same tier on the same task now waits for `minDwellRequests` and a passed check, as a move to a cheaper tier does.
+
+### Migration
+
+- `router.json` needs no change: without `mode` it runs `balanced`.
+- Usage records are version 2 under the same `usage:v1:<session id>` keys, with the mode in each cell. Records from before read as `balanced`. A session of an older version reads a version 2 record as empty and never deletes it.
+
 ## 1.14.0 (2026-10-14)
 
 Subagents now show which model each agent ran on, who picked it, and for which period. See [Understand usage and estimates](docs/user-guide.md#understand-usage-and-estimates).

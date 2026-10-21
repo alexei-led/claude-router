@@ -100,6 +100,16 @@ The router decides on a _cell_: a tier and an activity. The route is `{ ...route
 
 At session start the incumbent is the session's model. `cellForModel` looks for it in the base routes, baseline first, and only with `activityRouting: on` in the activity overrides too, so a session that starts on an override route keeps its cell until the classifier says otherwise. The start mode uses the same lookup: with `on`, a start model that only an override uses (Sonnet 5.5 on the defaults) starts with routing on.
 
+## Routing modes
+
+The routing mode (`lib/modes.mjs`) is a fixed transform of the configured routes, applied before policy. At `turn.start` the hook resolves the mode (session override in `$.store` `routing-mode:<session id>`, then the project's `.claude/router.json`, then `mode` in the profile `router.json`, then `balanced`) and stores `applyMode(router.config, mode)` as the turn's config: every tier's and activity's route as `modeRoute` gives it, and `modes[mode].policy` over `policy`. Every later read of the turn (policy, escalation, cache keys, activity order, the request) uses that one table. `modeRoute` always starts from the configured routes, so a turn never steps from a route a mode already moved. `cost` takes the route of the tier below (never below `low`) when its model has a lower input price, else one listed effort level less; `quality` one listed effort level more, else the tier above's route. `micro` and pins keep the configured route.
+
+**Route in use.** The loop keeps the route the last decision ran (`loop.route`, models key and effort) instead of rebuilding it from config. The incumbent's price, cache key and order come from it, and a decision that stays on the incumbent's cell keeps running it. So a mode change, or a route edit, reaches the request only through a gate: a tier switch, a taken lateral move, or a pin. A loop saved before 1.15 has no `loop.route` and rebuilds it once.
+
+**Same-tier gate.** A mode can change the route without changing the tier or the activity. `lateralMove` therefore holds a cheaper route on the same task with `downgrade-held` until `facts.downAllowed` (dwell and a passed check), as a tier downgrade does, and the downgrade tax must still be paid back.
+
+Each decision writes `router decision {mode, modeSource, classified, tier, reason, route, pinned}` to the debug log (`$.ui.log`, `to: 'debug'`), with no prompt text, and the turn record, view and usage cells carry the mode. `experiments/mod-router/scripts/trace-eval.mjs` replays the gateway trace once per mode at tier level; it cannot replay moves inside a tier.
+
 ## State and controls
 
 `$.state` stores route decisions, response observations, and UI state for the active session. Version-checked writes reject stale turn results. A private in-memory view merges state writes during one dispatch because state reads are frozen for that dispatch.
