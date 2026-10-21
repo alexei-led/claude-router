@@ -70,6 +70,15 @@ Every file:line claim in the design and in the repo brief, checked on `origin/ma
 - **D8. Status text reads routes from the base config** (`display.mjs:197, 214`, `panel.mjs:283`). Under a mode it
   would name the wrong route. These read the effective table.
 
+- **D9 (found in Phase 2, open).** The lateral down rule refuses any move whose downgrade tax is above zero
+  (`activity.mjs:70-72`). For a same-model effort drop on a shared cache the tax is the gap between the candidate's
+  worst case and the incumbent's best case for the new tokens (`cost.mjs:85-90`): $0.0044 for Opus/xhigh → Opus/high
+  with 600 new tokens, $0.028 with 7,000. It is zero only with no new tokens since the last request. So on a measured
+  history the cost effort lever (high, and low) never fires; only the first reply of a history or a model-lever move
+  can. Both routes write the same new tokens, so this "tax" is not a cost. Proposed fix: `switchingTaxUsd` returns 0
+  when both routes have the same cache key (`routeCacheKey`). It also lowers the bar slightly for balanced tier
+  switches between routes that share a cache (Opus/medium ↔ Opus/xhigh, Haiku micro ↔ low). Waiting for the manager.
+
 ## 3. Expected transform with the built-in defaults
 
 `P` = base pair for tier and activity. O = Opus, S = Sonnet, H = Haiku.
@@ -123,22 +132,22 @@ on FrontierCode while costing more. They follow from the fixed rules; reported a
 
 ### Code
 
-- [ ] C1. `lib/config.mjs`: `ROUTING_MODES = ['cost', 'balanced', 'quality']`; `DEFAULTS.mode = 'balanced'`;
+- [x] C1. `lib/config.mjs`: `ROUTING_MODES = ['cost', 'balanced', 'quality']`; `DEFAULTS.mode = 'balanced'`;
   `DEFAULTS.modes` with the design §5 policy patches; `checkShape` for `mode` and `modes` (`modes` keys `cost` and
   `quality` only, each only `policy`, policy keys only from `DEFAULTS.policy`); `validate`: enum check, and every
   effective policy (`base`, `base + modes.cost`, `base + modes.quality`) passes the existing policy checks, moved into
   `validatePolicy(p, at)`.
-- [ ] C2. `lib/modes.mjs`: `projectEffort`, `modeRoute`, `applyMode`, `resolveRoutingMode({ session, project,
+- [x] C2. `lib/modes.mjs`: `projectEffort`, `modeRoute`, `applyMode`, `resolveRoutingMode({ session, project,
   profile })` returning `{ mode, source }`.
-- [ ] C3. `lib/route.mjs`: `loop.route` written by `chooseRoute`, `observedMove` and `continueRoute`; `routeTurn`
+- [x] C3. `lib/route.mjs`: `loop.route` written by `chooseRoute`, `observedMove` and `continueRoute`; `routeTurn`
   uses it for the incumbent when its model is still in `config.models`, else today's rebuild.
-- [ ] C4. `lib/activity.mjs`: `lateralMove` takes `sameTask`; a down move on the same task without
+- [x] C4. `lib/activity.mjs`: `lateralMove` takes `sameTask`; a down move on the same task without
   `facts.downAllowed` stays (`downgrade-held`). `decideCell` passes `sameTaskOf(config, advice, facts)`.
-- [ ] C5. `hooks/native-router.mjs`: read the project file in `loadNativeConfig` (returns `projectMode` and a
+- [x] C5. `hooks/native-router.mjs`: read the project file in `loadNativeConfig` (returns `projectMode` and a
   `projectError`); `routingModeOf($, router)` and `rememberRoutingMode`; `turn.start` stores the effective config;
   a pinned turn routes on the base config.
-- [ ] C6. `/router mode …` in `routerCommand`, the command description and `argumentHint`.
-- [ ] C7. Turn record and view: `routingMode`, `modeSource` next to `tier` and `route` (`:713-756`); `detailText`
+- [x] C6. `/router mode …` in `routerCommand`, the command description and `argumentHint`.
+- [x] C7. Turn record and view: `routingMode`, `modeSource` next to `tier` and `route` (`:713-756`); `detailText`
   line `Mode: cost (session)`.
 - [ ] C8. `lib/display.mjs`, `lib/panel.mjs`, `lib/band.mjs`: route texts read the effective table (D8); mode and
   source in the band, the Now tab and the footer; Policy tab mode control with `withMode(file, mode)` in
@@ -151,29 +160,37 @@ on FrontierCode while costing more. They follow from the fixed rules; reported a
 
 ### Tests
 
-- [ ] T1. `test/modes.test.mjs`, table-driven: mode × tier × activity × supported efforts → pair. Covers §3 with the
+- [x] T1. `test/modes.test.mjs`, table-driven: mode × tier × activity × supported efforts → pair. Covers §3 with the
   defaults, plus: effort null (no effort lever; quality falls to `P(T+1)`); a model with `efforts: []`; sparse efforts
   (`['low', 'high']`: cost from high stays, quality from low goes to high); effort at `max` (quality model lever, high
   stays); cost never yields micro; cost model lever only when the input price is lower (equal price → effort lever).
-- [ ] T2. `applyMode` is idempotent from the base: applying to the base twice gives the same table; the table never
+- [x] T2. `applyMode` is idempotent from the base: applying to the base twice gives the same table; the table never
   derives from an effective config (repeated decisions on Opus/high stay on Opus/high).
-- [ ] T3. Precedence: session > project > profile > default; `default` clears the session key; each source shown.
-- [ ] T4. Config validation errors: bad `mode`, unknown `modes` key, `modes.balanced`, unknown policy key in a patch,
+- [x] T3. Precedence: session > project > profile > default; `default` clears the session key; each source shown.
+- [x] T4. Config validation errors: bad `mode`, unknown `modes` key, `modes.balanced`, unknown policy key in a patch,
   a patch value that fails policy checks (e.g. `minDwellRequests: -1`), project file with another key, bad JSON.
-- [ ] T5. **Key regression** (`test/route.test.mjs`): incumbent Opus/xhigh at high, switch to cost, shared cache and
+- [x] T5. **Key regression** (`test/route.test.mjs`): incumbent Opus/xhigh at high, switch to cost, shared cache and
   zero switch tax, continuation turn: stays until dwell and a passed verification; then moves to Opus/high; later
   requests stay on Opus/high.
-- [ ] T6. Same-tier mode switch on a new task (not a continuation) moves at once, as a tier downgrade would.
-- [ ] T7. `effortSplitsCache: true`: the effort lever is priced as a cold write; the tax can hold the incumbent; no
+- [x] T6. Same-tier mode switch on a new task (not a continuation) moves at once, as a tier downgrade would.
+- [x] T7. `effortSplitsCache: true`: the effort lever is priced as a cold write; the tax can hold the incumbent; no
   effort fallback.
-- [ ] T8. Pin under cost mode runs the base route; routing off ignores the mode.
-- [ ] T9. Hook tests (`test/hook-routing.test.mjs`): `/router mode cost` does not abort an in-flight turn and applies
+- [x] T8. Pin under cost mode runs the base route; routing off ignores the mode.
+- [x] T9. Hook tests (`test/hook-routing.test.mjs`): `/router mode cost` does not abort an in-flight turn and applies
   next turn; resume (same session id) keeps it; a new session id does not; project file read from
   `/fixture/project/.claude/router.json`; invalid project file is ignored with a notice.
 - [ ] T10. Usage: version 1 record reads as `balanced` cells; version 2 round trip; merge of mixed versions;
   `prunedUsage` still never deletes a record it cannot read.
 - [ ] T11. Golden decisions (`test/decision-golden.test.mjs`) unchanged in balanced.
 - [ ] T12. Pane: Policy mode control writes `mode`, Undo restores; override note.
+- [ ] T13. Golden decision matrix (added by the manager, 2026-10-21): every classifier tier (micro, low, medium,
+  high, uncertain) × every activity (code, debug, explore, plan, review, ops, docs, uncertain) × every mode, on the
+  default config and one user-like profile (the user's `routes.high` = Opus/high). Exact pair per cell, through
+  `chooseRoute` on a fresh history. Invariants: micro equal in all modes; balanced equals the 1.14 routing; cost never
+  above and quality never below balanced by input price, then effort; cost never below `low` and never without an
+  effort at `low` or above; pins bypass. A minimum count of cells that differ between modes. The matrix is written as
+  a Markdown table into `docs/routing-modes.md` from the test data (`npm run docs:modes`), and a test fails when the
+  file is stale.
 
 ### Docs
 
@@ -216,6 +233,13 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
 - [ ] L5. `/router pin high` in cost mode runs Opus/xhigh (base).
 - [ ] L6. Records: the store's usage record holds `cost|…` cells; the view carries `routingMode` and `modeSource`.
 - [ ] L7. Doc screenshots from `npm run docs:images` checked against the live band.
+- [ ] L9. Live classifier run (added by the manager): a fixed set of ~20 prompts over the tier × activity cells
+  that can be triggered, through the real Jev classifier; record the classified tier and activity and the routed
+  pair under each mode. Classification mismatches are reported apart from routing bugs.
+- [ ] L10. Impact: on the same prompt set, and a per-mode replay with `trace-eval.mjs` (tier-level; it cannot replay
+  same-tier moves), estimated cost per mode and the model and effort mix. Then one representative multi-turn task per
+  mode in an isolated agterm session: models used, switches, tokens and cost. A mode without a real difference
+  somewhere is a finding.
 - [ ] L8. Close test sessions; remove the scratch copy and the isolated config dir.
 
 ### Release
