@@ -1106,6 +1106,7 @@ async function addSavings($, router, { turnId, compared, tier, route, yours, byI
       const turn = router.turnActivities.get(turnId);
       const entry = replyEntry({
         at,
+        mode: turn?.routingMode ?? view.routingMode?.mode ?? DEFAULTS.mode,
         activity: tier ? (turn?.label ?? null) : null,
         tier,
         route,

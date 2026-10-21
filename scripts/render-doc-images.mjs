@@ -367,6 +367,7 @@ function kindEntry(kind, when) {
   const [activity, tier, route, prices] = KINDS[kind];
   const replies = { 'claude-haiku-5-5': 0.2, 'claude-sonnet-5-5': 0.6, 'claude-opus-5-5': 1 };
   return replyEntry({
+    mode: 'balanced',
     at: when,
     activity,
     tier,

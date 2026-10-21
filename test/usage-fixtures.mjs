@@ -37,6 +37,7 @@ const KINDS = {
 export const reply = (when, kind) => {
   const { activity, tier, route, ...prices } = KINDS[kind];
   return replyEntry({
+    mode: 'balanced',
     at: when,
     activity,
     tier,
