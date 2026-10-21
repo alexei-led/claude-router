@@ -233,7 +233,7 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
 - [ ] L5. `/router pin high` in cost mode runs Opus/xhigh (base).
 - [ ] L6. Records: the store's usage record holds `cost|…` cells; the view carries `routingMode` and `modeSource`.
 - [ ] L7. Doc screenshots from `npm run docs:images` checked against the live band.
-- [ ] L9. Live classifier run (added by the manager): a fixed set of ~20 prompts over the tier × activity cells
+- [x] L9. Live classifier run (added by the manager): a fixed set of ~20 prompts over the tier × activity cells
   that can be triggered, through the real Jev classifier; record the classified tier and activity and the routed
   pair under each mode. Classification mismatches are reported apart from routing bugs.
 - [ ] L10. Impact: on the same prompt set, and a per-mode replay with `trace-eval.mjs` (tier-level; it cannot replay
@@ -301,3 +301,13 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
   tokens; the split-cache test still holds the move by the tax. Golden decisions: 141 estimates changed (tax 0, the
   bar at its base), no tier, reason, model or effort changed. The decision matrix is unchanged.
 - Phase 3 started.
+- L9 (`scripts/probe-modes.mjs jev`, `experiments/mod-router/results/mode-probe-jev.json`): 20/20 answered; tier as
+  expected 13/20 (a first run gave 12), activity 19/20. Mismatches are classification only: Jev rates several low
+  prompts micro or medium, and medium ones high or low; the GitHub Actions prompt read as code. Routing violations: 0.
+  Policy moved the tier in 2 prompts under cost (micro at 0.89 clears cost's `downgradeMass` 0.8; a medium at 0.76
+  stays low under cost's `upgradeBase` 0.85), as designed. Nominal turn (50k input, 2k output, list prices), built-in
+  routes: cost $2.442, balanced $2.916, quality $2.916, 19 of 20 routes differ from balanced in each mode. Finding:
+  quality's changes are effort only, and list prices do not depend on effort, so its price per turn equals balanced;
+  its real cost is the longer thinking and output, which only the live runs measure. Same numbers on the Opus-high
+  profile.
+- Live agterm runs wait for a login of the isolated profile (`CLAUDE_CONFIG_DIR=<scratchpad>/live/config`).
