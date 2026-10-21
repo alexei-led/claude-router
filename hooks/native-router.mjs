@@ -31,6 +31,7 @@ import {
   effectiveRoutes,
   loadConfig,
   MIGRATION_HINT,
+  ROUTING_MODES,
   supportedVersion,
   TIERS,
   tuningOf,
@@ -54,6 +55,7 @@ import {
   unavailableReason,
 } from '../lib/display.mjs';
 import { clip, observedActivity, promptIndex } from '../lib/facts.mjs';
+import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
 import {
   canMoveUp,
@@ -135,6 +137,8 @@ const PANE = 'jev-router';
 const PANE_TITLE = 'Router';
 const BAND_DETAIL = 'band:detail';
 const MODE_PREFIX = 'mode:';
+// The session's routing mode override (lib/modes.mjs), apart from its auto|manual MODE_PREFIX.
+const ROUTING_MODE_PREFIX = 'routing-mode:';
 const isSet = (value) => /^(1|true|yes|on)$/i.test(String(value ?? '').trim());
 
 // The counts kept across sessions: each session writes only its own record of a kind, `prefix` and its session id,
@@ -208,6 +212,10 @@ function createRouter(options) {
     turnControllers: new Map(),
     view: null,
     modes: new Map(),
+    // Each session's routing mode override (null: none), as read from or written to the store.
+    routingModes: new Map(),
+    // The project's `.claude/router.json` mode, read at session.start: { mode, error }.
+    project: { mode: null, error: null },
     // Each routed turn's activity record until turn.complete adds it to the stats, and the session's open run of
     // one activity, flushed to the store when it ends.
     turnActivities: new Map(),
@@ -294,6 +302,69 @@ async function rememberMode($, mode) {
     return true;
   } catch {
     return false;
+  }
+}
+
+// The routing mode a turn starts with and where it comes from. A store that cannot be read counts as no override.
+async function routingModeOf($, router) {
+  const sessionId = await $.session.id();
+  if (!router.routingModes.has(sessionId)) {
+    const saved = await $.store.get(`${ROUTING_MODE_PREFIX}${sessionId}`).catch(() => null);
+    router.routingModes.set(sessionId, ROUTING_MODES.includes(saved) ? saved : null);
+  }
+  return resolveRoutingMode({
+    session: router.routingModes.get(sessionId),
+    project: router.project.mode,
+    profile: router.config.mode,
+  });
+}
+
+const sameMode = (a, b) => a?.mode === b?.mode && a?.source === b?.source;
+
+// A turn's configs when turn.start did not record them, as after a reload of the Mod mid-turn.
+async function turnConfigOf($, router) {
+  return { config: applyMode(router.config, await routingModeOf($, router)), configured: router.config };
+}
+
+// The turn routes on the configured routes as its routing mode moves them, fixed now so a change mid-turn waits for
+// the next turn; a pin uses `configured` (decideTurn).
+async function fixTurnConfig($, router, turnId) {
+  const turn = await turnConfigOf($, router);
+  router.turnConfigs.set(turnId, turn);
+  const { routingMode } = turn.config;
+  if (router.view && !sameMode(router.view.routingMode, routingMode)) await updateView($, router, { routingMode });
+}
+
+// `/router mode <mode|default>`: the session's override, kept for a resume of this session only. It changes the
+// preferred route from the next turn; the route in use moves through the gates. No turn is aborted.
+async function setRoutingMode($, router, value) {
+  const sessionId = await $.session.id();
+  const key = `${ROUTING_MODE_PREFIX}${sessionId}`;
+  let saved = true;
+  try {
+    if (value === 'default') await $.store.delete(key);
+    else await $.store.set(key, value);
+  } catch {
+    saved = false;
+  }
+  router.routingModes.set(sessionId, value === 'default' ? null : value);
+  const routingMode = await routingModeOf($, router);
+  await updateView($, router, { routingMode });
+  return [
+    `Routing mode: ${modeLabel(routingMode)}, from the next turn.`,
+    ...(saved ? [] : ['A resume of this session will not keep it: the preference could not be saved.']),
+  ].join(' ');
+}
+
+// A project's `.claude/router.json`, which may set only `mode`. Not the profile's own file, when Claude Code runs in
+// the profile's parent directory. A file that does not read is ignored, with the reason for the pane.
+async function readProject($, profilePath) {
+  try {
+    const path = `${await $.session.cwd()}/.claude/router.json`;
+    if (path === profilePath || !(await $.fs.exists(path))) return { mode: null, error: null };
+    return readProjectMode(await $.fs.read(path));
+  } catch {
+    return { mode: null, error: 'project .claude/router.json could not be read' };
   }
 }
 
@@ -447,7 +518,8 @@ async function setPin($, router, tier) {
   return `${tier} pinned for the next turn and its tool continuations.`;
 }
 
-// `/router [auto|off|pin <tier>|activities <mode>]`; with no action, the pane, or the status text without a surface.
+// `/router [auto|off|pin <tier>|activities <mode>|mode <mode>]`; with no action, the pane, or the status text without
+// a surface.
 async function routerCommand($, router, args) {
   const [action, value] = args.trim().split(/\s+/);
   if (action === 'auto' || action === 'off') {
@@ -458,6 +530,12 @@ async function routerCommand($, router, args) {
   }
   if (action === 'pin')
     return { text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.` };
+  if (action === 'mode')
+    return {
+      text: [...ROUTING_MODES, 'default'].includes(value)
+        ? await setRoutingMode($, router, value)
+        : `Choose mode ${[...ROUTING_MODES, 'default'].join(', ')}.`,
+    };
   if (action === 'activities')
     return {
       text: ACTIVITY_MODES.includes(value)
@@ -578,6 +656,8 @@ function detailText(config, view) {
   const missing = missingCredentials(config, view, config.classifier);
   return [
     `Router — routing ${view.mode === 'auto' ? 'on' : 'off'}`,
+    ...(view.routingMode ? [`Mode: ${modeLabel(view.routingMode)}`] : []),
+    ...(view.projectError ? [`Ignored: ${view.projectError}`] : []),
     `Native model: ${view.nativeModel}`,
     `Selected: ${view.selectedModel ?? 'not selected'}`,
     `Observed: ${view.actualModel ?? 'no response yet'}`,
@@ -645,7 +725,9 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, router)
 // the classifier call. The pin is the one in `view`, the view as the step read it; it is used up only once the route
 // is written, so a turn interrupted before then leaves it for the next.
 async function decideTurn($, router, e, signal, step) {
-  const { sessionId, view, cfg, loop, loopVersion, context, nativeModel, availableModels } = step;
+  const { sessionId, view, loop, loopVersion, context, nativeModel, availableModels } = step;
+  // A pin runs its tier's configured route: the routing mode moves only routes the router chooses.
+  const cfg = view.pendingPin ? step.configured : step.cfg;
   const ref = { ...LOOP, id: 'main' };
   const controller = new AbortController();
   const cancel = () => controller.abort();
@@ -692,6 +774,7 @@ async function decideTurn($, router, e, signal, step) {
     if (controller.signal.aborted || (await $.session.id()) !== sessionId || (await modeOf($, router)) !== 'auto')
       return null;
     const previous = loop.decision;
+    if (pin) router.turnConfigs.set(e.turnId, { config: cfg, configured: cfg });
     const selected = chooseRoute(cfg, loop, {
       facts,
       advice: result.advice,
@@ -710,12 +793,28 @@ async function decideTurn($, router, e, signal, step) {
     if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
       $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
     const activity = turnActivity(cfg, result.advice, previous, selected.decision);
+    const routingMode = step.cfg.routingMode;
+    // One line per decision in Claude Code's debug log, so a later replay can compare modes. No prompt text.
+    $.ui.log(
+      `router decision ${JSON.stringify({
+        mode: routingMode.mode,
+        modeSource: routingMode.source,
+        classified: result.advice?.choice ?? null,
+        tier: selected.decision.tier,
+        reason: selected.decision.reason,
+        route: `${selected.decision.model}@${selected.decision.effort ?? 'session'}`,
+        pinned: selected.decision.pinned,
+      })}`,
+      { to: 'debug' },
+    );
     router.turnActivities.set(e.turnId, {
       ...activity,
       reason: selected.decision.reason,
       escalated: Boolean(selected.decision.escalated),
       pinned: selected.decision.pinned,
       route: `${selected.decision.model}@${selected.decision.effort ?? 'session'}`,
+      routingMode: routingMode.mode,
+      modeSource: routingMode.source,
       classifier: cfg.classifier,
       offSwitches: router.offSwitches,
       adviceMs,
@@ -730,6 +829,7 @@ async function decideTurn($, router, e, signal, step) {
     await updateView($, router, {
       ...(activity.switched ? switchView(previous, selected.decision, activity.label, Date.now()) : {}),
       phase: 'routed',
+      routingMode,
       selectedModel: selected.decision.model,
       actualModel: null,
       tier: selected.decision.tier,
@@ -1572,13 +1672,14 @@ export function register(on, options) {
     router.definitions.clear();
     await $.command.register({
       name: 'router',
-      description: 'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>.',
-      argumentHint: '[auto|off|pin <tier>|activities off|on]',
+      description: 'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>.',
+      argumentHint: '[auto|off|pin <tier>|activities off|on|mode cost|balanced|quality|default]',
       immediate: true,
     });
     const model = await $.session.model();
     try {
       router.config = await loadNativeConfig($);
+      router.project = await readProject($, router.config.nativePath);
       const existing = await readView($, router);
       router.view = existing;
       const sameClassifier = existing.health?.classifier === router.config.classifier;
@@ -1599,6 +1700,8 @@ export function register(on, options) {
         credentials: await credentialsOf($, options, router.config),
         health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
         configPath: router.config.nativePath,
+        routingMode: await routingModeOf($, router),
+        projectError: router.project.error,
         tuning: null,
         tuningBase: null,
         routeDraft: null,
@@ -1638,8 +1741,8 @@ export function register(on, options) {
 
   on('command.run', { command: 'router' }, ($, e) => routerCommand($, router, e.args));
 
-  on('turn.start', (_$, e, next) => {
-    router.turnConfigs.set(e.turnId, router.config);
+  on('turn.start', async ($, e, next) => {
+    await fixTurnConfig($, router, e.turnId);
     router.prompts.set(e.turnId, clip(e.text, router.config.context.maxTextChars));
     return next(e);
   });
@@ -1652,7 +1755,8 @@ export function register(on, options) {
 
   on('turn.step', async function* ($, e, next) {
     if (e.agentId) return yield* stepAgent($, router, e, next);
-    const cfg = router.turnConfigs.get(e.turnId) ?? router.config;
+    const turn = router.turnConfigs.get(e.turnId) ?? (await turnConfigOf($, router));
+    const cfg = turn.config;
     const [sessionId, nativeModel, view] = await Promise.all([$.session.id(), $.session.model(), readView($, router)]);
     const mode = await modeOf($, router, view.mode);
     if (e.index === 0) {
@@ -1683,6 +1787,7 @@ export function register(on, options) {
           sessionId,
           view,
           cfg,
+          configured: turn.configured,
           loop,
           loopVersion,
           context,
