@@ -233,10 +233,9 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
   same-tier moves), estimated cost per mode and the model and effort mix. Then one representative multi-turn task per
   mode in an isolated agterm session: models used, switches, tokens and cost. A mode without a real difference
   somewhere is a finding.
-- [ ] L8. Close test sessions; remove the scratch copy and the isolated config dir. Deferred: `live/capture.sh` needs
-  the capture session, its login, the plugin copy and the project, so all stay until the manager has run it.
-- [ ] L11. PNG captures of the live band, Now and Policy tabs (`live/capture.sh`, run by the manager with the display
-  awake and the user idle); inspect the crops and commit them before merge.
+- [x] L8. Close test sessions; remove the scratch copy and the isolated config dir. Done after the captures.
+- [x] L11. PNG captures of the live band, Now and Policy tabs (`live/capture.sh`, run by the manager with the display
+  awake and the user idle), cropped to the pane and band: `experiments/mod-router/results/mode-live-*.png`.
 
 ### Release
 
@@ -315,7 +314,8 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
   mode: Jev's turn-1 micro confidence varied (92%, 74%, 79%), so the turn-1 tier gap is partly classifier variance.
   The `router decision` line is the turn-start decision; an activity move later in the turn shows in the usage
   cells only. PNG captures of the live band and pane: the display was asleep (`screencapture` failed even for a
-  10 px region), so `live/capture.sh` is handed to the manager; the text layouts match the doc images.
+  10 px region), so `live/capture.sh` is handed to the manager; the text layouts match the doc images. The manager's
+  run captured them; the crops keep the pane and band only (no conversation, footer or desktop notifications).
 - PR #49 review: a session's first loop now reads its model's tier from the configured routes, not the mode's table
   (cost started an Opus session at high, on Opus/high, above balanced); the matrix also runs on a session already on
   Opus. A same-task lateral move to a model with a lower input price waits for dwell and a check whatever the output

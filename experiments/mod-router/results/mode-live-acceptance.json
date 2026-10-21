@@ -78,5 +78,10 @@
     "L6": "usage record version 2 with `cost|…`, `quality|…` and `balanced|…` cells; debug lines `router decision {mode, modeSource, classified, tier, reason, route, pinned}`",
     "L7": "band, Now and Policy layouts match docs/router-band.svg, router-pane-now.svg and router-pane-policy.svg (segment order, Mode line placement, `▾ saved at once`)"
   },
-  "apiErrors": 0
+  "apiErrors": 0,
+  "captures": {
+    "mode-live-band-cost.png": "the band in cost mode after the run: low, Haiku 5.5 medium, `cost (profile)`",
+    "mode-live-pane-now.png": "/router Now in cost mode: Mode line `cost (profile)`, session mix and the last switch Sonnet 5.5 medium -> Haiku 5.5 medium",
+    "mode-live-pane-policy.png": "/router Policy in cost mode: the Mode row `cost ▾ saved at once` with its one-line effect"
+  }
 }
