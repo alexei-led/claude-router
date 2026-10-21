@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { answering, CONFIG, drain, harness, JEV_KEY, start, step } from './harness.mjs';
+import { answering, CONFIG, drain, harness, JEV_KEY, press, start, step } from './harness.mjs';
 import { jevResponse } from './helpers.mjs';
 
 const PROJECT = '/fixture/project/.claude/router.json';
@@ -125,4 +125,30 @@ test('each decision records the mode, its source, the classified tier and the ro
     pinned: false,
   });
   assert.deepEqual(h.view().routingMode, { mode: 'cost', source: 'profile' });
+});
+
+test('the pane saves the profile mode at once, Undo restores it, and a session mode still wins', async () => {
+  const h = harness(JEV_KEY);
+  await start(h);
+  await h.event('command.run', { command: 'router', args: '' });
+  await press(h, 'tab-policy');
+  await press(h, 'routing-mode', 'cost');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { mode: 'cost' });
+  assert.deepEqual(h.view().routingMode, { mode: 'cost', source: 'profile' });
+  assert.equal(h.view().notice, 'Saved: routing mode balanced → cost. Applies from the next turn.');
+  await press(h, 'undo');
+  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+  assert.deepEqual(h.view().routingMode, { mode: 'balanced', source: 'default' });
+  await command(h, 'mode quality');
+  await press(h, 'routing-mode', 'cost');
+  assert.deepEqual(h.view().routingMode, { mode: 'quality', source: 'session' });
+});
+
+test('the footer names a mode other than balanced', async () => {
+  const h = harness(JEV_KEY);
+  await start(h);
+  const footer = async () => (await h.component('SessionMode', { modes: [] })).props.modes;
+  assert.deepEqual(await footer(), []);
+  await command(h, 'mode cost');
+  assert.deepEqual(await footer(), ['cost mode (session)']);
 });

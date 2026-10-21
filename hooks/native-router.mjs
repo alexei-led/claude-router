@@ -38,6 +38,7 @@ import {
   withActivities,
   withClassifier,
   withClassifierTimeout,
+  withMode,
   withRoutes,
   withTuning,
 } from '../lib/config.mjs';
@@ -317,6 +318,15 @@ async function routingModeOf($, router) {
     project: router.project.mode,
     profile: router.config.mode,
   });
+}
+
+// The prompt footer's word for the router: paused or broken routing, or a routing mode other than balanced, which
+// changes what every routed turn costs. Null for none.
+async function footerLabel($, router, view) {
+  if (view.phase === 'unavailable') return 'routing unavailable';
+  if ((await modeOf($, router, view.mode)) === 'manual') return 'routing off';
+  const routingMode = view.routingMode;
+  return routingMode && routingMode.mode !== 'balanced' ? `${routingMode.mode} mode (${routingMode.source})` : null;
 }
 
 const sameMode = (a, b) => a?.mode === b?.mode && a?.source === b?.source;
@@ -1425,7 +1435,9 @@ function paneActions($, router, view) {
     if (result.error) return updateView($, router, { notice: result.error });
     const drafts = router.view ?? view;
     const reset = await adopt(result.config);
-    return updateView($, router, { ...reset, ...rebased(drafts), ...saved(router.config) });
+    // A saved or undone profile mode changes the mode shown, unless a session or project mode wins.
+    const routingMode = await routingModeOf($, router);
+    return updateView($, router, { ...reset, ...rebased(drafts), ...saved(router.config), routingMode });
   };
   // Defaults go into the routing draft like any edit; the notice says whether Save has anything of that section left
   // to write.
@@ -1525,6 +1537,12 @@ function paneActions($, router, view) {
     // An insight's link: the Routes tab with the grid cell it names open.
     openRoute: (cell) => updateView($, router, { tab: 'routes', routeCell: cell, notice: null }),
     confirmDelete: (asked) => updateView($, router, { confirmDelete: asked }),
+    // The profile's routing mode, saved at once with Undo. A session or project mode still wins over it.
+    routingMode: async (mode) => {
+      const from = router.config.mode;
+      if (mode === from || !ROUTING_MODES.includes(mode)) return undefined;
+      return write(`routing mode ${from} → ${mode}`, (file) => withMode(file, mode));
+    },
     // `/router activities <mode>`: the mode alone, saved at once like a classifier press, with Undo.
     activityRouting: (mode) => {
       const from = router.config.activityRouting;
@@ -1889,13 +1907,7 @@ export function register(on, options) {
 
   // Paused or broken routing stays visible in the prompt footer even when the band is collapsed.
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
-    const view = await readView($, router);
-    const label =
-      view.phase === 'unavailable'
-        ? 'routing unavailable'
-        : (await modeOf($, router, view.mode)) === 'manual'
-          ? 'routing off'
-          : null;
+    const label = await footerLabel($, router, await readView($, router));
     return label ? next({ ...e, props: { ...e.props, modes: [...e.props.modes, label] } }) : next(e);
   });
 
