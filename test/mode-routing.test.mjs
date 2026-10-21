@@ -3,9 +3,10 @@ import { test } from 'node:test';
 import { loadConfig } from '../lib/config.mjs';
 import { applyMode } from '../lib/modes.mjs';
 import { chooseRoute, continueRoute, emptyLoop, nativeFacts, observeResponse } from '../lib/route.mjs';
-import { advice, user } from './helpers.mjs';
+import { advice, toolResult, user } from './helpers.mjs';
 
 const OPUS = 'claude-opus-5-5';
+const HAIKU = 'claude-haiku-5-5';
 const T0 = 1_000_000;
 const base = loadConfig();
 const inMode = (mode, config = base) => applyMode(config, { mode, source: 'session' });
@@ -37,15 +38,19 @@ function reply(loop, at, fresh = 600, config = base) {
   });
 }
 
-function turn(config, loop, { messages = UNVERIFIED, answer = HIGH, at = T0, pin = null } = {}) {
+function turn(
+  config,
+  loop,
+  { messages = UNVERIFIED, answer = HIGH, at = T0, pin = null, contextTokens = 0, contextKnown = true } = {},
+) {
   const facts = nativeFacts(config, loop, {
     messages,
     prompt: 'Fix it.',
     effort: 'high',
     turnId: `t${at}`,
-    contextTokens: 0,
+    contextTokens,
   });
-  return chooseRoute(config, loop, { facts, advice: answer, pin, nativeModel: OPUS, contextKnown: true, now: at });
+  return chooseRoute(config, loop, { facts, advice: answer, pin, nativeModel: OPUS, contextKnown, now: at });
 }
 
 // A session that has run a few replies at high on Opus/xhigh in balanced.
@@ -131,6 +136,74 @@ test('a cost switch to a model with no output price waits out the dwell on the s
   assert.deepEqual([ran_(loop), loop.decision.reason], [`${OPUS}@xhigh`, 'downgrade-held']);
   const moved = turn(inMode('cost', local), onOpusXhigh(local), { answer: NEW_TASK, at: T0 + 10 });
   assert.equal(moved.decision.model, 'local-coder');
+});
+
+test('a classifier failure keeps the route in use after a mode change', () => {
+  for (const mode of ['cost', 'quality']) {
+    const loop = turn(inMode(mode), onOpusXhigh(), { answer: null, at: T0 + 10 });
+    assert.deepEqual([ran_(loop), loop.decision.reason], [`${OPUS}@xhigh`, 'no-advice'], mode);
+  }
+});
+
+// Opus at 200K runs while the configured high route, Sonnet, has 1M: a route edit held by the dwell.
+const smallOpus = { opus: { contextWindow: 200_000 } };
+const heldOnSmallOpus = () => {
+  const edited = loadConfig({ userFile: { models: smallOpus, routes: { high: { model: 'sonnet', effort: 'high' } } } });
+  const loop = turn(edited, onOpusXhigh(loadConfig({ userFile: { models: smallOpus } })), { at: T0 + 10 });
+  assert.deepEqual([ran_(loop), loop.decision.reason], [`${OPUS}@xhigh`, 'downgrade-held']);
+  return { edited, loop };
+};
+
+test('a tool continuation fits the context to the route in use, not the configured one', () => {
+  const { edited, loop } = heldOnSmallOpus();
+  const next = continueRoute(edited, loop, {
+    nativeModel: OPUS,
+    contextTokens: 190_000,
+    contextKnown: true,
+    effort: 'high',
+  });
+  assert.equal(next.decision.reason, 'context-fit');
+  assert.notEqual(next.decision.model, OPUS);
+});
+
+test('a turn whose route in use fits the context stays on it when the configured route would not', () => {
+  // Sonnet at 200K is configured for high; Opus at 1M runs it.
+  const edited = loadConfig({
+    userFile: { models: { sonnet: { contextWindow: 200_000 } }, routes: { high: { model: 'sonnet', effort: 'high' } } },
+  });
+  const loop = turn(edited, onOpusXhigh(), { at: T0 + 10, contextTokens: 190_000 });
+  assert.deepEqual([loop.decision.tier, ran_(loop)], ['high', `${OPUS}@xhigh`]);
+});
+
+test('a first turn with an unmeasured context keeps the session’s model when the mode’s route has a smaller window', () => {
+  const config = loadConfig({ userFile: { models: { haiku: { contextWindow: 200_000 } } } });
+  const cost = inMode('cost', config);
+  const uncertain = advice('uncertain', { uncertain: 0.9, medium: 0.1 });
+  const loop = turn(cost, emptyLoop(config, OPUS), { answer: uncertain, contextKnown: false });
+  assert.equal(loop.decision.model, OPUS);
+});
+
+test('repeated failures with no activity escalate to a stronger route after a mode change', () => {
+  const quality = inMode('quality');
+  let loop = turn(
+    quality,
+    { ...emptyLoop(quality, HAIKU), lastRoute: 'low' },
+    { answer: advice('low', { low: 0.99 }) },
+  );
+  assert.equal(ran_(loop), `${HAIKU}@xhigh`);
+  loop = reply(loop, T0);
+  const failure = (name) => `not ok 1 - ${name}\n  error: 'unauthorized'\n`;
+  const failing = [
+    user('fix the tests'),
+    bash('a', 'npm test'),
+    toolResult(failure('login at line 12'), { isError: true }),
+    bash('b', 'npm test'),
+    toolResult(failure('login at line 12'), { isError: true }),
+    user('continue'),
+  ];
+  // In cost the medium route is Haiku at high, weaker than the route in use; high runs Opus at high.
+  const next = turn(inMode('cost'), loop, { messages: failing, answer: null, at: T0 + 10 });
+  assert.deepEqual([next.decision.reason, next.decision.tier, next.decision.model], ['escalation', 'high', OPUS]);
 });
 
 // Pins bypass the mode in the hook, which routes a pinned turn on the configured routes (hook-modes.test.mjs).

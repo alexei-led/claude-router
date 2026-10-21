@@ -157,8 +157,8 @@ declare module 'claude-code' {
     days: Record<string, RouterSubagentDay>;
     undated?: RouterSubagentDay;
   }
-  // One local calendar day of routed replies (lib/usage.mjs). `cells` by 'activity|tier|modelId@effort' hold, in order,
-  // Cells are keyed 'mode|activity|tier|id@effort' (version 1: 'activity|tier|id@effort', read as balanced). Sums:
+  // One local calendar day of routed replies (lib/usage.mjs). `cells` by 'mode|activity|tier|id@effort' (version 1:
+  // 'activity|tier|id@effort', read as balanced) hold, in order, the sums:
   // replies, routedUsd, yoursUsd, cheaperUsd, strongerUsd, switchUsd, inputTokens, cacheReadTokens, outputTokens.
   // `whatIf` is [replies, USD] of the same tokens on each model id as yours; `yours` replies by your model's id;
   // `hours` routed USD by local hour; `turns` and `switches` count turns on the day they ended.

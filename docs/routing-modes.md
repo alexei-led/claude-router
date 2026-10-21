@@ -101,7 +101,8 @@ The steps are fixed rules, with no per-activity exceptions. Two cells go against
 (`lib/config.mjs`), and replay data should decide them later:
 
 - `cost` at `high` for **ops** runs Haiku 5.5 at high (the `medium` ops route), although Haiku trails Opus on
-  multi-step tool work. Repeated tool errors still escalate.
+  multi-step tool work. Repeated tool errors cannot escalate it: no tier is above `high`. For such a task, pin `high`
+  or switch to `balanced`.
 - `cost` at `low` for **code, debug, plan and review** runs Sonnet 5.5 at medium, which scored below Haiku 5.5 at high
   on FrontierCode and costs more per token.
 
@@ -132,6 +133,7 @@ Read the numbers as the direction and rough size of the effect, not as a benchma
 
 ## Records
 
-Each decision writes one line to Claude Code's debug log (`claude --debug`): `router decision` with the mode, its
-source, the classifier's tier, the tier and reason the router chose, and the route. Usage records keep each reply
+The decision at the start of each turn writes one line to Claude Code's debug log (`claude --debug`): `router
+decision` with the mode, its source, the classifier's tier, the tier and reason the router chose, and the route. A move
+later in the turn (a review, the turn's tool calls, a context fit) writes none; the usage cells show it. Usage records keep each reply
 under its mode (`mode|activity|tier|model@effort`).

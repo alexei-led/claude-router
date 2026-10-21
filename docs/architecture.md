@@ -108,7 +108,7 @@ The routing mode (`lib/modes.mjs`) is a fixed transform of the configured routes
 
 **Same-tier gate.** A mode can change the route without changing the tier or the activity. `lateralMove` therefore holds a cheaper route on the same task with `downgrade-held` until `facts.downAllowed` (dwell and a passed check), as a tier downgrade does, and the downgrade tax must still be paid back.
 
-Each decision writes `router decision {mode, modeSource, classified, tier, reason, route, pinned}` to the debug log (`$.ui.log`, `to: 'debug'`), with no prompt text, and the turn record, view and usage cells carry the mode. `experiments/mod-router/scripts/trace-eval.mjs` replays the gateway trace once per mode at tier level; it cannot replay moves inside a tier.
+The turn-start decision (`decideTurn`) writes `router decision {mode, modeSource, classified, tier, reason, route, pinned}` to the debug log (`$.ui.log`, `to: 'debug'`), with no prompt text, and the turn record, view and usage cells carry the mode. `experiments/mod-router/scripts/trace-eval.mjs` replays the gateway trace once per mode at tier level; it cannot replay moves inside a tier.
 
 ## State and controls
 

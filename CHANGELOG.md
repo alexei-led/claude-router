@@ -10,7 +10,7 @@ A routing mode trades cost against answer quality without new routes: `cost`, `b
 - Choose the mode for this session with `/router mode cost|balanced|quality` (`/router mode default` clears it; a resume keeps it), for a project with `{ "mode": "cost" }` in `.claude/router.json`, or for the profile with `"mode"` in `router.json` or **Mode** on the Policy tab. A project file with any other key is ignored with a notice.
 - `modes.cost.policy` and `modes.quality.policy` replace those `policy` fields while that mode is active. The built-in values are not tuned on this router.
 - The band, the Now tab and `/router` show the mode and its source, such as `cost (session)`; the prompt footer names a mode other than balanced.
-- Each routing decision writes one `router decision` line to Claude Code's debug log: mode, source, the classifier's tier, the tier and reason chosen, and the route.
+- The routing decision at the start of each turn writes one `router decision` line to Claude Code's debug log: mode, source, the classifier's tier, the tier and reason chosen, and the route. Moves later in the turn write none.
 
 ### Changed
 
