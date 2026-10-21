@@ -295,5 +295,5 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
   resume does. Each fix has a test that fails without it. Rollback to 1.14 and the project file's lack of a trust
   prompt are in the changelog migration notes. Open: D9 (finding 1), waiting for the manager.
 - Gate on `4729076`: `npm test` 696 pass, `npm run check` clean, `npm run typecheck` clean, `npm run test:plugin`
-  3 + 3 pass (run on `f1f7070`; later commits touch lib, hooks and tests only).
+  3 + 3 pass.
 - L10 replay part done (numbers above); L9 and the live per-mode runs are Phase 3.
