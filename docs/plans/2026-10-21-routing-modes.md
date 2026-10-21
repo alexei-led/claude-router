@@ -287,3 +287,13 @@ Isolated `CLAUDE_CONFIG_DIR` in the scratchpad, plugin loaded from a scratch cop
   $3.63-$8.83, balanced $5.83-$6.23, quality $5.83-$113.47. On the built-in routes: cost $0.88-$16.88, balanced
   $3.49-$5.56, quality $3.59-$18.79. The upper bounds price every moved route as a cold write, since the trace never
   ran it; the replay cannot price effort-dependent output. The live runs (L9, L10) give the measured numbers.
+- Independent review (read-only subagent) of the branch: fixed the incumbent cell's own route change being gated on
+  the activity label (it now moves with probability 1); a route kept for an activity that no longer applies, or
+  whose model can no longer run, is rebuilt; a context fit inside a turn no longer rewrites the route in use of the
+  turn's tier; pinned replies count under balanced and a pinned turn keeps its mode; Why names a cell only when its
+  route runs; a symlinked project file, or one in the home directory, is not read; store-failure messages say what a
+  resume does. Each fix has a test that fails without it. Rollback to 1.14 and the project file's lack of a trust
+  prompt are in the changelog migration notes. Open: D9 (finding 1), waiting for the manager.
+- Gate on `4729076`: `npm test` 696 pass, `npm run check` clean, `npm run typecheck` clean, `npm run test:plugin`
+  3 + 3 pass (run on `f1f7070`; later commits touch lib, hooks and tests only).
+- L10 replay part done (numbers above); L9 and the live per-mode runs are Phase 3.
