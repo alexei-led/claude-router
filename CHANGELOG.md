@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.15.0 (2026-10-22)
 
 A routing mode trades cost against answer quality without new routes: `cost`, `balanced` (the default, unchanged) or `quality`. See [Routing modes](docs/routing-modes.md).
 
