@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased
+
+A routing mode trades cost against answer quality without new routes: `cost`, `balanced` (the default, unchanged) or `quality`. See [Routing modes](docs/routing-modes.md).
+
+### Added
+
+- `cost` takes the route of the tier below when its model has a lower input price, else one effort level less; `quality` one effort level more, else the route of the tier above. `micro` turns and pins keep the configured route. `docs/routing-modes.md` lists the route of every classifier tier and activity in each mode.
+- Choose the mode for this session with `/router mode cost|balanced|quality` (`/router mode default` clears it; a resume keeps it), for a project with `{ "mode": "cost" }` in `.claude/router.json`, or for the profile with `"mode"` in `router.json` or **Mode** on the Policy tab. A project file with any other key is ignored with a notice.
+- `modes.cost.policy` and `modes.quality.policy` replace those `policy` fields while that mode is active. The built-in values are not tuned on this router.
+- The band, the Now tab and `/router` show the mode and its source, such as `cost (session)`; the prompt footer names a mode other than balanced.
+- The routing decision at the start of each turn writes one `router decision` line to Claude Code's debug log: mode, source, the classifier's tier, the tier and reason chosen, and the route. Moves later in the turn write none.
+
+### Changed
+
+- The router keeps the route a turn ran instead of rebuilding it from `router.json`. A mode change, or a route edited mid-session, now reaches the request through the usual checks, not on the next request.
+- A cheaper route inside the same tier on the same task now waits for `minDwellRequests` and a passed check, as a move to a cheaper tier does.
+
+### Fixed
+
+- The switching cost of two routes that share a prompt cache (one model at two efforts, on an API key or a subscription) is now zero, as the configuration docs said. The estimate charged the new tokens of the next request as a switch cost, though either route writes them. A cheaper effort on the same model was therefore refused on any measured history. In `balanced` a tier switch between such routes, such as Opus at `medium` and at `xhigh`, now needs only the base support (`upgradeBase`, `downgradeMass`); before, the bar rose with that estimate, up to about 0.82 on a cold cache.
+
+### Known limitations
+
+- The Policy tab shows the base policy bars; in `cost` or `quality` the band shows the bar actually in use, such as `Jev 46% < 85%`.
+
+### Migration
+
+- `router.json` needs no change: without `mode` it runs `balanced`.
+- Usage records are version 2 under the same `usage:v1:<session id>` keys, with the mode in each cell. Records from before read as `balanced`. A session of an older version reads a version 2 record as empty and never deletes it. Going back to 1.14 and resuming a session that 1.15 recorded replaces that session's record with a new one: its 1.15 days are lost.
+- A project's `.claude/router.json` can choose the mode for anyone who runs Claude Code there, with no trust prompt. It cannot change routes, models or the classifier; keep it out of a repo you share if the choice is yours alone.
+
 ## 1.14.0 (2026-10-14)
 
 Subagents now show which model each agent ran on, who picked it, and for which period. See [Understand usage and estimates](docs/user-guide.md#understand-usage-and-estimates).

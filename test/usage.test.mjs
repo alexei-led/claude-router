@@ -26,9 +26,13 @@ const USAGE = { input_tokens: 100, cache_read_input_tokens: 800, cache_creation_
 const PRICES = { routedUsd: 0.02, yoursUsd: 0.05, cheaperUsd: -0.035, strongerUsd: 0, switchUsd: 0.005 };
 
 // One routed reply at `when`, priced against Opus as yours.
-const entry = (when, { activity = 'code', tier = 'low', route = 'haiku@high', reply = PRICES } = {}) =>
+const entry = (
+  when,
+  { mode = 'balanced', activity = 'code', tier = 'low', route = 'haiku@high', reply = PRICES } = {},
+) =>
   replyEntry({
     at: when,
+    mode,
     activity,
     tier,
     route,
@@ -94,14 +98,14 @@ test('a turn adds each reply on the day and hour it arrived, and itself and its 
   );
   assert.equal(record.since, at(2026, 10, 13, 0, 2));
   const [before, after] = [record.days['2026-10-12'], record.days['2026-10-13']];
-  assert.deepEqual(before.cells, { 'code|low|haiku@high': [1, 0.02, 0.05, -0.035, 0, 0.005, 1100, 800, 10] });
+  assert.deepEqual(before.cells, { 'balanced|code|low|haiku@high': [1, 0.02, 0.05, -0.035, 0, 0.005, 1100, 800, 10] });
   assert.deepEqual([before.hours, before.turns, before.switches], [{ 23: 0.02 }, 0, { tier: 0, activity: 0 }]);
-  assert.deepEqual(Object.keys(after.cells), ['code|high|opus@xhigh']);
+  assert.deepEqual(Object.keys(after.cells), ['balanced|code|high|opus@xhigh']);
   assert.deepEqual([after.hours, after.turns, after.switches], [{ 0: 0.02 }, 1, { tier: 1, activity: 0 }]);
   assert.deepEqual(after.whatIf, { haiku: [1, 0.01], opus: [1, 0.05] });
   assert.deepEqual(after.yours, { opus: 1 });
   const again = turnOf(record, [entry(at(2026, 10, 13, 1))], at(2026, 10, 13, 1, 1), 'activity');
-  assert.deepEqual(again.days['2026-10-13'].cells['code|low|haiku@high'][0], 1);
+  assert.deepEqual(again.days['2026-10-13'].cells['balanced|code|low|haiku@high'][0], 1);
   assert.deepEqual(again.days['2026-10-13'].switches, { tier: 1, activity: 1 });
   assert.equal(again.since, record.since);
 });
@@ -124,7 +128,7 @@ test('a stored record reads day by day: a bad day is dropped and the others stay
   for (const value of [
     null,
     'text',
-    { version: 2, since: 1, days: {} },
+    { version: 3, since: 1, days: {} },
     { version: 1, since: 'then', days: {} },
     { version: 1, since: 1 },
   ])
@@ -166,7 +170,7 @@ test('a day with a negative count or cost does not read, apart from the cheaper 
   const record = turnOf(emptyUsage(), [entry(NOW)], NOW);
   const withCell = (sums) => ({
     ...record,
-    days: { '2026-10-13': { ...record.days['2026-10-13'], cells: { 'code|low|haiku@high': sums } } },
+    days: { '2026-10-13': { ...record.days['2026-10-13'], cells: { 'balanced|code|low|haiku@high': sums } } },
   });
   assert.deepEqual(Object.keys(readUsage(withCell([1, 0.02, 0.05, -0.035, 0, 0.005, 1100, 800, 10])).days), [
     '2026-10-13',
@@ -180,7 +184,7 @@ test('records add up day by day, and one from before the last reset reads as emp
   const b = turnOf(emptyUsage(), [entry(at(2026, 10, 12))], at(2026, 10, 12));
   const merged = mergeUsage([a, b, 'garbage']);
   assert.deepEqual([merged.since, Object.keys(merged.days).sort()], [b.since, ['2026-10-12', '2026-10-13']]);
-  assert.equal(merged.days['2026-10-13'].cells['code|low|haiku@high'][0], 2);
+  assert.equal(merged.days['2026-10-13'].cells['balanced|code|low|haiku@high'][0], 2);
   assert.deepEqual(Object.keys(mergeUsage([a, b], at(2026, 10, 13, 0)).days), ['2026-10-13']);
 });
 
@@ -222,10 +226,10 @@ test('a summary adds the days in its range: the readout sums, tokens, turns, swi
 test('a breakdown groups the cells by activity, model or tier, costliest first, each with what it holds', () => {
   const sums = (replies, routed, yours) => [replies, routed, yours, 0, 0, 0, 0, 0, 0];
   const cells = {
-    'code|medium|sonnet@high': sums(3, 0.3, 0.5),
-    'code|high|opus@xhigh': sums(1, 0.4, 0.4),
-    'explore|low|haiku@high': sums(5, 0.1, 0.5),
-    'none|low|haiku@medium': sums(2, 0.05, 0.2),
+    'balanced|code|medium|sonnet@high': sums(3, 0.3, 0.5),
+    'balanced|code|high|opus@xhigh': sums(1, 0.4, 0.4),
+    'balanced|explore|low|haiku@high': sums(5, 0.1, 0.5),
+    'balanced|none|low|haiku@medium': sums(2, 0.05, 0.2),
   };
   const byActivity = breakdown(cells, 'activity');
   assert.deepEqual(
@@ -283,8 +287,8 @@ test('insights report the costly cell, switch writes against the saving, and rep
     return { replies: total[0], routedUsd: total[1], cheaperUsd: total[3], switchUsd: total[5], cells };
   };
   const busy = summary({
-    'code|high|opus@xhigh': sums(10, 3, 2, 0, 1, 0),
-    'explore|low|haiku@high': sums(15, 1, 3, -2.5, 0, 0.5),
+    'balanced|code|high|opus@xhigh': sums(10, 3, 2, 0, 1, 0),
+    'balanced|explore|low|haiku@high': sums(15, 1, 3, -2.5, 0, 0.5),
   });
   assert.deepEqual(insights(busy), [
     { kind: 'cost', activity: 'code', tier: 'high', share: 0.75, route: 'opus@xhigh' },
@@ -292,11 +296,14 @@ test('insights report the costly cell, switch writes against the saving, and rep
     { kind: 'stronger', activity: 'code', tier: 'high', usd: 1, route: 'opus@xhigh' },
   ]);
   const quiet = summary({
-    'code|low|haiku@high': sums(INSIGHT_REPLIES, 1, 2, -1, 0, 0.1),
-    'code|medium|sonnet@high': sums(1, 1, 1, 0, 0, 0),
+    'balanced|code|low|haiku@high': sums(INSIGHT_REPLIES, 1, 2, -1, 0, 0.1),
+    'balanced|code|medium|sonnet@high': sums(1, 1, 1, 0, 0, 0),
   });
   assert.deepEqual(insights(quiet), [{ kind: 'cost', activity: 'code', tier: 'low', share: 0.5, route: 'haiku@high' }]);
-  assert.deepEqual(insights(summary({ 'code|high|opus@xhigh': sums(INSIGHT_REPLIES - 1, 3, 2, 0, 1, 0) })), []);
+  assert.deepEqual(
+    insights(summary({ 'balanced|code|high|opus@xhigh': sums(INSIGHT_REPLIES - 1, 3, 2, 0, 1, 0) })),
+    [],
+  );
 });
 
 test('all time adds the usage records and the undated savings totals, since the earlier of the two', () => {
@@ -316,4 +323,34 @@ test('all time adds the usage records and the undated savings totals, since the 
   assert.equal(totals.replies, 5);
   assert.ok(Math.abs(totals.routedUsd - 1.02) < 1e-9 && Math.abs(totals.cheaperUsd + 1.035) < 1e-9);
   assert.deepEqual(allTime(null, null).totals.replies, 0);
+});
+
+test('a version 1 record reads as version 2 with its replies under balanced, and merges with version 2', () => {
+  const v2 = turnOf(emptyUsage(), [entry(NOW, { mode: 'cost' })], NOW);
+  const day = v2.days['2026-10-13'];
+  const v1 = {
+    version: 1,
+    since: NOW,
+    days: { '2026-10-13': { ...day, cells: { 'code|low|haiku@high': day.cells['cost|code|low|haiku@high'] } } },
+  };
+  assert.deepEqual(Object.keys(readUsage(v1).days['2026-10-13'].cells), ['balanced|code|low|haiku@high']);
+  assert.equal(readUsage(v1).version, 2);
+  const merged = mergeUsage([v1, v2]);
+  assert.deepEqual(Object.keys(merged.days['2026-10-13'].cells).sort(), [
+    'balanced|code|low|haiku@high',
+    'cost|code|low|haiku@high',
+  ]);
+  // Rewritten by its session as version 2 under the same key.
+  assert.equal(turnOf(readUsage(v1), [entry(NOW)], NOW).version, 2);
+  // A record from a later release never reads, so it is never pruned.
+  assert.deepEqual([...prunedUsage([['later', { ...v2, version: 3 }]], NOW + 500 * 86_400_000)], []);
+});
+
+test('the usage breakdowns group the modes together by activity, model and tier', () => {
+  const record = turnOf(emptyUsage(), [entry(NOW, { mode: 'cost' }), entry(NOW, { mode: 'quality' })], NOW);
+  const groups = breakdown(summarize(record, { from: null, to: null }).cells, 'activity');
+  assert.deepEqual(
+    groups.map((group) => [group.name, group.sums[0]]),
+    [['code', 2]],
+  );
 });

@@ -77,6 +77,8 @@ Activity routing adds a second label: what the turn produces (`code`, `debug`, `
 
 `/router activities off` stops asking and keeps the base routes. [Activity routing](docs/activity-routing.md) explains each cell and how to change it. The label is optional: on `uncertain` or a weak label the base route is used if the move passes the cache check, when the activity answer fails the running activity stays and the tier answer still applies, and when the classifier fails the running route stays. See [Route by activity](docs/user-guide.md#route-by-activity), and [Evaluation](docs/evaluation.md#activity-routing) for how it is checked. Its default overrides rest on published vendor results and a list-price replay of one developer's sessions, not measured savings.
 
+A [routing mode](docs/routing-modes.md) trades cost against answer quality without new routes: `cost` takes a cheaper model or one effort level less where a turn allows it, `quality` one effort level more or the tier above, and `balanced`, the default, runs the routes as configured. Set it per session with `/router mode cost`, per project in `.claude/router.json`, or for the profile with `"mode"` in `router.json`.
+
 ## Install
 
 You need Claude Code 2.1.289 or newer and credentials for one [supported classifier](#supported-classifiers).
@@ -117,6 +119,7 @@ npm run check && npm run typecheck && npm test && npm run validate && npm run te
 - [Configuration](docs/configuration.md): classifiers and keys, the optional profile `router.json`, defaults, and migrations.
 - [Architecture](docs/architecture.md): Mod event flow, state, safeguards, and runtime boundaries.
 - [Activity routing](docs/activity-routing.md): the default matrix by activity, why each cell, and how to change or turn it off.
+- [Routing modes](docs/routing-modes.md): `cost`, `balanced` and `quality`, where the mode comes from, and every decision per mode.
 - [Native router details](docs/native-router.md): panel semantics, tuning, and accepted limits.
 - [Evaluation](docs/evaluation.md): historical gateway results and the native shadow replay.
 - [Changelog](CHANGELOG.md): user-visible changes by version.

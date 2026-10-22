@@ -479,7 +479,9 @@ test('the Policy tab puts each control in its sentence and names the default bes
     renderPanel(ELEMENTS, config, view({ tab: 'policy', ...props }), null, paneActions);
   const lines = screen(policy());
   const at = lines.indexOf('POLICY · how readily the router changes models · edit, then Save');
-  assert.deepEqual(lines.slice(at + 2, at + 12), [
+  assert.deepEqual(lines.slice(at + 2, at + 14), [
+    'Mode         balanced ▾  saved at once',
+    '             each tier runs its route as configured',
     'Start        at low ▾',
     '             when the session’s model is no tier’s model',
     'Going down   after 2 ▾ agreeing turns',
@@ -495,6 +497,8 @@ test('the Policy tab puts each control in its sentence and names the default bes
     policy({ tuning: { downgradeVotes: 3 }, routeDraft: { ...routeDraftOf(DEFAULTS, {}), baselineTier: 'micro' } }),
   );
   assert.ok(changed.includes('Start        at micro ▾ ● default low'));
+  const overridden = screen(policy({ routingMode: { mode: 'cost', source: 'session' } }));
+  assert.ok(overridden.includes('             this session runs cost (session)'));
   assert.ok(changed.includes('Going down   after 3 ▾ agreeing turns ● default 2'));
   const credits = {
     ...DEFAULTS,

@@ -41,7 +41,7 @@ The default baseline is tier `low`. Each route refers to an alias in `models`.
 
 Every default route names its effort, so no default tier keeps the effort Claude Code sends. The ladder follows Anthropic's published charts. On the OSWorld 2.1 effort chart, Haiku 5.5 at `high` scored above Sonnet 5.5 at `low`, and Haiku at `xhigh` near Sonnet at `medium`, for a fraction of the cost per attempt; OSWorld measures computer use, not coding. On Terminal-Bench 4.0, FrontierCode v1.1, and CursorBench 4.0, Opus 5.5 at `medium` matched or beat Sonnet 5.5 at `xhigh` at 25 to 50% lower cost per task (chart data on anthropic.com/claude-sonnet-5-5). These are routing defaults, not a claim of equal model quality.
 
-`micro` and `low` share a model, so a step between them changes only the effort. The policy prices it as a new messages cache, as it does `medium` to `high`.
+`micro` and `low` share a model, so a step between them changes only the effort, as does `medium` to `high`. The policy prices such a step as no cache write, unless effort splits the cache (see [Optional `router.json`](#optional-routerjson)).
 
 To restore the 1.3 ladder, with Sonnet 5.5 at `low` on the session effort and Haiku 5.5 at `low` effort for `micro`:
 
@@ -248,6 +248,8 @@ The Mod validates the whole file. Unknown keys and invalid values make routing u
 | `baselineTier`                 | `micro`, `low`, `medium`, `high`                                                     | `low`                                                    |
 | `routes.<tier>`                | `model`, optional `effort` (a level, or `null` for the session effort)               | As in the route table above                              |
 | `activityRouting`              | `off`, `on`                                                                          | `on`                                                     |
+| `mode`                         | `cost`, `balanced`, `quality` ([Routing modes](routing-modes.md))                    | `balanced`                                               |
+| `modes.<cost\|quality>.policy` | any `policy` field, used while that mode is active                                   | [Routing modes](routing-modes.md#policy-per-mode); not tuned |
 | `activities.<activity>.<tier>` | optional `model` and `effort`, as in `routes`                                        | The overrides in [Activity routing](#activity-routing)   |
 | `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, optional `longContext` (`above`, `multiplier`, or `null`), `contextWindow`, `billing`, `efforts` | Three defaults above                                     |
 | `cache`                        | `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms |
@@ -279,7 +281,9 @@ Policy defaults:
 | `reviewEveryRequests`   |     `4` | Requests between classifier reviews inside a turn; `0` turns them off. Not tuned.                  |
 | `minDwellRequests`      |     `8` | Requests after a model change before a cheaper route on the same task. Not tuned.                  |
 
-The pane writes a subset of these settings. The **Routes** and **Policy** tabs set `routes`, `activities`, `activityRouting`, `baselineTier`, `policy.downgradeVotes`, `policy.downgradeHorizonTurns`, `policy.cashCapUsd`, and `policy.activityMass` in one save: it writes only values that differ from the defaults and removes the rest. `/router activities <mode>` writes `activityRouting` at once, with **Undo**. The **Classifier** tab sets `classifier` and the active classifier's `timeoutMs` at once. **Undo** reverts the settings the last pane write changed. Each save validates the whole file, keeps other keys, and applies from the next turn. A failed check names the setting and leaves the file unchanged. The pane refuses to write through a symlink. Model aliases and the other settings require a direct edit.
+The pane writes a subset of these settings. The **Routes** and **Policy** tabs set `routes`, `activities`, `activityRouting`, `baselineTier`, `policy.downgradeVotes`, `policy.downgradeHorizonTurns`, `policy.cashCapUsd`, and `policy.activityMass` in one save: it writes only values that differ from the defaults and removes the rest. `/router activities <mode>` writes `activityRouting` at once, with **Undo**. **Mode** on the Policy tab writes `mode` at once, with **Undo**; `/router mode` changes only the session and writes no file. The **Classifier** tab sets `classifier` and the active classifier's `timeoutMs` at once. **Undo** reverts the settings the last pane write changed. Each save validates the whole file, keeps other keys, and applies from the next turn. A failed check names the setting and leaves the file unchanged. The pane refuses to write through a symlink. Model aliases and the other settings require a direct edit.
+
+A project can set the routing mode, and only that, in `.claude/router.json` in the directory Claude Code runs in: `{ "mode": "cost" }`. Any other content is ignored with a notice; it never makes routing unavailable. A session's `/router mode` beats it, and it beats the profile's `mode`. See [Routing modes](routing-modes.md).
 
 Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 keep one prompt cache across effort levels, so the policy prices an effort-only move, such as Opus at `medium` to Opus at `high`, as no cache write. On Amazon Bedrock, Google Cloud, Microsoft Foundry, a custom `ANTHROPIC_BASE_URL`, or with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`, each effort has its own cache and the move pays its write. A HIPAA configuration cannot be detected; the router then prices those moves as free.
 

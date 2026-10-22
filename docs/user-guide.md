@@ -225,10 +225,14 @@ On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the
 | `/router off`                            | Turn routing off and keep Claude's selected model.                                                        |
 | `/router pin <micro\|low\|medium\|high>` | Pin the next turn and its tool continuations. Routing on must already be enabled.                         |
 | `/router activities <off\|on>`           | Set the [activity routing](#route-by-activity) mode. Saved to `router.json` at once; **Undo** reverts it. |
+| `/router mode <cost\|balanced\|quality>`  | Set this session's [routing mode](routing-modes.md) from the next turn. A resume keeps it.               |
+| `/router mode default`                   | Clear the session's mode: the project's or the profile's applies again.                                  |
 | `/model <name>`                          | Select a model and turn routing off. Use `/router auto` to turn it back on.                               |
 | **Turn on** / **Turn off** on the band   | The same as `/router auto` and `/router off`.                                                             |
 | **on** / **off** on the pane (`o` / `f`) | The same as `/router auto` and `/router off`.                                                             |
 | **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.                                      |
+
+A routing mode moves each tier's route one step toward cost or quality; pins and `micro` turns are not moved. The band and the Now tab show the mode and where it comes from, such as `cost (session)`. A change applies from the next turn, and the route in use moves only through the usual checks, so on a running task a cheaper route can wait a few requests and for a passed test. **Mode** on the Policy tab sets the profile's mode. See [Routing modes](routing-modes.md).
 
 A pin does not change the next turn after the pinned turn finishes. A fresh session on a model that a tier routes to, or with activity routing `on` a model an activity override uses (Sonnet 5.5 on the defaults), starts with routing on. A fresh session on any other model starts with routing off. `/clear` starts the new session with routing on. Resuming a saved session restores its saved routing on or off.
 

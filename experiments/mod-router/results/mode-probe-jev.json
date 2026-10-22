@@ -1,0 +1,1211 @@
+{
+  "classifier": "jev",
+  "model": "jev-1.13.0",
+  "date": "2026-10-21T13:31:50.923Z",
+  "label": "list-price estimate per nominal turn; not measured cost",
+  "nominalTurn": {
+    "input": 50000,
+    "output": 2000
+  },
+  "probes": 20,
+  "answered": 20,
+  "errors": {},
+  "classification": {
+    "tierMatches": 13,
+    "activityMatches": 19,
+    "mismatches": [
+      {
+        "text": "The unit test test_parse_date fails with 'invalid month 13'. Find out why and fix it.",
+        "expected": {
+          "tier": "low",
+          "activity": "debug"
+        },
+        "answered": {
+          "tier": "medium",
+          "tierProbability": 0.78,
+          "activity": "debug",
+          "activityProbability": 0.53
+        }
+      },
+      {
+        "text": "Write a short README section that explains how to run the tests.",
+        "expected": {
+          "tier": "low",
+          "activity": "docs"
+        },
+        "answered": {
+          "tier": "micro",
+          "tierProbability": 0.48,
+          "activity": "docs",
+          "activityProbability": 1
+        }
+      },
+      {
+        "text": "Where in this repo is the HTTP retry logic implemented?",
+        "expected": {
+          "tier": "low",
+          "activity": "explore"
+        },
+        "answered": {
+          "tier": "micro",
+          "tierProbability": 0.67,
+          "activity": "explore",
+          "activityProbability": 1
+        }
+      },
+      {
+        "text": "Requests time out now and then under load in staging. Investigate the connection pool and fix the cause.",
+        "expected": {
+          "tier": "medium",
+          "activity": "debug"
+        },
+        "answered": {
+          "tier": "high",
+          "tierProbability": 0.58,
+          "activity": "debug",
+          "activityProbability": 0.62
+        }
+      },
+      {
+        "text": "Review the pull request that refactors the payment module for correctness and missed edge cases.",
+        "expected": {
+          "tier": "medium",
+          "activity": "review"
+        },
+        "answered": {
+          "tier": "high",
+          "tierProbability": 0.98,
+          "activity": "review",
+          "activityProbability": 1
+        }
+      },
+      {
+        "text": "Write a GitHub Actions workflow that builds, tests and publishes the Docker image on tags.",
+        "expected": {
+          "tier": "medium",
+          "activity": "ops"
+        },
+        "answered": {
+          "tier": "low",
+          "tierProbability": 0.55,
+          "activity": "code",
+          "activityProbability": 1
+        }
+      },
+      {
+        "text": "Explain how the login flow works across the gateway, the auth service and the frontend.",
+        "expected": {
+          "tier": "medium",
+          "activity": "explore"
+        },
+        "answered": {
+          "tier": "high",
+          "tierProbability": 0.52,
+          "activity": "explore",
+          "activityProbability": 0.98
+        }
+      }
+    ]
+  },
+  "routing": {
+    "violations": [],
+    "tierMovedByPolicy": [
+      "defaults cost: low -> micro: Run git status.",
+      "opus-high cost: low -> micro: Run git status.",
+      "defaults cost: medium -> low: The unit test test_parse_date fails with 'invalid month 13'. Find out why and fix it.",
+      "opus-high cost: medium -> low: The unit test test_parse_date fails with 'invalid month 13'. Find out why and fix it."
+    ]
+  },
+  "modes": {
+    "defaults": {
+      "cost": {
+        "mix": {
+          "haiku@medium": 7,
+          "sonnet@medium": 4,
+          "sonnet@high": 2,
+          "opus@high": 7
+        },
+        "nominalUsd": 2.442,
+        "routesDifferingFromBalanced": 19
+      },
+      "balanced": {
+        "mix": {
+          "haiku@high": 5,
+          "haiku@medium": 1,
+          "sonnet@high": 4,
+          "opus@medium": 3,
+          "opus@xhigh": 7
+        },
+        "nominalUsd": 2.916,
+        "routesDifferingFromBalanced": 0
+      },
+      "quality": {
+        "mix": {
+          "haiku@xhigh": 5,
+          "haiku@medium": 1,
+          "sonnet@xhigh": 4,
+          "opus@high": 3,
+          "opus@max": 7
+        },
+        "nominalUsd": 2.916,
+        "routesDifferingFromBalanced": 19
+      }
+    },
+    "opus-high": {
+      "cost": {
+        "mix": {
+          "haiku@medium": 7,
+          "sonnet@medium": 4,
+          "sonnet@high": 2,
+          "opus@medium": 7
+        },
+        "nominalUsd": 2.442,
+        "routesDifferingFromBalanced": 19
+      },
+      "balanced": {
+        "mix": {
+          "haiku@high": 5,
+          "haiku@medium": 1,
+          "sonnet@high": 4,
+          "opus@medium": 3,
+          "opus@high": 7
+        },
+        "nominalUsd": 2.916,
+        "routesDifferingFromBalanced": 0
+      },
+      "quality": {
+        "mix": {
+          "haiku@xhigh": 5,
+          "haiku@medium": 1,
+          "sonnet@xhigh": 4,
+          "opus@high": 3,
+          "opus@xhigh": 7
+        },
+        "nominalUsd": 2.916,
+        "routesDifferingFromBalanced": 19
+      }
+    }
+  },
+  "rows": [
+    {
+      "text": "Run git status.",
+      "expected": {
+        "tier": "micro",
+        "activity": "ops"
+      },
+      "answered": {
+        "tier": "micro",
+        "tierProbability": 0.88,
+        "activity": "ops",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "micro",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "haiku@high",
+            "nominalUsd": 0.006
+          },
+          "quality": {
+            "tier": "low",
+            "route": "haiku@xhigh",
+            "nominalUsd": 0.006
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "micro",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "haiku@high",
+            "nominalUsd": 0.006
+          },
+          "quality": {
+            "tier": "low",
+            "route": "haiku@xhigh",
+            "nominalUsd": 0.006
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": ["defaults cost: low -> micro", "opus-high cost: low -> micro"]
+    },
+    {
+      "text": "Fix the typo 'recieve' in README.md.",
+      "expected": {
+        "tier": "micro",
+        "activity": "docs"
+      },
+      "answered": {
+        "tier": "micro",
+        "tierProbability": 0.95,
+        "activity": "docs",
+        "activityProbability": 0.96
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "micro",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "micro",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "quality": {
+            "tier": "micro",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "micro",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "micro",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "quality": {
+            "tier": "micro",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "What is the default port in config.yaml?",
+      "expected": {
+        "tier": "micro",
+        "activity": "explore"
+      },
+      "answered": {
+        "tier": "micro",
+        "tierProbability": 0.6,
+        "activity": "explore",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "low",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "haiku@high",
+            "nominalUsd": 0.006
+          },
+          "quality": {
+            "tier": "low",
+            "route": "haiku@xhigh",
+            "nominalUsd": 0.006
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "low",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "haiku@high",
+            "nominalUsd": 0.006
+          },
+          "quality": {
+            "tier": "low",
+            "route": "haiku@xhigh",
+            "nominalUsd": 0.006
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Rename the variable cnt to count in utils.py line 12.",
+      "expected": {
+        "tier": "micro",
+        "activity": "code"
+      },
+      "answered": {
+        "tier": "micro",
+        "tierProbability": 0.76,
+        "activity": "code",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "low",
+            "route": "sonnet@medium",
+            "nominalUsd": 0.12
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "sonnet@high",
+            "nominalUsd": 0.12
+          },
+          "quality": {
+            "tier": "low",
+            "route": "sonnet@xhigh",
+            "nominalUsd": 0.12
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "low",
+            "route": "sonnet@medium",
+            "nominalUsd": 0.12
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "sonnet@high",
+            "nominalUsd": 0.12
+          },
+          "quality": {
+            "tier": "low",
+            "route": "sonnet@xhigh",
+            "nominalUsd": 0.12
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Add a --verbose flag to the CLI that prints each file it processes.",
+      "expected": {
+        "tier": "low",
+        "activity": "code"
+      },
+      "answered": {
+        "tier": "low",
+        "tierProbability": 0.65,
+        "activity": "code",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "low",
+            "route": "sonnet@medium",
+            "nominalUsd": 0.12
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "sonnet@high",
+            "nominalUsd": 0.12
+          },
+          "quality": {
+            "tier": "low",
+            "route": "sonnet@xhigh",
+            "nominalUsd": 0.12
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "low",
+            "route": "sonnet@medium",
+            "nominalUsd": 0.12
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "sonnet@high",
+            "nominalUsd": 0.12
+          },
+          "quality": {
+            "tier": "low",
+            "route": "sonnet@xhigh",
+            "nominalUsd": 0.12
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "The unit test test_parse_date fails with 'invalid month 13'. Find out why and fix it.",
+      "expected": {
+        "tier": "low",
+        "activity": "debug"
+      },
+      "answered": {
+        "tier": "medium",
+        "tierProbability": 0.78,
+        "activity": "debug",
+        "activityProbability": 0.53
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "low",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "medium",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "medium",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "low",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "medium",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "medium",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": ["defaults cost: medium -> low", "opus-high cost: medium -> low"]
+    },
+    {
+      "text": "Review this 20-line diff to the logger for obvious mistakes.",
+      "expected": {
+        "tier": "low",
+        "activity": "review"
+      },
+      "answered": {
+        "tier": "low",
+        "tierProbability": 0.41,
+        "activity": "review",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "low",
+            "route": "sonnet@medium",
+            "nominalUsd": 0.12
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "sonnet@high",
+            "nominalUsd": 0.12
+          },
+          "quality": {
+            "tier": "low",
+            "route": "sonnet@xhigh",
+            "nominalUsd": 0.12
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "low",
+            "route": "sonnet@medium",
+            "nominalUsd": 0.12
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "sonnet@high",
+            "nominalUsd": 0.12
+          },
+          "quality": {
+            "tier": "low",
+            "route": "sonnet@xhigh",
+            "nominalUsd": 0.12
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Write a short README section that explains how to run the tests.",
+      "expected": {
+        "tier": "low",
+        "activity": "docs"
+      },
+      "answered": {
+        "tier": "micro",
+        "tierProbability": 0.48,
+        "activity": "docs",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "low",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "haiku@high",
+            "nominalUsd": 0.006
+          },
+          "quality": {
+            "tier": "low",
+            "route": "haiku@xhigh",
+            "nominalUsd": 0.006
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "low",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "haiku@high",
+            "nominalUsd": 0.006
+          },
+          "quality": {
+            "tier": "low",
+            "route": "haiku@xhigh",
+            "nominalUsd": 0.006
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Restart the docker compose stack and check that all containers are healthy.",
+      "expected": {
+        "tier": "low",
+        "activity": "ops"
+      },
+      "answered": {
+        "tier": "low",
+        "tierProbability": 0.51,
+        "activity": "ops",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "low",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "haiku@high",
+            "nominalUsd": 0.006
+          },
+          "quality": {
+            "tier": "low",
+            "route": "haiku@xhigh",
+            "nominalUsd": 0.006
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "low",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "haiku@high",
+            "nominalUsd": 0.006
+          },
+          "quality": {
+            "tier": "low",
+            "route": "haiku@xhigh",
+            "nominalUsd": 0.006
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Where in this repo is the HTTP retry logic implemented?",
+      "expected": {
+        "tier": "low",
+        "activity": "explore"
+      },
+      "answered": {
+        "tier": "micro",
+        "tierProbability": 0.67,
+        "activity": "explore",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "low",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "haiku@high",
+            "nominalUsd": 0.006
+          },
+          "quality": {
+            "tier": "low",
+            "route": "haiku@xhigh",
+            "nominalUsd": 0.006
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "low",
+            "route": "haiku@medium",
+            "nominalUsd": 0.006
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "haiku@high",
+            "nominalUsd": 0.006
+          },
+          "quality": {
+            "tier": "low",
+            "route": "haiku@xhigh",
+            "nominalUsd": 0.006
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Implement cursor pagination for the /orders API endpoint, with tests.",
+      "expected": {
+        "tier": "medium",
+        "activity": "code"
+      },
+      "answered": {
+        "tier": "medium",
+        "tierProbability": 0.96,
+        "activity": "code",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "medium",
+            "route": "sonnet@high",
+            "nominalUsd": 0.12
+          },
+          "balanced": {
+            "tier": "medium",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "medium",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "medium",
+            "route": "sonnet@high",
+            "nominalUsd": 0.12
+          },
+          "balanced": {
+            "tier": "medium",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "medium",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Requests time out now and then under load in staging. Investigate the connection pool and fix the cause.",
+      "expected": {
+        "tier": "medium",
+        "activity": "debug"
+      },
+      "answered": {
+        "tier": "high",
+        "tierProbability": 0.58,
+        "activity": "debug",
+        "activityProbability": 0.62
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@max",
+            "nominalUsd": 0.24
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Plan the migration of our settings from YAML files to a SQLite table, step by step.",
+      "expected": {
+        "tier": "medium",
+        "activity": "plan"
+      },
+      "answered": {
+        "tier": "medium",
+        "tierProbability": 0.73,
+        "activity": "plan",
+        "activityProbability": 0.98
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "medium",
+            "route": "sonnet@high",
+            "nominalUsd": 0.12
+          },
+          "balanced": {
+            "tier": "medium",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "medium",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "medium",
+            "route": "sonnet@high",
+            "nominalUsd": 0.12
+          },
+          "balanced": {
+            "tier": "medium",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "medium",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Review the pull request that refactors the payment module for correctness and missed edge cases.",
+      "expected": {
+        "tier": "medium",
+        "activity": "review"
+      },
+      "answered": {
+        "tier": "high",
+        "tierProbability": 0.98,
+        "activity": "review",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@max",
+            "nominalUsd": 0.24
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Write a GitHub Actions workflow that builds, tests and publishes the Docker image on tags.",
+      "expected": {
+        "tier": "medium",
+        "activity": "ops"
+      },
+      "answered": {
+        "tier": "low",
+        "tierProbability": 0.55,
+        "activity": "code",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "low",
+            "route": "sonnet@medium",
+            "nominalUsd": 0.12
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "sonnet@high",
+            "nominalUsd": 0.12
+          },
+          "quality": {
+            "tier": "low",
+            "route": "sonnet@xhigh",
+            "nominalUsd": 0.12
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "low",
+            "route": "sonnet@medium",
+            "nominalUsd": 0.12
+          },
+          "balanced": {
+            "tier": "low",
+            "route": "sonnet@high",
+            "nominalUsd": 0.12
+          },
+          "quality": {
+            "tier": "low",
+            "route": "sonnet@xhigh",
+            "nominalUsd": 0.12
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Explain how the login flow works across the gateway, the auth service and the frontend.",
+      "expected": {
+        "tier": "medium",
+        "activity": "explore"
+      },
+      "answered": {
+        "tier": "high",
+        "tierProbability": 0.52,
+        "activity": "explore",
+        "activityProbability": 0.98
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@max",
+            "nominalUsd": 0.24
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Design and implement a lock-free concurrent hash map in Rust with resizing and a full test suite.",
+      "expected": {
+        "tier": "high",
+        "activity": "code"
+      },
+      "answered": {
+        "tier": "high",
+        "tierProbability": 1,
+        "activity": "code",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@max",
+            "nominalUsd": 0.24
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "A rare data race corrupts the ledger about once a week in production. Find the root cause across the three services and fix it.",
+      "expected": {
+        "tier": "high",
+        "activity": "debug"
+      },
+      "answered": {
+        "tier": "high",
+        "tierProbability": 1,
+        "activity": "debug",
+        "activityProbability": 0.53
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@max",
+            "nominalUsd": 0.24
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Design how to split our monolith into services: data ownership, migration order and a rollback plan.",
+      "expected": {
+        "tier": "high",
+        "activity": "plan"
+      },
+      "answered": {
+        "tier": "high",
+        "tierProbability": 1,
+        "activity": "plan",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@max",
+            "nominalUsd": 0.24
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    },
+    {
+      "text": "Do a security review of our OAuth implementation, token storage and session handling.",
+      "expected": {
+        "tier": "high",
+        "activity": "review"
+      },
+      "answered": {
+        "tier": "high",
+        "tierProbability": 1,
+        "activity": "review",
+        "activityProbability": 1
+      },
+      "routes": {
+        "defaults": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@max",
+            "nominalUsd": 0.24
+          }
+        },
+        "opus-high": {
+          "cost": {
+            "tier": "high",
+            "route": "opus@medium",
+            "nominalUsd": 0.24
+          },
+          "balanced": {
+            "tier": "high",
+            "route": "opus@high",
+            "nominalUsd": 0.24
+          },
+          "quality": {
+            "tier": "high",
+            "route": "opus@xhigh",
+            "nominalUsd": 0.24
+          }
+        }
+      },
+      "violations": [],
+      "tierMovedByPolicy": []
+    }
+  ]
+}

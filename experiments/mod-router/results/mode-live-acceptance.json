@@ -1,0 +1,87 @@
+{
+  "description": "Live routing-mode acceptance (plan L1-L7, L10): interactive Claude Code sessions in agterm with the router loaded from a --plugin-dir copy, an isolated CLAUDE_CONFIG_DIR (claude.ai Max login), the Jev classifier, and a throwaway two-file Python project. Numbers from the store's usage records and the `router decision` debug lines. Dollars are list-price estimates of the measured tokens (the session bills a plan, not credits). No session ids or paths.",
+  "date": "2026-10-21",
+  "claudeCode": "2.1.306",
+  "router": "1.15.0 candidate (branch routing-modes, bd3fd62)",
+  "task": "5 turns, the same prompts in every mode, each mode in a new session: read the two files; add divide() with a ValueError on zero plus tests; run the tests with uv and fix failures; review the change for edge cases without edits; add tests for those edge cases and rerun. Each run started from the same files. A model-initiated test command before the run turn was declined in every mode.",
+  "perMode": {
+    "cost": {
+      "decisions": [
+        "micro 92% -> low downgrade, Haiku 5.5 medium (explore)",
+        "low -> activity-up, Sonnet 5.5 medium (code)",
+        "medium 46% < 85% -> upgrade-pending, Sonnet 5.5 medium",
+        "medium 86% >= 85%, streak short -> upgrade-pending, Sonnet 5.5 medium",
+        "medium 71% < 85% -> upgrade-pending, Sonnet 5.5 medium"
+      ],
+      "replies": 8,
+      "mix": { "claude-haiku-5-5@medium": 2, "claude-sonnet-5-5@medium": 6 },
+      "switches": { "tier": 0, "activity": 1 },
+      "inputTokens": 371022,
+      "cacheReadTokens": 331907,
+      "outputTokens": 2860,
+      "routedUsd": 0.1662,
+      "switchWriteUsd": 0.0685,
+      "yourModelUsd": 0.2957,
+      "testsAtEnd": "11 passed"
+    },
+    "balanced": {
+      "decisions": [
+        "micro 74% < 90% -> downgrade-pending, Opus 5.5 medium (explore)",
+        "low 75% < 92% -> downgrade-pending, Opus 5.5 medium (code)",
+        "low 67% < 92% -> downgrade-pending, Opus 5.5 medium",
+        "medium -> same-tier, Opus 5.5 medium",
+        "medium -> same-tier, Opus 5.5 medium"
+      ],
+      "replies": 10,
+      "mix": { "claude-opus-5-5@medium": 10 },
+      "switches": { "tier": 0, "activity": 0 },
+      "inputTokens": 465499,
+      "cacheReadTokens": 446226,
+      "outputTokens": 3986,
+      "routedUsd": 0.323,
+      "switchWriteUsd": 0,
+      "yourModelUsd": 0.323,
+      "testsAtEnd": "12 passed, 1 skipped"
+    },
+    "quality": {
+      "decisions": [
+        "micro 79% < 95% -> downgrade-pending, Opus 5.5 high (explore)",
+        "low 86% < 97% -> downgrade-pending, Opus 5.5 high (code)",
+        "medium -> same-tier, Opus 5.5 high",
+        "medium -> same-tier, Opus 5.5 high",
+        "medium -> same-tier, Opus 5.5 high"
+      ],
+      "replies": 8,
+      "mix": { "claude-opus-5-5@high": 8 },
+      "switches": { "tier": 0, "activity": 0 },
+      "inputTokens": 374041,
+      "cacheReadTokens": 351396,
+      "outputTokens": 5332,
+      "routedUsd": 0.358,
+      "switchWriteUsd": 0,
+      "yourModelUsd": 0.358,
+      "testsAtEnd": "12 passed, 1 skipped"
+    }
+  },
+  "findings": [
+    "One run per mode: the classifier's turn-1 micro confidence differed between runs (92%, 74%, 79%), so part of the gap on turn 1 is classifier variance, not the mode.",
+    "Quality ran the same model as balanced; its list price per token is the same, and its extra cost came from 34% more output tokens (5332 vs 3986).",
+    "Cost paid $0.0685 of its $0.1662 in cache writes for the move to Sonnet; a longer session spreads that write over more turns.",
+    "The `router decision` line logs the turn-start decision; a later activity move inside the turn (low docs on Haiku, then code on Sonnet) shows in the usage cells only."
+  ],
+  "checks": {
+    "L1": "band `cost (profile)` / `quality (profile)` / `balanced (default)`; footer `cost mode (profile)`, none in balanced; Now tab `Mode  cost (profile)`",
+    "L2": "`/router mode cost` mid-session: no abort, `cost (session)` from the next turn; the continuation turn was `downgrade-held` (band: down after a passed check); after the passed check the next turn moved to low",
+    "L3": "project `quality` beat profile `cost` (`quality (project)`); `/router mode balanced` beat it (`balanced (session)`); `/router mode default` returned to `quality (project)`; `{\"mode\":\"fast\"}` was ignored: `cost (profile)` and the Now tab notice `Ignored: project .claude/router.json mode must be one of cost, balanced, quality`",
+    "L4": "`claude --continue` kept `cost (session)`; a new session started `balanced (default)`",
+    "L5": "`/router pin high` in cost mode ran Opus 5.5 xhigh (base route), reason `pinned`; the usage cell is `balanced|none|high|claude-opus-5-5@xhigh`; the next turn was back on cost routes",
+    "L6": "usage record version 2 with `cost|…`, `quality|…` and `balanced|…` cells; debug lines `router decision {mode, modeSource, classified, tier, reason, route, pinned}`",
+    "L7": "band, Now and Policy layouts match docs/router-band.svg, router-pane-now.svg and router-pane-policy.svg (segment order, Mode line placement, `▾ saved at once`)"
+  },
+  "apiErrors": 0,
+  "captures": {
+    "mode-live-band-cost.png": "the band in cost mode after the run: low, Haiku 5.5 medium, `cost (profile)`",
+    "mode-live-pane-now.png": "/router Now in cost mode: Mode line `cost (profile)`, session mix and the last switch Sonnet 5.5 medium -> Haiku 5.5 medium",
+    "mode-live-pane-policy.png": "/router Policy in cost mode: the Mode row `cost ▾ saved at once` with its one-line effect"
+  }
+}

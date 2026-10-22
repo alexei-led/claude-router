@@ -230,6 +230,32 @@ test('Why names the cell for an activity move or a stay on an override, and keep
     ],
     ['a hold on an override', on, { tier: 'low', activity: 'code', reason: 'hold' }, 'staying after an escalation'],
     [
+      'a cheaper mode route held on its task, while the route in use runs',
+      on,
+      {
+        tier: 'low',
+        activity: 'code',
+        reason: 'downgrade-held',
+        selectedModel: 'claude-sonnet-5-5',
+        effort: 'high',
+        routingMode: { mode: 'cost', source: 'session' },
+      },
+      'a cheaper model waits for a passed check on this task',
+    ],
+    [
+      'a stay on an override in cost mode, on its mode route',
+      on,
+      {
+        tier: 'low',
+        activity: 'code',
+        reason: 'same-tier',
+        selectedModel: 'claude-sonnet-5-5',
+        effort: 'medium',
+        routingMode: { mode: 'cost', source: 'session' },
+      },
+      'coding at low runs on Sonnet 5.5 · medium',
+    ],
+    [
       'a tier move onto an override',
       on,
       { tier: 'low', activity: 'code', reason: 'downgrade' },

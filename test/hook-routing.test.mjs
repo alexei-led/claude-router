@@ -521,7 +521,7 @@ test('a substituted reply is not counted as the requested tier, and its usage is
   await h.event('turn.complete', { turnId: step.turnId });
   const cells = Object.keys(summarize(readUsage(h.preferences.get('usage:v1:s1')), { from: null, to: null }).cells);
   assert.equal(cells.length, 1);
-  assert.match(cells[0], /^none\|none\|claude-sonnet-5-5@/);
+  assert.match(cells[0], /^balanced\|none\|none\|claude-sonnet-5-5@/);
 });
 
 test('a 1.1 router.json makes routing unavailable and points to the migration script', async () => {
@@ -1131,7 +1131,7 @@ test('with activity routing on, a turn without an activity answer keeps the acti
   assert.equal(h.loop().lastActivity, 'code');
   const { cells } = summarize(readUsage(h.preferences.get('usage:v1:s1')), { from: null, to: null });
   assert.deepEqual(
-    Object.entries(cells).map(([key, sums]) => [key.split('|')[0], sums[0]]),
+    Object.entries(cells).map(([key, sums]) => [key.split('|')[1], sums[0]]),
     [['code', 2]],
   );
   assert.deepEqual(savedStats(h.preferences).runs, { code: [1, 0, 0, 0, 0] });
@@ -1416,7 +1416,7 @@ test('a routed reply is priced against your model in the session totals and, at 
       [1, 1, 1100, 800, 10],
     );
     assert.ok(Math.abs(total.routedUsd - usd) < 1e-6);
-    assert.deepEqual(Object.keys(total.cells), ['none|low|claude-haiku-5-5@high']);
+    assert.deepEqual(Object.keys(total.cells), ['balanced|none|low|claude-haiku-5-5@high']);
     assert.deepEqual(total.yours, { 'claude-haiku-5-5': 1 });
     assert.ok(Number.isFinite(record.since));
     assert.deepEqual([h.view().usageSession, h.view().usageStore], [record, record]);
@@ -1464,7 +1464,9 @@ test('a reply is kept on the local day it arrived, and the turn and its switch o
   const { days } = readUsage(h.preferences.get(`${USAGE}s1`));
   assert.deepEqual(Object.keys(days).sort(), ['2026-10-12', '2026-10-13']);
   assert.deepEqual([Object.keys(days['2026-10-12'].cells).length, days['2026-10-12'].turns], [1, 0]);
-  assert.deepEqual(days['2026-10-12'].hours, { 23: days['2026-10-12'].cells['none|low|claude-haiku-5-5@high'][1] });
+  assert.deepEqual(days['2026-10-12'].hours, {
+    23: days['2026-10-12'].cells['balanced|none|low|claude-haiku-5-5@high'][1],
+  });
   assert.deepEqual([Object.keys(days['2026-10-13'].cells).length, days['2026-10-13'].turns], [0, 1]);
 });
 
@@ -1647,7 +1649,7 @@ test('another session’s usage with no day left in the kept window is deleted w
     switches: { tier: 0, activity: 0 },
   };
   const old = { version: 1, since: 1, days: { '2025-01-02': day } };
-  const later = { version: 2, days: 'kept as written' };
+  const later = { version: 3, days: 'kept as written' };
   const widerDay = {
     version: 1,
     since: 1,
