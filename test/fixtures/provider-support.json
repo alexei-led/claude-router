@@ -1,0 +1,55 @@
+{
+  "checked": "2026-10-28",
+  "sources": {
+    "deepseek": [
+      "https://api-docs.deepseek.com/quick_start/pricing",
+      "https://api-docs.deepseek.com/guides/thinking_mode",
+      "https://api-docs.deepseek.com/guides/kv_cache"
+    ],
+    "zai": [
+      "https://docs.z.ai/guides/overview/pricing.md",
+      "https://docs.z.ai/guides/capabilities/thinking.md",
+      "https://docs.z.ai/devpack/latest-model.md"
+    ]
+  },
+  "method": "Live Anthropic Messages calls with synthetic text: six per provider, all HTTP 200. DeepSeek low/high/max; both GLM models low/high/max. No quality or savings measurement. DeepSeek rates below are peak rates; z.ai rates are API list-price equivalents, not plan quota.",
+  "models": {
+    "deepseek-flash": {
+      "input": 0.3,
+      "output": 1.2,
+      "cacheRead": 0.006,
+      "efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "imageInput": true
+    },
+    "glm-5.3-flash": {
+      "input": 0.15,
+      "output": 0.5,
+      "cacheRead": 0.03,
+      "efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "imageInput": true
+    },
+    "glm-5.3": {
+      "input": 1.4,
+      "output": 4.4,
+      "cacheRead": 0.26,
+      "efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "imageInput": false
+    }
+  },
+  "cacheEvidence": {
+    "deepseek": "Repeated low/high requests reported 2688 cache-read tokens out of 2878 total input; first requests at each effort missed. This does not prove a guaranteed TTL or sharing across efforts.",
+    "zai": "All six requests reported cache_read_input_tokens: 0 and omitted cache_creation_input_tokens. Native loopback acceptance confirms Claude Code supplies zero for omitted creation counts. Positive cache hits and TTL remain unverified."
+  }
+}

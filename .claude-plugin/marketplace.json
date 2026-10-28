@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "router",
-      "description": "Model and effort routing for the main conversation, advised by a prompt classifier, with native Mod controls and unchanged subagent choices.",
+      "description": "Provider-aware model and effort routing with Anthropic, DeepSeek and z.ai defaults, custom profiles, classifier advice and native controls.",
       "source": {
         "source": "github",
         "repo": "alexei-led/claude-router"

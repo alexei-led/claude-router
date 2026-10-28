@@ -377,7 +377,7 @@ test('mergeStores adds up every record since the last reset, the shared one from
 test('readMetrics keeps each part it can read and drops only a bad one', () => {
   const latency = { jev: [0, 0, 0, 0, 5, 1, ...Array(16).fill(0)] };
   const downMoves = { moves: 3, escalations: 1 };
-  const unpriced = { usage: 0, model: 0, ttl: 0, error: 0 };
+  const unpriced = { usage: 0, model: 0, ttl: 0, error: 0, comparison: 0 };
   const valid = { version: 1, since: 5, latency, downMoves, unpriced };
   const none = { moves: 0, escalations: 0 };
   assert.deepEqual(readMetrics(valid), valid);
@@ -406,9 +406,9 @@ test('readMetrics keeps each part it can read and drops only a bad one', () => {
       { ...valid, downMoves: none },
     ],
     [
-      'unpriced counts kept',
+      'legacy unpriced counts kept with no missing comparisons',
       { ...valid, unpriced: { usage: 1, model: 2, ttl: 3, error: 4 } },
-      { ...valid, unpriced: { usage: 1, model: 2, ttl: 3, error: 4 } },
+      { ...valid, unpriced: { usage: 1, model: 2, ttl: 3, error: 4, comparison: 0 } },
     ],
     ['unpriced missing a cause', { ...valid, unpriced: { usage: 1 } }, valid],
     ['unpriced with an unknown cause', { ...valid, unpriced: { ...unpriced, other: 1 } }, valid],
@@ -421,12 +421,12 @@ test('unpriced replies add up per cause in a session and across sessions', () =>
   const empty = emptyMetrics();
   assert.equal(recordMetrics(empty, { unpriced: { usage: 0, ttl: 0 }, now: 7 }), empty, 'no count adds nothing');
   const one = recordMetrics(empty, { unpriced: { ttl: 2, model: 1 }, now: 7 });
-  assert.deepEqual(one.unpriced, { usage: 0, model: 1, ttl: 2, error: 0 });
+  assert.deepEqual(one.unpriced, { usage: 0, model: 1, ttl: 2, error: 0, comparison: 0 });
   assert.equal(one.since, 7);
   const two = recordMetrics(one, { unpriced: { ttl: 1, error: 1, bogus: 5 }, now: 9 });
-  assert.deepEqual(two.unpriced, { usage: 0, model: 1, ttl: 3, error: 1 });
+  assert.deepEqual(two.unpriced, { usage: 0, model: 1, ttl: 3, error: 1, comparison: 0 });
   assert.equal(two.since, 7);
-  assert.deepEqual(mergeMetrics([one, two]).unpriced, { usage: 0, model: 2, ttl: 5, error: 1 });
+  assert.deepEqual(mergeMetrics([one, two]).unpriced, { usage: 0, model: 2, ttl: 5, error: 1, comparison: 0 });
   assert.deepEqual(readMetrics(two), two);
 });
 
@@ -437,7 +437,7 @@ test('the sessions’ metrics add up since the last reset, within the classifier
     since,
     latency,
     downMoves: { moves, escalations },
-    unpriced: { usage: 0, model: 0, ttl: 0, error: 0 },
+    unpriced: { usage: 0, model: 0, ttl: 0, error: 0, comparison: 0 },
   });
   const many = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`c${i}`, bucket(0)]));
   for (const [name, values, resetAt, expected] of [

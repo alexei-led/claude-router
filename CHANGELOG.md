@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.17.0 (2026-10-28)
+
+Route models and effort within your configured provider. Anthropic remains the default. DeepSeek and z.ai gain built-in profiles, and other Anthropic-compatible providers can use custom profiles without another proxy.
+
+### Added
+
+- `CLAUDE_ROUTER_PROVIDER` selects `<provider>-router.json` in the active Claude Code profile. Selection stays fixed for the session, including pane Save/Undo. Missing or invalid selected files warn and preserve Claude Code's model and effort instead of falling back to `router.json`.
+- DeepSeek Flash defaults route `low`, `high`, and `max` effort on one model. z.ai defaults combine GLM-5.3-Flash and GLM-5.3, with activity-specific routes.
+- Custom profiles support OpenRouter, Ollama, other local servers and compatible hosted endpoints. Supply the model catalog and all four routes.
+- [Provider documentation](docs/providers.md) covers names, defaults, custom files and the existing `--settings` flag alternative. There is no dedicated `--provider` flag.
+
+### Changed
+
+- Cache accounting supports explicit, automatic and disabled policies. Automatic caches use hit/miss input rates without invented TTLs or write premiums. Unknown counterfactual comparisons are reported separately from known observed costs.
+- Model metadata can declare strength and image support. Provider allowlists use exact model identities, and the `[1m]` context hint is normalized without merging distinct versions.
+
+### Upgrade
+
+- Existing Anthropic users need no configuration change.
+- Before selecting `deepseek` or `zai`, create its named router file. Use `{}` for built-in defaults. Other provider names require a complete profile.
+- Set the selector before launching Claude Code. Project/local settings cannot redirect it.
+
+### Limits
+
+Routing stays within one configured endpoint. Subagents receive a model, not routed effort. Defaults are starting policies, not measured quality or savings guarantees. Positive z.ai cache hits remain unverified.
+
 ## 1.16.0 (2026-10-28)
 
 Routing is now explainable after the fact, task notifications route as progress on the task they report on, and `cost` mode moves a hard task off Haiku. See [Routing decisions](docs/user-guide.md#routing-decisions) and [Changes during a task](docs/user-guide.md#changes-during-a-task).

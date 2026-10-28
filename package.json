@@ -1,7 +1,7 @@
 {
   "name": "@alexeiled/claude-router",
-  "version": "1.16.0",
-  "description": "Native Claude Code Mod: model and effort routing for the main conversation, advised by Jev, Clef, Clef Flash, Clef Omni, OpenAI or Ollama.",
+  "version": "1.17.0",
+  "description": "Native Claude Code model and effort routing with Anthropic, DeepSeek and z.ai defaults, custom provider profiles, and classifier advice.",
   "license": "MIT",
   "author": "Alexei Ledenev",
   "repository": {
@@ -34,6 +34,7 @@
     "typecheck": "tools/node_modules/.bin/tsc -p tsconfig.json",
     "validate": "claude plugin validate .claude-plugin/plugin.json && claude plugin validate .claude-plugin/marketplace.json",
     "test:plugin": "bash scripts/plugin-test.sh",
+    "test:providers": "node experiments/mod-router/scripts/provider-acceptance.mjs",
     "format": "tools/node_modules/.bin/biome format --write .",
     "docs:images": "node scripts/render-doc-images.mjs",
     "docs:modes": "node scripts/mode-matrix.mjs",

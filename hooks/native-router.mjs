@@ -26,6 +26,7 @@ import {
   activeClassifier,
   CLASSIFY,
   DEFAULTS,
+  defaultsFor,
   editActivity,
   effectiveActivities,
   effectiveRoutes,
@@ -74,10 +75,11 @@ import {
   unavailableReason,
   unpricedLine,
 } from '../lib/display.mjs';
-import { clip, observedActivity, promptIndex, routingBucket } from '../lib/facts.mjs';
+import { clip, hasImages, observedActivity, promptIndex, routingBucket } from '../lib/facts.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
+import { providerFile, providerName } from '../lib/providers.mjs';
 import {
   canMoveUp,
   cellForModel,
@@ -102,6 +104,7 @@ import {
   modelAlias,
   modelEntry,
   modelSpec,
+  observedReplyUsd,
   readSavingsStore,
   SAVINGS_PREFIX,
   SAVINGS_RESET_KEY,
@@ -671,27 +674,41 @@ async function effortSplitsCacheOf($) {
 async function loadNativeConfig($) {
   for (const source of ['project', 'local']) {
     const settings = await $.settings.read({ source });
-    if (settings.env && ['HOME', 'CLAUDE_CONFIG_DIR'].some((key) => Object.hasOwn(settings.env, key)))
+    if (
+      settings.env &&
+      ['HOME', 'CLAUDE_CONFIG_DIR', 'CLAUDE_ROUTER_PROVIDER'].some((key) => Object.hasOwn(settings.env, key))
+    )
       throw new Error('project settings cannot redirect the router profile');
   }
   const home = await $.env.get('HOME');
   const profile = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${home}/.claude`;
-  const path = `${profile}/router.json`;
+  const provider = providerName(await $.env.get('CLAUDE_ROUTER_PROVIDER'));
+  const path = `${profile}/${providerFile(provider)}`;
+  if (provider !== 'anthropic' && !(await $.fs.exists(path)))
+    throw new Error('selected provider router file is missing');
   const userFile = (await $.fs.exists(path)) ? JSON.parse(await $.fs.read(path)) : null;
-  return { ...loadConfig({ userFile }), nativePath: path, effortSplitsCache: await effortSplitsCacheOf($) };
+  return { ...loadConfig({ userFile, provider }), nativePath: path, effortSplitsCache: await effortSplitsCacheOf($) };
 }
 
 // Writes router.json through `change(previousFile)` once the result validates. Returns the new config or an error
 // line for the pane; a failure leaves the file untouched.
-async function saveConfig($, path, change) {
+async function saveConfig($, active, change) {
+  const path = active.nativePath;
+  const filename = path?.split('/').at(-1) ?? 'router.json';
   try {
+    if (active.provider !== 'anthropic' && !(await $.fs.exists(path)))
+      throw new Error('selected provider router file is missing');
     if ((await $.fs.exists(path)) && (await $.fs.stat(path)).isLink)
-      return { error: 'Not saved: router.json is a symlink. Edit its maintained source instead.' };
-    const { config, text } = rewrittenConfig((await $.fs.exists(path)) ? await $.fs.read(path) : null, change);
+      return { error: `Not saved: ${filename} is a symlink. Edit its maintained source instead.` };
+    const { config, text } = rewrittenConfig(
+      (await $.fs.exists(path)) ? await $.fs.read(path) : null,
+      change,
+      active.provider,
+    );
     await $.fs.write(path, text);
-    return { config: { ...config, nativePath: path, effortSplitsCache: await effortSplitsCacheOf($) } };
+    return { config: { ...config, nativePath: path, effortSplitsCache: active.effortSplitsCache } };
   } catch (error) {
-    return { error: notSaved(error) };
+    return { error: notSaved(error, filename) };
   }
 }
 
@@ -707,6 +724,7 @@ function detailText(config, view) {
   const missing = missingCredentials(config, view, config.classifier);
   return [
     `Router — routing ${view.mode === 'auto' ? 'on' : 'off'}`,
+    ...(config.provider !== 'anthropic' ? [`Provider: ${config.provider} · ${config.nativePath}`] : []),
     ...(view.routingMode ? [`Mode: ${modeLabel(view.routingMode)}`] : []),
     ...(view.projectError ? [`Ignored: ${view.projectError}`] : []),
     `Native model: ${view.nativeModel}`,
@@ -1141,19 +1159,22 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
   const route = `${request.model}@${request.effort ?? 'session'}`;
   // Why the usage record leaves this reply out, when it does (UNPRICED_CAUSES).
+  const observedUsd = compared?.reply?.routedUsd ?? observedReplyUsd(cfg, response.usage, compared?.ttl);
   const cause = !compared
     ? response.usage?.model
       ? 'error'
       : 'usage'
     : compared.reply
       ? null
-      : (unpricedCause(cfg, {
-          usage: response.usage,
-          served: { model: response.usage.model, effort: request.effort ?? null },
-          yours: { model: nativeModel },
-          ttl: compared.ttl,
-        }) ?? 'error');
-  await publishReply($, router, turnId, response, tier, route, compared?.reply?.routedUsd ?? null, cause);
+      : observedUsd !== null
+        ? 'comparison'
+        : (unpricedCause(cfg, {
+            usage: response.usage,
+            served: { model: response.usage.model, effort: request.effort ?? null },
+            yours: { model: nativeModel },
+            ttl: compared.ttl,
+          }) ?? 'error');
+  await publishReply($, router, turnId, response, tier, route, observedUsd, cause);
   // Kept by model id, under the model that served it: a substitute's cost is not the requested model's, and a models
   // key can name another model later.
   const idOf = (model) => modelSpec(cfg, model)?.id ?? model;
@@ -1689,7 +1710,7 @@ function paneActions($, router, view) {
     };
   };
   const save = async (change, saved) => {
-    const result = await saveConfig($, router.config.nativePath, change);
+    const result = await saveConfig($, router.config, change);
     if (result.error) return updateView($, router, { notice: result.error });
     const drafts = router.view ?? view;
     const reset = await adopt(result.config);
@@ -1705,7 +1726,7 @@ function paneActions($, router, view) {
     return updateView($, router, {
       ...patch,
       notice: pending
-        ? `${what === 'route' ? 'Route' : 'Policy'} defaults loaded. Save removes your ${what} overrides from router.json.`
+        ? `${what === 'route' ? 'Route' : 'Policy'} defaults loaded. Save removes your ${what} overrides from ${router.config.nativePath?.split('/').at(-1) ?? 'router.json'}.`
         : `${what === 'route' ? 'Routes' : 'Policy'} already at defaults.`,
     });
   };
@@ -1856,16 +1877,21 @@ function paneActions($, router, view) {
     discardRouting: () => updateView($, router, { routeDraft: null, tuning: null, tuningBase: null, notice: null }),
     // Routes only: pending activity edits and the mode stay in the draft.
     resetRoutes: () =>
-      loadDefaults(
-        {
-          routeDraft: {
-            ...routeDraftOf(router.config, router.view ?? view),
-            ...structuredClone({ routes: DEFAULTS.routes, baselineTier: DEFAULTS.baselineTier }),
-            base: routeDraftOf(router.config, {}).base,
-          },
-        },
-        'route',
-      ),
+      !Object.keys(defaultsFor(router.config.provider).routes).length
+        ? updateView($, router, { notice: 'No built-in route defaults for this provider.' })
+        : loadDefaults(
+            {
+              routeDraft: {
+                ...routeDraftOf(router.config, router.view ?? view),
+                ...structuredClone({
+                  routes: defaultsFor(router.config.provider).routes,
+                  baselineTier: defaultsFor(router.config.provider).baselineTier,
+                }),
+                base: routeDraftOf(router.config, {}).base,
+              },
+            },
+            'route',
+          ),
     tune: (key, value) =>
       updateView($, router, {
         tuning: { ...(router.view ?? view).tuning, [key]: value },
@@ -1875,7 +1901,7 @@ function paneActions($, router, view) {
     resetPolicy: () =>
       loadDefaults(
         // The draft is replaced whole, so it starts from the saved values, not from an older draft's base.
-        { tuning: tuningOf(DEFAULTS), tuningBase: tuningOf(router.config) },
+        { tuning: tuningOf(defaultsFor(router.config.provider)), tuningBase: tuningOf(router.config) },
         'policy',
       ),
     classifier: (id) => {
@@ -1952,6 +1978,18 @@ async function endSession($, router) {
   };
 }
 
+async function imagesOf($, config, decision) {
+  if (modelSpec(config, decision?.model)?.imageInput !== false) return false;
+  const messages = await transcript($);
+  return messages === null || hasImages(messages);
+}
+
+function configurationError(error) {
+  if (error.message?.endsWith(MIGRATION_HINT))
+    return 'router.json needs migration; run the plugin scripts/migrate-config.mjs with your router.json path';
+  return error.message === 'selected provider router file is missing' ? error.message : 'invalid router configuration';
+}
+
 export function register(on, options) {
   const router = createRouter(options);
 
@@ -2002,9 +2040,7 @@ export function register(on, options) {
     } catch (error) {
       await updateView($, router, {
         phase: 'unavailable',
-        error: error.message?.endsWith(MIGRATION_HINT)
-          ? 'router.json needs migration; run the plugin scripts/migrate-config.mjs with your router.json path'
-          : 'invalid router configuration',
+        error: configurationError(error),
       });
     }
     return next(e);
@@ -2103,6 +2139,7 @@ export function register(on, options) {
       loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
       loop = await moveOnObserved($, router, cfg, loop, e, context);
       loop = continueRoute(cfg, loop, {
+        hasImages: await imagesOf($, cfg, loop.decision),
         nativeModel,
         contextTokens: context.tokens,
         contextKnown: context.known,
