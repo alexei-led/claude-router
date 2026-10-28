@@ -852,6 +852,7 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
     // Two timed classifier answers in the fastest bucket, and one cheaper activity move with no escalation yet.
     latency: { jev: [2, ...Array(21).fill(0)] },
     downMoves: { moves: 1, escalations: 0 },
+    unpriced: { usage: 0, model: 0, ttl: 0, error: 0 },
   });
   assert.deepEqual(h.view().activityMetrics, metrics);
 

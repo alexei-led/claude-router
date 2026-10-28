@@ -44,6 +44,24 @@ import {
 } from '../lib/config.mjs';
 import { changedLeaves, notSaved, restored, rewrittenConfig } from '../lib/config-file.mjs';
 import {
+  addTurnRow,
+  appendDecisions,
+  DECISIONS_PREFIX,
+  decisionLines,
+  decisionRow,
+  decisionsAfterReset,
+  endRow,
+  isGoalOrigin,
+  isProgressOrigin,
+  MAX_ROWS,
+  originKind,
+  progressInput,
+  prunedDecisions,
+  queueOrigin,
+  readDecisions,
+  takeOrigin,
+} from '../lib/decisions.mjs';
+import {
   activityDetailLines,
   classifierStatus,
   classifierTimed,
@@ -54,10 +72,12 @@ import {
   savingsLine,
   storeAgreementLine,
   unavailableReason,
+  unpricedLine,
 } from '../lib/display.mjs';
-import { clip, observedActivity, promptIndex } from '../lib/facts.mjs';
+import { clip, observedActivity, promptIndex, routingBucket } from '../lib/facts.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
+import { sameTaskOf } from '../lib/policy.mjs';
 import {
   canMoveUp,
   cellForModel,
@@ -87,6 +107,7 @@ import {
   SAVINGS_RESET_KEY,
   sessionCacheTtl,
   subagentCacheTtl,
+  unpricedCause,
 } from '../lib/savings.mjs';
 import {
   addAgentReply,
@@ -209,6 +230,19 @@ function createRouter(options) {
     clients: new Map(),
     prompts: new Map(),
     decisions: new Map(),
+    // Where each turn's prompt came from (originKind), matched at turn.start: the submission running its prompt.submit
+    // (`submitting`), else the oldest queued one with the turn's text (`origins`, queueOrigin).
+    submitting: null,
+    origins: [],
+    turnOrigins: new Map(),
+    // The session's active goal, the last prompt from a goal origin, clipped, `{ sessionId, text }`, in memory only;
+    // and each progress turn's report (`progressNotes`), which the classifier reads as dialogue (progressInput).
+    goal: null,
+    progressNotes: new Map(),
+    // Each turn's decision rows until turn.complete writes them, with the turn's end, to the session's record, held as
+    // `{ sessionId, record }` once read (`decisionRecord`).
+    turnDecisions: new Map(),
+    decisionRecord: null,
     controllers: new Set(),
     turnControllers: new Map(),
     view: null,
@@ -544,6 +578,7 @@ async function routerCommand($, router, args) {
     await changeMode($, router, action === 'auto' ? 'auto' : 'manual');
     return { text: action === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
   }
+  if (action === 'decisions') return { text: await decisionsText($, router, value) };
   if (action === 'pin')
     return { text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.` };
   if (action === 'mode')
@@ -680,6 +715,7 @@ function detailText(config, view) {
     `Reason: ${view.reason}`,
     ...activityDetailLines(config, view),
     storeAgreementLine(view),
+    ...[unpricedLine(view.activityMetrics)].filter(Boolean),
     savingsLine(view),
     view.error || missing ? classifierStatus(config, view.error ?? missing) : `${activeClassifier(config).label} ready`,
     `Context: ${view.contextKnown ? `${view.contextTokens} tokens (estimate)` : 'unknown'}`,
@@ -759,13 +795,23 @@ async function decideTurn($, router, e, signal, step) {
       $.session.messages({ as: 'api' }),
     ]);
     if (!(await live())) return null;
-    const facts = nativeFacts(cfg, loop, {
-      messages,
-      prompt: router.prompts.get(e.turnId),
-      effort: e.effort,
-      turnId: e.turnId,
-      contextTokens: context.tokens,
-    });
+    const origin = router.turnOrigins.get(e.turnId) ?? 'unknown';
+    // A progress turn is the same task (sameTaskOf).
+    const facts = {
+      ...nativeFacts(cfg, loop, {
+        messages,
+        prompt: router.prompts.get(e.turnId),
+        effort: e.effort,
+        turnId: e.turnId,
+        contextTokens: context.tokens,
+      }),
+      progress: isProgressOrigin(origin),
+    };
+    const asked = progressInput(
+      facts,
+      { goal: router.prompts.get(e.turnId), note: router.progressNotes.get(e.turnId) },
+      cfg.context.recentTurns,
+    );
     await updateView($, router, {
       phase: 'choosing',
       activeTurnId: e.turnId,
@@ -781,8 +827,8 @@ async function decideTurn($, router, e, signal, step) {
           config: cfg,
           apiKey: credentials.apiKey,
           endpoint: credentials.endpoint,
-          prompt: facts.prompt,
-          turns: facts.turns,
+          prompt: asked.prompt,
+          turns: asked.turns,
           signal: controller.signal,
         });
     // The wait for advice alone, comparable with the activity probe's p95; the routing after it is not the classifier's.
@@ -811,11 +857,27 @@ async function decideTurn($, router, e, signal, step) {
       $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
     const activity = turnActivity(cfg, result.advice, previous, selected.decision);
     const routingMode = step.cfg.routingMode;
+    addDecision(
+      router,
+      e.turnId,
+      decisionRow({
+        at: Date.now(),
+        kind: 'start',
+        origin,
+        mode: pin ? null : routingMode.mode,
+        advice: result.advice,
+        error: result.error,
+        decision: selected.decision,
+        facts,
+        sameTask: sameTaskOf(cfg, result.advice, facts),
+      }),
+    );
     // One line per decision in Claude Code's debug log, so a later replay can compare modes. No prompt text.
     $.ui.log(
       `router decision ${JSON.stringify({
         mode: routingMode.mode,
         modeSource: routingMode.source,
+        origin,
         classified: result.advice?.choice ?? null,
         tier: selected.decision.tier,
         reason: selected.decision.reason,
@@ -842,6 +904,7 @@ async function decideTurn($, router, e, signal, step) {
       outputTokens: 0,
       routedUsd: null,
       pricedRequests: 0,
+      unpriced: {},
       routes: {},
     });
     await updateView($, router, {
@@ -912,9 +975,23 @@ async function moveOnObserved($, router, cfg, loop, e, context) {
   const messages = await transcript($);
   if (!messages) return loop;
   const facts = stepFacts(cfg, router, loop, e, messages, context);
-  const observed = observedActivity(messages, Math.max(promptIndex(messages), (loop.observedFrom ?? 0) - 1));
+  const observed = routingBucket(
+    observedActivity(messages, Math.max(promptIndex(messages), (loop.observedFrom ?? 0) - 1)),
+  );
   const moved = observedMove(cfg, loop, { observed, facts, contextKnown: context.known, now: Date.now() });
   if (moved === loop) return loop;
+  addDecision(
+    router,
+    e.turnId,
+    decisionRow({
+      at: Date.now(),
+      kind: 'observed',
+      origin: router.turnOrigins.get(e.turnId) ?? 'unknown',
+      mode: cfg.routingMode?.mode ?? null,
+      decision: moved.decision,
+      facts,
+    }),
+  );
   $.ui.toast(switchToast(cfg, loop.decision, moved.decision, moved.decision.estimate));
   // Replies from here on are labelled with the moved activity; the classifier's answer stays as recorded.
   const turn = router.turnActivities.get(e.turnId);
@@ -930,7 +1007,7 @@ async function moveOnObserved($, router, cfg, loop, e, context) {
 // Inside a turn the classifier is asked again every `policy.reviewEveryRequests` requests, in the background: a step
 // never waits for it. The answer applies at the first step after it arrives, as a decision on the same task
 // (sameTaskOf), so the tier and the activity can move either way: up on the usual votes, down only past the dwell and a
-// passed verification. Pinned turns and a native fallback are left alone; a failed read or ask changes nothing.
+// checkpoint (completedSince). Pinned turns and a native fallback are left alone; a failed read or ask changes nothing.
 async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels }) {
   const review = router.reviews.get(e.turnId);
   if (review?.answer) {
@@ -952,6 +1029,20 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       now: Date.now(),
     });
     const previous = loop.decision;
+    addDecision(
+      router,
+      e.turnId,
+      decisionRow({
+        at: Date.now(),
+        kind: 'review',
+        origin: router.turnOrigins.get(e.turnId) ?? 'unknown',
+        mode: cfg.routingMode?.mode ?? null,
+        advice,
+        decision: selected.decision,
+        facts,
+        sameTask: sameTaskOf(cfg, advice, facts),
+      }),
+    );
     if (previous && (previous.model !== selected.decision.model || previous.effort !== selected.decision.effort)) {
       $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
       const turn = router.turnActivities.get(e.turnId);
@@ -1012,7 +1103,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
 }
 
 // A routed reply's metrics in the view, with the tier that served it, and added to the turn's activity record with its list price (`routedUsd`, null when unpriced) and, when its tier served it, its route.
-async function publishReply($, router, turnId, response, tier, route, routedUsd) {
+async function publishReply($, router, turnId, response, tier, route, routedUsd, cause = null) {
   const turn = router.turnActivities.get(turnId);
   const metrics = responseMetrics(router.view, response, tier, Date.now());
   await updateView($, router, metrics);
@@ -1024,6 +1115,7 @@ async function publishReply($, router, turnId, response, tier, route, routedUsd)
       outputTokens: turn.outputTokens + (metrics.outputTokens ?? 0),
       routedUsd: Number.isFinite(routedUsd) ? (turn.routedUsd ?? 0) + routedUsd : turn.routedUsd,
       pricedRequests: turn.pricedRequests + (Number.isFinite(routedUsd) ? 1 : 0),
+      unpriced: cause ? { ...turn.unpriced, [cause]: (turn.unpriced?.[cause] ?? 0) + 1 } : turn.unpriced,
       routes: tier ? { ...turn.routes, [route]: (turn.routes[route] ?? 0) + 1 } : turn.routes,
     });
 }
@@ -1048,7 +1140,20 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   // A substituted reply is not the tier's: the strip and trend must not count it as one.
   const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
   const route = `${request.model}@${request.effort ?? 'session'}`;
-  await publishReply($, router, turnId, response, tier, route, compared?.reply?.routedUsd ?? null);
+  // Why the usage record leaves this reply out, when it does (UNPRICED_CAUSES).
+  const cause = !compared
+    ? response.usage?.model
+      ? 'error'
+      : 'usage'
+    : compared.reply
+      ? null
+      : (unpricedCause(cfg, {
+          usage: response.usage,
+          served: { model: response.usage.model, effort: request.effort ?? null },
+          yours: { model: nativeModel },
+          ttl: compared.ttl,
+        }) ?? 'error');
+  await publishReply($, router, turnId, response, tier, route, compared?.reply?.routedUsd ?? null, cause);
   // Kept by model id, under the model that served it: a substitute's cost is not the requested model's, and a models
   // key can name another model later.
   const idOf = (model) => modelSpec(cfg, model)?.id ?? model;
@@ -1092,14 +1197,16 @@ async function compareYours($, router, loop, response, servedEffort, nativeModel
   try {
     if (!response.usage?.model) return null;
     const view = router.view ?? (await readView($, router));
-    return compareModels(cfg, loop.yoursBy ?? {}, {
+    const ttl = await cacheTtlOf($);
+    const compared = compareModels(cfg, loop.yoursBy ?? {}, {
       usage: response.usage,
       served: { model: response.usage.model, effort: servedEffort },
       effort: view.nativeEffort ?? null,
-      ttl: await cacheTtlOf($),
+      ttl,
       now: Date.now(),
       yours: nativeModel,
     });
+    return { ...compared, ttl };
   } catch {
     return null;
   }
@@ -1138,6 +1245,140 @@ async function flushUsage($, router, entries, switched) {
   } catch {}
 }
 
+// A turn's prompt, its origin and the classifier's request text. A progress turn asks about the goal it serves, with
+// its report as dialogue (progressInput); without a goal from this session it reads as before. A goal origin's prompt
+// becomes the goal.
+async function startTurn($, router, e) {
+  const text = clip(e.text, router.config.context.maxTextChars);
+  const origin = originOfTurn(router, e.text);
+  router.turnOrigins.set(e.turnId, origin);
+  const sessionId = await $.session.id();
+  if (isProgressOrigin(origin) && router.goal?.sessionId === sessionId) {
+    router.prompts.set(e.turnId, router.goal.text);
+    router.progressNotes.set(e.turnId, text);
+    return;
+  }
+  router.prompts.set(e.turnId, text);
+  if (isGoalOrigin(origin)) router.goal = { sessionId, text };
+}
+
+// The engine stamps each prompt with where it came from (PromptOrigin); turn.start does not carry it. An idle
+// submission starts its turn inside next(e), so the turn takes `submitting`; one queued behind a running turn starts
+// later, or is delivered into it, and waits in `origins` under the text that entered. Bookkeeping only: the prompt
+// passes on unchanged, and nothing here throws after next(e).
+async function submitPrompt(router, e, next) {
+  const entry = { kind: originKind(e.origin), started: false };
+  const outer = router.submitting;
+  router.submitting = entry;
+  try {
+    const result = await next(e);
+    if (!entry.started && typeof result?.text === 'string' && !result.drop)
+      router.origins = queueOrigin(router.origins, { kind: entry.kind, text: result.text, at: Date.now() });
+    return result;
+  } finally {
+    router.submitting = outer;
+  }
+}
+
+// One decision row added to the turn's, bounded per turn (addTurnRow).
+function addDecision(router, turnId, row) {
+  router.turnDecisions.set(turnId, addTurnRow(router.turnDecisions.get(turnId) ?? [], row));
+}
+
+// The origin of a turn starting with `text`: the submission whose next(e) is running, once, else the oldest queued one
+// with that text, else 'unknown'.
+function originOfTurn(router, text) {
+  if (router.submitting && !router.submitting.started) {
+    router.submitting.started = true;
+    return router.submitting.kind;
+  }
+  const taken = takeOrigin(router.origins, text, Date.now());
+  router.origins = taken.queue;
+  return taken.kind;
+}
+
+// A finished turn's decision rows and its end row, added to this session's record. Telemetry never breaks a turn: a
+// failed read or write loses this turn's rows. A record from before the last reset reads as empty, and rows read
+// before a Reset in this session are not written back.
+async function flushDecisions($, router, turnId, turn) {
+  const rows = router.turnDecisions.get(turnId) ?? [];
+  router.turnDecisions.delete(turnId);
+  router.turnOrigins.delete(turnId);
+  router.progressNotes.delete(turnId);
+  if (!rows.length) return;
+  try {
+    const resets = router.statsResets;
+    const sessionId = await $.session.id();
+    if (turn && turn.sessionId !== sessionId) return;
+    const key = `${DECISIONS_PREFIX}${sessionId}`;
+    const resetAt = await $.store.get(SAVINGS_RESET_KEY);
+    if (router.decisionRecord?.sessionId !== sessionId)
+      router.decisionRecord = { sessionId, record: readDecisions(await $.store.get(key)) };
+    const held = router.decisionRecord;
+    const now = Date.now();
+    const end = turn
+      ? [
+          endRow({
+            at: now,
+            // With activity routing off recordActivity does not run, so the bucket is read here.
+            observed: turn.observed ?? (await turnBucket($)),
+            requests: turn.requests,
+            priced: turn.pricedRequests,
+            unpriced: turn.unpriced,
+          }),
+        ]
+      : [];
+    const record = appendDecisions(decisionsAfterReset(held.record, resetAt), [...rows, ...end], now);
+    if (router.statsResets !== resets || router.decisionRecord !== held) return;
+    held.record = record;
+    await $.store.set(key, record);
+  } catch {}
+}
+
+// The bucket of the turn the transcript ends with (observedActivity), or null when it cannot be read.
+async function turnBucket($) {
+  const messages = await transcript($);
+  const start = messages ? promptIndex(messages) : -1;
+  return start < 0 ? null : observedActivity(messages, start);
+}
+
+// Other sessions' decision records past their retention or the record bound (prunedDecisions), each read again just
+// before its delete, so a session that wrote meanwhile keeps its record.
+async function pruneDecisionRecords($) {
+  try {
+    const own = `${DECISIONS_PREFIX}${await $.session.id()}`;
+    const keys = (await $.store.keys()).filter((key) => key.startsWith(DECISIONS_PREFIX) && key !== own);
+    const values = await Promise.all(keys.map((key) => $.store.get(key)));
+    const gone = prunedDecisions(
+      keys.map((key, i) => [key, values[i]]),
+      Date.now(),
+    );
+    await Promise.allSettled(
+      [...gone].map(async (key) => {
+        const current = await $.store.get(key);
+        if (JSON.stringify(current) === JSON.stringify(values[keys.indexOf(key)])) await $.store.delete(key);
+      }),
+    );
+  } catch {}
+}
+
+// `/router decisions [n]`: this session's newest routing decisions, the running turn's included.
+async function decisionsText($, router, value) {
+  const n = Math.min(MAX_ROWS, Math.max(1, Number.parseInt(value, 10) || 20));
+  try {
+    const sessionId = await $.session.id();
+    const stored =
+      router.decisionRecord?.sessionId === sessionId
+        ? router.decisionRecord.record
+        : readDecisions(await $.store.get(`${DECISIONS_PREFIX}${sessionId}`));
+    const resetAt = await $.store.get(SAVINGS_RESET_KEY);
+    const pending = [...router.turnDecisions.values()].flat();
+    return decisionLines([...decisionsAfterReset(stored, resetAt).rows, ...pending], n).join('\n');
+  } catch {
+    return 'Routing decisions could not be read.';
+  }
+}
+
 // A finished turn's activity stats: the session counts in the view and the counts kept across sessions. Stats never
 // break a turn: a failed read or write loses this turn's counts. Readings already in the session's metrics record stay
 // in memory after a failed write and go out with the next turn that adds a reading.
@@ -1148,6 +1389,8 @@ async function recordActivity($, router, turn) {
     const start = promptIndex(messages);
     if (start < 0) return;
     const observed = observedActivity(messages, start);
+    // The turn's end row reads it (flushDecisions).
+    turn.observed = observed;
     const view = router.view ?? (await readView($, router));
     const manual = (await modeOf($, router)) === 'manual';
     // The session may have changed during the reads; this turn is not the new session's.
@@ -1180,7 +1423,12 @@ async function recordActivity($, router, turn) {
     // empties the view; these counts are older than it. Each record is written on its own: a failed write of one
     // keeps the other.
     const stats = { predicted: turn.predicted, observed, runEnded: ended, lateral: turn.lateral };
-    const metrics = { classifier: turn.classifier, adviceMs: turn.adviceMs, downMove: down.event };
+    const metrics = {
+      classifier: turn.classifier,
+      adviceMs: turn.adviceMs,
+      downMove: down.event,
+      unpriced: turn.unpriced,
+    };
     const shown = await Promise.all([
       addToLedger($, router, 'activity', (record, now) => recordStore(record, stats, now)).catch(() => false),
       addToLedger($, router, 'metrics', (record, now) => recordMetrics(record, { ...metrics, now })).catch(() => false),
@@ -1568,6 +1816,8 @@ function paneActions($, router, view) {
       router.run = null;
       router.afterDown = null;
       router.turnUsage.clear();
+      router.turnDecisions.clear();
+      router.decisionRecord = null;
       for (const [id, agent] of router.agents) router.agents.set(id, flushedAgent(agent));
       // Every session's records. The marker is written first, so a session still holding its record from before the
       // reset drops it, unless that record's first count has the reset's millisecond or the clock moved back across
@@ -1575,8 +1825,10 @@ function paneActions($, router, view) {
       const clearRecords = async () => {
         const resetAt = Date.now();
         await $.store.set(SAVINGS_RESET_KEY, resetAt);
-        const keys = (await $.store.keys()).filter((key) =>
-          Object.values(LEDGERS).some(({ prefix, legacy }) => key.startsWith(prefix) || key === legacy),
+        const keys = (await $.store.keys()).filter(
+          (key) =>
+            key.startsWith(DECISIONS_PREFIX) ||
+            Object.values(LEDGERS).some(({ prefix, legacy }) => key.startsWith(prefix) || key === legacy),
         );
         await Promise.all(keys.map((key) => $.store.delete(key)));
         for (const kind of LEDGER_KINDS)
@@ -1658,6 +1910,13 @@ async function endSession($, router) {
   for (const controller of router.controllers) controller.abort();
   router.decisions.clear();
   router.prompts.clear();
+  router.turnOrigins.clear();
+  router.progressNotes.clear();
+  router.turnDecisions.clear();
+  router.origins = [];
+  router.submitting = null;
+  router.goal = null;
+  router.decisionRecord = null;
   router.turnConfigs.clear();
   router.turnPins.clear();
   router.turnActivities.clear();
@@ -1700,8 +1959,9 @@ export function register(on, options) {
     router.definitions.clear();
     await $.command.register({
       name: 'router',
-      description: 'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>.',
-      argumentHint: '[auto|off|pin <tier>|activities off|on|mode cost|balanced|quality|default]',
+      description:
+        'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>; decisions [n] lists the last routing decisions.',
+      argumentHint: '[auto|off|pin <tier>|activities off|on|mode cost|balanced|quality|default|decisions [n]]',
       immediate: true,
     });
     const model = await $.session.model();
@@ -1738,6 +1998,7 @@ export function register(on, options) {
         usagePeriod: await periodOf($),
         ...(await storeView($, router)),
       });
+      await pruneDecisionRecords($);
     } catch (error) {
       await updateView($, router, {
         phase: 'unavailable',
@@ -1771,9 +2032,11 @@ export function register(on, options) {
 
   on('turn.start', async ($, e, next) => {
     await fixTurnConfig($, router, e.turnId);
-    router.prompts.set(e.turnId, clip(e.text, router.config.context.maxTextChars));
+    await startTurn($, router, e);
     return next(e);
   });
+
+  on('prompt.submit', (_$, e, next) => submitPrompt(router, e, next));
 
   // A hook failure spawns the agent as Claude Code would; next(e) replays a spawn already made. agent.spawn and a
   // catchable on() are in the 2.1.293 build types, not checked on 2.1.289: an engine without them still loads routing.
@@ -1889,6 +2152,7 @@ export function register(on, options) {
     const entries = router.turnUsage.get(e.turnId);
     router.turnUsage.delete(e.turnId);
     if (entries) await flushUsage($, router, entries, turn?.switched ?? null);
+    await flushDecisions($, router, e.turnId, turn);
     return next(e);
   });
 

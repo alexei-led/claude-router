@@ -240,6 +240,17 @@ export function harness(options = {}, preferences = new Map()) {
       const answer = await handler('agent.spawn', input)($, input, core);
       return { answer, sent };
     },
+    // A prompt.submit dispatch: `during(e)` runs inside core's next, where an idle submission starts its turn, and
+    // `answer` is what core returns (default: the prompt entered). Returns the hook's answer.
+    submit: async (input, during = null, answer = null) => {
+      snapshot = new Map();
+      const core = async (e) => {
+        if (during) await during(e);
+        return answer ?? { text: e.text, origin: e.origin };
+      };
+      core.signal = new AbortController().signal;
+      return handler('prompt.submit', input)($, input, core);
+    },
     clear: (id = 's2') => {
       state.clear();
       sessionId = id;

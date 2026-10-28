@@ -58,12 +58,37 @@ test('every activity allows a set of buckets, and agreement follows it', () => {
     ['ops', 'read', true],
     ['docs', 'docs', true],
     ['docs', 'code', false],
+    ['code', 'shell', true],
+    ['docs', 'shell', true],
+    ['ops', 'shell', true],
+    ['debug', 'shell', true],
+    ['explore', 'shell', false],
+    ['review', 'shell', false],
+    ['plan', 'shell', false],
+    ['review', 'check', true],
+    ['ops', 'check', true],
+    ['debug', 'check', true],
+    ['code', 'check', false],
+    ['explore', 'check', false],
+    ['docs', 'check', false],
     ['uncertain', 'talk', false],
     [null, 'talk', false],
     ['code', undefined, false],
   ])
     assert.equal(agrees(predicted, observed), expected, `${predicted} vs ${observed}`);
   for (const buckets of Object.values(ALLOWED)) for (const b of buckets) assert.ok(OBSERVED.includes(b), b);
+});
+
+test('a store with the 1.16 buckets reads back, and one with an unknown bucket reads as empty', () => {
+  const store = {
+    version: 1,
+    since: 5,
+    confusion: { code: { shell: 2, code: 1 }, review: { check: 3 } },
+    runs: {},
+    lateral: { taken: 0, refused: 0 },
+  };
+  assert.deepEqual(readStore(store), store);
+  assert.deepEqual(readStore({ ...store, confusion: { code: { bash: 1 } } }), emptyStore());
 });
 
 test('a session accumulates turns, requests and tokens per activity, and none without a label', () => {
@@ -352,9 +377,12 @@ test('mergeStores adds up every record since the last reset, the shared one from
 test('readMetrics keeps each part it can read and drops only a bad one', () => {
   const latency = { jev: [0, 0, 0, 0, 5, 1, ...Array(16).fill(0)] };
   const downMoves = { moves: 3, escalations: 1 };
-  const valid = { version: 1, since: 5, latency, downMoves };
+  const unpriced = { usage: 0, model: 0, ttl: 0, error: 0 };
+  const valid = { version: 1, since: 5, latency, downMoves, unpriced };
   const none = { moves: 0, escalations: 0 };
   assert.deepEqual(readMetrics(valid), valid);
+  const { unpriced: _, ...before116 } = valid;
+  assert.deepEqual(readMetrics(before116), valid, 'a record from before 1.16 reads with no unpriced replies');
   assert.deepEqual(readMetrics(structuredClone(emptyMetrics())), emptyMetrics());
   for (const [name, value, expected] of [
     ['undefined', undefined, emptyMetrics()],
@@ -377,8 +405,29 @@ test('readMetrics keeps each part it can read and drops only a bad one', () => {
       { ...valid, downMoves: { moves: '3', escalations: 1 } },
       { ...valid, downMoves: none },
     ],
+    [
+      'unpriced counts kept',
+      { ...valid, unpriced: { usage: 1, model: 2, ttl: 3, error: 4 } },
+      { ...valid, unpriced: { usage: 1, model: 2, ttl: 3, error: 4 } },
+    ],
+    ['unpriced missing a cause', { ...valid, unpriced: { usage: 1 } }, valid],
+    ['unpriced with an unknown cause', { ...valid, unpriced: { ...unpriced, other: 1 } }, valid],
+    ['unpriced with a negative count', { ...valid, unpriced: { ...unpriced, ttl: -1 } }, valid],
   ])
     assert.deepEqual(readMetrics(value), expected, name);
+});
+
+test('unpriced replies add up per cause in a session and across sessions', () => {
+  const empty = emptyMetrics();
+  assert.equal(recordMetrics(empty, { unpriced: { usage: 0, ttl: 0 }, now: 7 }), empty, 'no count adds nothing');
+  const one = recordMetrics(empty, { unpriced: { ttl: 2, model: 1 }, now: 7 });
+  assert.deepEqual(one.unpriced, { usage: 0, model: 1, ttl: 2, error: 0 });
+  assert.equal(one.since, 7);
+  const two = recordMetrics(one, { unpriced: { ttl: 1, error: 1, bogus: 5 }, now: 9 });
+  assert.deepEqual(two.unpriced, { usage: 0, model: 1, ttl: 3, error: 1 });
+  assert.equal(two.since, 7);
+  assert.deepEqual(mergeMetrics([one, two]).unpriced, { usage: 0, model: 2, ttl: 5, error: 1 });
+  assert.deepEqual(readMetrics(two), two);
 });
 
 test('the sessions’ metrics add up since the last reset, within the classifier bound', () => {
@@ -388,6 +437,7 @@ test('the sessions’ metrics add up since the last reset, within the classifier
     since,
     latency,
     downMoves: { moves, escalations },
+    unpriced: { usage: 0, model: 0, ttl: 0, error: 0 },
   });
   const many = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`c${i}`, bucket(0)]));
   for (const [name, values, resetAt, expected] of [

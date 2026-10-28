@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { extractFacts as factsFromRequest, observedActivity, promptIndex, verifiedSince } from '../lib/facts.mjs';
+import {
+  completedSince,
+  extractFacts as factsFromRequest,
+  observedActivity,
+  promptIndex,
+  routingBucket,
+  verifiedSince,
+} from '../lib/facts.mjs';
 import { assistant, body, memory, toolResult, user } from './helpers.mjs';
 
 const CONTEXT = { recentTurns: 4, maxTextChars: 30 };
@@ -295,7 +302,9 @@ test('observedActivity labels a finished turn from its tool calls, first match w
     ['source then docs', [step(edit('/repo/lib/a.mjs')), step(edit('/repo/README.md'))], 'code'],
     ['edit and Bash', [step(bash('npm test'), edit('/repo/lib/a.mjs'))], 'code'],
     ['docs edit and Bash', [step(bash('git commit -m x'), edit('/repo/CHANGELOG.md'))], 'docs'],
-    ['test runner', [step(bash('npm test'))], 'ops'],
+    ['test runner', [step(bash('npm test'))], 'check'],
+    ['checks in an && list', [step(bash('npm run lint && npm test'))], 'check'],
+    ['a check then a commit', [step(bash('npm test && git commit -m x'))], 'ops'],
     ['git commit', [step(bash('git commit -am wip'))], 'ops'],
     ['git push', [step(bash('git push origin main'))], 'ops'],
     ['Bash with no command', [step(['Bash', {}])], 'ops'],
@@ -309,9 +318,21 @@ test('observedActivity labels a finished turn from its tool calls, first match w
     ['stderr redirect', [step(bash('ls missing 2>&1'), bash('find . -name x 2>/dev/null'))], 'read'],
     ['a pattern with > inside quotes', [step(bash("rg '=>' lib"))], 'read'],
     ['a write in the background', [step(bash('ls & rm -rf build'))], 'ops'],
-    ['output redirect', [step(bash('cat a > b'))], 'ops'],
-    ['append redirect', [step(bash('ls >> out.txt'))], 'ops'],
-    ['read piped into a writer', [step(bash('cat a | tee b'))], 'ops'],
+    ['output redirect', [step(bash('cat a > b'))], 'shell'],
+    ['append redirect', [step(bash('ls >> out.txt'))], 'shell'],
+    ['read piped into a writer', [step(bash('cat a | tee b'))], 'shell'],
+    ['heredoc into a file', [step(bash('cat > lib/a.mjs <<EOF'))], 'shell'],
+    ['in-place sed', [step(bash("sed -i '' 's/a/b/' lib/a.mjs"))], 'shell'],
+    ['in-place perl', [step(bash("perl -pi -e 's/a/b/' a.py"))], 'shell'],
+    ['patch and git apply', [step(bash('patch -p1 < fix.diff'), bash('git apply fix.diff'))], 'shell'],
+    ['a stderr redirect to a file', [step(bash('make 2>err.log'))], 'shell'],
+    ['a shell write beside routine commands', [step(bash('rm -rf build'), bash('echo x > a.txt'))], 'shell'],
+    [
+      'routine file commands stay ops',
+      [step(bash('rm -rf build'), bash('mkdir -p out'), bash('mv a b'), bash('cp a b'))],
+      'ops',
+    ],
+    ['an arrow inside quotes is not a redirect', [step(bash("git commit -m 'a => b'"))], 'ops'],
     ['read then a write in a list', [step(bash('ls; rm -rf build'))], 'ops'],
     ['command substitution', [step(bash('cat $(echo a)'))], 'ops'],
     ['command substitution in double quotes', [step(bash('ls "$(mktemp -d)"'))], 'ops'],
@@ -321,7 +342,8 @@ test('observedActivity labels a finished turn from its tool calls, first match w
     ['find with -exec', [step(bash('find . -name x -exec rm {} +'))], 'ops'],
     ['find with -delete', [step(bash('find . -name x -delete'))], 'ops'],
     ['git add is not read-only', [step(bash('git add -A'))], 'ops'],
-    ['read-only Bash and a test run', [step(bash('ls')), step(bash('npm test'))], 'ops'],
+    ['read-only Bash and a test run', [step(bash('ls')), step(bash('npm test'))], 'check'],
+    ['a test run and a commit', [step(bash('npm test')), step(bash('git commit -am x'))], 'ops'],
     ['Read, Grep, Glob', [step(['Read', {}], ['Grep', {}], ['Glob', {}])], 'read'],
     ['web tools', [step(['WebFetch', {}], ['WebSearch', {}], ['ToolSearch', {}])], 'read'],
     ['subagent and MCP tools', [step(['Task', {}], ['mcp__docs__search', {}])], 'read'],
@@ -478,4 +500,171 @@ test('verifiedSince is true only when the last check since the index passed', ()
     ['a check word inside quotes', [bash('a', 'git commit -m "fix tests; npm test"'), ran('a')], 0, false],
   ])
     assert.equal(verifiedSince(messages, from), expected, name);
+});
+
+test('routingBucket routes shell writes and checks as the commands they are', () => {
+  for (const [bucket, expected] of [
+    ['shell', 'ops'],
+    ['check', 'ops'],
+    ['code', 'code'],
+    ['docs', 'docs'],
+    ['ops', 'ops'],
+    ['read', 'read'],
+    ['talk', 'talk'],
+  ])
+    assert.equal(routingBucket(bucket), expected, bucket);
+});
+
+test('completedSince asks each activity for a success it can see, and a passed check always counts', () => {
+  const call = (id, name, input = {}) => ({ role: 'assistant', content: [{ type: 'tool_use', id, name, input }] });
+  const ran = (id, { isError = false, text = 'ok' } = {}) => ({
+    role: 'user',
+    content: [{ type: 'tool_result', tool_use_id: id, is_error: isError, content: [{ type: 'text', text }] }],
+  });
+  const sh = (id, command, extra = {}) => call(id, 'Bash', { command, ...extra });
+  const prompt = user('next');
+  for (const [name, activity, messages, expected] of [
+    ['code needs a passed check', 'code', [sh('a', 'git push'), ran('a')], false],
+    ['code with a passed check', 'code', [sh('a', 'npm test'), ran('a')], true],
+    ['no activity needs a passed check', null, [sh('a', 'git push'), ran('a')], false],
+    ['debug needs a passed check', 'debug', [call('a', 'Read'), ran('a'), prompt], false],
+    ['ops: the last command succeeded', 'ops', [sh('a', 'git push'), ran('a')], true],
+    ['ops: the last command failed', 'ops', [sh('a', 'git push'), ran('a', { isError: true })], false],
+    [
+      'ops: a failure then a success',
+      'ops',
+      [sh('a', 'make deploy'), ran('a', { isError: true }), sh('b', 'make deploy'), ran('b')],
+      true,
+    ],
+    [
+      'ops: a success then a failure',
+      'ops',
+      [sh('a', 'git push'), ran('a'), sh('b', 'kubectl apply -f x'), ran('b', { isError: true })],
+      false,
+    ],
+    ['ops: only reads ran', 'ops', [sh('a', 'git status'), ran('a')], false],
+    ['ops: a command still running', 'ops', [sh('a', 'git push')], false],
+    ['ops: a command in the background', 'ops', [sh('a', 'make deploy', { run_in_background: true }), ran('a')], false],
+    [
+      'ops: a command the tool moved to the background',
+      'ops',
+      [sh('a', 'make deploy'), ran('a', { text: 'Command running in background with ID: b1' })],
+      false,
+    ],
+    [
+      'ops: an edit happened too',
+      'ops',
+      [call('e', 'Edit', { file_path: 'lib/a.mjs' }), ran('e'), sh('a', 'git push'), ran('a')],
+      false,
+    ],
+    ['ops: work was delegated', 'ops', [call('d', 'Agent'), ran('d'), sh('a', 'git push'), ran('a')], false],
+    [
+      'ops: a failed check blocks it',
+      'ops',
+      [sh('c', 'npm test'), ran('c', { isError: true }), sh('a', 'git push'), ran('a')],
+      false,
+    ],
+    [
+      'ops: a failed chained check blocks it',
+      'ops',
+      [sh('c', 'npm test && git push'), ran('c', { isError: true }), sh('a', 'git add -A'), ran('a')],
+      false,
+    ],
+    [
+      'ops: a failed redirected check blocks it',
+      'ops',
+      [sh('c', 'npm test > test.log'), ran('c', { isError: true }), sh('a', 'mkdir out'), ran('a')],
+      false,
+    ],
+    [
+      "ops: a piped check whose status is the pipe's blocks it",
+      'ops',
+      [sh('c', 'npm test | tail -5'), ran('c'), sh('a', 'git push'), ran('a')],
+      false,
+    ],
+    [
+      'ops: a check behind ; blocks it',
+      'ops',
+      [sh('c', 'npm test; echo done'), ran('c'), sh('a', 'git push'), ran('a')],
+      false,
+    ],
+    [
+      'ops: a check in the background blocks it',
+      'ops',
+      [sh('c', 'npm test', { run_in_background: true }), ran('c'), sh('a', 'git push'), ran('a')],
+      false,
+    ],
+    ['ops: a passed chained check counts', 'ops', [sh('c', 'npm test && git push'), ran('c')], true],
+    [
+      'docs: a failed redirected check blocks it',
+      'docs',
+      [
+        sh('c', 'npm run lint > lint.log'),
+        ran('c', { isError: true }),
+        call('e', 'Edit', { file_path: 'README.md' }),
+        ran('e'),
+      ],
+      false,
+    ],
+    ['explore: a piped check blocks it', 'explore', [sh('c', 'npm test | tail'), ran('c'), prompt], false],
+    ['docs: a doc edit succeeded', 'docs', [call('e', 'Edit', { file_path: 'docs/a.md' }), ran('e')], true],
+    [
+      'docs: a doc edit failed',
+      'docs',
+      [call('e', 'Edit', { file_path: 'README.md' }), ran('e', { isError: true })],
+      false,
+    ],
+    [
+      'docs: a source file was edited',
+      'docs',
+      [
+        call('e', 'Edit', { file_path: 'README.md' }),
+        ran('e'),
+        call('f', 'Edit', { file_path: 'lib/a.mjs' }),
+        ran('f'),
+      ],
+      false,
+    ],
+    [
+      'docs: a command ran too',
+      'docs',
+      [call('e', 'Write', { file_path: 'docs/a.md' }), ran('e'), sh('a', 'rm -rf build'), ran('a')],
+      false,
+    ],
+    ['explore: a finished turn of reads', 'explore', [call('a', 'Read'), ran('a'), prompt], true],
+    ['plan: a finished turn without tools', 'plan', [prompt], true],
+    ['review: a finished turn that ran no checks', 'review', [call('a', 'Grep'), ran('a'), prompt], true],
+    ['review: a passed check', 'review', [sh('c', 'npm test'), ran('c')], true],
+    ['explore: the turn has not finished', 'explore', [call('a', 'Read'), ran('a')], false],
+    [
+      'explore: the last result was an error',
+      'explore',
+      [call('a', 'Read'), ran('a', { isError: true }), prompt],
+      false,
+    ],
+    ['explore: something was edited', 'explore', [call('e', 'Edit', { file_path: 'a.mjs' }), ran('e'), prompt], false],
+    ['explore: a shell write happened', 'explore', [sh('a', 'echo x > a.txt'), ran('a'), prompt], false],
+    ['plan: work was delegated', 'plan', [call('d', 'Task'), ran('d'), prompt], false],
+  ]) {
+    assert.equal(completedSince(messages, 0, activity), expected, name);
+  }
+});
+
+test('completedSince reads only the messages from the last model change on', () => {
+  const sh = (id, command) => ({
+    role: 'assistant',
+    content: [{ type: 'tool_use', id, name: 'Bash', input: { command } }],
+  });
+  const ran = (id) => ({ role: 'user', content: [{ type: 'tool_result', tool_use_id: id, is_error: false }] });
+  const messages = [
+    user('first'),
+    sh('a', 'git push'),
+    ran('a'),
+    user('second'),
+    { role: 'assistant', content: [{ type: 'text', text: 'ok' }] },
+  ];
+  assert.equal(completedSince(messages, 0, 'ops'), true);
+  assert.equal(completedSince(messages, 3, 'ops'), false);
+  assert.equal(completedSince(messages, 3, 'explore'), true);
+  assert.equal(completedSince(messages, 4, 'explore'), false);
 });

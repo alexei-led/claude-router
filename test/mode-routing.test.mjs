@@ -296,3 +296,74 @@ test('a fit to another tier inside a turn leaves the route in use of the turn’
   assert.equal(next.decision.reason, 'context-fit');
   assert.deepEqual(next.route, loop.route);
 });
+
+// The cost preset's upgrade bar (1.16: 2 votes from 0.75, balanced's): on a long, warm Haiku history a task the
+// classifier scores hard at 90% moves to Opus; from 3 votes at 0.85 the bar, raised by Opus's cold cache write, sat
+// near 0.97 at this context and the turn stayed on Haiku.
+test('in cost, a hard task on a long Haiku history moves to Opus after two answers, and a weak one does not', () => {
+  const cost = inMode('cost');
+  assert.equal(cost.policy.upgradeVotes, 2);
+  assert.equal(cost.policy.upgradeBase, 0.75);
+  const context = 254_000;
+  const run = (high) => {
+    const answer = advice('high', { micro: 0, low: 0, medium: 1 - high, high }, { continuation: 0.1 });
+    let loop = { ...emptyLoop(base, OPUS), lastRoute: 'medium', historyMeasured: true };
+    loop = { ...loop, models: { [HAIKU]: { lastAt: T0 - 30_000, prefixTokens: context } } };
+    loop = { ...loop, lastRequest: { model: HAIKU, tokens: context, outputTokens: 500, at: T0 - 30_000 } };
+    const routes = [];
+    for (let i = 0; i < 4; i += 1) {
+      const at = T0 + i * 60_000;
+      const facts = nativeFacts(cost, loop, {
+        messages: UNVERIFIED,
+        prompt: 'Fix it.',
+        effort: 'high',
+        turnId: `t${i}`,
+        contextTokens: context,
+      });
+      loop = chooseRoute(cost, loop, { facts, advice: answer, nativeModel: OPUS, contextKnown: true, now: at });
+      routes.push(`${loop.decision.model}@${loop.decision.effort}`);
+      loop = observeResponse(cost, loop, {
+        usage: {
+          model: loop.decision.model,
+          input_tokens: 10,
+          cache_read_input_tokens: context - 2000,
+          cache_creation_input_tokens: 2000,
+          output_tokens: 500,
+        },
+        requestedModel: loop.decision.model,
+        effort: loop.decision.effort,
+        stopReason: 'end_turn',
+        now: at,
+      });
+    }
+    return routes;
+  };
+  assert.deepEqual(run(0.9), [`${HAIKU}@high`, `${OPUS}@high`, `${OPUS}@high`, `${OPUS}@high`]);
+  assert.deepEqual(run(0.8), Array(4).fill(`${HAIKU}@high`));
+});
+
+// A move to a cheaper route on the same task waits for a checkpoint the running activity can show (completedSince):
+// a successful command for ops, a passed check for code, and a passed check with activity routing off.
+test('the same-task checkpoint follows the running activity', () => {
+  const pushed = [user('Deploy it.'), bash('p', 'git push'), ran('p')];
+  const loopOn = (activity) => ({
+    ...emptyLoop(base, OPUS),
+    lastRoute: 'medium',
+    lastActivity: activity,
+    requests: 20,
+    switchedAt: { requests: 0, messageCount: 0 },
+  });
+  const downAllowed = (config, loop, messages) =>
+    nativeFacts(config, loop, { messages, prompt: 'x', effort: 'high', turnId: 't', contextTokens: 0 }).downAllowed;
+  assert.equal(downAllowed(base, loopOn('ops'), pushed), true);
+  assert.equal(downAllowed(base, loopOn('code'), pushed), false);
+  assert.equal(downAllowed(base, loopOn('code'), VERIFIED), true);
+  assert.equal(downAllowed(base, loopOn(null), pushed), false);
+  const off = loadConfig({ userFile: { activityRouting: 'off' } });
+  assert.equal(
+    downAllowed(off, loopOn('ops'), pushed),
+    false,
+    'with activity routing off the running activity is none',
+  );
+  assert.equal(downAllowed(base, { ...loopOn('ops'), requests: 3 }, pushed), false, 'the dwell still applies');
+});
