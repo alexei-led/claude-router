@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.16.0 (2026-10-28)
+
+Routing is now explainable after the fact, task notifications route as progress on the task they report on, and `cost` mode moves a hard task off Haiku. See [Routing decisions](docs/user-guide.md#routing-decisions) and [Changes during a task](docs/user-guide.md#changes-during-a-task).
+
+### Added
+
+- Every routed turn records its routing decisions in `$.store` (`decisions:v1:<session id>`): the prompt's origin, the classifier's tier and activity with their shares, whether the turn counted as the running task, the tier, activity, route and reason chosen, and at the end the turn's tool bucket and how many of its replies were priced. No prompt, tool or path text. `/router decisions [n]` prints them. Each session keeps 60 rows; other sessions' records stay for 30 days, 20 at most. **Delete history** deletes them.
+- Routed replies the usage record leaves out are counted by cause (no usage, no configured price, unknown cache lifetime, failed comparison) in the activity metrics. The Classifier tab's **ACROSS SESSIONS** block and `/router` show **Unpriced**. Before, such replies left no trace, and a session whose replies were all unpriced had no usage record.
+- The band shows `effort only` beside the mode when `cost` or `quality` kept the cell's model and changed only its effort. The cost estimates price the same tokens on both routes, so such a change shows no difference there.
+- The tool check behind activity agreement has two more buckets: `shell` for a Bash command that writes a file (a redirect, `tee`, `sed -i`, `perl -i`, `patch`, `git apply`), a candidate for code, docs or routine work, and `check` for a turn that only ran checks and reads. A review that ran the tests and an edit made through the shell no longer count as misses. Routing reads both as `ops`, as before.
+- The `router decision` debug line names the prompt's origin.
+
+### Changed
+
+- The router reads where each prompt came from (`prompt.submit`'s origin). A task notification, an observer's report or a programmatic follow-up is now always progress on the running task. The classifier is asked about your last request, with the notification as the newest dialogue line, instead of about the notification's text. A cheaper route still waits for the checkpoint. After a resume, until you send a prompt, a notification is asked about as it reads.
+- A cheaper route on the same task waits for a checkpoint that fits the work the route runs for, not only a passed test, build or lint run. Without a passed check, `ops` needs the last command to have succeeded with no edit or delegation since; `docs` needs a successful doc-only edit with no command beside it; `explore`, `plan` and `review` need a finished turn that changed, ran and delegated nothing and ended without a tool error. `code`, `debug` and a route with no activity still need the passed check, and a failed check blocks every one of these.
+- `cost` upgrades on balanced's bar: `modes.cost.policy.upgradeVotes` 3 → 2 and `upgradeBase` 0.85 → 0.75. With the old values the cache write of a cold stronger model raised the bar to about 0.92 from 60k tokens and 0.97 at 250k, so a cost turn on Haiku kept a task the classifier scored hard at 90% through any number of answers. Cost still moves down sooner than balanced. This spends more on hard tasks in cost mode; it is not tuned on outcomes.
+
+### Known limitations
+
+- The active goal a notification is judged against is held in memory, for the session: it is not kept across a resume or a plugin reload.
+- A prompt is matched to its turn by the engine's order of events and by its text. A turn the router cannot match records origin `unknown` and routes as before.
+- The classifier still reads text only. The tool calls, errors and edits of a turn reach the policy (the observed move, repeated-failure escalation, the checkpoint), not the classifier.
+- A `shell` turn agrees with every activity that may produce it, so the agreement check cannot catch a cheap route on code written through the shell.
+
+### Migration
+
+- No `router.json` change is needed. To keep the old cost upgrade bar, set `"modes": { "cost": { "policy": { "upgradeVotes": 3, "upgradeBase": 0.85 } } }`.
+- An activity stats record holding the new `shell` or `check` buckets reads as empty in an older version. Agreement from before 1.16 is not comparable with agreement after it.
+
 ## 1.15.0 (2026-10-22)
 
 A routing mode trades cost against answer quality without new routes: `cost`, `balanced` (the default, unchanged) or `quality`. See [Routing modes](docs/routing-modes.md).
