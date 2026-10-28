@@ -263,6 +263,16 @@ test('allowed models handle exact versions and alias narrowing', () => {
     assert.equal(isModelAllowed(id, allowed, sonnet), expected);
 });
 
+test('a conversation too full for every route keeps the native model and says the context is full', () => {
+  const loop = emptyLoop(DEFAULTS, model);
+  const full = { ...context, contextTokens: 900_000 };
+  const result = chooseRoute(DEFAULTS, loop, input(loop, { facts: nativeFacts(DEFAULTS, loop, full) }));
+  assert.deepEqual(
+    [result.decision.tier, result.decision.model, result.decision.reason],
+    [null, model, 'context-full'],
+  );
+});
+
 test('a denied pin uses an allowed native model', () => {
   const loop = emptyLoop(DEFAULTS, model);
   const result = chooseRoute(DEFAULTS, loop, input(loop, { pin: 'high', availableModels: ['sonnet'] }));
