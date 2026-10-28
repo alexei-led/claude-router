@@ -130,7 +130,13 @@ test('each turn writes its decision rows and its end, with unpriced replies by c
   assert.equal(start.kind, 'start');
   assert.equal(start.route, 'claude-opus-5-5@xhigh');
   assert.deepEqual(end, { at: end.at, kind: 'end', observed: 'check', requests: 1, priced: 0, unpriced: { ttl: 1 } });
-  assert.deepEqual(h.preferences.get('activity:metrics:v1:s1').unpriced, { usage: 0, model: 0, ttl: 1, error: 0 });
+  assert.deepEqual(h.preferences.get('activity:metrics:v1:s1').unpriced, {
+    usage: 0,
+    model: 0,
+    ttl: 1,
+    error: 0,
+    comparison: 0,
+  });
   const listed = await h.event('command.run', { command: 'router', args: 'decisions 5' });
   assert.match(
     listed.text,

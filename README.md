@@ -5,11 +5,34 @@
 
 **A Claude Code Mod that chooses a model and effort for each main-conversation turn, advised by a prompt classifier: Jev; Cloudflare's Clef, Clef Flash or Clef Omni; OpenAI; or a local Ollama model.**
 
-The Mod changes only the model and effort in Claude Code's turn hook. Claude Code sends the request, streams the reply, runs tools, and reports usage. The router does not proxy Anthropic traffic or start a local server; an Ollama classifier calls an Ollama server that you run. Subagents get one model each when they start, chosen the same way: every agent whose definition names no model, says `model: inherit`, or sets `modelRouting: auto`. Their steps are never re-routed. See [Subagent routing](docs/configuration.md#subagent-routing).
+The Mod changes only the model and effort in Claude Code's turn hook. Claude Code sends the request, streams the reply, runs tools, and reports usage. The router does not proxy model traffic or start a local server; an Ollama classifier calls an Ollama server that you run. Subagents get one model each when they start, chosen the same way: every agent whose definition names no model, says `model: inherit`, or sets `modelRouting: auto`. Their steps are never re-routed. See [Subagent routing](docs/configuration.md#subagent-routing).
+
+## Providers
+
+Use the provider that already works with Claude Code. Select its router profile, not a new endpoint:
+
+```sh
+CLAUDE_ROUTER_PROVIDER=deepseek claude --model 'deepseek-flash[1m]'
+```
+
+Create `~/.claude/deepseek-router.json` containing `{}` to use DeepSeek defaults.
+With `CLAUDE_CONFIG_DIR`, put the file in that directory instead.
+
+| Built-in profile | Router file | Default models |
+| --- | --- | --- |
+| Anthropic, the default | `router.json` | Haiku 5.5, Sonnet 5.5, Opus 5.5 |
+| `deepseek` | `deepseek-router.json` | DeepSeek Flash, routed by effort |
+| `zai` | `zai-router.json` | GLM-5.3-Flash and GLM-5.3 |
+
+OpenRouter, Ollama, other local servers and other compatible hosted providers use custom `<provider>-router.json` files.
+They have no built-in model defaults. A selected file must exist and validate, or the router leaves Claude Code's model unchanged.
+
+See [Providers](docs/providers.md) for **default routes and activities**, **custom profiles**, and the **`--settings` flag alternative**.
+Execution provider selection is separate from classifier selection.
 
 ## Supported classifiers
 
-The active classifier is asked at the start of each logical turn, for the tier and for the turn's activity, and again in the background every 4 requests while the turn runs (`policy.reviewEveryRequests`). Pick one on the pane's **Classifier** tab or in `router.json`; only the active one receives prompt text. With subagent routing `on` (the default), it is also asked once per routed subagent, with the task's description and prompt; set `"subagentRouting": "off"` to keep that text local.
+The active classifier is asked at the start of each logical turn, for the tier and for the turn's activity, and again in the background every 4 requests while the turn runs (`policy.reviewEveryRequests`). Pick one on the pane's **Classifier** tab or in the selected router file; only the active one receives prompt text. With subagent routing `on` (the default), it is also asked once per routed subagent, with the task's description and prompt; set `"subagentRouting": "off"` to keep that text local.
 
 | Classifier | Service                                    | Credential                          | Prompt text goes to       | How it is asked for the activity                                      |
 | ---------- | ------------------------------------------ | ----------------------------------- | ------------------------- | --------------------------------------------------------------------- |
@@ -36,7 +59,7 @@ sequenceDiagram
   participant Code as Claude Code
   participant Mod as Router Mod
   participant Cls as Classifier
-  participant API as Anthropic
+  participant API as Model provider
   Dev->>Code: Prompt
   opt Subagent spawn
     Code->>Mod: agent.spawn
@@ -57,6 +80,8 @@ sequenceDiagram
 
 The active classifier labels each new logical turn, and the router checks the route again while the task runs: a turn labelled `ops` that edits code moves up to the `code` route at once, and a background classifier review every 4 requests can move the tier or the activity either way. A cheaper route on the same task waits for a dwell and a checkpoint its work can show: a passed test, build or lint run, or for commands, docs and read-only work the success the router can see. A task notification is routed as progress on your last request. `/router decisions` lists why each turn ran where it did. See [Changes during a task](docs/user-guide.md#changes-during-a-task). A local policy applies vote, context, failure, and cache-cost rules before the Mod changes the next step. Claude Code owns request construction, model credentials, tools, streaming, and the API cost ledger.
 
+With the Anthropic profile, the base routes are:
+
 | Tier     | Default model | Effort   |
 | -------- | ------------- | -------- |
 | `micro`  | Haiku 5.5     | `medium` |
@@ -67,6 +92,8 @@ The active classifier labels each new logical turn, and the router checks the ro
 These are routing defaults. They do not claim equal model quality. [Configuration](docs/configuration.md#built-in-defaults) gives the published results behind them and the `router.json` lines that restore the 1.3 Sonnet ladder.
 
 Activity routing adds a second label: what the turn produces (`code`, `debug`, `explore`, `plan`, `review`, `ops`, or `docs`). A route is then picked by tier and activity. It is on by default since 1.7. A `·` cell uses the tier's own route, the base route:
+
+The Anthropic profile uses these activity defaults. Other profiles have [their own defaults](docs/providers.md#activity-overrides).
 
 | Activity                          | `micro`        | `low`             | `medium`         | `high`       |
 | --------------------------------- | -------------- | ----------------- | ---------------- | ------------ |
@@ -88,7 +115,7 @@ claude plugin marketplace add alexei-led/claude-router
 claude plugin install router@alexei-led-claude-router
 ```
 
-Start Claude Code on the full baseline model, for example `claude --model claude-haiku-5-5`. Run `/plugin configure router` and save the key. For any other classifier, save its credentials, or run `ollama serve` with a pulled model, then pick the classifier on the pane's Classifier tab. A new session on a model that a tier routes to, or with activity routing `on` a model an activity override uses (Sonnet 5.5 on the defaults), starts with routing on; on any other model it starts with routing off and says why, and `/router auto` turns routing on.
+For the default Anthropic profile, start on the full baseline model, for example `claude --model claude-haiku-5-5`. For other providers, [select a provider profile](docs/providers.md#select-a-provider). Run `/plugin configure router` and save the key. For any other classifier, save its credentials, or run `ollama serve` with a pulled model, then pick the classifier on the pane's Classifier tab. A new session on a model that a tier routes to, or with activity routing `on` a model an activity override uses (Sonnet 5.5 on the defaults), starts with routing on; on any other model it starts with routing off and says why, and `/router auto` turns routing on.
 
 Claude Code updates the plugin at startup when auto-update is on for this marketplace. Otherwise run `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`.
 
@@ -116,7 +143,8 @@ npm run check && npm run typecheck && npm test && npm run validate && npm run te
 ## Documentation
 
 - [User guide](docs/user-guide.md): install, use the controls, read the panel, and troubleshoot.
-- [Configuration](docs/configuration.md): classifiers and keys, the optional profile `router.json`, defaults, and migrations.
+- [Providers](docs/providers.md): provider names, router files, built-in defaults, and custom profiles.
+- [Configuration](docs/configuration.md): router-file settings, classifier keys, cache policies, and migrations.
 - [Architecture](docs/architecture.md): Mod event flow, state, safeguards, and runtime boundaries.
 - [Activity routing](docs/activity-routing.md): the default matrix by activity, why each cell, and how to change or turn it off.
 - [Routing modes](docs/routing-modes.md): `cost`, `balanced` and `quality`, where the mode comes from, and every decision per mode.

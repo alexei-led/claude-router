@@ -4,6 +4,40 @@ The native Mod has no measured savings result. The pane reports Claude's own usa
 
 This page separates an older gateway experiment from a shadow replay of native policy. Neither result measures answer quality or proves lower real spend. [Activity routing](#activity-routing) adds two checks of the activity label, with no savings result either.
 
+## Provider profiles
+
+[Provider defaults](providers.md#built-in-defaults) are starting policies, not measured per-activity quality or savings results.
+
+The model and effort choices use official [DeepSeek controls](https://api-docs.deepseek.com/guides/thinking_mode), [z.ai controls](https://docs.z.ai/guides/capabilities/thinking.md), and [Coding Plan mappings](https://docs.z.ai/devpack/latest-model.md).
+The model-cards knowledgebase supplied model-specific controls and prompting constraints.
+
+Artificial Analysis profiles informed activity choices:
+
+- [GLM-5.3](https://artificialanalysis.ai/models/glm-5-3)
+- [GLM-5.3-Flash](https://artificialanalysis.ai/models/glm-5-3-flash)
+- [DeepSeek-V4.1-Flash](https://artificialanalysis.ai/models/deepseek-v4-1-flash)
+
+Terminal engineering and SRE results differ. Neither GLM model leads every activity.
+Measured max-effort results do not establish low/high performance or an optimal routing matrix.
+The original DeepSeek benchmark profile does not establish the quality of its newer hosted 1017 snapshot.
+
+### Compatibility checks
+
+On 2026-10-28, six synthetic live requests per provider returned HTTP 200.
+The requests covered `low`, `high`, and `max` on DeepSeek Flash and both GLM models.
+DeepSeek reported 2,688 cache-read tokens on repeated requests. z.ai reported zero hits in that sample.
+
+These checks establish accepted request and usage-counter shapes.
+They do not establish a guaranteed cache hit rate, cross-effort cache sharing, answer quality, or savings.
+Claude Code 2.1.312 supplied zero when the z.ai-style response omitted cache-creation tokens.
+
+`npm run test:providers` checks the production Mod against a loopback API with synthetic credentials.
+It covers provider selection through a `--settings` environment layer, model/effort switches, tool continuations, and missing/invalid profiles.
+It also covers omitted cache-creation counters. The command makes no paid provider calls.
+
+OpenRouter, Ollama and other [custom profiles](providers.md#add-another-provider) have no provider-specific acceptance result here.
+A valid configuration does not establish backend compatibility or model quality.
+
 ## Historical gateway experiment
 
 These figures are retained from the earlier gateway implementation. They do not evaluate the native Mod or its current routes. The snapshot covers 26 Claude Code sessions and 1,611 requests from 2026-09-23 09:05 UTC through 2026-09-24 06:00 UTC. Jev advised on 111 prompts.

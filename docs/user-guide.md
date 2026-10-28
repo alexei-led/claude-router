@@ -9,6 +9,9 @@ claude plugin marketplace add alexei-led/claude-router
 claude plugin install router@alexei-led-claude-router
 ```
 
+For another execution provider, follow [Providers](providers.md). That guide covers profile names, defaults and custom files.
+The following startup example uses the default Anthropic profile.
+
 Start with the full baseline model so routing has a known starting point:
 
 ```sh
@@ -26,7 +29,10 @@ In Claude Code:
 3. To use another classifier, open the pane's **Classifier** tab and select its row. See [Choose the classifier](#choose-the-classifier).
 4. Check the band above the prompt: `Routing on · ready`. On a model that no tier routes to, and that no activity override uses with activity routing `on`, the session starts with routing off and the band says why; run `/router auto` to route.
 
-Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers optional settings and migrations.
+Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers settings and migrations.
+
+In this guide, `router.json` means the selected router file. For example, with `CLAUDE_ROUTER_PROVIDER=zai`, edits go to `zai-router.json`.
+The pane shows its provider and file path.
 
 ## Read the status band
 
@@ -52,14 +58,14 @@ Read the first line of the picture from left to right:
 | `⚠ Clef: no account ID · keeping model`         | Clef has its API token but no Cloudflare account ID. **Set up** opens the dialog.                                           |
 | `⚠ Jev timed out · keeping model`               | The classifier failed: timed out, unreachable, rejected the key, or paused.                                                 |
 | `○ Routing off [ Turn on ] · every turn uses …` | Routing is off: Claude's model answers every turn. **Turn on** turns it back on. The footer also shows `routing off`.       |
-| `✕ Routing unavailable`                         | Nothing routes: an old Claude Code or leftover v0.8 settings. **Fix** opens the pane.                                       |
+| `✕ Routing unavailable`                         | Nothing routes: a missing/invalid provider file, an old Claude Code, or leftover v0.8 settings. **Fix** opens the pane.                                       |
 | `○ Router · ■ Haiku 5.5 · moved down by the router` | You are viewing a subagent's transcript. The model it runs on, and who picked it; see below.                            |
 
 The band shows one routing control at a time. While routing is on, hover over the band for a second row: pin a tier for the next turn, **Turn off** routing, or show two rows. While routing is off, **Turn on** sits on the first line next to `Routing off` and stays at any width: a narrow band drops the explanation and the model first. On a narrow band the hover row drops `routing on`, then **2 rows**, then `pin next turn`, then the pins; it keeps **Turn off**, and **1 row** when the band shows two. The hover row needs a pointer: from the keyboard, run `/router off`, or open the pane and press `f`. The two-row band adds this session against your model, the one `/model` selects now: `session  saved $1.84 (22%) vs Opus 5.5 · xhigh  ·  64 replies  ·  cold-cache writes +$0.47`, or `session  extra $2.48 (×5.0) vs Haiku 5.5 · high  ·  41 replies  ·  stronger models +$2.31` when routing cost more. The last part names the larger of the two costs behind the result, when there is one. After a `/model` change the row shows the whole session against the new model. Before the tenth routed reply it reads `session  3 replies · too early to compare`. When the row is short, the cost part drops first, then the reply count. Router remembers that choice across sessions. When Router changes the model between turns, a toast reads `Model changed: old → new · reason`. A pin does not raise one, and neither does a change of effort alone.
 
 The band steps aside while a survey needs the space.
 
-Inside a turn the router checks the route again as the work changes; see [Changes during a task](#changes-during-a-task). A subagent gets at most one model, when it starts, and keeps it for every step: Haiku for exploration, Opus for clearly hard tasks, Sonnet for the rest. An agent that pins a model in its definition keeps it, unless it sets `modelRouting: auto`. The Usage tab's **SUBAGENTS** section shows what each agent type ran on and cost, and the Now tab shows this session's agents. See [Subagent routing](configuration.md#subagent-routing).
+Inside a turn the router checks the route again as the work changes; see [Changes during a task](#changes-during-a-task). A subagent gets at most one model, when it starts, and keeps it for every step: For the Anthropic profile, these are Haiku for exploration, Opus for clearly hard tasks, and Sonnet for the rest. Other profiles have [their own defaults](providers.md#activity-overrides). An agent that pins a model in its definition keeps it, unless it sets `modelRouting: auto`. The Usage tab's **SUBAGENTS** section shows what each agent type ran on and cost, and the Now tab shows this session's agents. See [Subagent routing](configuration.md#subagent-routing).
 
 In a subagent's transcript the band names the model the agent runs on and who picked it. `■ Haiku 5.5 · moved down by the router · Claude Code: Opus 5.5` means the router chose a cheaper model than Claude Code would have; `up` means a stronger one. `□ Sonnet 5.5 · the router kept Claude Code’s pick` means the router agreed. `□ Opus 5.5 · Claude Code’s pick: the workflow sets it` means the router did not route the agent, and says why. A narrow band drops the `Claude Code:` part first. The band falls back to `subagent model chosen at spawn` when the router has no record of the agent, such as after a plugin reload, and to `subagents keep their own model` with subagent routing off.
 
@@ -262,7 +268,11 @@ The model list comes from the aliases in `router.json` `models`, limited by the 
 
 **Activity routing** at the top sets `off` or `on`, and says what the mode does. A yellow line says when the overrides do not run: activity routing `off`, or routing off or unavailable.
 
-Under the grid, `3 prompt caches in use` counts the caches the grid can run on. Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 keep one cache per model across efforts with an API key or a Claude subscription; on Amazon Bedrock, Google Cloud, Microsoft Foundry or a custom `ANTHROPIC_BASE_URL`, each (model, effort) pair has its own. Moving to a model without a warm cache writes the whole conversation into a new cache, which is the switch cost on the Now tab. More caches mean more of those writes. A yellow line flags two neighbouring tiers that run the same model and effort, since that step changes nothing.
+The Routes tab describes the selected profile's cache policy. With Anthropic explicit caching, it counts the cache identities used by the routes. A model switch can require a cold write of the conversation.
+
+Automatic-cache profiles, including DeepSeek and z.ai, do not assume a fixed lifetime or guaranteed sharing across efforts. They use hit/miss input prices without a separate write premium. See [cache settings](configuration.md#provider-cache-behavior).
+
+A yellow line flags neighbouring tiers with the same model and effort. That step changes nothing.
 
 **Reset routes to defaults** (`r`) loads the built-in tier routes and start tier into the draft; **Save** then removes your route overrides from `router.json`. Activity edits and the mode stay in the draft.
 
@@ -315,7 +325,9 @@ The routing policy thresholds were tuned against Jev's probabilities. Clef's, Op
 
 ### Use Ollama
 
-Ollama runs the classifier on this machine, so the prompt text does not leave it. It needs no key.
+This section configures Ollama as the **classifier**, not the model that answers your prompts. To route coding models on Ollama, use a [custom execution-provider profile](providers.md#add-another-provider).
+
+Ollama runs the classifier on this machine, so classification text stays local. It needs no key.
 
 1. Install Ollama and pull a model: `ollama pull qwen3.5:9b`.
 2. Start the server: `ollama serve`. The router calls `http://127.0.0.1:11434`.
@@ -348,7 +360,9 @@ To stop routing for a session, run `/router off`. To keep tier routing but stop 
 | Status says `no account ID`                 | Clef, Clef Flash or Clef Omni is active without the Cloudflare account ID.                            | Run `/plugin configure router` and save the Cloudflare account ID.                                                                                                           |
 | Route stays on the current model            | The classifier timed out, failed, is paused, or network policy refused it.                            | Read the status band and the pane header. Network policy refusal is not bypassed.                                                                                            |
 | `/model` changed but routing stopped        | Choosing a model turns routing off.                                                                   | Run `/router auto` to turn routing back on.                                                                                                                                  |
-| Router reports invalid configuration        | `router.json` is invalid, or project/local settings redirect the router profile.                      | Inspect `router.json`, remove project/local `HOME` or `CLAUDE_CONFIG_DIR` overrides, or run the [migration command](configuration.md#convert-an-older-routerjson).           |
+| Selected provider file is missing | The provider name selects a file that does not exist. | Create that file in the active Claude Code profile directory. Use `{}` only for built-in profiles. See [Providers](providers.md). |
+| A custom profile containing `{}` fails | No built-in model catalog exists for that provider name. | Define all four routes and their model entries. See the [custom profile example](providers.md#add-another-provider). |
+| Router reports invalid configuration | The selected file is invalid, or project/local settings redirect the profile. | Inspect the file shown in the pane. Remove project/local `HOME`, `CLAUDE_CONFIG_DIR`, or `CLAUDE_ROUTER_PROVIDER` overrides. |
 | Router says old settings need migration     | `router.json` still contains v0.8 gateway keys or the 1.1 `jev` section.                              | Run the [migration command](configuration.md#convert-an-older-routerjson).                                                                                                   |
 | `⚠ OpenAI rejected the key · keeping model` | The OpenAI key is wrong, revoked, or lacks access to `gpt-6-luna`.                                    | Run `/plugin configure router` and save a valid OpenAI API key.                                                                                                              |
 | `⚠ Ollama unreachable · keeping model`      | No Ollama server listens on `127.0.0.1:11434`.                                                        | Run `ollama serve`, then start a new turn.                                                                                                                                   |

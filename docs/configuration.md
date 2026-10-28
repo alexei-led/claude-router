@@ -1,6 +1,6 @@
 # Configuration
 
-The router works with its built-in defaults. Configure the key of the active classifier to enable advice. Change `router.json` only when you need to change the classifier, routes, activity routing, model prices, cache assumptions, or policy.
+Select a [provider profile](providers.md), then configure the key of the classifier you use. This page describes the settings inside the selected router file.
 
 ## Key and profile settings
 
@@ -10,8 +10,8 @@ The router works with its built-in defaults. Configure the key of the active cla
 | Cloudflare API token               | Sensitive plugin option `cloudflare_api_token`  | The same dialog. Used by Clef, Clef Flash and Clef Omni.                                        |
 | Cloudflare account ID              | Plugin option `cloudflare_account_id`           | The same dialog, or the config menu row. Not a secret.                                          |
 | OpenAI API key                     | Sensitive plugin option `openai_api_key`        | The same dialog. Used only by the OpenAI classifier. Ollama needs no key.                       |
-| Router settings and classifier     | `router.json` in the active Claude Code profile | Edit the file directly, or use the pane's Routes, Policy and Classifier tabs.                   |
-| Anthropic credentials and API cost | Claude Code                                     | The Mod leaves these to Claude Code.                                                            |
+| Router settings and classifier     | The selected router file in the active Claude Code profile | Edit the file directly, or use the pane's Routes, Policy and Classifier tabs.                   |
+| Execution provider credentials and API cost | Claude Code                                     | The Mod leaves these to Claude Code.                                                            |
 
 The active profile directory is `CLAUDE_CONFIG_DIR` when set. Otherwise it is `~/.claude`. The Mod does not need an Anthropic proxy URL, model alias, hint header, daemon, or custom status line.
 
@@ -26,7 +26,69 @@ The Mod reads each value from its plugin option first. When the option is empty,
 
 Export the variables before you start `claude`. Without the key or the account ID of the active classifier, the Mod keeps Claude's current model and reports which value is missing.
 
-Project and local settings cannot set `HOME` or `CLAUDE_CONFIG_DIR` for this Mod. Those overrides make the router unavailable for the session, so a project cannot redirect the router to another profile's key or configuration.
+Project and local settings cannot set `HOME`, `CLAUDE_CONFIG_DIR`, or `CLAUDE_ROUTER_PROVIDER` for this Mod. Those overrides make the router unavailable for the session, so a project cannot redirect the router to another profile's key or configuration.
+
+## Provider profiles
+
+Set `CLAUDE_ROUTER_PROVIDER` to select `<provider>-router.json` in the active Claude Code profile.
+Unset, empty, or `anthropic` selects `router.json`.
+See [Providers](providers.md) for selection examples, built-in defaults and complete custom profiles.
+
+The same schema applies to every router file. This reference uses `router.json` as shorthand for the selected file.
+A non-Anthropic file must exist and validate. It never falls back to `router.json` or inherits settings from it.
+
+### Provider prices
+
+DeepSeek and z.ai default windows are 1M tokens.
+Price estimates use the [DeepSeek peak API rates](https://api-docs.deepseek.com/quick_start/pricing) and [z.ai API list rates](https://docs.z.ai/guides/overview/pricing.md).
+These rates were checked on 2026-10-28.
+
+| Model | Input / output / cached input, USD per million tokens |
+| --- | --- |
+| DeepSeek Flash | 0.30 / 1.20 / 0.006 |
+| GLM-5.3-Flash | 0.15 / 0.50 / 0.03 |
+| GLM-5.3 | 1.40 / 4.40 / 0.26 |
+
+These are fixed estimate inputs, not an invoice. DeepSeek off-peak rates differ, and z.ai plan quota uses its own multipliers.
+Both presets use `billing: "credits"`.
+For an included-plan model, set `billing: "plan"` to disable the cold-input cash cap.
+A provider name or URL does not establish its billing product.
+
+### Provider cache behavior
+
+`cache.mode` controls the router's cost estimates, not the provider's server cache.
+
+| Mode | Use | Estimate |
+| --- | --- | --- |
+| `explicit` | Anthropic default | Configured write multipliers and TTLs |
+| `automatic` | DeepSeek, z.ai and custom-profile default | Reported hit/miss input rates, no separate write premium |
+| `disabled` | No cache discount to model | All input at the uncached rate, never marked warm |
+
+Automatic-cache bounds allow a future hit or a full miss, including after an observed miss.
+The router does not assume a five-minute or one-hour lifetime. Payback is unknown.
+Same-model effort changes retain votes, dwell and the cold-input cap.
+They skip fixed-token payback because it cannot value changes in generated thinking tokens.
+
+`cache.effortScope` accepts these values:
+
+| Value | Meaning |
+| --- | --- |
+| `auto` | Existing Claude cache detection |
+| `shared` | One cache identity across efforts |
+| `separate` | One cache identity per effort |
+| `unknown` | Keep observations separate without claiming that the provider separates caches |
+
+Automatic-cache presets use `unknown`. Set `shared` only when the provider contract establishes sharing.
+An unknown cache state is not proof of a miss.
+
+[DeepSeek caching](https://api-docs.deepseek.com/guides/kv_cache) is automatic and best-effort. Its Anthropic endpoint ignores explicit cache controls.
+[z.ai caching](https://docs.z.ai/guides/capabilities/cache.md) has no verified model-specific TTL.
+Claude Code's `DISABLE_PROMPT_CACHING` does not establish whether an automatic server cache is disabled.
+
+Valid observed usage can still be priced for activity statistics.
+For automatic caches, routing-versus-your-model comparisons require an identical observed route.
+Otherwise the UI reports comparison unavailable. It does not label a known observed cost unpriced or invent another route's hit rate.
+Missing counters remain unknown. See [provider acceptance checks](evaluation.md#provider-profiles).
 
 ## Built-in defaults
 
@@ -251,8 +313,8 @@ The Mod validates the whole file. Unknown keys and invalid values make routing u
 | `mode`                         | `cost`, `balanced`, `quality` ([Routing modes](routing-modes.md))                    | `balanced`                                               |
 | `modes.<cost\|quality>.policy` | any `policy` field, used while that mode is active                                   | [Routing modes](routing-modes.md#policy-per-mode); not tuned |
 | `activities.<activity>.<tier>` | optional `model` and `effort`, as in `routes`                                        | The overrides in [Activity routing](#activity-routing)   |
-| `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, optional `longContext` (`above`, `multiplier`, or `null`), `contextWindow`, `billing`, `efforts` | Three defaults above                                     |
-| `cache`                        | `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms |
+| `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, optional `longContext` (`above`, `multiplier`, or `null`), `contextWindow`, `billing`, `efforts`, optional `strength`, `imageInput` | Three defaults above                                     |
+| `cache`                        | `mode`, `effortScope`, `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms |
 | `policy`                       | Fields below                                                                         | Values below                                             |
 | `classifier`                   | An id in `classifiers`                                                               | `jev`                                                    |
 | `classifiers.<id>`             | `label`, `api`, `endpoint`, `model`, `keyOption`, `timeoutMs`                        | [Classifiers](#classifiers) above                        |
