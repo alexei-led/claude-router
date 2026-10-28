@@ -36,7 +36,8 @@ names a mode other than balanced.
 
 A change applies from the next turn. It changes the route the router prefers; the route in use moves through the
 same checks as any other switch. On the same task a cheaper route waits until `minDwellRequests` requests have run on
-the route in use and a check (tests, build, lint) has passed since. A move must also pay back its cache write. Until
+the route in use and a checkpoint since: a passed check (tests, build, lint), or the success the route's activity can
+show ([Changes during a task](user-guide.md#changes-during-a-task)). A move must also pay back its cache write. Until
 then the band says why the route stays. Pin a tier to run its configured route now.
 
 ## Policy per mode

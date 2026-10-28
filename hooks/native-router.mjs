@@ -1007,7 +1007,7 @@ async function moveOnObserved($, router, cfg, loop, e, context) {
 // Inside a turn the classifier is asked again every `policy.reviewEveryRequests` requests, in the background: a step
 // never waits for it. The answer applies at the first step after it arrives, as a decision on the same task
 // (sameTaskOf), so the tier and the activity can move either way: up on the usual votes, down only past the dwell and a
-// passed verification. Pinned turns and a native fallback are left alone; a failed read or ask changes nothing.
+// checkpoint (completedSince). Pinned turns and a native fallback are left alone; a failed read or ask changes nothing.
 async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels }) {
   const review = router.reviews.get(e.turnId);
   if (review?.answer) {
@@ -1320,7 +1320,8 @@ async function flushDecisions($, router, turnId, turn) {
       ? [
           endRow({
             at: now,
-            observed: turn.observed ?? null,
+            // With activity routing off recordActivity does not run, so the bucket is read here.
+            observed: turn.observed ?? (await turnBucket($)),
             requests: turn.requests,
             priced: turn.pricedRequests,
             unpriced: turn.unpriced,
@@ -1332,6 +1333,13 @@ async function flushDecisions($, router, turnId, turn) {
     held.record = record;
     await $.store.set(key, record);
   } catch {}
+}
+
+// The bucket of the turn the transcript ends with (observedActivity), or null when it cannot be read.
+async function turnBucket($) {
+  const messages = await transcript($);
+  const start = messages ? promptIndex(messages) : -1;
+  return start < 0 ? null : observedActivity(messages, start);
 }
 
 // Other sessions' decision records past their retention or the record bound (prunedDecisions), each read again just

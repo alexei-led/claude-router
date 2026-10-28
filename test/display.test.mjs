@@ -242,7 +242,7 @@ test('Why names the cell for an activity move or a stay on an override, and keep
         effort: 'high',
         routingMode: { mode: 'cost', source: 'session' },
       },
-      'a cheaper model waits for a passed check on this task',
+      'a cheaper model waits for a checkpoint on this task',
     ],
     [
       'a stay on an override in cost mode, on its mode route',

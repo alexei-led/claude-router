@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DECISIONS_PREFIX, MAX_RECORDS, RETAIN_MS } from '../lib/decisions.mjs';
-import { answering, drain, harness, JEV_KEY, press, step } from './harness.mjs';
+import { answering, CONFIG, drain, harness, JEV_KEY, press, step } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
 const HIGH = jevResponse('high', { micro: 0, low: 0, medium: 0.05, high: 0.95, uncertain: 0 }, 0.2);
@@ -70,11 +70,40 @@ test('a submission queued behind a running turn names the turn that later starts
   );
 });
 
-test('a prompt.submit hook passes the prompt on unchanged and survives a dropped prompt', async () => {
+test('a prompt.submit hook passes the prompt on unchanged', async () => {
   const h = harness(JEV_KEY);
   await h.event('session.start', { cwd: '/fixture' });
   const input = { text: 'hello', origin: { kind: 'composer' }, wait: false };
   assert.deepEqual(await h.submit(input), { text: 'hello', origin: { kind: 'composer' } });
+});
+
+test('a dropped prompt names no later turn, and the drop passes on as core answered', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, HIGH);
+  await h.event('session.start', { cwd: '/fixture' });
+  const dropped = { drop: 'blocked by a hook' };
+  const input = { text: 'Same words.', origin: { kind: 'composer' }, wait: true, turnId: 't0' };
+  assert.deepEqual(await h.submit(input, null, dropped), dropped);
+  await h.event('turn.start', { turnId: 't1', text: 'Same words.' });
+  h.messages(async () => [user('Same words.')]);
+  await drain(h.step({ ...step, turnId: 't1' }));
+  await h.event('turn.complete', { turnId: 't1' });
+  assert.equal(decisions(h).rows[0].origin, 'unknown');
+});
+
+test('with activity routing off the end row still holds the turn bucket', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, HIGH);
+  h.files.set(CONFIG, JSON.stringify({ activityRouting: 'off' }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'Ship it.', 'composer', {
+    messages: [
+      user('Ship it.'),
+      { role: 'assistant', content: [{ type: 'tool_use', id: 'g', name: 'Bash', input: { command: 'git push' } }] },
+      toolResult('ok'),
+    ],
+  });
+  assert.equal(decisions(h).rows.at(-1).observed, 'ops');
 });
 
 test('each turn writes its decision rows and its end, with unpriced replies by cause', async () => {
