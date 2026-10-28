@@ -55,7 +55,7 @@ sequenceDiagram
   Mod-->>Dev: Status band and router pane
 ```
 
-The active classifier labels each new logical turn, and the router checks the route again while the task runs: a turn labelled `ops` that edits code moves up to the `code` route at once, and a background classifier review every 4 requests can move the tier or the activity either way. A cheaper route on the same task waits for a dwell and a passed test, build or lint run. See [Changes during a task](docs/user-guide.md#changes-during-a-task). A local policy applies vote, context, failure, and cache-cost rules before the Mod changes the next step. Claude Code owns request construction, model credentials, tools, streaming, and the API cost ledger.
+The active classifier labels each new logical turn, and the router checks the route again while the task runs: a turn labelled `ops` that edits code moves up to the `code` route at once, and a background classifier review every 4 requests can move the tier or the activity either way. A cheaper route on the same task waits for a dwell and a checkpoint its work can show: a passed test, build or lint run, or for commands, docs and read-only work the success the router can see. A task notification is routed as progress on your last request. `/router decisions` lists why each turn ran where it did. See [Changes during a task](docs/user-guide.md#changes-during-a-task). A local policy applies vote, context, failure, and cache-cost rules before the Mod changes the next step. Claude Code owns request construction, model credentials, tools, streaming, and the API cost ledger.
 
 | Tier     | Default model | Effort   |
 | -------- | ------------- | -------- |

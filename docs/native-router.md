@@ -22,6 +22,7 @@ The activity is what the turn produces: `code`, `debug`, `explore`, `plan`, `rev
 | `/router pin <tier>`                   | Pin the next turn and tool continuations. Routing on must already be enabled.                     |
 | `/router activities <off\|on>` | Set the activity routing mode. Written to `router.json` at once; **Undo** in the pane reverts it. |
 | `/router mode <cost\|balanced\|quality\|default>` | Set or clear this session's [routing mode](routing-modes.md), from the next turn. Kept for a resume in `$.store` `routing-mode:<session id>`. Never aborts a turn. |
+| `/router decisions [n]`               | Print this session's last `n` routing decisions (default 20, at most 60): origin, classifier answer, task, tier, route, reason, and each turn's end. No text. |
 | `/model <name>`                        | Select a model and turn routing off. `/router auto` turns it back on.                             |
 
 The pane's **Set up** and **Credentials → Edit** buttons open Claude Code's secure plugin configuration. Claude Code refuses `$.command.run` from inside a `command.run` hook, so the Mod starts that dialog from a timer after the press returns.

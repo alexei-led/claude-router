@@ -139,6 +139,7 @@ test('each decision records the mode, its source, the classified tier and the ro
   assert.deepEqual(JSON.parse(text.slice('router decision '.length)), {
     mode: 'cost',
     modeSource: 'profile',
+    origin: 'unknown',
     classified: 'high',
     tier: 'high',
     reason: 'upgrade',

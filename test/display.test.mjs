@@ -8,10 +8,12 @@ import {
   formatTokens,
   missingCredentials,
   missingText,
+  modeLever,
   percentPair,
   routeLabel,
   sparkline,
   storeAgreementLine,
+  unpricedLine,
   usageMetrics,
   whyText,
 } from '../lib/display.mjs';
@@ -289,4 +291,44 @@ test('two compared shares keep whole percents unless rounding would make unequal
     [0.81401, 0.81404, ['81.40%', '81.40%']],
   ])
     assert.deepEqual(percentPair(a, b), expected, `${a} ${b}`);
+});
+
+test('modeLever names an effort-only change of the mode on the cell the band shows', () => {
+  const config = loadConfig({ userFile: { routes: { high: { model: 'opus', effort: 'high' } } } });
+  const cost = { routingMode: { mode: 'cost', source: 'profile' } };
+  for (const [name, view, expected] of [
+    ['cost high code keeps Opus, one effort less', { ...cost, tier: 'high', activity: 'code' }, 'effort only'],
+    ['cost high without an activity', { ...cost, tier: 'high', activity: null }, 'effort only'],
+    ['cost high ops moves to Haiku', { ...cost, tier: 'high', activity: 'ops' }, null],
+    ['cost medium moves to Haiku', { ...cost, tier: 'medium', activity: null }, null],
+    ['micro keeps its route in every mode', { ...cost, tier: 'micro', activity: null }, null],
+    ['balanced changes nothing', { tier: 'high', activity: 'code' }, null],
+    [
+      'quality high keeps Opus, one effort more',
+      { routingMode: { mode: 'quality', source: 'session' }, tier: 'high' },
+      'effort only',
+    ],
+    ['no tier yet', { ...cost, tier: null }, null],
+  ])
+    assert.equal(modeLever(config, view), expected, name);
+});
+
+test('unpricedLine lists the routed replies left out of usage, by cause, and nothing without any', () => {
+  assert.equal(unpricedLine(null), null);
+  assert.equal(unpricedLine({ version: 1, since: 1, latency: {}, downMoves: { moves: 0, escalations: 0 } }), null);
+  const metrics = {
+    version: 1,
+    since: 1,
+    latency: {},
+    downMoves: { moves: 0, escalations: 0 },
+    unpriced: { usage: 0, model: 2, ttl: 3, error: 0 },
+  };
+  assert.equal(
+    unpricedLine(metrics),
+    'Unpriced  5 routed replies left out of usage: no price 2 · cache lifetime unknown 3',
+  );
+  assert.equal(
+    unpricedLine({ ...metrics, unpriced: { usage: 1, model: 0, ttl: 0, error: 0 } }),
+    'Unpriced  1 routed reply left out of usage: no usage 1',
+  );
 });

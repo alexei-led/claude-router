@@ -16,6 +16,7 @@ import {
   readSavingsStore,
   requestUsd,
   sessionCacheTtl,
+  unpricedCause,
 } from '../lib/savings.mjs';
 
 const OPUS = { model: 'claude-opus-5-5', effort: 'xhigh' };
@@ -384,4 +385,32 @@ test('a reply that cannot be priced against your model, one named after an Objec
   assert.equal(compareModels(config, {}, { ...input, ttl: '1h' }).reply.routedUsd > 0, true);
   const named = { ...DEFAULTS, models: { ...DEFAULTS.models, null: { ...DEFAULTS.models.haiku, id: 'claude-toy-2' } } };
   assert.equal(compareModels(named, {}, { ...input, ttl: '1h', yours: 'claude-fable-5-1' }).reply, null);
+});
+
+test('unpricedCause names why compareReply leaves a reply unpriced, and null when it prices it', () => {
+  const usage = {
+    model: 'claude-opus-5-5',
+    input_tokens: 10,
+    cache_read_input_tokens: 800,
+    cache_creation_input_tokens: 200,
+    output_tokens: 50,
+  };
+  const served = { model: 'claude-opus-5-5', effort: 'high' };
+  const yours = { model: 'claude-sonnet-5-5', effort: 'high' };
+  for (const [name, input, expected] of [
+    ['priced', { usage, served, yours, ttl: '5m' }, null],
+    ['priced at one hour', { usage, served, yours, ttl: '1h' }, null],
+    ['no usage', { usage: null, served, yours, ttl: '5m' }, 'usage'],
+    ['usage without a model', { usage: { ...usage, model: undefined }, served, yours, ttl: '5m' }, 'usage'],
+    ['a count that does not read', { usage: { ...usage, output_tokens: -1 }, served, yours, ttl: '5m' }, 'usage'],
+    ['an unknown served model', { usage, served: { model: 'claude-unknown-9' }, yours, ttl: '5m' }, 'model'],
+    ['an unknown model as yours', { usage, served, yours: { model: 'gateway-model' }, ttl: '5m' }, 'model'],
+    ['an unknown cache lifetime', { usage, served, yours, ttl: null }, 'ttl'],
+  ]) {
+    assert.equal(unpricedCause(DEFAULTS, input), expected, name);
+    // A usage without its model is dropped before compareReply, by the hook (compareYours).
+    if (!input.usage?.model) continue;
+    const compared = compareReply(DEFAULTS, null, { ...input, now: 0 });
+    assert.equal(compared.reply === null, expected !== null, `${name}: agrees with compareReply`);
+  }
 });

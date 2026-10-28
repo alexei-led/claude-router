@@ -309,3 +309,21 @@ test('a held switch shows the classifier against its bar without a rounding tie,
   const free = { ...held, estimate: { taxUsd: 0, threshold: 0.75, upgradeMass: 0.6 } };
   assert.match(line(bandSegments(DEFAULTS, free, null, actions)), /Jev 60% < 75%$/);
 });
+
+test('in cost, the band says when the mode changed only the effort of the route it shows', () => {
+  const view = {
+    mode: 'auto',
+    phase: 'routed',
+    tier: 'high',
+    selectedModel: 'claude-opus-5-5',
+    effort: 'high',
+    activity: 'code',
+    reason: 'upgrade',
+    routingMode: { mode: 'cost', source: 'profile' },
+  };
+  assert.match(line(bandSegments(DEFAULTS, view, null, actions)), /cost \(profile\) · effort only/);
+  const haiku = { ...view, tier: 'medium', selectedModel: 'claude-haiku-5-5', activity: null };
+  assert.doesNotMatch(line(bandSegments(DEFAULTS, haiku, null, actions)), /effort only/);
+  const balanced = { ...view, routingMode: { mode: 'balanced', source: 'default' } };
+  assert.doesNotMatch(line(bandSegments(DEFAULTS, balanced, null, actions)), /effort only/);
+});

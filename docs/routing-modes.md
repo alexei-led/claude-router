@@ -41,13 +41,16 @@ then the band says why the route stays. Pin a tier to run its configured route n
 
 ## Policy per mode
 
-Each mode except `balanced` replaces some `policy` fields while it is active. The built-in values come from
-codex-router and are **not tuned** on this router:
+Each mode except `balanced` replaces some `policy` fields while it is active. The built-in values started as
+codex-router's and are **not tuned** on outcomes. Since 1.16, `cost` upgrades on balanced's bar (2 votes from 0.75):
+with 3 votes from 0.85, the cache write of a cold stronger model raised the bar to about 0.92 from 60k tokens and 0.97
+at 250k, so a cost turn on Haiku kept a task the classifier scored hard at 90%. `cost` still moves down sooner than
+`balanced` (one vote, 80% support, a 4-request dwell):
 
 ```json
 {
   "modes": {
-    "cost": { "policy": { "upgradeVotes": 3, "upgradeBase": 0.85, "jumpConfidence": 0.98, "downgradeVotes": 1,
+    "cost": { "policy": { "upgradeVotes": 2, "upgradeBase": 0.75, "jumpConfidence": 0.98, "downgradeVotes": 1,
                           "downgradeMass": 0.8, "minDwellRequests": 4, "escalationHoldTurns": 1 } },
     "quality": { "policy": { "upgradeVotes": 1, "upgradeBase": 0.6, "jumpConfidence": 0.9, "downgradeVotes": 3,
                              "downgradeMass": 0.95, "minDwellRequests": 16, "escalationHoldTurns": 4 } }

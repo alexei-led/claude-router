@@ -56,7 +56,7 @@ The script writes aggregate counts, reason histograms, route transitions, and sh
 
 Activity routing has no measured result. The replay above predates it and covers tiers only. It is `on` by default since 1.7, with defaults chosen from Anthropic's published benchmarks and a list-price replay of one developer's sessions; [Activity routing](activity-routing.md#what-the-estimates-mean) gives that replay and its limits. The pane counts turns, requests, switches, and the turns `on` would route differently, with a configured list-price estimate of those turns' next requests, not a measured saving. Two checks look at the classifier's activity label.
 
-The figures plan §11 tracks (tool agreement of at least 80% on `code` against `ops` and `explore`, Jev p95 latency of at most 450 ms, at most 1 tool-error escalation in 10 cheaper activity moves, the number of activity switches) are read from the Classifier tab's **ACROSS SESSIONS** block, which shows the counts kept since the last reset: **Code/ops/explore** for the tool agreement on turns the classifier answered `code`, `ops` or `explore`, **Agreement** and **Mismatch** for all of them, **Activity moves** for moves inside a tier taken and refused (a refusal by a hold or the credits cap included), **Escalations** for the tool-error escalations that followed a cheaper activity move in `on` while the turns stayed on its route in `on` (turning routing off, a turn with routing off, or a turn in `off` ends the watch, a pin in between does not, and an escalation the credits cap held counts). The active classifier's p95 wait is on its **Deadline** line on the same tab, above that block. Latency is kept in fixed buckets, so the p95 reads as a bound (`≤ 350 ms`); it is the wait for the classifier's answer, transient retries included, without the routing after it, so it compares with the probe's p95 below, and is not recorded with activity routing `off`. `/router` without a UI surface prints both agreements. The underlying counts are the per-session `activity:stats:v1:<session id>` and `activity:metrics:v1:<session id>` records described in [Architecture](architecture.md).
+The figures plan §11 tracks (tool agreement of at least 80% on `code` against `ops` and `explore`, Jev p95 latency of at most 450 ms, at most 1 tool-error escalation in 10 cheaper activity moves, the number of activity switches) are read from the Classifier tab's **ACROSS SESSIONS** block, which shows the counts kept since the last reset: **Code/ops/explore** for the tool agreement on turns the classifier answered `code`, `ops` or `explore`, **Agreement** and **Mismatch** for all of them, **Activity moves** for moves inside a tier taken and refused (a refusal by a hold or the credits cap included), **Escalations** for the tool-error escalations that followed a cheaper activity move in `on` while the turns stayed on its route in `on` (turning routing off, a turn with routing off, or a turn in `off` ends the watch, a pin in between does not, and an escalation the credits cap held counts), **Unpriced** for the routed replies the usage record left out, by cause: no usage in the reply, a model without a configured price, an unknown cache lifetime, or a failed comparison. Before 1.16 those replies were dropped without a count, so usage covered only the priced part of the routed traffic, and a session whose replies were all unpriced left no usage record at all. The active classifier's p95 wait is on its **Deadline** line on the same tab, above that block. Latency is kept in fixed buckets, so the p95 reads as a bound (`≤ 350 ms`); it is the wait for the classifier's answer, transient retries included, without the routing after it, so it compares with the probe's p95 below, and is not recorded with activity routing `off`. `/router` without a UI surface prints both agreements. The underlying counts are the per-session `activity:stats:v1:<session id>` and `activity:metrics:v1:<session id>` records described in [Architecture](architecture.md).
 
 ### Tool agreement
 
@@ -66,7 +66,9 @@ Each finished turn is labelled from the tools the assistant used, locally and at
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `code`          | An edit tool (`Edit`, `Write`, `MultiEdit`, `NotebookEdit`) on a path that is not a doc path                                                |
 | `docs`          | Edits only to paths ending `.md`, `.mdx`, `.rst`, or `.txt`, or under a `docs/` directory                                                   |
-| `ops`           | A Bash command that is not read-only                                                                                                        |
+| `shell`         | A Bash command that writes a file's content: an output redirect to a file, `tee`, `sed -i`, `perl -i`, `patch` or `git apply`. A candidate for code, docs or routine work, not proof of code |
+| `ops`           | A Bash command that runs something else: `git commit`, `rm`, `mv`, `mkdir`, a deploy, a check followed by another command                     |
+| `check`         | Bash commands that are only checks (`npm test`, `tsc`, `npm run lint && npm test`) or reads                                                   |
 | `read`          | Other tool use: reads, searches, web fetches, Task, TodoWrite, MCP tools, and Bash commands that only read, such as `ls`, `grep`, `cat`, or `git status` and `git diff` |
 | `talk`          | No tool calls                                                                                                                               |
 
@@ -74,15 +76,17 @@ A subagent's edits and commands never reach the main transcript, so a turn that 
 
 The classifier's activity agrees with the turn when the bucket is one it allows:
 
-| Activity  | Allowed buckets        |
-| --------- | ---------------------- |
-| `code`    | `code`                 |
-| `debug`   | `code`, `ops`, `read`  |
-| `explore` | `read`, `talk`         |
-| `plan`    | `talk`, `read`, `docs` |
-| `review`  | `read`, `talk`         |
-| `ops`     | `ops`, `read`          |
-| `docs`    | `docs`                 |
+| Activity  | Allowed buckets                            |
+| --------- | ------------------------------------------ |
+| `code`    | `code`, `shell`                            |
+| `debug`   | `code`, `shell`, `ops`, `check`, `read`    |
+| `explore` | `read`, `talk`                             |
+| `plan`    | `talk`, `read`, `docs`                     |
+| `review`  | `read`, `talk`, `check`                    |
+| `ops`     | `ops`, `shell`, `check`, `read`            |
+| `docs`    | `docs`, `shell`                            |
+
+Before 1.16 a shell write, a check run and any other command were all `ops`. A `code` turn that edited through the shell therefore read as a miss, and so did a review that ran the tests. The finer buckets keep that apart. Because a shell write cannot be told from routine work, it agrees with every activity that may produce it, so it cannot catch a cheap route on shell-written code. Agreement from before 1.16 and after it is not comparable, and a store holding the new buckets reads as empty in an older version. Routing reads `shell` and `check` as `ops`, as before.
 
 Agreement is a weak check. It tells `code` from `ops` and `explore` well, but not `ops` from `explore` when the commands only read. It cannot tell `plan` from `review`, and it says nothing about whether the route was good enough. It does catch the costly mistake, a cheap route on a coding turn. The Classifier tab shows the session's count as `Agreement` under **THIS SESSION**, over the turns where the classifier gave an activity at or above `activityMass`, in `on` too when the route kept another activity. The counts kept across sessions hold the classifier's raw answer, `uncertain` and no answer included, against the bucket. The pane's **ACROSS SESSIONS** block counts agreement over the answers that name an activity; `uncertain` and no answer appear only in **Labelled**.
 

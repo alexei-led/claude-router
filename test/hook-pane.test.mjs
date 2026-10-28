@@ -752,6 +752,7 @@ test('Delete history clears usage, activity and subagent records, the session co
     since: null,
     latency: {},
     downMoves: { moves: 0, escalations: 0 },
+    unpriced: { usage: 0, model: 0, ttl: 0, error: 0 },
   });
 });
 
