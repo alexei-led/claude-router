@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.17.1 (2026-10-28)
+
+### Fixed
+
+- When the conversation fills more than 80% of every route's context window, the band and panel say `! context full` and the router keeps Claude's model. Before, they said `! model unavailable`, which read as an outage or an `availableModels` block. `model unavailable` now means only that: a model the allowlist blocks, one that overflowed its window, or one that cannot take images.
+
 ## 1.17.0 (2026-10-28)
 
 Route models and effort within your configured provider. Anthropic remains the default. DeepSeek and z.ai gain built-in profiles, and other Anthropic-compatible providers can use custom profiles without another proxy.
