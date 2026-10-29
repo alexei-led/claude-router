@@ -199,8 +199,8 @@ test('the session counts the running turn’s replies, marked live, and warns wh
   const { calls, actions } = recording();
   const lost = { ...reply(at(2026, 10, 13, 10), 'code'), sums: [1, 1, 0.5, -0.1, 0, 0.6, 0, 0, 0] };
   const tree = render({ usageSession: emptyUsage(), usageLive: [lost, lost] }, { actions });
-  assert.deepEqual(after(screen(tree), 'SESSION · since 10:00 · 2 routed replies (2 live)', 2), [
-    'SESSION · since 10:00 · 2 routed replies (2 live)',
+  assert.deepEqual(after(screen(tree), 'SESSION · 2 routed replies (2 live)', 2), [
+    'SESSION · 2 routed replies (2 live)',
     '  routing +$1.00 (×2.0) vs Opus 5.5 · early sample  [ Usage ]',
   ]);
   const many = Array(10).fill(lost);

@@ -118,7 +118,12 @@ test('the two-row band says the session against your model and the parts that ad
       'session  routing +$2.48 (×5.0) vs Haiku 5.5 · high  =  +$2.31 stronger models  +$0.17 cache rebuilds  ·  41 replies',
     ],
     [{ ...OPUS, usageSession: record(SAME) }, 140, 'session  routing $0.00 vs Opus 5.5 · xhigh  ·  20 replies'],
-    [{ ...OPUS, usageSession: record(EARLY) }, 140, 'session  3 replies · too early to compare'],
+    [
+      { ...OPUS, usageSession: record(EARLY) },
+      140,
+      'session  routing −$0.05 (−19%) vs Opus 5.5 · xhigh  ·  3 replies · early sample',
+    ],
+    [{ ...OPUS, usageSession: record(EARLY) }, 60, 'session  routing −$0.05 (−19%) vs Opus 5.5 · xhigh'],
     [
       { ...OPUS, usageSession: record(SAVES) },
       90,
@@ -179,7 +184,10 @@ test('/router without a surface says the session in the band’s words, in one l
       { ...HAIKU, usageSession: record(MORE) },
       'Session: routing +$2.48 (×5.0) vs Haiku 5.5 · high = +$2.31 stronger models +$0.17 cache rebuilds, 41 replies, est. at list prices',
     ],
-    [{ ...OPUS, usageSession: record(EARLY) }, 'Session vs Opus 5.5 · xhigh: too early, 3 replies'],
+    [
+      { ...OPUS, usageSession: record(EARLY) },
+      'Session: routing −$0.05 (−19%) vs Opus 5.5 · xhigh, 3 replies, early sample, est. at list prices',
+    ],
     [
       { nativeModel: 'claude-sonnet-5-5', nativeEffort: 'medium' },
       'Session vs Sonnet 5.5 · medium: no routed replies yet; routing −$11.42 (−22%) since Oct 10, each session against its own model',

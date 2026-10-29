@@ -1415,7 +1415,7 @@ test('a running turn’s replies count once in the session, before and after the
   assert.deepEqual([h.view().usageLive.length, sessionOf(h).replies], [0, 0]);
 });
 
-test('a routed reply is priced against your model in the session totals and, at turn end, the usage record', async () => {
+test('a routed reply is priced against your model in the session readout and, at turn end, the usage record', async () => {
   // A plan subscriber's replies report plan rate limits, and Claude Code then caches the main conversation for 1h.
   for (const [rateLimits, writeMultiplier] of [
     [[], 1.25],
@@ -1513,11 +1513,37 @@ test('opening the pane while a turn writes its usage counts the turn once', asyn
   await reached.promise;
   gate = null;
   await h.event('command.run', { command: 'router', args: '' });
+  // The pane opened mid-write: the record holds the turn, and the running replies no longer do.
+  assert.deepEqual([h.view().usageLive.length, sessionOf(h).replies], [0, 1]);
   written.resolve();
   await completing;
+  assert.deepEqual([h.view().usageLive.length, sessionOf(h).replies], [0, 1]);
   assert.equal(totalOf(h.view().usageStore).replies, 1);
   await h.event('command.run', { command: 'router', args: '' });
   assert.equal(totalOf(h.view().usageStore).replies, 1);
+});
+
+test('a usage write that fails keeps the turn counted once, and the next turn writes it', async () => {
+  let fail = false;
+  const preferences = new (class extends Map {
+    set(key, value) {
+      if (fail && key.startsWith(USAGE)) throw new Error('store full');
+      return super.set(key, value);
+    }
+  })();
+  const h = harness(JEV_KEY, preferences);
+  answering(h, jevResponse('low', LOW));
+  await h.event('session.start', { cwd: '/fixture' });
+  fail = true;
+  await turn(h, 't1', 'claude-haiku-5-5');
+  assert.deepEqual([h.view().usageLive.length, sessionOf(h).replies], [0, 1]);
+  assert.equal(h.preferences.get(`${USAGE}s1`), undefined);
+  fail = false;
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2', model: 'claude-haiku-5-5' }));
+  assert.equal(sessionOf(h).replies, 2);
+  await h.event('turn.complete', { turnId: 't2' });
+  assert.equal(totalOf(h.preferences.get(`${USAGE}s1`)).replies, 2);
 });
 
 test('two sessions finishing turns at the same moment both add to the usage kept across sessions', async () => {

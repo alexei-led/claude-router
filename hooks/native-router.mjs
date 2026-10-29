@@ -477,8 +477,12 @@ async function readOthers($, router, kind, { sessionId, resetAt, keys }) {
 
 // The view's sums of `kinds`, this session's record and the others', from what the router holds; a kind whose others
 // were never read gives nothing.
+// The replies of turns still running, in the view, so the band and the pane count them before the turn is recorded.
+const liveUsage = (router) => [...router.turnUsage.values()].flat();
+
 function ledgerView(router, kinds = LEDGER_KINDS) {
-  const patch = {};
+  // The running turns' replies go with every record write, so no readout counts a turn twice or misses it.
+  const patch = { usageLive: liveUsage(router) };
   for (const kind of kinds) {
     const { others, own } = router.ledgers[kind];
     const { field, ownField, merge, empty } = LEDGERS[kind];
@@ -1131,8 +1135,8 @@ async function publishReply($, router, turnId, response, tier, route, routedUsd,
     });
 }
 
-// A routed reply written to the loop at `loopVersion`, then published: the view's metrics and the routing-vs-your-model
-// totals. A lost write publishes nothing.
+// A routed reply written to the loop at `loopVersion`, then published: the view's metrics and the reply's usage entry
+// for routing vs your model. A lost write publishes nothing.
 async function observeRouted($, router, { turnId, cfg, loop, loopVersion, request, response, nativeModel }) {
   // When the reply arrived: the awaits below can cross midnight or the hour it is kept under.
   const at = Date.now();
@@ -1172,7 +1176,7 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   // key can name another model later.
   const idOf = (model) => modelSpec(cfg, model)?.id ?? model;
   if (compared)
-    await addSavings($, router, {
+    await addUsageEntry($, router, {
       turnId,
       compared,
       tier,
@@ -1206,7 +1210,7 @@ async function cacheTtlOf($) {
 // A main reply against every configured model (compareModels): the loop's next states, the reply's prices by models
 // key, and `reply`, its prices against your model now, or null. The readout never breaks a turn. A reply whose cache
 // lifetime cannot be read still moves the models' caches and is not counted; any other failure leaves the loop's
-// states and the totals as they were.
+// states as they were and counts nothing.
 async function compareYours($, router, loop, response, servedEffort, nativeModel, cfg = router.config) {
   try {
     if (!response.usage?.model) return null;
@@ -1226,10 +1230,10 @@ async function compareYours($, router, loop, response, servedEffort, nativeModel
   }
 }
 
-// A routed reply's prices added to each model's session totals in the view, and the reply, priced against your model
-// now, to the turn's replies for the usage record. `route` is the served model's `id@effort`, `yours` your model's id,
+// A routed reply, priced against your model now, added to the turn's running replies, which the view counts at once
+// and turn.complete adds to the usage record. `route` is the served model's `id@effort`, `yours` your model's id,
 // `byId` the reply priced against each model as yours, keyed by model id; `at` when the reply arrived (ms).
-async function addSavings($, router, { turnId, compared, tier, route, yours, byId, usage, at }) {
+async function addUsageEntry($, router, { turnId, compared, tier, route, yours, byId, usage, at }) {
   try {
     const view = router.view ?? (await readView($, router));
     if (compared.reply) {
@@ -1251,18 +1255,21 @@ async function addSavings($, router, { turnId, compared, tier, route, yours, byI
   } catch {}
 }
 
-// The replies of turns still running, in the view, so the band and the pane count them before the turn is recorded.
-const liveUsage = (router) => [...router.turnUsage.values()].flat();
-
-// A finished turn's replies, and the switch that started it, added to this session's usage record. They leave the
-// live replies in the same view write, so no readout counts them twice or drops them for a moment.
-async function flushUsage($, router, entries, switched) {
+// A finished turn's replies, and the switch that started it, added to this session's usage record. The turn leaves
+// the running replies in the tick it enters the record in memory, so a view written at any point counts it once; a
+// lost write or a Reset drops it from both.
+async function flushUsage($, router, turnId, switched) {
+  const entries = router.turnUsage.get(turnId);
   try {
-    const added = await addToLedger($, router, 'usage', (record, now) =>
-      recordUsage(record, entries, { switched, now }),
-    );
-    await updateView($, router, { ...(added ? ledgerView(router, ['usage']) : {}), usageLive: liveUsage(router) });
-  } catch {}
+    await addToLedger($, router, 'usage', (record, now) => {
+      router.turnUsage.delete(turnId);
+      return recordUsage(record, entries, { switched, now });
+    });
+  } catch {
+  } finally {
+    router.turnUsage.delete(turnId);
+    await updateView($, router, ledgerView(router, ['usage'])).catch(() => {});
+  }
 }
 
 // A turn's prompt, its origin and the classifier's request text. A progress turn asks about the goal it serves, with
@@ -1864,7 +1871,6 @@ function paneActions($, router, view) {
         }
       await updateView($, router, {
         activityStats: null,
-        usageLive: [],
         confirmDelete: false,
         usageOpen: null,
         ...ledgerView(router),
@@ -2185,9 +2191,7 @@ export function register(on, options) {
     if (turn?.mode === 'off') {
       if ((await $.session.id()) === turn.sessionId) router.afterDown = advanceDown(router.afterDown, turn).after;
     } else if (turn) await recordActivity($, router, turn);
-    const entries = router.turnUsage.get(e.turnId);
-    router.turnUsage.delete(e.turnId);
-    if (entries) await flushUsage($, router, entries, turn?.switched ?? null);
+    if (router.turnUsage.has(e.turnId)) await flushUsage($, router, e.turnId, turn?.switched ?? null);
     await flushDecisions($, router, e.turnId, turn);
     return next(e);
   });

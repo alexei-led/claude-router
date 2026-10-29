@@ -113,6 +113,26 @@ test('the answer leads in the band’s words, then a ledger whose cents add up: 
   );
 });
 
+test('every period counts the running turn’s replies in its answer, ledger and stats alike', () => {
+  const live = {
+    at: NOW,
+    cell: 'balanced|code|low|claude-haiku-5-5@high',
+    sums: [1, 0.1, 0.5, -0.4, 0, 0, 100, 0, 1],
+    whatIf: {},
+    yours: 'claude-opus-5-5',
+  };
+  for (const usagePeriod of ['session', 'today', 'all']) {
+    const before = lines({ usagePeriod });
+    const after = lines({ usagePeriod, usageLive: [live] });
+    const answer = (shown) => shown.find((line) => line.startsWith('routing '));
+    const stats = (shown) => shown.find((line) => / replies · \d+ turns/.test(line));
+    const cents = (line) => Math.round(Number(line.match(/\$(\d+\.\d\d)/)[1]) * 100);
+    assert.equal(cents(answer(after)) - cents(answer(before)), 40, usagePeriod);
+    const replies = (line) => Number(line.trim().split(' ')[0]);
+    assert.equal(replies(stats(after)) - replies(stats(before)), 1, usagePeriod);
+  }
+});
+
 test('a period sums every session’s days in it, and All adds the undated totals with a note', () => {
   const week = lines({ usagePeriod: '7d' });
   assert.ok(week.includes('routing −$4.90 (−52%) vs each session’s own model'), week.join('\n'));
