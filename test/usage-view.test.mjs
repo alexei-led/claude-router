@@ -95,14 +95,14 @@ test('the scope line says whose replies the period holds and what each is compar
     assert.equal(lines({ usagePeriod: period })[4], expected, period);
 });
 
-test('the answer leads, then a ledger whose cents add up: your model − cheaper + stronger + switch writes = routed', () => {
-  assert.deepEqual(after(lines(), 'Routing saved $4.70 (52%) vs your model', 9), [
-    'Routing saved $4.70 (52%) vs your model',
+test('the answer leads in the band’s words, then a ledger whose cents add up: your model − cheaper + stronger + cache rebuilds = routed', () => {
+  assert.deepEqual(after(lines(), 'routing −$4.70 (−52%) vs Opus 5.5 · xhigh', 9), [
+    'routing −$4.70 (−52%) vs Opus 5.5 · xhigh',
     '',
     '    Your model              $9.00   Opus 5.5 · xhigh',
     '  − Cheaper models          $4.92',
     '  + Stronger models         $0.00',
-    '  + Switch cache writes     $0.22   4 route switches · 4% of the saving',
+    '  + Cache rebuilds          $0.22   4 route switches · 4% of the saving',
     '  = Routed                  $4.30   ███████████░░░░░░░░░░░ 48% of your model',
     '',
     '  20 replies · 10 turns · input 22.0K · cache hit 73% · output 200',
@@ -115,14 +115,14 @@ test('the answer leads, then a ledger whose cents add up: your model − cheaper
 
 test('a period sums every session’s days in it, and All adds the undated totals with a note', () => {
   const week = lines({ usagePeriod: '7d' });
-  assert.ok(week.includes('Routing saved $4.90 (52%) vs your model'), week.join('\n'));
+  assert.ok(week.includes('routing −$4.90 (−52%) vs each session’s own model'), week.join('\n'));
   assert.ok(week.includes('    Your model              $9.50   each session’s own model'));
   const all = lines({ usagePeriod: 'all' });
-  assert.ok(all.includes('Routing saved $16.52 (26%) vs your model'), all.join('\n'));
+  assert.ok(all.includes('routing −$16.52 (−26%) vs each session’s own model'), all.join('\n'));
   assert.ok(all.includes('    includes $41.18 routed before dated records, kept without a breakdown'));
   assert.ok(!lines({ usagePeriod: 'month' }).some((line) => line.includes('before dated records')));
   assert.match(
-    all.find((line) => line.includes('Switch cache writes')),
+    all.find((line) => line.includes('Cache rebuilds')),
     /\$\d+\.\d\d {3}\d+% of the saving$/,
     'the undated totals kept no switch count',
   );
@@ -174,7 +174,7 @@ test('without routed replies the tab says why, and below ten replies the answer 
   }
   assert.ok(
     lines({ usagePeriod: '30d', usageStore: OTHER }).includes(
-      'Routing saved $0.40 (40%) vs your model   early sample · 2 replies',
+      'routing −$0.40 (−40%) vs each session’s own model   early sample · 2 replies',
     ),
   );
 });
@@ -264,7 +264,7 @@ test('what is worth a look links to the tab that changes it, and never names a m
   }
   const switched = render({ usageSession: heavy }, { actions });
   assert.ok(
-    screen(switched).includes('  Switch cache writes used 23% of the cheaper-model saving  [ Policy ]'),
+    screen(switched).includes('  Cache rebuilds used 23% of the cheaper-model saving  [ Policy ]'),
     screen(switched).join('\n'),
   );
   controls(switched)
@@ -335,7 +335,7 @@ test('the subagent block follows the period, with a strip by model, the verdict 
   assert.equal(today[0], 'SUBAGENTS · all projects · today, Oct 13   subagent routing on');
   assert.equal(today[1], '  ■□■□  Haiku 5.5 1 · Sonnet 5.5 1 · Opus 5.5 2');
   assert.equal(today[2], '  4 agents · ■ 2 moved by the router · □ 2 on Claude Code’s pick');
-  assert.equal(today[3], '  Routing saved $0.10 (13%) on 3 routed agents');
+  assert.equal(today[3], '  routing −$0.10 (−13%) vs Claude Code’s picks on 3 routed agents');
   const table = lines({ usagePeriod: 'today', subagentStore: AGENTS });
   assert.ok(table.includes('  ▸ dev-flow:reviewer  □■            2    $0.60   +$0.30 ▲'), table.join('\n'));
   assert.ok(table.includes('  ▸ Explore            ■             1    $0.10   −$0.40 ▼'));

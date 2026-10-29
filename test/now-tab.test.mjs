@@ -67,13 +67,17 @@ test('one pin row names each tier with its support, marks the current tier and t
   );
 });
 
-test('the session shows since when, its replies and switches, the strip, the replies per tier and activity, and the verdict', () => {
-  assert.deepEqual(after(lines({}), 'SESSION · since 09:00 · 20 routed replies · 4 route switches', 6), [
+test('the session starts with the band’s answer and the parts that add up to it, then the strip and the replies per tier and activity', () => {
+  assert.deepEqual(after(lines({}), 'SESSION · since 09:00 · 20 routed replies · 4 route switches', 10), [
     'SESSION · since 09:00 · 20 routed replies · 4 route switches',
+    '  routing −$4.70 (−52%) vs Opus 5.5  [ Usage ]',
+    '    Your model              $9.00   Opus 5.5',
+    '  − Cheaper models          $4.92',
+    '  + Cache rebuilds          $0.22   4 route switches · 4% of the saving',
+    '  = Routed                  $4.30   ███████████░░░░░░░░░░░ 48% of your model',
     '  ███·',
     '  ■ low 3  ■ medium 1  ■ high 1  · not routed 1',
     '  coding 10 · exploring 10',
-    '  Routing saved $4.70 (52%) vs your model · switch writes $0.22  [ Usage ]',
     '',
   ]);
 });
@@ -137,7 +141,7 @@ test('today shows once another session added to it, and each Usage link opens it
   const tree = render({ usageStore: BUSY_DAY }, { actions });
   assert.deepEqual(after(screen(tree), 'TODAY · 21 routed replies · 4 route switches', 2), [
     'TODAY · 21 routed replies · 4 route switches',
-    '  Routing saved $4.90 (52%) vs your model · switch writes $0.24  [ Usage ]',
+    '  routing −$4.90 (−52%) vs each session’s own model  [ Usage ]',
   ]);
   for (const key of ['usage-session', 'usage-today'])
     controls(tree)
@@ -178,17 +182,34 @@ test('a session without replies says so, and one with replies but no usage recor
     '  ███·',
     '  ■ low 3  ■ medium 1  ■ high 1  · not routed 1',
   ]);
-  assert.ok(!unpriced.some((line) => line.startsWith('  Routing saved')));
+  assert.ok(!unpriced.some((line) => line.startsWith('  routing')));
 });
 
-test('a narrow pane drops the early-sample note first, then the switch writes, and keeps the verdict and its link', () => {
+test('an early session shows the answer without the parts, and a narrow pane drops the early-sample note first', () => {
   const early = recordUsage(emptyUsage(), [reply(at(2026, 10, 13, 10), 'code')], { now: NOW });
   for (const [columns, expected] of [
-    [100, '  Routing saved $0.20 (40%) vs your model · switch writes $0.02 · early sample  [ Usage ]'],
-    [88, '  Routing saved $0.20 (40%) vs your model · switch writes $0.02  [ Usage ]'],
-    [60, '  Routing saved $0.20 (40%) vs your model  [ Usage ]'],
+    [100, '  routing −$0.20 (−40%) vs Opus 5.5 · early sample  [ Usage ]'],
+    [50, '  routing −$0.20 (−40%) vs Opus 5.5  [ Usage ]'],
   ])
     assert.ok(lines({ usageSession: early }, { columns }).includes(expected), `${columns} columns`);
+  assert.ok(!lines({ usageSession: early }).some((line) => line.includes('Cheaper models')));
+});
+
+test('the session counts the running turn’s replies, marked live, and warns when the switches cost more than they saved', () => {
+  const { calls, actions } = recording();
+  const lost = { ...reply(at(2026, 10, 13, 10), 'code'), sums: [1, 1, 0.5, -0.1, 0, 0.6, 0, 0, 0] };
+  const tree = render({ usageSession: emptyUsage(), usageLive: [lost, lost] }, { actions });
+  assert.deepEqual(after(screen(tree), 'SESSION · since 10:00 · 2 routed replies (2 live)', 2), [
+    'SESSION · since 10:00 · 2 routed replies (2 live)',
+    '  routing +$1.00 (×2.0) vs Opus 5.5 · early sample  [ Usage ]',
+  ]);
+  const many = Array(10).fill(lost);
+  const warned = render({ usageSession: emptyUsage(), usageLive: many }, { actions });
+  assert.ok(screen(warned).includes('  ▲ switches cost more than they saved  [ Policy ]'));
+  controls(warned)
+    .find((c) => c.key === 'session-policy')
+    .onPress();
+  assert.deepEqual(calls, [['tab', 'policy']]);
 });
 
 test('the activities that do not fit the pane are counted, the most used shown first', () => {

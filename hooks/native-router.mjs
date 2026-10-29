@@ -96,13 +96,10 @@ import {
   resetHistory,
 } from '../lib/route.mjs';
 import {
-  addReplies,
   afterReset,
   compareModels,
   emptySavingsStore,
   mergeSavingsStores,
-  modelAlias,
-  modelEntry,
   modelSpec,
   observedReplyUsd,
   readSavingsStore,
@@ -424,10 +421,6 @@ async function readProject($, profilePath) {
 async function updateView($, router, patch) {
   const value = router.view ?? (await readView($, router));
   router.view = { ...value, ...patch };
-  // The session readout is against the model /model selects now, so a /model change shows the whole session against
-  // the new one.
-  if ('nativeModel' in patch || 'savingsBy' in patch)
-    router.view.savings = modelEntry(router.view.savingsBy, modelAlias(router.config, router.view.nativeModel)) ?? null;
   await $.state.set(VIEW, router.view);
 }
 
@@ -734,7 +727,7 @@ function detailText(config, view) {
     ...activityDetailLines(config, view),
     storeAgreementLine(view),
     ...[unpricedLine(view.activityMetrics)].filter(Boolean),
-    savingsLine(view),
+    savingsLine(config, view, Date.now()),
     view.error || missing ? classifierStatus(config, view.error ?? missing) : `${activeClassifier(config).label} ready`,
     `Context: ${view.contextKnown ? `${view.contextTokens} tokens (estimate)` : 'unknown'}`,
     `Observed cache: ${view.cacheRead ?? 'unknown'} read, ${view.cacheWrite ?? 'unknown'} written tokens`,
@@ -1253,16 +1246,22 @@ async function addSavings($, router, { turnId, compared, tier, route, yours, byI
         usage,
       });
       router.turnUsage.set(turnId, [...(router.turnUsage.get(turnId) ?? []), entry]);
+      await updateView($, router, { usageLive: liveUsage(router) });
     }
-    await updateView($, router, { savingsBy: addReplies(view.savingsBy ?? {}, compared.replies) });
   } catch {}
 }
 
-// A finished turn's replies, and the switch that started it, added to this session's usage record.
+// The replies of turns still running, in the view, so the band and the pane count them before the turn is recorded.
+const liveUsage = (router) => [...router.turnUsage.values()].flat();
+
+// A finished turn's replies, and the switch that started it, added to this session's usage record. They leave the
+// live replies in the same view write, so no readout counts them twice or drops them for a moment.
 async function flushUsage($, router, entries, switched) {
   try {
-    if (await addToLedger($, router, 'usage', (record, now) => recordUsage(record, entries, { switched, now })))
-      await updateView($, router, ledgerView(router, ['usage']));
+    const added = await addToLedger($, router, 'usage', (record, now) =>
+      recordUsage(record, entries, { switched, now }),
+    );
+    await updateView($, router, { ...(added ? ledgerView(router, ['usage']) : {}), usageLive: liveUsage(router) });
   } catch {}
 }
 
@@ -1865,7 +1864,7 @@ function paneActions($, router, view) {
         }
       await updateView($, router, {
         activityStats: null,
-        savingsBy: {},
+        usageLive: [],
         confirmDelete: false,
         usageOpen: null,
         ...ledgerView(router),

@@ -158,14 +158,20 @@ const usage = {
 
 // Routing vs your model: a session on Opus 5.5 at xhigh that routing ran mostly on cheaper tiers.
 const yours = { nativeModel: 'claude-opus-5-5', nativeEffort: 'xhigh' };
-const savings = {
-  replies: 64,
-  routedUsd: 6.404,
-  yoursUsd: 8.236,
-  cheaperUsd: -2.31,
-  strongerUsd: 0,
-  switchUsd: 0.478,
-  stronger: {},
+// Its usage record as one cell: 64 replies, routed, yours, cheaper, stronger and switch sums, no tokens.
+const savingsSession = {
+  version: 2,
+  since: Date.parse('2026-10-13T12:00:00Z'),
+  days: {
+    '2026-10-13': {
+      cells: { 'balanced|code|low|claude-haiku-5-5@high': [64, 6.404, 8.236, -2.31, 0, 0.478, 0, 0, 0] },
+      whatIf: {},
+      yours: { 'claude-opus-5-5': 64 },
+      hours: {},
+      turns: 20,
+      switches: { tier: 9, activity: 0 },
+    },
+  },
 };
 const savingsStore = {
   version: 1,
@@ -184,7 +190,7 @@ const states = [
   ['Routing on: routed to the high tier on a clear jump', base, false],
   [
     'Two rows, with the hover row shown: the session against your model, pins, Turn off',
-    { ...base, ...yours, bandDetail: true, savings, estimate: null },
+    { ...base, ...yours, bandDetail: true, usageSession: savingsSession, estimate: null },
     true,
   ],
   [
