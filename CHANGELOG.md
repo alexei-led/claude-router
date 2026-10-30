@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.18.0 (2026-10-30)
 
 The band and the pane now show one session cost readout: the same number, the same words, at the same moment.
 

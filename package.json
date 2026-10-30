@@ -1,6 +1,6 @@
 {
   "name": "@alexeiled/claude-router",
-  "version": "1.17.1",
+  "version": "1.18.0",
   "description": "Native Claude Code model and effort routing with Anthropic, DeepSeek and z.ai defaults, custom provider profiles, and classifier advice.",
   "license": "MIT",
   "author": "Alexei Ledenev",
