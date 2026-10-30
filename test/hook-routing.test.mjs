@@ -1523,6 +1523,37 @@ test('opening the pane while a turn writes its usage counts the turn once', asyn
   assert.equal(totalOf(h.view().usageStore).replies, 1);
 });
 
+test('a reply that joins the turn while its usage record is read is recorded with it', async () => {
+  let gate = null;
+  const preferences = new (class extends Map {
+    get(key) {
+      // The usage flush's read of the reset marker, told apart from the other ledgers' by its async stack.
+      if (!gate || key !== 'savings:reset:v1' || !new Error().stack.includes('flushUsage')) return super.get(key);
+      const { reached, released } = gate;
+      gate = null;
+      reached();
+      return released.then(() => super.get(key));
+    }
+  })();
+  const h = harness(JEV_KEY, preferences);
+  answering(h, jevResponse('low', LOW));
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('turn.start', { turnId: 't1', text: 'Next.' });
+  await drain(h.step({ ...step, model: 'claude-haiku-5-5' }));
+  const reached = Promise.withResolvers();
+  const released = Promise.withResolvers();
+  gate = { reached: reached.resolve, released: released.promise };
+  const completing = h.event('turn.complete', { turnId: 't1' });
+  const timeout = setTimeout(() => reached.reject(new Error('the usage flush never read the reset marker')), 2000);
+  await reached.promise;
+  clearTimeout(timeout);
+  await drain(h.step({ ...step, index: 1, model: 'claude-haiku-5-5' }));
+  released.resolve();
+  await completing;
+  assert.deepEqual([h.view().usageLive.length, sessionOf(h).replies], [0, 2]);
+  assert.equal(totalOf(h.preferences.get(`${USAGE}s1`)).replies, 2);
+});
+
 test('a usage write that fails keeps the turn counted once, and the next turn writes it', async () => {
   let fail = false;
   const preferences = new (class extends Map {

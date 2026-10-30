@@ -481,9 +481,10 @@ async function readOthers($, router, kind, { sessionId, resetAt, keys }) {
 const liveUsage = (router) => [...router.turnUsage.values()].flat();
 
 function ledgerView(router, kinds = LEDGER_KINDS) {
-  // The running turns' replies go with every record write, so no readout counts a turn twice or misses it.
+  // The running turns' replies always go with the usage sums: a turn moves from one to the other, so a view written
+  // with only one of them would count it twice or miss it.
   const patch = { usageLive: liveUsage(router) };
-  for (const kind of kinds) {
+  for (const kind of new Set([...kinds, 'usage'])) {
     const { others, own } = router.ledgers[kind];
     const { field, ownField, merge, empty } = LEDGERS[kind];
     if (!others) continue;
@@ -1250,18 +1251,20 @@ async function addUsageEntry($, router, { turnId, compared, tier, route, yours, 
         usage,
       });
       router.turnUsage.set(turnId, [...(router.turnUsage.get(turnId) ?? []), entry]);
-      await updateView($, router, { usageLive: liveUsage(router) });
+      await updateView($, router, ledgerView(router, ['usage']));
     }
   } catch {}
 }
 
 // A finished turn's replies, and the switch that started it, added to this session's usage record. The turn leaves
-// the running replies in the tick it enters the record in memory, so a view written at any point counts it once; a
-// lost write or a Reset drops it from both.
+// the running replies in the tick it enters the held record, so a view written at any point counts it once. A failed
+// store write keeps it in the held record, which the next turn writes; a failed read or a Reset before that drops it
+// from both.
 async function flushUsage($, router, turnId, switched) {
-  const entries = router.turnUsage.get(turnId);
   try {
     await addToLedger($, router, 'usage', (record, now) => {
+      // Read here, not before the awaits: a reply can still join the turn while the record is read.
+      const entries = router.turnUsage.get(turnId) ?? [];
       router.turnUsage.delete(turnId);
       return recordUsage(record, entries, { switched, now });
     });
