@@ -15,7 +15,7 @@ import {
   TINY_ROUTER,
   texts,
 } from './harness.mjs';
-import { jevResponse, savedCounts } from './helpers.mjs';
+import { jevResponse, savedCounts, sessionOf } from './helpers.mjs';
 
 test('clear discards unsaved tuning and preserves active configuration', async () => {
   const h = harness();
@@ -711,7 +711,7 @@ test('Delete history clears usage, activity and subagent records, the session co
     lateral: { taken: 1, refused: 0 },
   });
   assert.deepEqual(h.view().activityStore.confusion, { code: { talk: 1 } });
-  assert.equal(h.view().savings.replies, 1);
+  assert.equal(sessionOf(h).replies, 1);
   assert.equal(summarize(readUsage(h.preferences.get('usage:v1:s1')), { from: null, to: null }).replies, 1);
   assert.equal(h.preferences.get('savings:v1:s1'), undefined);
   assert.ok(h.preferences.get('activity:metrics:v1:s1').latency.jev);
@@ -731,7 +731,7 @@ test('Delete history clears usage, activity and subagent records, the session co
   await press(h, 'delete-history');
   await press(h, 'delete-confirm');
   assert.equal(h.view().activityStats, null);
-  assert.equal(h.view().savings, null);
+  assert.equal(sessionOf(h).replies, 0);
   assert.deepEqual(h.view().activityStore, emptyStore());
   assert.equal(h.view().savingsStore.replies, 0);
   assert.deepEqual([h.view().usageStore.days, h.view().usageSession.days, h.view().confirmDelete], [{}, {}, false]);

@@ -40,9 +40,8 @@
 <text x="453.0" y="91" fill="#7c7c7c" xml:space="preserve">  p next</text>
 <text x="24.0" y="110" fill="#7c7c7c" xml:space="preserve">this session · your model </text>
 <text x="226.8" y="110" fill="#e0708a" font-weight="700" xml:space="preserve">Opus 5.5 · xhigh</text>
-<text x="24.0" y="148" fill="#d0d0d0" xml:space="preserve">Routing saved </text>
-<text x="133.2" y="148" fill="#6fcf97" font-weight="700" xml:space="preserve">$4.17 (39%)</text>
-<text x="219.0" y="148" fill="#d0d0d0" xml:space="preserve"> vs your model</text>
+<text x="24.0" y="148" fill="#6fcf97" font-weight="700" xml:space="preserve">routing −$4.17 (−39%)</text>
+<text x="187.8" y="148" fill="#d0d0d0" xml:space="preserve"> vs Opus 5.5 · xhigh</text>
 <text x="55.2" y="186" fill="#d0d0d0" xml:space="preserve">Your model</text>
 <text x="211.2" y="186" fill="#d0d0d0" xml:space="preserve">   $10.62</text>
 <text x="304.8" y="186" fill="#e0708a" font-weight="700" xml:space="preserve">Opus 5.5 · xhigh</text>
@@ -53,7 +52,7 @@
 <text x="55.2" y="224" fill="#d0d0d0" xml:space="preserve">Stronger models</text>
 <text x="211.2" y="224" fill="#d0d0d0" xml:space="preserve">    $0.00</text>
 <text x="24.0" y="243" fill="#7c7c7c" xml:space="preserve">  + </text>
-<text x="55.2" y="243" fill="#d0d0d0" xml:space="preserve">Switch cache writes</text>
+<text x="55.2" y="243" fill="#d0d0d0" xml:space="preserve">Cache rebuilds</text>
 <text x="211.2" y="243" fill="#f0b429" xml:space="preserve">    $0.19</text>
 <text x="304.8" y="243" fill="#7c7c7c" xml:space="preserve">9 route switches · 4% of the saving</text>
 <text x="24.0" y="262" fill="#7c7c7c" xml:space="preserve">  = </text>
@@ -133,10 +132,9 @@
 <text x="133.2" y="680" fill="#d0d0d0" xml:space="preserve">■ 8 moved by the router</text>
 <text x="312.6" y="680" fill="#7c7c7c" xml:space="preserve"> · </text>
 <text x="336.0" y="680" fill="#d0d0d0" xml:space="preserve">□ 7 on Claude Code’s pick</text>
-<text x="24.0" y="699" fill="#d0d0d0" xml:space="preserve">  Routing saved </text>
-<text x="148.8" y="699" fill="#6fcf97" xml:space="preserve">$0.51</text>
-<text x="187.8" y="699" fill="#d0d0d0" xml:space="preserve"> (14%)</text>
-<text x="234.6" y="699" fill="#7c7c7c" xml:space="preserve"> on 9 routed agents</text>
+<text x="39.6" y="699" fill="#6fcf97" font-weight="700" xml:space="preserve">routing −$0.51 (−14%)</text>
+<text x="203.4" y="699" fill="#d0d0d0" xml:space="preserve"> vs Claude Code’s picks</text>
+<text x="382.8" y="699" fill="#7c7c7c" xml:space="preserve"> on 9 routed agents</text>
 <text x="24.0" y="737" fill="#d0d0d0" font-weight="700" xml:space="preserve">  ROUTED</text>
 <text x="86.4" y="737" fill="#7c7c7c" xml:space="preserve"> · the router picked the model at spawn</text>
 <text x="24.0" y="756" fill="#7c7c7c" xml:space="preserve">    type               agents              cost    vs CC</text>

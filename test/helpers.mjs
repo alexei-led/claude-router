@@ -1,4 +1,8 @@
 import { mergeStores, STORE_KEY, STORE_PREFIX } from '../lib/activity-stats.mjs';
+import { sessionUsage } from '../lib/display.mjs';
+
+// The session's routed replies as the band and the pane count them, the running turns' included.
+export const sessionOf = (h) => sessionUsage(h.view(), Date.now());
 
 export const T0 = Date.parse('2026-09-22T10:00:00Z');
 

@@ -333,7 +333,7 @@ test('Usage and Now show the session’s agents by model, who picked it, and wha
   assert.match(lines[at], /subagent routing on/);
   assert.match(block, /■□ {2}Haiku 5\.5 1 · Opus 5\.5 1/);
   assert.match(block, /2 agents · ■ 1 moved by the router · □ 1 on Claude Code’s pick/);
-  assert.match(block, /Routing saved \$\d+\.\d\d \(\d+%\) on 1 routed agent/);
+  assert.match(block, /routing −\$\d+\.\d\d \(−\d+%\) vs Claude Code’s picks on 1 routed agent/);
   assert.match(block, /▸ Explore +■ +1 +\$\d+\.\d\d +−\$\d+\.\d\d ▼/);
   assert.match(block, /▸ workflow agent +□ +1 +\$0\.00 {2}the workflow sets it/);
   await press(h, 'row-subagent:Explore');

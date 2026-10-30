@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+The band and the pane now show one session cost readout: the same number, the same words, at the same moment.
+
+### Changed
+
+- The band's second row shows the answer and the parts that add up to it: `session  routing +$0.18 (+4%) vs Opus 5.5 · high  =  −$0.42 cheaper models  +$0.60 cache rebuilds  ·  34 replies`. Before, it showed `extra $0.18` beside only the largest cost (`cold-cache writes +$0.60`), which did not add up. On a narrow band the parts lose their words (`=  −$0.42 + $0.60`), then the reply count drops, then the parts.
+- The Now tab's SESSION block starts with the band's row and the ledger that adds up to it, with **Usage** beside it. When cache rebuilds cost more than the cheaper models saved, `▲ switches cost more than they saved` follows with **Policy**. The cost line at the end of the block is gone.
+- One vocabulary everywhere: `routing −$x (−y%) vs <model>`, `cheaper models`, `stronger models`, `cache rebuilds`. The Usage tab, `/router`, TODAY and SUBAGENTS use it too. The policy's estimate for the switch it weighs is now `next switch ≈ $x`, so it no longer reads like the cache rebuilds already paid.
+- After a `/model` change the band names the models the session's replies ran against, as the Usage tab does, instead of repricing the session against the new model.
+
+### Fixed
+
+- The pane counts the replies of the turn still running, marked `(N live)`. Before, it counted a turn only when the turn ended, so during a long turn the band showed a cost the pane did not have.
+- The band's session readout no longer starts over when Claude Code restarts a resumed session: it reads the session's usage record, as the pane does.
+
 ## 1.17.1 (2026-10-28)
 
 ### Fixed

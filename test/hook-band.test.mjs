@@ -87,7 +87,10 @@ test('the band hover row pins, unpins and switches to two rows', async () => {
   assert.equal(preferences.get('band:detail'), true);
   await h.event('command.run', { command: 'router', args: 'pin low' });
   await drain(h.step(step));
-  assert.match((await band(h)).line, /session {2}1 reply · too early to compare/);
+  assert.match(
+    (await band(h)).line,
+    /session {2}routing \$0\.00 vs Haiku 5\.5 · medium {2}· {2}1 reply · early sample/,
+  );
 });
 
 test('a route change raises one toast with the old and new model; a pin does not', async () => {

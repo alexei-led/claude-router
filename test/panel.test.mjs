@@ -151,7 +151,7 @@ test('the Now tab says what runs next turn and why: the tier, the model, the sup
   assert.deepEqual(screen(pane(routed)).slice(3, 6), [
     'Next turn  ▌high  Opus 5.5 · xhigh',
     'Why        clear need for a stronger model',
-    '           Jev gave stronger tiers 88% (needs 82%) · switch ≈ $0.48',
+    '           Jev gave stronger tiers 88% (needs 82%) · next switch ≈ $0.48',
   ]);
   const down = { ...routed, estimate: { threshold: 0.9, downgradeMass: 0.93 } };
   assert.equal(screen(pane(down))[5], '           Jev gave cheaper tiers 93% (needs 90%)');

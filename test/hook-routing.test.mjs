@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS } from '../lib/config.mjs';
+import { comparedModel } from '../lib/display.mjs';
 import { modelAlias } from '../lib/savings.mjs';
 import { readUsage, summarize } from '../lib/usage.mjs';
 import {
@@ -17,7 +18,7 @@ import {
   TINY_ROUTER,
   texts,
 } from './harness.mjs';
-import { assistant, jevResponse, savedCounts, savedStats, toolResult, user } from './helpers.mjs';
+import { assistant, jevResponse, savedCounts, savedStats, sessionOf, toolResult, user } from './helpers.mjs';
 
 // Your model's simulated cache: the one kept for the model /model selects.
 const yours = (h) => h.loop().yoursBy[modelAlias(DEFAULTS, h.view().nativeModel)];
@@ -832,7 +833,7 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   );
   // Each activity's cost is its replies' share of the routed total.
   assert.ok(byActivity.ops.routedUsd > 0 && byActivity.code.routedUsd > byActivity.ops.routedUsd);
-  assert.ok(Math.abs(byActivity.code.routedUsd + byActivity.ops.routedUsd - h.view().savings.routedUsd) < 1e-12);
+  assert.ok(Math.abs(byActivity.code.routedUsd + byActivity.ops.routedUsd - sessionOf(h).routedUsd) < 1e-12);
   assert.deepEqual(counts, {
     switches: { tier: 0, activity: 1 },
     lateral: { taken: 1, refused: 0 },
@@ -1390,7 +1391,31 @@ const LEGACY = {
 const ALL = { from: null, to: null };
 const totalOf = (value) => summarize(readUsage(value), ALL);
 
-test('a routed reply is priced against your model in the session totals and, at turn end, the usage record', async () => {
+test('a running turn’s replies count once in the session, before and after the turn is recorded, and Delete history clears them', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, jevResponse('low', LOW));
+  h.usage({ startedAt: 0, context: { tokens: 8000 }, rateLimits: [] });
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('turn.start', { turnId: 't1', text: 'Next.' });
+  h.messages(async () => [user('Next.')]);
+  await drain(h.step({ ...step, turnId: 't1', model: 'claude-haiku-5-5' }));
+  await drain(h.step({ ...step, turnId: 't1', index: 1, model: 'claude-haiku-5-5' }));
+  assert.deepEqual([h.view().usageLive.length, sessionOf(h).replies], [2, 2]);
+  assert.equal(h.preferences.get(`${USAGE}s1`), undefined);
+  const live = sessionOf(h);
+  await h.event('turn.complete', { turnId: 't1' });
+  assert.deepEqual([h.view().usageLive.length, sessionOf(h).replies], [0, 2]);
+  assert.ok(Math.abs(sessionOf(h).routedUsd - live.routedUsd) < 1e-9);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2', model: 'claude-haiku-5-5' }));
+  assert.equal(sessionOf(h).replies, 3);
+  await press(h, 'tab-usage');
+  await press(h, 'delete-history');
+  await press(h, 'delete-confirm');
+  assert.deepEqual([h.view().usageLive.length, sessionOf(h).replies], [0, 0]);
+});
+
+test('a routed reply is priced against your model in the session readout and, at turn end, the usage record', async () => {
   // A plan subscriber's replies report plan rate limits, and Claude Code then caches the main conversation for 1h.
   for (const [rateLimits, writeMultiplier] of [
     [[], 1.25],
@@ -1404,7 +1429,7 @@ test('a routed reply is priced against your model in the session totals and, at 
     assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-haiku-5-5', 'high']);
     // Haiku at high against the session's Haiku at medium: one price, and the API read what a single cache would.
     const usd = (0.1 * (100 + 200 * writeMultiplier) + 0.01 * 800 + 0.5 * 10) / 1e6;
-    const { savings } = h.view();
+    const savings = sessionOf(h);
     assert.equal(savings.replies, 1);
     assert.ok(Math.abs(savings.routedUsd - usd) < 1e-12);
     assert.equal(savings.yoursUsd, savings.routedUsd);
@@ -1425,29 +1450,24 @@ test('a routed reply is priced against your model in the session totals and, at 
   }
 });
 
-test('a /model change shows the whole session against the new model; the usage record keeps each reply against its own', async () => {
+test('after a /model change the session stays against the model each reply ran against, and What if prices every model', async () => {
   const h = harness(JEV_KEY);
   answering(h, jevResponse('low', LOW));
   h.usage({ startedAt: 0, context: { tokens: 8000 }, rateLimits: [] });
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-haiku-5-5');
-  const { savingsBy } = h.view();
-  assert.deepEqual(Object.keys(savingsBy).sort(), ['haiku', 'opus', 'sonnet']);
-  assert.deepEqual(h.view().savings, savingsBy.haiku);
-  assert.ok(
-    savingsBy.opus.yoursUsd > savingsBy.sonnet.yoursUsd && savingsBy.sonnet.yoursUsd > savingsBy.haiku.yoursUsd,
-  );
+  const before = sessionOf(h);
+  assert.equal(comparedModel(DEFAULTS, h.view(), before), 'Haiku 5.5 · medium');
   h.model('claude-opus-5-5');
   await h.event('command.run', { command: 'model', origin: { kind: 'user' } });
-  assert.deepEqual(h.view().savings, savingsBy.opus);
-  const total = totalOf(h.preferences.get(`${USAGE}s1`));
-  assert.ok(Math.abs(total.yoursUsd - savingsBy.haiku.yoursUsd) < 1e-6);
+  const after = sessionOf(h);
+  assert.deepEqual([after.replies, after.yoursUsd], [before.replies, before.yoursUsd]);
+  assert.equal(comparedModel(DEFAULTS, h.view(), after), 'Haiku 5.5');
   // What the same tokens cost on each model as yours, for What if.
-  for (const alias of ['haiku', 'sonnet', 'opus']) {
-    const id = DEFAULTS.models[alias].id;
-    assert.equal(total.whatIf[id][0], 1);
-    assert.ok(Math.abs(total.whatIf[id][1] - savingsBy[alias].yoursUsd) < 1e-6);
-  }
+  const [haiku, sonnet, opus] = ['haiku', 'sonnet', 'opus'].map((alias) => after.whatIf[DEFAULTS.models[alias].id]);
+  assert.deepEqual([haiku[0], sonnet[0], opus[0]], [1, 1, 1]);
+  assert.ok(opus[1] > sonnet[1] && sonnet[1] > haiku[1]);
+  assert.ok(Math.abs(haiku[1] - after.yoursUsd) < 1e-6);
 });
 
 test('a reply is kept on the local day it arrived, and the turn and its switch on the day it ended', async (t) => {
@@ -1493,11 +1513,68 @@ test('opening the pane while a turn writes its usage counts the turn once', asyn
   await reached.promise;
   gate = null;
   await h.event('command.run', { command: 'router', args: '' });
+  // The pane opened mid-write: the record holds the turn, and the running replies no longer do.
+  assert.deepEqual([h.view().usageLive.length, sessionOf(h).replies], [0, 1]);
   written.resolve();
   await completing;
+  assert.deepEqual([h.view().usageLive.length, sessionOf(h).replies], [0, 1]);
   assert.equal(totalOf(h.view().usageStore).replies, 1);
   await h.event('command.run', { command: 'router', args: '' });
   assert.equal(totalOf(h.view().usageStore).replies, 1);
+});
+
+test('a reply that joins the turn while its usage record is read is recorded with it', async () => {
+  let gate = null;
+  const preferences = new (class extends Map {
+    get(key) {
+      // The usage flush's read of the reset marker, told apart from the other ledgers' by its async stack.
+      if (!gate || key !== 'savings:reset:v1' || !new Error().stack.includes('flushUsage')) return super.get(key);
+      const { reached, released } = gate;
+      gate = null;
+      reached();
+      return released.then(() => super.get(key));
+    }
+  })();
+  const h = harness(JEV_KEY, preferences);
+  answering(h, jevResponse('low', LOW));
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('turn.start', { turnId: 't1', text: 'Next.' });
+  await drain(h.step({ ...step, model: 'claude-haiku-5-5' }));
+  const reached = Promise.withResolvers();
+  const released = Promise.withResolvers();
+  gate = { reached: reached.resolve, released: released.promise };
+  const completing = h.event('turn.complete', { turnId: 't1' });
+  const timeout = setTimeout(() => reached.reject(new Error('the usage flush never read the reset marker')), 2000);
+  await reached.promise;
+  clearTimeout(timeout);
+  await drain(h.step({ ...step, index: 1, model: 'claude-haiku-5-5' }));
+  released.resolve();
+  await completing;
+  assert.deepEqual([h.view().usageLive.length, sessionOf(h).replies], [0, 2]);
+  assert.equal(totalOf(h.preferences.get(`${USAGE}s1`)).replies, 2);
+});
+
+test('a usage write that fails keeps the turn counted once, and the next turn writes it', async () => {
+  let fail = false;
+  const preferences = new (class extends Map {
+    set(key, value) {
+      if (fail && key.startsWith(USAGE)) throw new Error('store full');
+      return super.set(key, value);
+    }
+  })();
+  const h = harness(JEV_KEY, preferences);
+  answering(h, jevResponse('low', LOW));
+  await h.event('session.start', { cwd: '/fixture' });
+  fail = true;
+  await turn(h, 't1', 'claude-haiku-5-5');
+  assert.deepEqual([h.view().usageLive.length, sessionOf(h).replies], [0, 1]);
+  assert.equal(h.preferences.get(`${USAGE}s1`), undefined);
+  fail = false;
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2', model: 'claude-haiku-5-5' }));
+  assert.equal(sessionOf(h).replies, 2);
+  await h.event('turn.complete', { turnId: 't2' });
+  assert.equal(totalOf(h.preferences.get(`${USAGE}s1`)).replies, 2);
 });
 
 test('two sessions finishing turns at the same moment both add to the usage kept across sessions', async () => {
@@ -1746,12 +1823,12 @@ test('with routing off a reply is not counted, and your model’s cache still fo
   await h.event('command.run', { command: 'router', args: 'off' });
   await turn(h, 't1', 'claude-haiku-5-5');
   assert.equal(h.requests[0].effort, 'medium');
-  assert.equal(h.view().savings, null);
+  assert.equal(sessionOf(h).replies, 0);
   assert.deepEqual([yours(h).total, yours(h).onYours], [1100, true]);
   assert.equal(h.preferences.get(`${USAGE}s1`), undefined);
   h.surfaces([]);
   const { text } = await h.event('command.run', { command: 'router', args: '' });
-  assert.match(text, /^vs your model \(Haiku 5\.5 · medium\): no routed replies this session$/m);
+  assert.match(text, /^Session vs Haiku 5\.5 · medium: no routed replies yet$/m);
 });
 
 test('a session usage without rate limits prices cache writes at five minutes', async () => {
@@ -1761,8 +1838,8 @@ test('a session usage without rate limits prices cache writes at five minutes', 
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-haiku-5-5');
   const usd = (0.1 * (100 + 200 * 1.25) + 0.01 * 800 + 0.5 * 10) / 1e6;
-  assert.equal(h.view().savings.replies, 1);
-  assert.ok(Math.abs(h.view().savings.routedUsd - usd) < 1e-12);
+  assert.equal(sessionOf(h).replies, 1);
+  assert.ok(Math.abs(sessionOf(h).routedUsd - usd) < 1e-12);
 });
 
 test('turns on an unchanged session model and effort keep your model’s cache warm', async () => {
@@ -1782,7 +1859,7 @@ test('turns on an unchanged session model and effort keep your model’s cache w
   const first = (0.1 * (100 + 200 * 1.25) + 0.01 * 800 + 0.5 * 10) / 1e6;
   // The second reply reads the whole previous prompt on your model's cache and writes nothing.
   const warm = (0.1 * 100 + 0.01 * 1_000 + 0.5 * 10) / 1e6;
-  assert.ok(Math.abs(h.view().savings.yoursUsd - (first + warm)) < 1e-12);
+  assert.ok(Math.abs(sessionOf(h).yoursUsd - (first + warm)) < 1e-12);
 });
 
 test('a reply whose cache lifetime cannot be read is not counted, and your model’s cache still follows it', async () => {
@@ -1800,11 +1877,11 @@ test('a reply whose cache lifetime cannot be read is not counted, and your model
   };
   await turn(h, 't2', 'claude-haiku-5-5');
   assert.equal(h.requests.at(-1).effort, 'high');
-  assert.equal(h.view().savings, null);
+  assert.equal(sessionOf(h).replies, 0);
   assert.equal(yours(h).onYours, false);
   h.$.session.usage = usage;
   await turn(h, 't3', 'claude-haiku-5-5');
-  assert.equal(h.view().savings.replies, 1);
+  assert.equal(sessionOf(h).replies, 1);
 });
 
 test('a corrupted saved record never breaks a turn', async () => {
@@ -1820,6 +1897,6 @@ test('a corrupted saved record never breaks a turn', async () => {
   assert.deepEqual([totalOf(h.view().usageStore).replies, h.view().savingsStore.replies], [0, 0]);
   await turn(h, 't1', 'claude-haiku-5-5');
   assert.equal(h.requests.length, 1);
-  assert.equal(h.view().savings.replies, 1);
+  assert.equal(sessionOf(h).replies, 1);
   assert.equal(totalOf(h.preferences.get(`${USAGE}s1`)).replies, 1);
 });

@@ -3,13 +3,10 @@ import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { resetHistory } from '../lib/route.mjs';
 import {
-  addReplies,
-  addReply,
   compareModels,
   compareReply,
   EARLY_REPLIES,
   emptySavingsStore,
-  emptyTotals,
   mergeSavingsStores,
   modelSpec,
   readout,
@@ -33,9 +30,16 @@ const usage = ({ input = 2, read = 0, write = 0, output = 500 } = {}) => ({
   output_tokens: output,
 });
 
+const ZERO = { replies: 0, routedUsd: 0, yoursUsd: 0, cheaperUsd: 0, strongerUsd: 0, switchUsd: 0 };
+const SUMS = ['routedUsd', 'yoursUsd', 'cheaperUsd', 'strongerUsd', 'switchUsd'];
+const addReply = (totals, reply) => ({
+  ...Object.fromEntries(SUMS.map((sum) => [sum, totals[sum] + reply[sum]])),
+  replies: totals.replies + 1,
+});
+
 // Replies in order: `[route, counts, minutesAfterTheLast]`. Returns the totals and every reply.
 function session(yours, replies, { ttl = '5m', config = DEFAULTS, state = null } = {}) {
-  let totals = emptyTotals();
+  let totals = ZERO;
   let cache = state;
   let at = 0;
   const each = [];
@@ -107,16 +111,14 @@ test('the first Haiku reply after Opus is priced against an Opus cache that read
   // Opus reads 40,002 at 0.2 and writes 1,998 at 4 × 1.25; output 500 at 20.
   near(replies[1].yoursUsd, (4 * (2 + 1_998 * 1.25) + 0.2 * 40_002 + 20 * 500) / 1e6);
   near(replies[1].routedUsd, (0.1 * (2 + 42_000 * 1.25) + 0.5 * 500) / 1e6);
-  assert.equal(replies[1].strongerModel, null);
 });
 
-test('a session whose model is Haiku costs more when harder turns run on Opus, and names Opus', () => {
+test('a session whose model is Haiku costs more when harder turns run on Opus', () => {
   const routes = [HAIKU, OPUS, OPUS, OPUS, HAIKU, HAIKU];
   const { totals } = session(HAIKU, conversation(routes));
   assert.ok(totals.routedUsd > totals.yoursUsd);
   assert.equal(totals.cheaperUsd, 0);
   assert.ok(totals.strongerUsd > 0);
-  assert.deepEqual(totals.stronger, { 'claude-opus-5-5': 3 });
   near(sumOfParts(totals), totals.routedUsd - totals.yoursUsd);
 });
 
@@ -299,7 +301,7 @@ test('the cache lifetime follows Claude Code: forced 5m, then the env, the setti
 
 test('the readout rounds to cents so the shown parts add up to the shown difference', () => {
   const totals = {
-    ...emptyTotals(),
+    ...ZERO,
     replies: EARLY_REPLIES,
     routedUsd: 6.404,
     yoursUsd: 8.236,
@@ -315,7 +317,7 @@ test('the readout rounds to cents so the shown parts add up to the shown differe
   near(r.switchUsd, 0.47);
   near(r.share, -184 / 824);
   assert.equal(readout({ ...totals, replies: EARLY_REPLIES - 1 }).early, true);
-  assert.equal(readout(emptyTotals()).share, null);
+  assert.equal(readout(ZERO).share, null);
 });
 
 test('rounding never flips a part’s sign or shows a part the session did not have', () => {
@@ -328,7 +330,7 @@ test('rounding never flips a part’s sign or shows a part the session did not h
     [{ routedUsd: 0.10928, yoursUsd: 0.10434, cheaperUsd: 0, strongerUsd: 0.00494, switchUsd: 0 }, [0.01, 0, 0.01, 0]],
     [{ routedUsd: 0.0951, yoursUsd: 0.1004, cheaperUsd: -0.0053, strongerUsd: 0, switchUsd: 0 }, [0, 0, 0, 0]],
   ]) {
-    const r = readout({ ...emptyTotals(), replies: EARLY_REPLIES, ...usd });
+    const r = readout({ ...ZERO, replies: EARLY_REPLIES, ...usd });
     const shown = [r.differenceUsd, r.cheaperUsd, r.strongerUsd, r.switchUsd].map((part) => part + 0);
     assert.deepEqual(shown, expected, JSON.stringify(usd));
   }
@@ -364,15 +366,6 @@ test('the totals kept across sessions add up every session’s record since the 
   assert.deepEqual(mergeSavingsStores([]), emptySavingsStore());
   assert.deepEqual(mergeSavingsStores([record(9, 2, 1), record(5, 3, 0.5)], 7), record(9, 2, 1));
   assert.deepEqual(mergeSavingsStores([record(9, 2, 1)], 9), record(9, 2, 1));
-});
-
-test('a model named after an Object method keeps its own session totals and every other model’s', () => {
-  const reply = { routedUsd: 1, yoursUsd: 2, cheaperUsd: -1, strongerUsd: 0, switchUsd: 0, strongerModel: null };
-  const byModel = addReplies({}, { toString: reply, opus: reply });
-  assert.deepEqual(
-    [byModel.toString.replies, byModel.opus.replies, Object.keys(byModel)],
-    [1, 1, ['toString', 'opus']],
-  );
 });
 
 test('a reply that cannot be priced against your model, one named after an Object method, is no reply', () => {
