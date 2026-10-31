@@ -1,6 +1,6 @@
 {
   "name": "@alexeiled/claude-router",
-  "version": "1.19.0",
+  "version": "1.19.1",
   "description": "Native Claude Code model and effort routing with Anthropic, DeepSeek, z.ai, MiniMax, MiMo and Kimi defaults, custom provider profiles, and classifier advice.",
   "license": "MIT",
   "author": "Alexei Ledenev",

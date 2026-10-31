@@ -96,9 +96,12 @@ to promise future hits. A custom client that selects one-hour Kimi caching must 
 MiMo's currently free cache-write promotion is not treated as free cold input.
 Claude Code's `DISABLE_PROMPT_CACHING` does not establish whether an automatic server cache is disabled.
 
-Valid observed usage can still be priced for activity statistics.
+Known observed usage is retained in Usage even when savings cannot be compared.
 For automatic caches, routing-versus-your-model comparisons require an identical observed route.
-Otherwise the UI reports comparison unavailable. It does not label a known observed cost unpriced or invent another route's hit rate.
+Otherwise the band and pane show observed spend, replies, tokens and activity costs with `comparison unavailable`.
+A partially comparable period labels the savings subset; rows without full comparison coverage show `—` under `vs yours`.
+The router never substitutes zero savings or invents another route's cache hit rate.
+Models with `efforts: []`, including MiMo, ignore session effort in the comparison identity.
 Missing counters remain unknown. See [provider acceptance checks](evaluation.md#provider-profiles).
 
 ## Built-in defaults

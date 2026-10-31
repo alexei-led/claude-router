@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.19.1 (2026-10-31)
+
+### Fixed
+
+- Keep observed spend, replies, tokens, activity breakdowns and trends when provider cache behavior prevents a savings comparison. The band and pane say `comparison unavailable` instead of `no replies yet`. Mixed periods label the comparable subset; unknown savings remain unknown.
+- Normalize unsupported effort when comparing MiMo routes. An inherited session effort no longer makes the same no-effort model look like a different cache identity.
+- Fit the Routes grid to narrow panes. Long labels are shortened without losing their built-in or unsaved markers; the cell editor retains full details.
+
+### Upgrade
+
+Restart Claude Code after updating. No router-file changes are needed. Usage records migrate automatically to version 3, preserving older comparisons; replies omitted by older releases cannot be recovered. Earlier releases cannot display version 3 records.
+
 ## 1.19.0 (2026-10-31)
 
 MiniMax, MiMo and Kimi gain built-in provider profiles alongside DeepSeek and z.ai.

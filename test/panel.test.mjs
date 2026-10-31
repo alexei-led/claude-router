@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { bandSegments } from '../lib/band.mjs';
-import { DEFAULTS, editActivity, loadConfig } from '../lib/config.mjs';
+import { ACTIVITIES, DEFAULTS, editActivity, loadConfig } from '../lib/config.mjs';
 import { GATEWAY_CLEANUP, GATEWAY_SETTINGS, TIER_COLOR } from '../lib/display.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
 import { isSameModel } from '../lib/route.mjs';
@@ -140,7 +140,7 @@ test('help explains what the numbers are and that savings are not measured', () 
     'Routing vs your model holds tokens and output length the same',
     'and does not measure answer quality. Cache benefit is before writes.',
     'The context bar uses the routed model’s window, 20% in reserve.',
-    'A switch estimate prices 5m–1h cache writes; minus means cheaper.',
+    'Cache estimates follow the selected provider profile; minus means cheaper.',
   ]);
   assert.ok(!texts(pane({ help: false })).includes('ABOUT THESE NUMBERS'));
 });
@@ -229,6 +229,52 @@ const editor = (tree) => {
     lines.findIndex((l, i) => i > at + 2 && l === ''),
   );
 };
+
+test('the Routes grid fits normal narrow panes for every provider', () => {
+  for (const provider of ['anthropic', 'minimax', 'mimo', 'kimi', 'deepseek', 'zai'])
+    for (const columns of [50, 60, 62, 70, 100]) {
+      const rows = grid(routesTab(loadConfig({ provider }), null, {}, actions, { columns })).slice(
+        0,
+        2 + ACTIVITIES.length,
+      );
+      assert.ok(
+        rows.every((line) => line.length <= columns),
+        `${provider} at ${columns}: ${rows.join(' / ')}`,
+      );
+    }
+});
+
+test('shortened route labels keep selection and unsaved markers', () => {
+  const alias = 'a-very-long-custom-model-alias';
+  const config = loadConfig({ userFile: { models: { [alias]: DEFAULTS.models.opus } } });
+  const draft = { ...routeDraftOf(config, {}), routes: { ...config.routes, high: { model: alias, effort: 'max' } } };
+  const picked = [];
+  const tree = routesTab(
+    config,
+    draft,
+    { routeCell: 'tier.high' },
+    { ...actions, selectCell: (cell) => picked.push(cell) },
+    { columns: 62 },
+  );
+  const cell = controls(tree).find((c) => c.key === 'cell-tier-high');
+  assert.ok(cell.label.startsWith('▸'));
+  assert.ok(cell.label.includes('…'));
+  assert.ok(cell.label.endsWith('●'));
+  assert.ok(cell.label.length <= 12);
+  cell.onPress();
+  assert.deepEqual(picked, ['tier.high']);
+});
+
+test('truncated cells retain both built-in and unsaved markers', () => {
+  const file = { activities: { code: { low: { model: 'opus', effort: 'max' } } } };
+  const config = loadConfig({ userFile: file });
+  const draft = editActivity(routeDraftOf(config, file), config, 'code', 'low', 'add');
+  const tree = routesTab(config, draft, { routeCell: 'code.low' }, actions, { columns: 50 });
+  const cell = controls(tree).find((c) => c.key === 'cell-code-low');
+  assert.ok(cell.label.includes('…'));
+  assert.ok(cell.label.endsWith('°●'));
+  assert.ok(cell.label.length <= 9);
+});
 
 test('the Routes tab is one grid: the tiers’ own models on top, built-in overrides marked, one cache per model', () => {
   const tree = routesTab(DEFAULTS);

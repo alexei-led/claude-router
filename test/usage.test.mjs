@@ -128,7 +128,7 @@ test('a stored record reads day by day: a bad day is dropped and the others stay
   for (const value of [
     null,
     'text',
-    { version: 3, since: 1, days: {} },
+    { version: 99, since: 1, days: {} },
     { version: 1, since: 'then', days: {} },
     { version: 1, since: 1 },
   ])
@@ -325,25 +325,28 @@ test('all time adds the usage records and the undated savings totals, since the 
   assert.deepEqual(allTime(null, null).totals.replies, 0);
 });
 
-test('a version 1 record reads as version 2 with its replies under balanced, and merges with version 2', () => {
-  const v2 = turnOf(emptyUsage(), [entry(NOW, { mode: 'cost' })], NOW);
-  const day = v2.days['2026-10-13'];
+test('version 1 and 2 records migrate without losing comparisons or their routing mode', () => {
+  const current = turnOf(emptyUsage(), [entry(NOW, { mode: 'cost' })], NOW);
+  const day = { ...current.days['2026-10-13'] };
+  delete day.uncompared;
+  const v2 = { ...current, version: 2, days: { '2026-10-13': day } };
+  assert.equal(summarize(readUsage(v2), ALL).replies, 1);
   const v1 = {
     version: 1,
     since: NOW,
     days: { '2026-10-13': { ...day, cells: { 'code|low|haiku@high': day.cells['cost|code|low|haiku@high'] } } },
   };
   assert.deepEqual(Object.keys(readUsage(v1).days['2026-10-13'].cells), ['balanced|code|low|haiku@high']);
-  assert.equal(readUsage(v1).version, 2);
+  assert.equal(readUsage(v1).version, 3);
   const merged = mergeUsage([v1, v2]);
   assert.deepEqual(Object.keys(merged.days['2026-10-13'].cells).sort(), [
     'balanced|code|low|haiku@high',
     'cost|code|low|haiku@high',
   ]);
-  // Rewritten by its session as version 2 under the same key.
-  assert.equal(turnOf(readUsage(v1), [entry(NOW)], NOW).version, 2);
+  // Rewritten by its session under the same key, including observed-only support.
+  assert.equal(turnOf(readUsage(v1), [entry(NOW)], NOW).version, 3);
   // A record from a later release never reads, so it is never pruned.
-  assert.deepEqual([...prunedUsage([['later', { ...v2, version: 3 }]], NOW + 500 * 86_400_000)], []);
+  assert.deepEqual([...prunedUsage([['later', { ...v2, version: 99 }]], NOW + 500 * 86_400_000)], []);
 });
 
 test('the usage breakdowns group the modes together by activity, model and tier', () => {

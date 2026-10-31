@@ -31,7 +31,7 @@ OpenRouter, Ollama, other local servers and other compatible hosted providers us
 They have no built-in model defaults. A selected file must exist and validate, or the router leaves Claude Code's model unchanged.
 
 See [Providers](docs/providers.md) for **default routes and activities**, **custom profiles**, and the **`--settings` flag alternative**.
-Execution provider selection is separate from classifier selection.
+Execution provider selection is separate from classifier selection. Observed usage stays visible even when a provider's cache behavior makes savings comparisons unavailable.
 
 ## Supported classifiers
 

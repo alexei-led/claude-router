@@ -1176,14 +1176,15 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   // Kept by model id, under the model that served it: a substitute's cost is not the requested model's, and a models
   // key can name another model later.
   const idOf = (model) => modelSpec(cfg, model)?.id ?? model;
-  if (compared)
+  if (compared || observedUsd !== null)
     await addUsageEntry($, router, {
       turnId,
-      compared,
+      compared: compared ?? { reply: null },
+      observedUsd,
       tier,
       route: `${idOf(response.usage?.model ?? request.model)}@${request.effort ?? 'session'}`,
       yours: idOf(nativeModel),
-      byId: Object.fromEntries(Object.entries(compared.replies).map(([alias, r]) => [cfg.models[alias].id, r])),
+      byId: Object.fromEntries(Object.entries(compared?.replies ?? {}).map(([alias, r]) => [cfg.models[alias].id, r])),
       usage: response.usage,
       at,
     });
@@ -1234,10 +1235,10 @@ async function compareYours($, router, loop, response, servedEffort, nativeModel
 // A routed reply, priced against your model now, added to the turn's running replies, which the view counts at once
 // and turn.complete adds to the usage record. `route` is the served model's `id@effort`, `yours` your model's id,
 // `byId` the reply priced against each model as yours, keyed by model id; `at` when the reply arrived (ms).
-async function addUsageEntry($, router, { turnId, compared, tier, route, yours, byId, usage, at }) {
+async function addUsageEntry($, router, { turnId, compared, observedUsd, tier, route, yours, byId, usage, at }) {
   try {
     const view = router.view ?? (await readView($, router));
-    if (compared.reply) {
+    if (compared.reply || Number.isFinite(observedUsd)) {
       const turn = router.turnActivities.get(turnId);
       const entry = replyEntry({
         at,
@@ -1247,6 +1248,7 @@ async function addUsageEntry($, router, { turnId, compared, tier, route, yours, 
         route,
         yours,
         reply: compared.reply,
+        observedUsd,
         replies: byId,
         usage,
       });

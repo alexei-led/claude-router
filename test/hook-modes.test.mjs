@@ -183,7 +183,7 @@ test('the usage record keeps each reply under the mode it ran in', async () => {
   await drain(h.step({ ...step, model: 'claude-opus-5-5' }));
   await h.event('turn.complete', { turnId: 't1' });
   const record = h.preferences.get('usage:v1:s1');
-  assert.equal(record.version, 2);
+  assert.equal(record.version, 3);
   assert.deepEqual(Object.keys(Object.values(record.days)[0].cells), ['cost|none|high|claude-opus-5-5@high']);
 });
 
