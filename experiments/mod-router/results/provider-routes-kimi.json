@@ -1,0 +1,1059 @@
+{
+  "provider": "kimi",
+  "date": "2026-10-31T15:25:31.564Z",
+  "budgetUsd": 1,
+  "accountedUsd": 0.024376000000000005,
+  "method": "One synthetic JSON microcheck per activity/route, no retries. Cells enumerate configured routes in every mode and tier. HTTP acceptance does not prove an effort is honored. Not a benchmark or savings result.",
+  "rows": [
+    {
+      "activity": "code",
+      "model": "k3",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 3110,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 133,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 53,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 27
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 133,
+        "cached_tokens": 0,
+        "completion_tokens": 53,
+        "total_tokens": 186
+      },
+      "estimatedUsd": 0.000796,
+      "passed": true,
+      "text": "[3,1,2,0,-1]"
+    },
+    {
+      "activity": "code",
+      "model": "k3",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 2633,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 133,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 88,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 62
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 133,
+        "cached_tokens": 0,
+        "completion_tokens": 88,
+        "total_tokens": 221
+      },
+      "estimatedUsd": 0.001146,
+      "passed": true,
+      "text": "[3,1,2,0,-1]"
+    },
+    {
+      "activity": "code",
+      "model": "k3",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 4919,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 132,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 140,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 114
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 132,
+        "cached_tokens": 0,
+        "completion_tokens": 140,
+        "total_tokens": 272
+      },
+      "estimatedUsd": 0.001664,
+      "passed": true,
+      "text": "[3,1,2,0,-1]"
+    },
+    {
+      "activity": "debug",
+      "model": "k3",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 5099,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 179,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 64,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 38
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 179,
+        "cached_tokens": 0,
+        "completion_tokens": 64,
+        "total_tokens": 243
+      },
+      "estimatedUsd": 0.000998,
+      "passed": true,
+      "text": "{\"bug\":\"skips-last\",\"fixed\":2}"
+    },
+    {
+      "activity": "debug",
+      "model": "k3",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 4572,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 179,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 85,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 59
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 179,
+        "cached_tokens": 0,
+        "completion_tokens": 85,
+        "total_tokens": 264
+      },
+      "estimatedUsd": 0.001208,
+      "passed": true,
+      "text": "{\"bug\":\"skips-last\",\"fixed\":2}"
+    },
+    {
+      "activity": "debug",
+      "model": "k3",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 6782,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 178,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 155,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 129
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 178,
+        "cached_tokens": 0,
+        "completion_tokens": 155,
+        "total_tokens": 333
+      },
+      "estimatedUsd": 0.001906,
+      "passed": true,
+      "text": "{\"bug\":\"skips-last\",\"fixed\":2}"
+    },
+    {
+      "activity": "explore",
+      "model": "k3",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 2238,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 133,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 47,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 26
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 133,
+        "cached_tokens": 0,
+        "completion_tokens": 47,
+        "total_tokens": 180
+      },
+      "estimatedUsd": 0.000736,
+      "passed": true,
+      "text": "[\"codec\", \"store\"]"
+    },
+    {
+      "activity": "explore",
+      "model": "k3",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 3929,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 133,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 96,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 75
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 133,
+        "cached_tokens": 0,
+        "completion_tokens": 96,
+        "total_tokens": 229
+      },
+      "estimatedUsd": 0.001226,
+      "passed": true,
+      "text": "[\"codec\", \"store\"]"
+    },
+    {
+      "activity": "explore",
+      "model": "k3",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 5857,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 132,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 115,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 94
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 132,
+        "cached_tokens": 0,
+        "completion_tokens": 115,
+        "total_tokens": 247
+      },
+      "estimatedUsd": 0.001414,
+      "passed": true,
+      "text": "[\"codec\", \"store\"]"
+    },
+    {
+      "activity": "plan",
+      "model": "k3",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 3389,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 141,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 90,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 63
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 141,
+        "cached_tokens": 0,
+        "completion_tokens": 90,
+        "total_tokens": 231
+      },
+      "estimatedUsd": 0.001182,
+      "passed": true,
+      "text": "[\"expand\",\"backfill\",\"deploy\",\"switch\",\"contract\"]"
+    },
+    {
+      "activity": "plan",
+      "model": "k3",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 3689,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 141,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 103,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 76
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 141,
+        "cached_tokens": 0,
+        "completion_tokens": 103,
+        "total_tokens": 244
+      },
+      "estimatedUsd": 0.001312,
+      "passed": true,
+      "text": "[\"expand\",\"backfill\",\"deploy\",\"switch\",\"contract\"]"
+    },
+    {
+      "activity": "plan",
+      "model": "k3",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 5751,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 140,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 195,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 164
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 140,
+        "cached_tokens": 0,
+        "completion_tokens": 195,
+        "total_tokens": 335
+      },
+      "estimatedUsd": 0.00223,
+      "passed": true,
+      "text": "[\"expand\", \"backfill\", \"deploy\", \"switch\", \"contract\"]"
+    },
+    {
+      "activity": "review",
+      "model": "k3",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 7786,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 147,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 51,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 23
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 147,
+        "cached_tokens": 0,
+        "completion_tokens": 51,
+        "total_tokens": 198
+      },
+      "estimatedUsd": 0.000804,
+      "passed": true,
+      "text": "{\"risk\":\"sql-injection\",\"fix\":\"parameterized-query\"}"
+    },
+    {
+      "activity": "review",
+      "model": "k3",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 3201,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 147,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 59,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 31
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 147,
+        "cached_tokens": 0,
+        "completion_tokens": 59,
+        "total_tokens": 206
+      },
+      "estimatedUsd": 0.000884,
+      "passed": true,
+      "text": "{\"risk\":\"sql-injection\",\"fix\":\"parameterized-query\"}"
+    },
+    {
+      "activity": "review",
+      "model": "k3",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 3327,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 146,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 70,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 42
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 146,
+        "cached_tokens": 0,
+        "completion_tokens": 70,
+        "total_tokens": 216
+      },
+      "estimatedUsd": 0.000992,
+      "passed": true,
+      "text": "{\"risk\":\"sql-injection\",\"fix\":\"parameterized-query\"}"
+    },
+    {
+      "activity": "ops",
+      "model": "k3",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 2462,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 141,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 52,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 27
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 141,
+        "cached_tokens": 0,
+        "completion_tokens": 52,
+        "total_tokens": 193
+      },
+      "estimatedUsd": 0.000802,
+      "passed": true,
+      "text": "{\"healthy\":1,\"unhealthy\":2}"
+    },
+    {
+      "activity": "ops",
+      "model": "k3",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 3177,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 141,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 67,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 42
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 141,
+        "cached_tokens": 0,
+        "completion_tokens": 67,
+        "total_tokens": 208
+      },
+      "estimatedUsd": 0.000952,
+      "passed": true,
+      "text": "{\"healthy\":1,\"unhealthy\":2}"
+    },
+    {
+      "activity": "ops",
+      "model": "k3",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 3054,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 140,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 96,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 71
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 140,
+        "cached_tokens": 0,
+        "completion_tokens": 96,
+        "total_tokens": 236
+      },
+      "estimatedUsd": 0.00124,
+      "passed": true,
+      "text": "{\"healthy\":1,\"unhealthy\":2}"
+    },
+    {
+      "activity": "docs",
+      "model": "k3",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 2629,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 146,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 49,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 12
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 146,
+        "cached_tokens": 0,
+        "completion_tokens": 49,
+        "total_tokens": 195
+      },
+      "estimatedUsd": 0.000782,
+      "passed": true,
+      "text": "{\"mode\":{\"default\":\"balanced\",\"values\":[\"cost\",\"balanced\",\"quality\"]},\"retries\":{\"default\":2}}"
+    },
+    {
+      "activity": "docs",
+      "model": "k3",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 5074,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 146,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 70,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 33
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 146,
+        "cached_tokens": 0,
+        "completion_tokens": 70,
+        "total_tokens": 216
+      },
+      "estimatedUsd": 0.000992,
+      "passed": true,
+      "text": "{\"mode\":{\"default\":\"balanced\",\"values\":[\"cost\",\"balanced\",\"quality\"]},\"retries\":{\"default\":2}}"
+    },
+    {
+      "activity": "docs",
+      "model": "k3",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "kimi-k3.1-pro",
+      "served": "kimi-k3.1-pro",
+      "status": 200,
+      "ms": 4632,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 145,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "output_tokens": 82,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "output_tokens_details": {
+          "thinking_tokens": 45
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 145,
+        "cached_tokens": 0,
+        "completion_tokens": 82,
+        "total_tokens": 227
+      },
+      "estimatedUsd": 0.00111,
+      "passed": true,
+      "text": "{\"mode\":{\"default\":\"balanced\",\"values\":[\"cost\",\"balanced\",\"quality\"]},\"retries\":{\"default\":2}}"
+    }
+  ]
+}

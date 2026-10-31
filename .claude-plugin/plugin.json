@@ -1,8 +1,8 @@
 {
   "name": "router",
   "displayName": "Router",
-  "version": "1.18.0",
-  "description": "Native model and effort routing within your provider. Anthropic, DeepSeek and z.ai defaults, custom provider profiles, classifier advice and one model per subagent.",
+  "version": "1.19.0",
+  "description": "Native model and effort routing within your provider. Anthropic, DeepSeek, z.ai, MiniMax, MiMo and Kimi defaults, custom provider profiles, classifier advice and one model per subagent.",
   "author": {
     "name": "Alexei Ledenev",
     "url": "https://github.com/alexei-led"

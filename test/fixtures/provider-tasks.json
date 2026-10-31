@@ -1,0 +1,73 @@
+[
+  {
+    "activity": "code",
+    "prompt": "Implement this contract mentally and return only its JSON output: stableUnique(xs) keeps the first occurrence of each integer in order. Input: [3,1,3,2,1,0,-1,0]. No explanation.",
+    "expected": [
+      3,
+      1,
+      2,
+      0,
+      -1
+    ]
+  },
+  {
+    "activity": "debug",
+    "prompt": "Find the boundary bug and return only JSON {\"bug\":\"...\",\"fixed\":number}. The function count(xs) initializes n=0 and loops i=0; i < xs.length-1; i++, incrementing n when xs[i]>0. Called with [0,-1,2,3], it returns 1. For bug choose exactly one: \"skips-last\", \"skips-first\", \"wrong-sign\". fixed is the count after repair.",
+    "expected": {
+      "bug": "skips-last",
+      "fixed": 2
+    }
+  },
+  {
+    "activity": "explore",
+    "prompt": "Trace imports without inventing edges. main imports api and ui; api imports store; store imports codec; ui imports codec; codec imports nothing. Return only the JSON array of modules reachable from api, excluding api, sorted alphabetically.",
+    "expected": [
+      "codec",
+      "store"
+    ]
+  },
+  {
+    "activity": "plan",
+    "prompt": "Plan the deployment respecting prerequisites. tasks: backfill needs expand; switch needs backfill and deploy; deploy needs expand; contract needs switch; expand needs nothing. Return only the JSON array of task names in valid topological order. When several are ready, choose alphabetically first.",
+    "expected": [
+      "expand",
+      "backfill",
+      "deploy",
+      "switch",
+      "contract"
+    ]
+  },
+  {
+    "activity": "review",
+    "prompt": "Review this SQL construction: query = \"SELECT * FROM users WHERE name = '\" + userInput + \"'\". Return only JSON {\"risk\":\"...\",\"fix\":\"...\"}. Choose risk from \"sql-injection\",\"xss\",\"none\" and fix from \"parameterized-query\",\"html-escape\",\"none\".",
+    "expected": {
+      "risk": "sql-injection",
+      "fix": "parameterized-query"
+    }
+  },
+  {
+    "activity": "ops",
+    "prompt": "Read-only operational check. Three replicas report {ready:true,errors:0}, {ready:false,errors:3}, {ready:true,errors:1}. A healthy replica is ready and has zero errors. Return only JSON {\"healthy\":number,\"unhealthy\":number}.",
+    "expected": {
+      "healthy": 1,
+      "unhealthy": 2
+    }
+  },
+  {
+    "activity": "docs",
+    "prompt": "Write a machine-readable configuration reference from these facts only: mode defaults to balanced and accepts cost, balanced, quality; retries defaults to 2. Return only JSON {\"mode\":{\"default\":string,\"values\":array},\"retries\":{\"default\":number}}. Keep the mode values in the given order.",
+    "expected": {
+      "mode": {
+        "default": "balanced",
+        "values": [
+          "cost",
+          "balanced",
+          "quality"
+        ]
+      },
+      "retries": {
+        "default": 2
+      }
+    }
+  }
+]

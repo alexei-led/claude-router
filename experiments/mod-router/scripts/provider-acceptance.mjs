@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
+import { loadConfig } from '../../../lib/config.mjs';
+import { canonicalModel } from '../../../lib/providers.mjs';
 
 const plugin = fileURLToPath(new URL('../../../', import.meta.url));
 let active;
@@ -76,6 +78,10 @@ const server = createServer(async (req, res) => {
 });
 
 async function runCase(root, url, { provider, profile, expectedHigh }) {
+  const preset = loadConfig({ provider });
+  // With no routed effort the engine may retain the CLI's low; the router does not claim to control it.
+  const highEffort = preset.routes.high.effort ?? 'low';
+  const microEffort = preset.routes.micro.effort ?? 'low';
   const dir = join(root, provider + (profile ? '-configured' : '-missing'));
   const home = join(dir, 'home');
   const config = join(home, '.claude');
@@ -85,7 +91,7 @@ async function runCase(root, url, { provider, profile, expectedHigh }) {
   if (profile) await writeFile(join(config, `${provider}-router.json`), profile);
   // A valid default file must never be used for a missing provider file.
   await writeFile(join(config, 'router.json'), '{}');
-  const model = provider === 'zai' ? 'glm-5.3-flash[1m]' : 'deepseek-flash[1m]';
+  const model = preset.models[preset.routes.micro.model].id;
   const env = {
     PATH: process.env.PATH,
     HOME: home,
@@ -186,10 +192,10 @@ async function runCase(root, url, { provider, profile, expectedHigh }) {
     assert.deepEqual(
       active.requests.map((r) => [r.model, r.effort, r.afterTool]),
       [
-        [expectedHigh, 'max', false],
-        [expectedHigh, 'max', true],
-        [model.replace('[1m]', ''), 'low', false],
-        [model.replace('[1m]', ''), 'low', true],
+        [expectedHigh, highEffort, false],
+        [expectedHigh, highEffort, true],
+        [canonicalModel(model), microEffort, false],
+        [canonicalModel(model), microEffort, true],
       ],
     );
   } else {
@@ -213,6 +219,10 @@ try {
   for (const scenario of [
     { provider: 'deepseek', profile: '{}', expectedHigh: 'deepseek-flash' },
     { provider: 'zai', profile: '{}', expectedHigh: 'glm-5.3' },
+    { provider: 'minimax', profile: '{}', expectedHigh: 'MiniMax-M3.1-Flash' },
+    { provider: 'mimo', profile: '{}', expectedHigh: 'mimo-v2.6-pro' },
+    { provider: 'kimi', profile: '{}', expectedHigh: 'kimi-k3.1-pro' },
+    ...['minimax', 'mimo', 'kimi'].map((provider) => ({ provider, profile: null })),
     { provider: 'deepseek', profile: null },
     { provider: 'zai', profile: '{"routes":{"high":{"model":"opus"}}}' },
   ])

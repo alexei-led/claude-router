@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.19.0 (2026-10-31)
+
+MiniMax, MiMo and Kimi gain built-in provider profiles alongside DeepSeek and z.ai.
+
+### Added
+
+- `minimax` defaults use MiniMax-M3.1-Flash with low, medium, high and max effort. Legacy M3 ignores effort and is not used as a deeper tier.
+- `mimo` defaults combine MiMo-V2.6-Flash and Pro. The router selects models without claiming undocumented effort levels; provider-default thinking stays on.
+- `kimi` defaults use Kimi-K3.1-Pro throughout the conversation, with low, high and max effort. They do not mix K2/K3 thinking histories.
+- Each profile includes activity and subagent routes, image/context metadata, API list prices and conservative cache accounting. [Provider tables](docs/providers.md#new-provider-modes) show every cost, balanced and quality combination.
+- [Research and experiments](docs/provider-experiments.md) record synthetic activity checks and native streaming tools. MiMo Flash's two format failures remain visible; no measured quality or savings guarantee is claimed.
+
+### Fixed
+
+- Cost mode skips unsupported effort levels when stepping down, rather than projecting back to the current level. Sparse ladders such as DeepSeek, z.ai and Kimi can now move max → high → low.
+
+### Upgrade
+
+- After upgrading, create `minimax-router.json`, `mimo-router.json` or `kimi-router.json` containing `{}` in the active Claude Code profile, then set `CLAUDE_ROUTER_PROVIDER` before launch. Missing or invalid files keep the native model unchanged.
+- Start a fresh conversation when moving from another Kimi model to K3.1. Do not resume old model-specific thinking/tool history into it. Remove a fixed `CLAUDE_CODE_EFFORT_LEVEL` override to allow per-turn effort routing.
+- Existing Anthropic users need no configuration change. Endpoint credentials and billing remain Claude Code's responsibility.
+
 ## 1.18.0 (2026-10-30)
 
 The band and the pane now show one session cost readout: the same number, the same words, at the same moment.

@@ -39,18 +39,24 @@ A non-Anthropic file must exist and validate. It never falls back to `router.jso
 
 ### Provider prices
 
-DeepSeek and z.ai default windows are 1M tokens.
+All non-Anthropic built-in model windows are at least 1M tokens.
 Price estimates use the [DeepSeek peak API rates](https://api-docs.deepseek.com/quick_start/pricing) and [z.ai API list rates](https://docs.z.ai/guides/overview/pricing.md).
-These rates were checked on 2026-10-28.
+DeepSeek and z.ai rates were checked on 2026-10-28; the new provider rates on 2026-10-31.
 
 | Model | Input / output / cached input, USD per million tokens |
 | --- | --- |
 | DeepSeek Flash | 0.30 / 1.20 / 0.006 |
 | GLM-5.3-Flash | 0.15 / 0.50 / 0.03 |
 | GLM-5.3 | 1.40 / 4.40 / 0.26 |
+| MiniMax-M3.1-Flash | 0.15 / 0.60 / 0.015 |
+| MiMo-V2.6-Flash | 0.14 / 0.28 / 0.0028 |
+| MiMo-V2.6-Pro | 0.435 / 0.87 / 0.0036 |
+| Kimi-K3.1-Pro | 2.00 / 10.00 / 0.20 |
 
 These are fixed estimate inputs, not an invoice. DeepSeek off-peak rates differ, and z.ai plan quota uses its own multipliers.
-Both presets use `billing: "credits"`.
+New provider sources: [MiniMax pricing](https://platform.minimax.io/docs/pricing/overview),
+[MiMo pricing](https://mimo.mi.com/docs/en-US/pricing), and [Kimi pricing](https://platform.kimi.ai/docs/pricing/chat).
+All non-Anthropic built-in presets use `billing: "credits"`.
 For an included-plan model, set `billing: "plan"` to disable the cold-input cash cap.
 A provider name or URL does not establish its billing product.
 
@@ -61,7 +67,7 @@ A provider name or URL does not establish its billing product.
 | Mode | Use | Estimate |
 | --- | --- | --- |
 | `explicit` | Anthropic default | Configured write multipliers and TTLs |
-| `automatic` | DeepSeek, z.ai and custom-profile default | Reported hit/miss input rates, no separate write premium |
+| `automatic` | All other built-in profiles and custom-profile default | Reported hit/miss input rates, no separate write premium |
 | `disabled` | No cache discount to model | All input at the uncached rate, never marked warm |
 
 Automatic-cache bounds allow a future hit or a full miss, including after an observed miss.
@@ -83,6 +89,11 @@ An unknown cache state is not proof of a miss.
 
 [DeepSeek caching](https://api-docs.deepseek.com/guides/kv_cache) is automatic and best-effort. Its Anthropic endpoint ignores explicit cache controls.
 [z.ai caching](https://docs.z.ai/guides/capabilities/cache.md) has no verified model-specific TTL.
+MiniMax and MiMo expose automatic prefix caching; no retention guarantee is assumed here.
+Kimi's default five-minute cache fills cost the ordinary input rate; the preset does not select top-level one-hour
+cache control, whose writes cost twice as much. Its observed default fills/reads are priced, but TTL is not used
+to promise future hits. A custom client that selects one-hour Kimi caching must configure its write premium.
+MiMo's currently free cache-write promotion is not treated as free cold input.
 Claude Code's `DISABLE_PROMPT_CACHING` does not establish whether an automatic server cache is disabled.
 
 Valid observed usage can still be priced for activity statistics.

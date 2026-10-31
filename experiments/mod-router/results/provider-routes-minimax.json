@@ -1,0 +1,990 @@
+{
+  "provider": "minimax",
+  "date": "2026-10-31T15:27:34.374Z",
+  "budgetUsd": 1,
+  "accountedUsd": 0.0014718600000000004,
+  "method": "One synthetic JSON microcheck per activity/route, no retries. Cells enumerate configured routes in every mode and tier. HTTP acceptance does not prove an effort is honored. Not a benchmark or savings result.",
+  "rows": [
+    {
+      "activity": "code",
+      "model": "flash",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 943,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 52,
+        "output_tokens": 13,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197
+      },
+      "estimatedUsd": 0.000018555,
+      "passed": true,
+      "text": "[3,1,2,0,-1]"
+    },
+    {
+      "activity": "code",
+      "model": "flash",
+      "effort": "medium",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 1294,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 52,
+        "output_tokens": 55,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 41
+        }
+      },
+      "estimatedUsd": 0.000043755,
+      "passed": true,
+      "text": "[3,1,2,0,-1]"
+    },
+    {
+      "activity": "code",
+      "model": "flash",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 1603,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 121,
+        "output_tokens": 61,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 128,
+        "output_tokens_details": {
+          "thinking_tokens": 47
+        }
+      },
+      "estimatedUsd": 0.000056670000000000005,
+      "passed": true,
+      "text": "[3,1,2,0,-1]"
+    },
+    {
+      "activity": "code",
+      "model": "flash",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 1503,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 52,
+        "output_tokens": 62,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 48
+        }
+      },
+      "estimatedUsd": 0.000047955,
+      "passed": true,
+      "text": "[3,1,2,0,-1]"
+    },
+    {
+      "activity": "debug",
+      "model": "flash",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 2720,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 167,
+        "output_tokens": 109,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 128,
+        "output_tokens_details": {
+          "thinking_tokens": 97
+        }
+      },
+      "estimatedUsd": 0.00009236999999999998,
+      "passed": true,
+      "text": "{\"bug\":\"skips-last\",\"fixed\":2}"
+    },
+    {
+      "activity": "debug",
+      "model": "flash",
+      "effort": "medium",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 653,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 167,
+        "output_tokens": 13,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 128
+      },
+      "estimatedUsd": 0.000034769999999999994,
+      "passed": true,
+      "text": "{\"bug\":\"skips-last\",\"fixed\":2}"
+    },
+    {
+      "activity": "debug",
+      "model": "flash",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 2783,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 167,
+        "output_tokens": 77,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 128,
+        "output_tokens_details": {
+          "thinking_tokens": 65
+        }
+      },
+      "estimatedUsd": 0.00007316999999999999,
+      "passed": true,
+      "text": "{\"bug\":\"skips-last\",\"fixed\":2}"
+    },
+    {
+      "activity": "debug",
+      "model": "flash",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 8746,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 167,
+        "output_tokens": 89,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 128,
+        "output_tokens_details": {
+          "thinking_tokens": 77
+        }
+      },
+      "estimatedUsd": 0.00008037,
+      "passed": true,
+      "text": "{\"bug\":\"skips-last\",\"fixed\":2}"
+    },
+    {
+      "activity": "explore",
+      "model": "flash",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 1171,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 50,
+        "output_tokens": 73,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 65
+        }
+      },
+      "estimatedUsd": 0.000054254999999999995,
+      "passed": true,
+      "text": "[\"codec\",\"store\"]"
+    },
+    {
+      "activity": "explore",
+      "model": "flash",
+      "effort": "medium",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 983,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 50,
+        "output_tokens": 73,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 65
+        }
+      },
+      "estimatedUsd": 0.000054254999999999995,
+      "passed": true,
+      "text": "[\"codec\",\"store\"]"
+    },
+    {
+      "activity": "explore",
+      "model": "flash",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 971,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 50,
+        "output_tokens": 81,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 73
+        }
+      },
+      "estimatedUsd": 0.000059055,
+      "passed": true,
+      "text": "[\"codec\",\"store\"]"
+    },
+    {
+      "activity": "explore",
+      "model": "flash",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 1655,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 50,
+        "output_tokens": 88,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 80
+        }
+      },
+      "estimatedUsd": 0.00006325499999999999,
+      "passed": true,
+      "text": "[\"codec\",\"store\"]"
+    },
+    {
+      "activity": "plan",
+      "model": "flash",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 2587,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 59,
+        "output_tokens": 93,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 78
+        }
+      },
+      "estimatedUsd": 0.00006760499999999999,
+      "passed": true,
+      "text": "[\"expand\",\"backfill\",\"deploy\",\"switch\",\"contract\"]"
+    },
+    {
+      "activity": "plan",
+      "model": "flash",
+      "effort": "medium",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 1677,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 59,
+        "output_tokens": 135,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 120
+        }
+      },
+      "estimatedUsd": 0.000092805,
+      "passed": true,
+      "text": "[\"expand\",\"backfill\",\"deploy\",\"switch\",\"contract\"]"
+    },
+    {
+      "activity": "plan",
+      "model": "flash",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 1452,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 59,
+        "output_tokens": 157,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 142
+        }
+      },
+      "estimatedUsd": 0.000106005,
+      "passed": true,
+      "text": "[\"expand\",\"backfill\",\"deploy\",\"switch\",\"contract\"]"
+    },
+    {
+      "activity": "plan",
+      "model": "flash",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 1678,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 59,
+        "output_tokens": 198,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 179
+        }
+      },
+      "estimatedUsd": 0.000130605,
+      "passed": true,
+      "text": "[\"expand\", \"backfill\", \"deploy\", \"switch\", \"contract\"]"
+    },
+    {
+      "activity": "review",
+      "model": "flash",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 770,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 66,
+        "output_tokens": 15,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197
+      },
+      "estimatedUsd": 0.000021855,
+      "passed": true,
+      "text": "{\"risk\":\"sql-injection\",\"fix\":\"parameterized-query\"}"
+    },
+    {
+      "activity": "review",
+      "model": "flash",
+      "effort": "medium",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 1743,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 66,
+        "output_tokens": 44,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 28
+        }
+      },
+      "estimatedUsd": 0.000039254999999999996,
+      "passed": true,
+      "text": "{\"risk\":\"sql-injection\",\"fix\":\"parameterized-query\"}"
+    },
+    {
+      "activity": "review",
+      "model": "flash",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 903,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 66,
+        "output_tokens": 15,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197
+      },
+      "estimatedUsd": 0.000021855,
+      "passed": true,
+      "text": "{\"risk\":\"sql-injection\",\"fix\":\"parameterized-query\"}"
+    },
+    {
+      "activity": "review",
+      "model": "flash",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 659,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 66,
+        "output_tokens": 15,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197
+      },
+      "estimatedUsd": 0.000021855,
+      "passed": true,
+      "text": "{\"risk\":\"sql-injection\",\"fix\":\"parameterized-query\"}"
+    },
+    {
+      "activity": "ops",
+      "model": "flash",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 658,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 130,
+        "output_tokens": 12,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 128
+      },
+      "estimatedUsd": 0.00002862,
+      "passed": true,
+      "text": "{\"healthy\":1,\"unhealthy\":2}"
+    },
+    {
+      "activity": "ops",
+      "model": "flash",
+      "effort": "medium",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 9423,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 130,
+        "output_tokens": 12,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 128
+      },
+      "estimatedUsd": 0.00002862,
+      "passed": true,
+      "text": "{\"healthy\":1,\"unhealthy\":2}"
+    },
+    {
+      "activity": "ops",
+      "model": "flash",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 4048,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 130,
+        "output_tokens": 49,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 128,
+        "output_tokens_details": {
+          "thinking_tokens": 38
+        }
+      },
+      "estimatedUsd": 0.00005082,
+      "passed": true,
+      "text": "{\"healthy\":1,\"unhealthy\":2}"
+    },
+    {
+      "activity": "ops",
+      "model": "flash",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 678,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 61,
+        "output_tokens": 12,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197
+      },
+      "estimatedUsd": 0.000019305,
+      "passed": true,
+      "text": "{\"healthy\":1,\"unhealthy\":2}"
+    },
+    {
+      "activity": "docs",
+      "model": "flash",
+      "effort": "low",
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 4619,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 64,
+        "output_tokens": 56,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 30
+        }
+      },
+      "estimatedUsd": 0.000046155,
+      "passed": true,
+      "text": "{\"mode\":{\"default\":\"balanced\",\"values\":[\"cost\",\"balanced\",\"quality\"]},\"retries\":{\"default\":2}}"
+    },
+    {
+      "activity": "docs",
+      "model": "flash",
+      "effort": "medium",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 2119,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 64,
+        "output_tokens": 48,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 22
+        }
+      },
+      "estimatedUsd": 0.000041355,
+      "passed": true,
+      "text": "{\"mode\":{\"default\":\"balanced\",\"values\":[\"cost\",\"balanced\",\"quality\"]},\"retries\":{\"default\":2}}"
+    },
+    {
+      "activity": "docs",
+      "model": "flash",
+      "effort": "high",
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 1016,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 64,
+        "output_tokens": 25,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197
+      },
+      "estimatedUsd": 0.000027555,
+      "passed": true,
+      "text": "{\"mode\":{\"default\":\"balanced\",\"values\":[\"cost\",\"balanced\",\"quality\"]},\"retries\":{\"default\":2}}"
+    },
+    {
+      "activity": "docs",
+      "model": "flash",
+      "effort": "max",
+      "cells": [
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "MiniMax-M3.1-Flash",
+      "served": "MiniMax-M3.1-Flash",
+      "status": 200,
+      "ms": 1076,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 64,
+        "output_tokens": 61,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 197,
+        "output_tokens_details": {
+          "thinking_tokens": 35
+        }
+      },
+      "estimatedUsd": 0.000049155,
+      "passed": true,
+      "text": "{\"mode\":{\"default\":\"balanced\",\"values\":[\"cost\",\"balanced\",\"quality\"]},\"retries\":{\"default\":2}}"
+    }
+  ]
+}
