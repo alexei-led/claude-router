@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { ACTIVITIES, loadConfig, resolveRoute, TIERS } from '../lib/config.mjs';
-import { applyMode, modeLabel, modeRoute, projectEffort, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
+import { applyMode, modeLabel, modeRoute, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 
 const r = (model, effort) => ({ model, effort });
 const ENGINEERING = ['code', 'debug', 'plan', 'review'];
@@ -36,8 +36,8 @@ test('the effort lever follows what the model lists', () => {
     });
   const cases = [
     // [efforts, high route, medium route, mode, expected high route]
-    // One level down projects up to the level it runs at: no step.
-    [['low', 'high'], r('opus', 'high'), r('opus', 'low'), 'cost', r('opus', 'high')],
+    // Cost steps to the next supported lower effort, skipping gaps rather than projecting back up.
+    [['low', 'high'], r('opus', 'high'), r('opus', 'low'), 'cost', r('opus', 'low')],
     [['high'], r('opus', 'high'), r('opus', 'high'), 'cost', r('opus', 'high')],
     [['low', 'medium', 'high'], r('opus', 'high'), r('opus', 'low'), 'cost', r('opus', 'medium')],
     [['low', 'high'], r('opus', 'low'), r('opus', 'low'), 'quality', r('opus', 'high')],
@@ -180,11 +180,4 @@ test('router.json mode and modes are validated', () => {
     assert.throws(() => loadConfig({ userFile }), message, JSON.stringify(userFile));
   assert.equal(loadConfig({ userFile: { mode: 'cost' } }).mode, 'cost');
   assert.equal(loadConfig().mode, 'balanced');
-});
-
-test('projectEffort takes the level, else the next higher listed, else the highest lower', () => {
-  assert.equal(projectEffort(['low', 'high'], 'high'), 'high');
-  assert.equal(projectEffort(['low', 'high'], 'medium'), 'high');
-  assert.equal(projectEffort(['low', 'medium'], 'max'), 'medium');
-  assert.equal(projectEffort([], 'high'), null);
 });

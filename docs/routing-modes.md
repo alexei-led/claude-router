@@ -15,7 +15,9 @@ In every mode:
 - A pin (`/router pin <tier>`) runs that tier's configured route. With routing off (`/router off`, `/model`),
   Claude's model runs, as before.
 - A route never loses its effort: an effort level moves only within what the model lists in `models.<alias>.efforts`,
-  and a route with a `null` effort (the session's) or a model without efforts has no effort step.
+  skipping unsupported levels in the direction of the move. For example, `cost` moves `max → high → low`
+  on a model listing only those three. A route with a `null` effort (the session's) or a model without efforts has no effort step.
+- [MiniMax, MiMo and Kimi tables](providers.md#new-provider-modes) show every new preset's mode/activity combination.
 
 ## Choose a mode
 

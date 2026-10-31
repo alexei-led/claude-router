@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-31",
+  "authorizedUsd": 5,
+  "accounting": "Published API-list estimates, not invoices. Per-invocation ceilings are enforced by the scripts; the supervisor tracked the aggregate manually. Console totals from the superseded first native pass are retained below; its per-request artifacts were replaced after strengthening route assertions.",
+  "artifacts": [
+    "provider-controls.json",
+    "provider-routes-minimax.json",
+    "provider-routes-mimo.json",
+    "provider-routes-kimi.json",
+    "provider-native-minimax.json",
+    "provider-native-mimo.json",
+    "provider-native-kimi.json"
+  ],
+  "supersededNativePass": {
+    "minimax": 0.000931905,
+    "mimo": 0.0013228892,
+    "kimi": 0.0136828
+  },
+  "totalEstimatedUsd": 0.062463681
+}

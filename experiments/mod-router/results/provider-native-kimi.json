@@ -1,0 +1,165 @@
+{
+  "provider": "kimi",
+  "date": "2026-10-31T15:32:26.870Z",
+  "claudeVersion": "2.1.316 (Claude Code)",
+  "budgetUsd": 0.5,
+  "accountedUsd": 0.010543999999999998,
+  "requests": [
+    {
+      "turn": 1,
+      "model": "kimi-k3.1-pro",
+      "effort": "max",
+      "thinking": "adaptive",
+      "topLevelCacheControl": null,
+      "maxTokens": 2048,
+      "afterTool": false,
+      "reservedUsd": 0.047974,
+      "status": 200,
+      "ms": 6463,
+      "served": "kimi-k3.1-pro",
+      "usage": {
+        "input_tokens": 126,
+        "cache_creation_input_tokens": 1024,
+        "cache_read_input_tokens": 1024,
+        "output_tokens": 124,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 1024,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 2174,
+        "cached_tokens": 1024,
+        "output_tokens_details": {
+          "thinking_tokens": 38
+        },
+        "completion_tokens": 124,
+        "total_tokens": 2298
+      },
+      "estimatedUsd": 0.0037448000000000004
+    },
+    {
+      "turn": 1,
+      "model": "kimi-k3.1-pro",
+      "effort": "max",
+      "thinking": "adaptive",
+      "topLevelCacheControl": null,
+      "maxTokens": 2048,
+      "afterTool": true,
+      "reservedUsd": 0.049092,
+      "status": 200,
+      "ms": 4904,
+      "served": "kimi-k3.1-pro",
+      "usage": {
+        "input_tokens": 29,
+        "cache_creation_input_tokens": 256,
+        "cache_read_input_tokens": 2048,
+        "output_tokens": 28,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 256,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 2333,
+        "cached_tokens": 2048,
+        "output_tokens_details": {
+          "thinking_tokens": 8
+        },
+        "completion_tokens": 28,
+        "total_tokens": 2361
+      },
+      "estimatedUsd": 0.0012595999999999998
+    },
+    {
+      "turn": 3,
+      "model": "kimi-k3.1-pro",
+      "effort": "low",
+      "thinking": "adaptive",
+      "topLevelCacheControl": null,
+      "maxTokens": 2048,
+      "afterTool": true,
+      "reservedUsd": 0.050822,
+      "status": 200,
+      "ms": 5083,
+      "served": "kimi-k3.1-pro",
+      "usage": {
+        "input_tokens": 198,
+        "cache_creation_input_tokens": 1280,
+        "cache_read_input_tokens": 1024,
+        "output_tokens": 96,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 1280,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 2502,
+        "cached_tokens": 1024,
+        "output_tokens_details": {
+          "thinking_tokens": 10
+        },
+        "completion_tokens": 96,
+        "total_tokens": 2598
+      },
+      "estimatedUsd": 0.0041208
+    },
+    {
+      "turn": 3,
+      "model": "kimi-k3.1-pro",
+      "effort": "low",
+      "thinking": "adaptive",
+      "topLevelCacheControl": null,
+      "maxTokens": 2048,
+      "afterTool": true,
+      "reservedUsd": 0.051792,
+      "status": 200,
+      "ms": 4113,
+      "served": "kimi-k3.1-pro",
+      "usage": {
+        "input_tokens": 83,
+        "cache_creation_input_tokens": 256,
+        "cache_read_input_tokens": 2304,
+        "output_tokens": 28,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 256,
+          "ephemeral_1h_input_tokens": 0
+        },
+        "service_tier": "standard",
+        "inference_geo": "not_available",
+        "prompt_tokens": 2643,
+        "cached_tokens": 2304,
+        "output_tokens_details": {
+          "thinking_tokens": 8
+        },
+        "completion_tokens": 28,
+        "total_tokens": 2671
+      },
+      "estimatedUsd": 0.0014188
+    }
+  ],
+  "turns": [
+    {
+      "error": false,
+      "text": "router: high pinned for the next turn and its tool continuations.",
+      "reads": 0
+    },
+    {
+      "error": false,
+      "text": "NATIVE_PROVIDER_TOOL_OK",
+      "reads": 1
+    },
+    {
+      "error": false,
+      "text": "router: micro pinned for the next turn and its tool continuations.",
+      "reads": 0
+    },
+    {
+      "error": false,
+      "text": "NATIVE_PROVIDER_TOOL_OK",
+      "reads": 1
+    }
+  ],
+  "exitCode": 0,
+  "passed": true
+}

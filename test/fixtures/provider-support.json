@@ -1,5 +1,5 @@
 {
-  "checked": "2026-10-28",
+  "checked": "2026-10-31",
   "sources": {
     "deepseek": [
       "https://api-docs.deepseek.com/quick_start/pricing",
@@ -10,9 +10,24 @@
       "https://docs.z.ai/guides/overview/pricing.md",
       "https://docs.z.ai/guides/capabilities/thinking.md",
       "https://docs.z.ai/devpack/latest-model.md"
+    ],
+    "minimax": [
+      "https://platform.minimax.io/docs/pricing/overview",
+      "https://platform.minimax.io/docs/api-reference/text-chat-anthropic",
+      "https://platform.minimax.io/docs/api-reference/text-prompt-caching"
+    ],
+    "mimo": [
+      "https://mimo.mi.com/docs/en-US/pricing",
+      "https://mimo.mi.com/docs/en-US/api/chat/anthropic-api",
+      "https://mimo.mi.com/docs/quick-start/summary/model"
+    ],
+    "kimi": [
+      "https://platform.kimi.ai/docs/pricing/chat",
+      "https://platform.kimi.ai/docs/api/messages",
+      "https://platform.kimi.ai/docs/guide/kimi-k3-1-pro-quickstart"
     ]
   },
-  "method": "Live Anthropic Messages calls with synthetic text: six per provider, all HTTP 200. DeepSeek low/high/max; both GLM models low/high/max. No quality or savings measurement. DeepSeek rates below are peak rates; z.ai rates are API list-price equivalents, not plan quota.",
+  "method": "Live Anthropic Messages calls with synthetic text: six per provider, all HTTP 200. DeepSeek low/high/max; both GLM models low/high/max. No quality or savings measurement. DeepSeek rates below are peak rates; z.ai rates are API list-price equivalents, not plan quota. New profiles checked 2026-10-31: primary documentation plus synthetic HTTP acceptance and per-activity JSON microchecks, not quality rankings. MiMo accepts effort-shaped fields but does not document depth differentiation; efforts is deliberately empty. MiniMax xhigh accepted raw but omitted from preset due client normalization risk.",
   "models": {
     "deepseek-flash": {
       "input": 0.3,
@@ -46,10 +61,50 @@
         "max"
       ],
       "imageInput": false
+    },
+    "MiniMax-M3.1-Flash": {
+      "input": 0.15,
+      "output": 0.6,
+      "cacheRead": 0.015,
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "max"
+      ],
+      "imageInput": true
+    },
+    "mimo-v2.6-flash": {
+      "input": 0.14,
+      "output": 0.28,
+      "cacheRead": 0.0028,
+      "efforts": [],
+      "imageInput": true
+    },
+    "mimo-v2.6-pro": {
+      "input": 0.435,
+      "output": 0.87,
+      "cacheRead": 0.0036,
+      "efforts": [],
+      "imageInput": true
+    },
+    "kimi-k3.1-pro": {
+      "input": 2,
+      "output": 10,
+      "cacheRead": 0.2,
+      "efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "imageInput": true
     }
   },
   "cacheEvidence": {
     "deepseek": "Repeated low/high requests reported 2688 cache-read tokens out of 2878 total input; first requests at each effort missed. This does not prove a guaranteed TTL or sharing across efforts.",
-    "zai": "All six requests reported cache_read_input_tokens: 0 and omitted cache_creation_input_tokens. Native loopback acceptance confirms Claude Code supplies zero for omitted creation counts. Positive cache hits and TTL remain unverified."
+    "zai": "All six requests reported cache_read_input_tokens: 0 and omitted cache_creation_input_tokens. Native loopback acceptance confirms Claude Code supplies zero for omitted creation counts. Positive cache hits and TTL remain unverified.",
+    "minimax": "Positive cache-read counters, no separate write premium or verified TTL.",
+    "mimo": "Short raw requests omit both cache counters. Native engine normalization must be checked. No measured hit or TTL guarantee.",
+    "kimi": "Short raw requests report zero cache writes/reads. Default cache-fill input priced at ordinary input rate; top-level 1h cache control is not used by this profile."
   }
 }

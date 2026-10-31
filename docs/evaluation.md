@@ -21,6 +21,10 @@ Terminal engineering and SRE results differ. Neither GLM model leads every activ
 Measured max-effort results do not establish low/high performance or an optimal routing matrix.
 The original DeepSeek benchmark profile does not establish the quality of its newer hosted 1017 snapshot.
 
+MiniMax, MiMo and Kimi have [separate sourced research and live checks](provider-experiments.md), including
+all activity/mode routes, retained output-format failures and native streaming tool continuations.
+Those small synthetic checks do not establish repository-quality rankings or optimal efforts.
+
 ### Compatibility checks
 
 On 2026-10-28, six synthetic live requests per provider returned HTTP 200.

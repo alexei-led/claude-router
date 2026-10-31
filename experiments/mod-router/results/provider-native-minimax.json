@@ -1,0 +1,109 @@
+{
+  "provider": "minimax",
+  "date": "2026-10-31T15:32:26.829Z",
+  "claudeVersion": "2.1.316 (Claude Code)",
+  "budgetUsd": 0.5,
+  "accountedUsd": 0.0009330899999999993,
+  "requests": [
+    {
+      "turn": 1,
+      "model": "MiniMax-M3.1-Flash",
+      "effort": "max",
+      "thinking": "adaptive",
+      "topLevelCacheControl": null,
+      "maxTokens": 2048,
+      "afterTool": false,
+      "reservedUsd": 0.0032923499999999994,
+      "status": 200,
+      "ms": 1510,
+      "served": "MiniMax-M3.1-Flash",
+      "usage": {
+        "input_tokens": 2282,
+        "output_tokens": 73,
+        "cache_read_input_tokens": 201
+      },
+      "estimatedUsd": 0.000389115
+    },
+    {
+      "turn": 1,
+      "model": "MiniMax-M3.1-Flash",
+      "effort": "max",
+      "thinking": "adaptive",
+      "topLevelCacheControl": null,
+      "maxTokens": 2048,
+      "afterTool": true,
+      "reservedUsd": 0.0033558000000000004,
+      "status": 200,
+      "ms": 6208,
+      "served": "MiniMax-M3.1-Flash",
+      "usage": {
+        "input_tokens": 101,
+        "output_tokens": 10,
+        "cache_read_input_tokens": 2482
+      },
+      "estimatedUsd": 0.00005837999999999999
+    },
+    {
+      "turn": 3,
+      "model": "MiniMax-M3.1-Flash",
+      "effort": "low",
+      "thinking": "adaptive",
+      "topLevelCacheControl": null,
+      "maxTokens": 2048,
+      "afterTool": true,
+      "reservedUsd": 0.0034730999999999994,
+      "status": 200,
+      "ms": 5479,
+      "served": "MiniMax-M3.1-Flash",
+      "usage": {
+        "input_tokens": 2542,
+        "output_tokens": 66,
+        "cache_read_input_tokens": 186
+      },
+      "estimatedUsd": 0.00042369000000000006
+    },
+    {
+      "turn": 3,
+      "model": "MiniMax-M3.1-Flash",
+      "effort": "low",
+      "thinking": "adaptive",
+      "topLevelCacheControl": null,
+      "maxTokens": 2048,
+      "afterTool": true,
+      "reservedUsd": 0.0035375999999999993,
+      "status": 200,
+      "ms": 1376,
+      "served": "MiniMax-M3.1-Flash",
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 10,
+        "cache_read_input_tokens": 2727
+      },
+      "estimatedUsd": 0.000061905
+    }
+  ],
+  "turns": [
+    {
+      "error": false,
+      "text": "router: high pinned for the next turn and its tool continuations.",
+      "reads": 0
+    },
+    {
+      "error": false,
+      "text": "NATIVE_PROVIDER_TOOL_OK",
+      "reads": 1
+    },
+    {
+      "error": false,
+      "text": "router: micro pinned for the next turn and its tool continuations.",
+      "reads": 0
+    },
+    {
+      "error": false,
+      "text": "NATIVE_PROVIDER_TOOL_OK",
+      "reads": 1
+    }
+  ],
+  "exitCode": 0,
+  "passed": true
+}

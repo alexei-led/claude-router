@@ -1,0 +1,611 @@
+{
+  "provider": "mimo",
+  "date": "2026-10-31T15:27:34.398Z",
+  "budgetUsd": 1,
+  "accountedUsd": 0.0010007050000000002,
+  "method": "One synthetic JSON microcheck per activity/route, no retries. Cells enumerate configured routes in every mode and tier. HTTP acceptance does not prove an effort is honored. Not a benchmark or savings result.",
+  "rows": [
+    {
+      "activity": "code",
+      "model": "flash",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        },
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        }
+      ],
+      "requested": "mimo-v2.6-flash",
+      "served": "mimo-v2.6-flash",
+      "status": 200,
+      "ms": 6105,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 54,
+        "output_tokens": 130
+      },
+      "estimatedUsd": 0.000043960000000000006,
+      "passed": true,
+      "text": "[3,1,2,0,-1]"
+    },
+    {
+      "activity": "code",
+      "model": "pro",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "mimo-v2.6-pro",
+      "served": "mimo-v2.6-pro",
+      "status": 200,
+      "ms": 3086,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 54,
+        "output_tokens": 55
+      },
+      "estimatedUsd": 0.00007134,
+      "passed": true,
+      "text": "```json\n[3, 1, 2, 0, -1]\n```"
+    },
+    {
+      "activity": "debug",
+      "model": "flash",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        },
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        }
+      ],
+      "requested": "mimo-v2.6-flash",
+      "served": "mimo-v2.6-flash",
+      "status": 200,
+      "ms": 2921,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 77
+      },
+      "estimatedUsd": 0.000035560000000000005,
+      "passed": true,
+      "text": "{\"bug\":\"skips-last\",\"fixed\":2}"
+    },
+    {
+      "activity": "debug",
+      "model": "pro",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "mimo-v2.6-pro",
+      "served": "mimo-v2.6-pro",
+      "status": 200,
+      "ms": 4183,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 178
+      },
+      "estimatedUsd": 0.00019836,
+      "passed": true,
+      "text": "{\"bug\":\"skips-last\",\"fixed\":2}"
+    },
+    {
+      "activity": "explore",
+      "model": "flash",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        },
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "mimo-v2.6-flash",
+      "served": "mimo-v2.6-flash",
+      "status": 200,
+      "ms": 2280,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 54,
+        "output_tokens": 44
+      },
+      "estimatedUsd": 0.000019880000000000003,
+      "passed": false,
+      "text": "[{\"import\": \"codec\"}, {\"import\": \"store\"}]"
+    },
+    {
+      "activity": "explore",
+      "model": "pro",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "mimo-v2.6-pro",
+      "served": "mimo-v2.6-pro",
+      "status": 200,
+      "ms": 3786,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 54,
+        "output_tokens": 46
+      },
+      "estimatedUsd": 0.00006351000000000001,
+      "passed": true,
+      "text": "[\"codec\",\"store\"]"
+    },
+    {
+      "activity": "plan",
+      "model": "flash",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        },
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        }
+      ],
+      "requested": "mimo-v2.6-flash",
+      "served": "mimo-v2.6-flash",
+      "status": 200,
+      "ms": 13124,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 63,
+        "output_tokens": 408
+      },
+      "estimatedUsd": 0.00012306,
+      "passed": false,
+      "text": "## Topological Deployment Plan\n\n### Analysis\n\n**Dependencies (X needs Y → Y before X):**\n- expand → nothing\n- backfill → expand\n- deploy → expand\n- switch → backfill, deploy\n- contract → switch\n\n**Step-by-step (alphabetical tie-break when multiple are ready):**\n\n| Step | Ready tasks | Chosen |\n|------|------------|--------|\n| 1 | expand | **expand** |\n| 2 | backfill, deploy | **backfill** |\n| 3 | deploy | **deploy** |\n| 4 | switch | **switch** |\n| 5 | contract | **contract** |\n\n### Result\n\n```json\n[\"expand\", \"backfill\", \"deploy\", \"switch\", \"contract\"]\n```"
+    },
+    {
+      "activity": "plan",
+      "model": "pro",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "mimo-v2.6-pro",
+      "served": "mimo-v2.6-pro",
+      "status": 200,
+      "ms": 6223,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 63,
+        "output_tokens": 174
+      },
+      "estimatedUsd": 0.000178785,
+      "passed": true,
+      "text": "```json\n[\"expand\", \"backfill\", \"deploy\", \"switch\", \"contract\"]\n```"
+    },
+    {
+      "activity": "review",
+      "model": "flash",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        },
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        }
+      ],
+      "requested": "mimo-v2.6-flash",
+      "served": "mimo-v2.6-flash",
+      "status": 200,
+      "ms": 3068,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 67,
+        "output_tokens": 47
+      },
+      "estimatedUsd": 0.00002254,
+      "passed": true,
+      "text": "{\"risk\":\"sql-injection\",\"fix\":\"parameterized-query\"}"
+    },
+    {
+      "activity": "review",
+      "model": "pro",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "mimo-v2.6-pro",
+      "served": "mimo-v2.6-pro",
+      "status": 200,
+      "ms": 2499,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 67,
+        "output_tokens": 53
+      },
+      "estimatedUsd": 0.000075255,
+      "passed": true,
+      "text": "{\"risk\":\"sql-injection\",\"fix\":\"parameterized-query\"}"
+    },
+    {
+      "activity": "ops",
+      "model": "flash",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        },
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "mimo-v2.6-flash",
+      "served": "mimo-v2.6-flash",
+      "status": 200,
+      "ms": 6673,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 62,
+        "output_tokens": 73
+      },
+      "estimatedUsd": 0.000029120000000000006,
+      "passed": true,
+      "text": "{\"healthy\":1,\"unhealthy\":2}"
+    },
+    {
+      "activity": "ops",
+      "model": "pro",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "mimo-v2.6-pro",
+      "served": "mimo-v2.6-pro",
+      "status": 200,
+      "ms": 2496,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 62,
+        "output_tokens": 36
+      },
+      "estimatedUsd": 0.00005829,
+      "passed": true,
+      "text": "{\"healthy\":1,\"unhealthy\":2}"
+    },
+    {
+      "activity": "docs",
+      "model": "flash",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "micro",
+          "mode": "cost"
+        },
+        {
+          "tier": "micro",
+          "mode": "balanced"
+        },
+        {
+          "tier": "micro",
+          "mode": "quality"
+        },
+        {
+          "tier": "low",
+          "mode": "cost"
+        },
+        {
+          "tier": "low",
+          "mode": "balanced"
+        },
+        {
+          "tier": "low",
+          "mode": "quality"
+        },
+        {
+          "tier": "medium",
+          "mode": "cost"
+        },
+        {
+          "tier": "medium",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
+        }
+      ],
+      "requested": "mimo-v2.6-flash",
+      "served": "mimo-v2.6-flash",
+      "status": 200,
+      "ms": 1830,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 67,
+        "output_tokens": 40
+      },
+      "estimatedUsd": 0.000020580000000000003,
+      "passed": true,
+      "text": "```json\n{\"mode\":{\"default\":\"balanced\",\"values\":[\"cost\",\"balanced\",\"quality\"]},\"retries\":{\"default\":2}}\n```"
+    },
+    {
+      "activity": "docs",
+      "model": "pro",
+      "effort": null,
+      "cells": [
+        {
+          "tier": "medium",
+          "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "balanced"
+        },
+        {
+          "tier": "high",
+          "mode": "quality"
+        }
+      ],
+      "requested": "mimo-v2.6-pro",
+      "served": "mimo-v2.6-pro",
+      "status": 200,
+      "ms": 4098,
+      "stop": "end_turn",
+      "usage": {
+        "input_tokens": 67,
+        "output_tokens": 36
+      },
+      "estimatedUsd": 0.000060465000000000005,
+      "passed": true,
+      "text": "```json\n{\"mode\":{\"default\":\"balanced\",\"values\":[\"cost\",\"balanced\",\"quality\"]},\"retries\":{\"default\":2}}\n```"
+    }
+  ]
+}

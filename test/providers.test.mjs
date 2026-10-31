@@ -13,7 +13,7 @@ import { drain, harness, press, start, step, texts } from './harness.mjs';
 test('provider models match sourced rates, modalities and live-accepted efforts', () => {
   const fixture = JSON.parse(readFileSync(new URL('./fixtures/provider-support.json', import.meta.url), 'utf8'));
   assert.match(fixture.checked, /^\d{4}-\d{2}-\d{2}$/);
-  for (const provider of ['deepseek', 'zai'])
+  for (const provider of ['deepseek', 'zai', 'minimax', 'mimo', 'kimi'])
     for (const model of Object.values(loadConfig({ provider }).models)) {
       const { input, output, cacheRead, efforts, imageInput } = model;
       assert.deepEqual({ input, output, cacheRead, efforts, imageInput }, fixture.models[model.id.replace('[1m]', '')]);
@@ -22,18 +22,18 @@ test('provider models match sourced rates, modalities and live-accepted efforts'
 });
 
 test('provider presets replace the Claude catalog, routes and subagent defaults', () => {
-  for (const provider of ['deepseek', 'zai']) {
+  for (const provider of ['deepseek', 'zai', 'minimax', 'mimo', 'kimi']) {
     const config = loadConfig({ provider });
     assert.equal(config.provider, provider);
     assert.ok(!Object.values(config.models).some((m) => m.id.startsWith('claude-')));
     assert.equal(config.cache.mode, 'automatic');
     for (const tier of ['micro', 'low', 'medium', 'high']) {
       const route = resolveRoute(config, tier);
-      assert.ok(config.models[route.model].efforts.includes(route.effort));
+      assert.ok(route.effort === null || config.models[route.model].efforts.includes(route.effort));
     }
     assert.ok(Object.hasOwn(config.models, config.subagents.light));
     assert.ok(Object.hasOwn(config.models, config.subagents.heavy));
-    assert.equal(resolveRoute(config, 'high').effort, 'max');
+    assert.equal(resolveRoute(config, 'high').effort, provider === 'mimo' ? null : 'max');
   }
   assert.equal(Object.keys(loadConfig({ provider: 'deepseek' }).models).length, 1);
 });

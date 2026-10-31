@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "router",
-      "description": "Provider-aware model and effort routing with Anthropic, DeepSeek and z.ai defaults, custom profiles, classifier advice and native controls.",
+      "description": "Provider-aware model and effort routing with Anthropic, DeepSeek, z.ai, MiniMax, MiMo and Kimi defaults, custom profiles, classifier advice and native controls.",
       "source": {
         "source": "github",
         "repo": "alexei-led/claude-router"
