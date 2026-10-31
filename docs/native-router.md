@@ -71,6 +71,10 @@ The Routes tab starts with the **Activity routing** selector, `off · on`, and a
 
 The Classifier tab lists every configured classifier as a row with its service host (`this machine` for a local one), its activity probe and p95 wait, and whether its key and endpoint settings are complete. Selecting a row writes `classifier` to `router.json` at once, or removes it for the default, through the same validation, and resets the new classifier's failure count. A turn already being classified finishes with its own classifier; its readings stay off the pane. **Undo** returns to the previous classifier. The deadline saves at once too, and a built-in classifier's default deadline is written as no override. **Sends** names the host that receives prompt text. The **Deadline** line shows the active classifier's p95 wait across sessions, or its probe's before any turn, in yellow when it is slower than the deadline.
 
+The Routes grid sizes its cells to the available pane width. Long labels use an ellipsis while retaining their
+built-in/unsaved marker; select a cell to inspect its complete model and effort. Observed-only Usage rows retain
+spend and tokens but show no fabricated savings. See [comparison coverage](user-guide.md#open-the-router-pane).
+
 The pane refuses to write through a symlink. A failed validation names the setting and leaves the file unchanged. New model aliases and the other supported fields need an edit to the active profile's `router.json`.
 
 ## Safety and failure states

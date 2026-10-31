@@ -164,6 +164,8 @@ declare module 'claude-code' {
   // `hours` routed USD by local hour; `turns` and `switches` count turns on the day they ended.
   interface RouterUsageDay {
     cells: Record<string, number[]>;
+    // Observed-only replies in version 3: same sums, with comparison fields 2..5 unused (zero).
+    uncompared?: Record<string, number[]>;
     whatIf: Record<string, [number, number]>;
     yours: Record<string, number>;
     hours: Record<string, number>;
@@ -173,7 +175,7 @@ declare module 'claude-code' {
   // Kept across sessions, one per session under store key 'usage:v1:<session id>' or their sum in the view, by day
   // ('2026-10-13'), since its first turn written after the last reset (ms).
   interface RouterUsageStore {
-    version: 1 | 2;
+    version: 1 | 2 | 3;
     since: number | null;
     days: Record<string, RouterUsageDay>;
   }

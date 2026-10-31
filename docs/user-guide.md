@@ -104,11 +104,17 @@ Every write applies from the next turn and can be undone. **Undo** (`u`) puts ba
 
 ![The Usage tab over 7 days: the period buttons, the answer first, routing −$7.96 (−46%) against each session's own model, the ledger from your model through cheaper models, stronger models and cache rebuilds to routed, the tokens, the cost by activity with coding opened to its routes, the cost by day, and the cell worth a look with a link to Routes](router-pane-usage.svg)
 
-The Usage tab answers what routing cost against your model. Your model is the model `/model` (or `--model`) selected, at the session effort, when a reply ran. The router prices each routed reply's tokens twice at the list prices in `router.json`: on the model that served it, and on your model.
+The Usage tab keeps observed routed spend and, when the cache history permits it, compares that spend against your model. Your model is the model `/model` (or `--model`) selected, at the session effort, when a reply ran. The router prices observed tokens at the list prices in `router.json`. A comparison also prices the same tokens on your model when its cache history can be estimated.
 
 The top row picks the period: **Session**, **Today**, **7d** (today and the six days before), **30d**, **Month** (since the first of this month) and **All**. Press `p` for the next one. The pane remembers the choice across sessions. Session holds this session's replies, and the line under the row names your model, or every model when `/model` changed during the session. The other periods add up the replies of every session on those calendar days. Each session counts against its own model, and the line reads `all projects · Oct 7 – Oct 13 · each session vs its own model`.
 
-The answer comes first, in the band's words: `routing −$1.84 (−22%) vs Opus 5.5 · xhigh` for Session, `routing −$7.96 (−46%) vs each session’s own model` for the other periods, or `routing +$2.48 (×5.0) vs Haiku 5.5 · high` when routing cost more. Below 10 routed replies it adds `early sample`, because one switch and its cache write can decide a short run. The ledger under it adds up to the routed cost in whole cents:
+When comparisons are unavailable, the band, Now tab and Usage tab say `observed $… · N replies · comparison unavailable`.
+Counts, tokens, activity/model/tier breakdowns and cost trends still include these replies. A mixed period labels the
+comparable subset separately; its savings cover only those replies. `vs yours` is `—` for a row with incomplete
+comparison coverage, and **What if** stays unavailable rather than inventing a baseline. This is common with automatic
+provider caches, whose future hit rates are unknown. No changes are needed in existing router files.
+
+When the whole period is comparable, the answer comes first, in the band's words: `routing −$1.84 (−22%) vs Opus 5.5 · xhigh` for Session, `routing −$7.96 (−46%) vs each session’s own model` for the other periods, or `routing +$2.48 (×5.0) vs Haiku 5.5 · high` when routing cost more. Below 10 routed replies it adds `early sample`, because one switch and its cache write can decide a short run. The ledger under it adds up to the routed cost in whole cents:
 
 | Line                  | What it is                                                                                     |
 | --------------------- | ---------------------------------------------------------------------------------------------- |

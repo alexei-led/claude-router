@@ -1,6 +1,7 @@
 import type { PluginState } from 'claude-code';
 import { expect, mock, test } from 'claude-code/testing';
 import { extractFacts } from '../lib/facts.mjs';
+import { emptyUsage, recordUsage, replyEntry } from '../lib/usage.mjs';
 import { assistant, body, memory, toolResult, user } from './helpers.mjs';
 
 test('full failure fingerprints distinguish test failures inside the Mod engine', () => {
@@ -24,6 +25,69 @@ test('full failure fingerprints distinguish test failures inside the Mod engine'
       { recentTurns: 6, maxTextChars: 1200 },
     );
     expect(facts.failure !== null).toBe(repeated);
+  }
+});
+
+test('observed-only replies render in native terminal and desktop Usage panes', async ($, on) => {
+  mock.store(on);
+  on('session.id', () => ({ value: 'observed-only-ui' }));
+  on('session.model', () => ({ value: 'claude-sonnet-5-5' }));
+  on('session.usage', () => ({ value: { context: { tokens: 1000 }, rateLimits: [] } }));
+  on('ui.log', () => ({ value: undefined }));
+  const now = Date.now();
+  const usage = recordUsage(
+    emptyUsage(),
+    [
+      replyEntry({
+        at: now,
+        mode: 'cost',
+        activity: 'code',
+        tier: 'low',
+        route: 'claude-haiku-5-5@high',
+        yours: 'claude-sonnet-5-5',
+        reply: null,
+        replies: {},
+        observedUsd: 0.42,
+        usage: { input_tokens: 100, cache_read_input_tokens: 800, cache_creation_input_tokens: 200, output_tokens: 10 },
+      }),
+    ],
+    { now },
+  );
+  let view: PluginState['router']['view'] = {
+    phase: 'routed',
+    mode: 'auto',
+    nativeModel: 'claude-sonnet-5-5',
+    credentials: { jev: null },
+    usageSession: usage,
+    usageStore: usage,
+  };
+  on('state.get', { plugin: 'router', key: 'view' }, () => ({ value: { value: view, version: 1 } }));
+  on('state.set', { plugin: 'router', key: 'view' }, (_$, e) => {
+    view = e.value;
+    return { value: { isSet: true, version: 2 } };
+  });
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const pane = await $.ui.mount({
+      plugin: 'router',
+      surface,
+      component: 'Pane',
+      requestId: 'jev-router',
+      viewport: { columns: 60, rows: 32 },
+      props: {
+        title: 'Router',
+        isFocused: true,
+        bodyColumns: 60,
+        placement: 'dock',
+        scroll: { offset: 0, bodyRows: 32 },
+        view: {},
+      },
+    });
+    await pane.press({ key: 'tab-usage' });
+    await pane.redraw();
+    expect(await pane.find({ type: 'Text', text: /observed \$0\.42.*1 reply.*comparison unavailable/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /input 1\.1K/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /No routed replies/ })).toBeUndefined();
+    await pane.unmount();
   }
 });
 
