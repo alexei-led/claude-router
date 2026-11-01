@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.19.2 (2026-11-01)
+
+### Added
+
+- Document the explicit `model-proxy` custom profile for mixed Anthropic and DeepSeek sessions through a separately started native proxy. No built-in mixed-provider defaults, endpoint switching or credential handling are added to the Mod.
+- Verify two-provider route switching, response-ID normalization, profile isolation and selected-file saves with the existing native hook harness.
+
+### Upgrade
+
+Restart Claude Code after updating. Existing profiles need no changes. To opt in, create a complete `model-proxy-router.json` in the selected account directory and follow the proxy setup guide. Every selected provider receives the unchanged conversation history.
+
 ## 1.19.1 (2026-10-31)
 
 ### Fixed

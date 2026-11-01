@@ -1,7 +1,7 @@
 # Providers
 
-Claude Router routes models and effort within the provider that Claude Code already uses.
-Set a provider name and give the router a matching JSON file. No provider-specific plugin or proxy is needed.
+Claude Router routes models and effort through the Anthropic-compatible endpoint that Claude Code already uses.
+Set a provider name and give the router a matching JSON file. Direct provider profiles need no proxy. The optional `model-proxy` profile uses a separately started local proxy.
 
 **Built-in profiles:** Anthropic, DeepSeek, z.ai, MiniMax, MiMo and Kimi.
 **Custom profiles:** OpenRouter, Ollama, other local servers, and other hosted providers with a Claude Code-compatible Anthropic endpoint.
@@ -45,6 +45,7 @@ The directory is `CLAUDE_CONFIG_DIR` when set, otherwise `~/.claude`.
 | `minimax` | `minimax-router.json` | MiniMax-M3.1-Flash |
 | `mimo` | `mimo-router.json` | MiMo-V2.6-Flash, MiMo-V2.6-Pro |
 | `kimi` | `kimi-router.json` | Kimi-K3.1-Pro |
+| `model-proxy` | `model-proxy-router.json` | None. Supply an explicit mixed-provider profile. |
 | `openrouter` | `openrouter-router.json` | None. Supply a complete profile. |
 | `ollama` | `ollama-router.json` | None. Supply a complete profile. |
 | Any other valid name | `<provider>-router.json` | None. Supply a complete profile. |
@@ -205,6 +206,99 @@ MiniMax uses all four preset effort levels. `xhigh` is omitted because some Clau
 MiMo's cost/quality modes change models where a neighbouring tier permits it; otherwise the route stays the same.
 Kimi uses only `low`, `high`, `max`, the documented controls, and never promotes a session into another model.
 These are starting policies, not an optimal activity matrix. See [research and experiments](provider-experiments.md).
+
+## Mix Anthropic and DeepSeek with model-proxy
+
+`model-proxy` is a custom execution profile, not another classifier or routing engine.
+Claude Code sends every request to one local `claude-proxy` endpoint. The proxy selects an explicitly configured upstream from the native model ID.
+
+1. Install and configure [claude-proxy](https://github.com/alexei-led/claude-proxy/blob/main/docs/integration.md).
+2. Save the following complete profile as `model-proxy-router.json` in the selected Claude Code configuration directory.
+3. Start the proxy manually, then use its `connect` command from v0.1.3 or newer.
+
+```json
+{
+  "models": {
+    "deepseek": {
+      "id": "deepseek-flash[1m]",
+      "input": 0.3,
+      "output": 1.2,
+      "cacheRead": 0.006,
+      "contextWindow": 1000000,
+      "billing": "credits",
+      "efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "strength": 3,
+      "imageInput": true
+    },
+    "claude": {
+      "id": "claude-opus-5-5",
+      "input": 4,
+      "output": 20,
+      "cacheRead": 0.2,
+      "contextWindow": 1000000,
+      "billing": "plan",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "strength": 4
+    }
+  },
+  "routes": {
+    "micro": {
+      "model": "deepseek",
+      "effort": "low"
+    },
+    "low": {
+      "model": "deepseek",
+      "effort": "low"
+    },
+    "medium": {
+      "model": "deepseek",
+      "effort": "high"
+    },
+    "high": {
+      "model": "claude",
+      "effort": "xhigh"
+    }
+  },
+  "activityRouting": "off",
+  "subagentRouting": "off",
+  "cache": {
+    "mode": "disabled"
+  }
+}
+```
+
+These are experimental starting routes, not measured quality rankings. Both lower tiers use DeepSeek at low effort; medium uses high effort; high uses Opus at xhigh.
+The price fields are API list-price estimates, not subscription charges. DeepSeek values use peak prices.
+Cache-cost assumptions, activity routing and subagent routing are off initially; upstream caching remains active.
+The default classifier is Jev and needs its existing plugin credential. Select another configured classifier explicitly if needed; no local classifier server is required.
+
+```sh
+# Terminal 1: the selected account's proxy configuration
+claude-proxy --config /path/to/proxy.json
+
+# Terminal 2: preserve that account's existing CLAUDE_CONFIG_DIR
+claude-proxy connect --config /path/to/proxy.json -- claude --model 'deepseek-flash[1m]'
+```
+
+`connect` supplies `CLAUDE_ROUTER_PROVIDER=model-proxy`, the local URL and the separate local access header only to the child process.
+It does not change saved OAuth, configure provider keys, start the proxy, or install this Mod.
+Without the helper, the proxy guide documents equivalent process-local environment setup.
+Endpoint and credential fields do not belong in this router JSON.
+
+Open `/router` and check the selected file, classifier health and routing state before use.
+The catalog must contain the bare native IDs; `[1m]` is client metadata, not a proxy alias.
+Every selected provider receives the unchanged history. Approve each destination; do not mix company context into an unapproved provider.
+Native Anthropic support does not guarantee compatibility with every tool or thinking history. Start with a fresh, non-sensitive conversation.
 
 ## Add another provider
 

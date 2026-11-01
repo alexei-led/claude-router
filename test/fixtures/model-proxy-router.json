@@ -1,0 +1,58 @@
+{
+  "models": {
+    "deepseek": {
+      "id": "deepseek-flash[1m]",
+      "input": 0.3,
+      "output": 1.2,
+      "cacheRead": 0.006,
+      "contextWindow": 1000000,
+      "billing": "credits",
+      "efforts": [
+        "low",
+        "high",
+        "max"
+      ],
+      "strength": 3,
+      "imageInput": true
+    },
+    "claude": {
+      "id": "claude-opus-5-5",
+      "input": 4,
+      "output": 20,
+      "cacheRead": 0.2,
+      "contextWindow": 1000000,
+      "billing": "plan",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "strength": 4
+    }
+  },
+  "routes": {
+    "micro": {
+      "model": "deepseek",
+      "effort": "low"
+    },
+    "low": {
+      "model": "deepseek",
+      "effort": "low"
+    },
+    "medium": {
+      "model": "deepseek",
+      "effort": "high"
+    },
+    "high": {
+      "model": "claude",
+      "effort": "xhigh"
+    }
+  },
+  "activityRouting": "off",
+  "subagentRouting": "off",
+  "cache": {
+    "mode": "disabled"
+  }
+}
