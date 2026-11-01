@@ -222,3 +222,11 @@ Limits:
 - Failure signatures and pins are not present in the trace. The relevant route decisions are excluded from comparison.
 - Most main rows are tool continuations or have no Jev advice. Only 37 advised decisions support the native comparison.
 - Costs cover the next request. They use the last observed output size and do not model effort-dependent output length or future answer quality.
+
+## model-proxy integration
+
+The explicit two-provider profile is covered by custom-profile validation, native hook harness switching, bare response-ID normalization, selected-file saves and automatic-advice cases. There are no built-in mixed-provider model defaults.
+
+A scoped native check on 2026-11-01 used Router 1.19.1 with Claude Code 2.1.316, the new proxy helper and an explicitly selected work account directory. A synthetic conversation completed pinned DeepSeek → Opus → DeepSeek with Read-tool continuation, followed by a successful automatic turn with Jev healthy. The proxy's [verification report](https://github.com/alexei-led/claude-proxy/blob/main/docs/verification.md#two-provider-integration-for-v013) owns this transport evidence.
+
+This is not a routing-quality, savings, full-context or universal provider-history benchmark. Automatic switching in both directions remains covered by controlled harness cases rather than that pinned live sequence.

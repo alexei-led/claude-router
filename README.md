@@ -109,6 +109,8 @@ The Anthropic profile uses these activity defaults. Other profiles have [their o
 
 A [routing mode](docs/routing-modes.md) trades cost against answer quality without new routes: `cost` takes a cheaper model or one effort level less where a turn allows it, `quality` one effort level more or the tier above, and `balanced`, the default, runs the routes as configured. Set it per session with `/router mode cost`, per project in `.claude/router.json`, or for the profile with `"mode"` in `router.json`.
 
+For mixed Anthropic and DeepSeek sessions, use the explicit [model-proxy profile](docs/providers.md#mix-anthropic-and-deepseek-with-model-proxy) with a separately started local proxy. No built-in mixed-provider defaults are installed.
+
 ## Install
 
 You need Claude Code 2.1.289 or newer and credentials for one [supported classifier](#supported-classifiers).
