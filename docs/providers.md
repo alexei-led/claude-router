@@ -305,6 +305,22 @@ It does not change saved OAuth, configure provider keys, start the proxy, or ins
 Without the helper, the proxy guide documents equivalent process-local environment setup.
 Endpoint and credential fields do not belong in this router JSON.
 
+### Choose the launch model
+
+The `--model` you launch with is your model, as in any profile. It serves the turns routing does not choose, and Usage compares the routed replies against it.
+Launch on the model you would otherwise use:
+
+| Launch model | Routing starts | Usage compares with |
+| --- | --- | --- |
+| `deepseek-flash[1m]` | at `low`, on DeepSeek | DeepSeek: Opus turns show as plan quota spent and credits saved |
+| `claude-opus-5-5` | at `high`, on Opus, until the classifier supports a cheaper tier | Opus: DeepSeek turns show as credits spent and plan quota saved |
+
+A launch model must be a model that some route runs. On any other model, a fresh session starts with routing off.
+To start on another Claude model, such as Sonnet, add it to `models`, put it on a route, and map it in the proxy configuration.
+
+Opus is billed by the plan and DeepSeek in credits, so Usage keeps the two apart: `routing credits +$4.10 · plan −$50.00 vs Opus 5.5 · medium`.
+See [plan and credits apart](user-guide.md#plan-and-credits-apart).
+
 Open `/router` and check the selected file, classifier health and routing state before use.
 The catalog must contain the bare native IDs; `[1m]` is client metadata, not a proxy alias.
 Every selected provider receives the unchanged history. Approve each destination; do not mix company context into an unapproved provider.

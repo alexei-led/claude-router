@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.20.0 (2026-11-03)
+
+### Changed
+
+- Keep plan and credits apart when a profile mixes them, such as model-proxy with Opus and DeepSeek. The band, `/router`, the Now tab and Usage give each billing its own difference against your model, `routing credits +$4.10 · plan −$50.00 vs Opus 5.5 · medium`, instead of one sum that added plan quota to paid credits. The ledger becomes a per-billing table; cross-billing parts, `vs yours` cells and findings are left out. Single-billing profiles read as before.
+- Document how the model-proxy launch model sets both the fallback and the comparison, and which tier each launch model starts at.
+
+### Upgrade
+
+Restart Claude Code after updating. No router-file or record changes are needed: existing records split by the billing of the models they name.
+
 ## 1.19.2 (2026-11-01)
 
 ### Added
