@@ -214,7 +214,8 @@ Claude Code sends every request to one local `claude-proxy` endpoint. The proxy 
 
 1. Install and configure [claude-proxy](https://github.com/alexei-led/claude-proxy/blob/main/docs/integration.md).
 2. Save the following complete profile as `model-proxy-router.json` in the selected Claude Code configuration directory.
-3. Start the proxy manually, then use its `connect` command from v0.1.3 or newer.
+3. Start the proxy manually, then use its `connect` command from v0.1.4 or newer.
+   Older proxies forward Claude Code's built-in Artifact tool schema unchanged, and DeepSeek rejects its `pattern` regex with `400 Invalid schema for function 'Artifact'`.
 
 ```json
 {
@@ -287,8 +288,17 @@ The default classifier is Jev and needs its existing plugin credential. Select a
 claude-proxy --config /path/to/proxy.json
 
 # Terminal 2: preserve that account's existing CLAUDE_CONFIG_DIR
-claude-proxy connect --config /path/to/proxy.json -- claude --model 'deepseek-flash[1m]'
+CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1 CLAUDE_CODE_ATTRIBUTION_HEADER=0 ENABLE_TOOL_SEARCH=false \
+  claude-proxy connect --config /path/to/proxy.json -- claude --model 'deepseek-flash[1m]'
 ```
+
+Any turn may reach DeepSeek, so set the same Claude Code flags a direct DeepSeek session needs:
+
+| Variable | Why |
+| --- | --- |
+| `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` | Drops beta request fields that third-party endpoints reject. Opus turns lose those betas too. |
+| `CLAUDE_CODE_ATTRIBUTION_HEADER=0` | Omits the per-version attribution block, so the system prompt stays cacheable upstream. |
+| `ENABLE_TOOL_SEARCH=false` | Tool search sends `tool_definition` blocks; DeepSeek answers `422 unknown variant`. |
 
 `connect` supplies `CLAUDE_ROUTER_PROVIDER=model-proxy`, the local URL and the separate local access header only to the child process.
 It does not change saved OAuth, configure provider keys, start the proxy, or install this Mod.
