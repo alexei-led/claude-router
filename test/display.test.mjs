@@ -9,6 +9,7 @@ import {
   missingCredentials,
   missingText,
   modeLever,
+  modelName,
   percentPair,
   routeLabel,
   sparkline,
@@ -331,4 +332,19 @@ test('unpricedLine lists the routed replies left out of usage, by cause, and not
     unpricedLine({ ...metrics, unpriced: { usage: 1, model: 0, ttl: 0, error: 0 } }),
     'Unpriced  1 routed reply left out of usage: no usage 1',
   );
+});
+
+test('modelName reads Claude and provider ids as names, without the context suffix', () => {
+  for (const [id, expected] of [
+    ['claude-opus-5-5', 'Opus 5.5'],
+    ['claude-haiku-5-5-20261001', 'Haiku 5.5'],
+    ['deepseek-flash[1m]', 'DeepSeek Flash'],
+    ['glm-5.3[1m]', 'GLM 5.3'],
+    ['glm-5.3-flash[1m]', 'GLM 5.3 Flash'],
+    ['MiniMax-M3.1-Flash[1m]', 'MiniMax M3.1 Flash'],
+    ['mimo-v2.6-pro[1m]', 'MiMo V2.6 Pro'],
+    ['kimi-k3.1-pro[1m]', 'Kimi K3.1 Pro'],
+    [null, 'no response yet'],
+  ])
+    assert.equal(modelName(id), expected, id);
 });

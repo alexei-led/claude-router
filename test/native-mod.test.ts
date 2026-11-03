@@ -84,7 +84,9 @@ test('observed-only replies render in native terminal and desktop Usage panes', 
     });
     await pane.press({ key: 'tab-usage' });
     await pane.redraw();
-    expect(await pane.find({ type: 'Text', text: /observed \$0\.42.*1 reply.*comparison unavailable/ })).toBeDefined();
+    expect(
+      await pane.find({ type: 'Text', text: /\$0\.42 at API prices · 1 reply · comparison unavailable/ }),
+    ).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /input 1\.1K/ })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /No routed replies/ })).toBeUndefined();
     await pane.unmount();

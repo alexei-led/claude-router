@@ -180,8 +180,8 @@
 <text x="390.6" y="908" fill="#7c7c7c" xml:space="preserve">  its agent file sets it</text>
 <text x="24.0" y="946" fill="#7c7c7c" xml:space="preserve">  ■ moved by the router · □ Claude Code’s pick · color: the model</text>
 <text x="24.0" y="965" fill="#7c7c7c" xml:space="preserve">  vs CC: the same tokens on Claude Code’s pick, at list prices</text>
-<text x="24.0" y="1003" fill="#7c7c7c" xml:space="preserve">  API list prices · same tokens and output length · not a bill;</text>
-<text x="24.0" y="1022" fill="#7c7c7c" xml:space="preserve">  on a Claude plan it stands for quota · answer quality not measured</text>
+<text x="24.0" y="1003" fill="#7c7c7c" xml:space="preserve">  every $ at API prices, plan and credits alike · not a bill;</text>
+<text x="24.0" y="1022" fill="#7c7c7c" xml:space="preserve">  on a Claude plan it shows quota use · answer quality not measured</text>
 <rect x="24.0" y="1046" width="140.4" height="18" rx="4" fill="#2e3340"/>
 <text x="24.0" y="1060" fill="#7c7c7c" xml:space="preserve">[ Delete history ]</text>
 <rect x="24.0" y="1065" width="70.2" height="18" rx="4" fill="#2e3340"/>
