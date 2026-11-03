@@ -113,6 +113,15 @@ test('the answer leads in the band’s words, then a ledger whose cents add up: 
   );
 });
 
+test('the footer says every dollar is API prices, plan and credits alike, and what that means on a plan', () => {
+  const all = lines();
+  const at = all.findIndex((line) => line.includes('every $ at API prices'));
+  assert.deepEqual(all.slice(at, at + 2), [
+    '  every $ at API prices, plan and credits alike · not a bill;',
+    '  on a Claude plan it shows quota use · answer quality not measured',
+  ]);
+});
+
 test('every period counts the running turn’s replies in its answer, ledger and stats alike', () => {
   const live = {
     at: NOW,

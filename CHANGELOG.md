@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.20.1 (2026-11-03)
+
+### Changed
+
+- One cost measure everywhere: every dollar is the reply's tokens at API list prices, on a Claude plan too. Profiles that mix plan and credits models, such as model-proxy with Opus and DeepSeek, get back one sum, its cheaper, stronger and cache-rebuild parts, the ledger, `vs yours`, What if and findings. This replaces the 1.20.0 per-billing split and its `observed credits … · plan … · your models mix plan and credits` line.
+- The band's session row, `/router` and the comparison-unavailable line say what the replies cost: `routing −$1.84 (−22%) vs Opus 5.5 · xhigh  =  −$2.31 cheaper models  +$0.47 cache rebuilds  ·  $6.40 at API prices · 64 replies`. `observed $…` and `est. at list prices` are gone.
+- The Usage footer and pane help say what an API price is and what it means on a plan.
+
+### Fixed
+
+- Name provider models in readouts: `DeepSeek Flash`, `GLM 5.3`, `MiniMax M3.1 Flash`, `MiMo V2.6 Pro`, `Kimi K3.1 Pro` instead of raw ids such as `Deepseek-flash[1m]`.
+
+### Upgrade
+
+Restart Claude Code after updating. No router-file or record changes are needed.
+
 ## 1.20.0 (2026-11-03)
 
 ### Changed

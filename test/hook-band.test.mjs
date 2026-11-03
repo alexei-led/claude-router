@@ -89,7 +89,7 @@ test('the band hover row pins, unpins and switches to two rows', async () => {
   await drain(h.step(step));
   assert.match(
     (await band(h)).line,
-    /session {2}routing \$0\.00 vs Haiku 5\.5 · medium {2}· {2}1 reply · early sample/,
+    /session {2}routing \$0\.00 vs Haiku 5\.5 · medium {2}· {2}\$0\.00 at API prices · 1 reply · early sample/,
   );
 });
 

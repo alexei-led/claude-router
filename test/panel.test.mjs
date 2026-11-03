@@ -135,8 +135,8 @@ test('help explains what the numbers are and that savings are not measured', () 
   const at = lines.indexOf('ABOUT THESE NUMBERS');
   assert.deepEqual(lines.slice(at, at + 7), [
     'ABOUT THESE NUMBERS',
-    'Cost, context and cache are Claude readings. $ estimates use the',
-    'list prices in router.json; plan prices are equivalents, not cash.',
+    'Cost, context and cache are Claude readings. Every $ is API prices:',
+    'tokens × router.json list prices, as if paid per token, on a plan too.',
     'Routing vs your model holds tokens and output length the same',
     'and does not measure answer quality. Cache benefit is before writes.',
     'The context bar uses the routed model’s window, 20% in reserve.',

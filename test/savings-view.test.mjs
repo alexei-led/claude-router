@@ -80,12 +80,6 @@ const record = ({ yours, replies, routedUsd, yoursUsd, cheaperUsd, strongerUsd, 
 });
 const OPUS = { nativeModel: 'claude-opus-5-5', nativeEffort: 'xhigh' };
 const HAIKU = { nativeModel: 'claude-haiku-5-5', nativeEffort: 'high' };
-const FOOTER = [
-  '',
-  '  API list prices · same tokens and output length · not a bill;',
-  '  on a Claude plan it stands for quota · answer quality not measured',
-];
-const _SAVED_FOOTER = ['', '  since Oct 10: each session compared with its own model', ...FOOTER.slice(1)];
 
 const view = (props) => ({
   mode: 'auto',
@@ -110,36 +104,45 @@ test('the two-row band says the session against your model and the parts that ad
     [
       { ...OPUS, usageSession: record(SAVES) },
       140,
-      'session  routing −$1.84 (−22%) vs Opus 5.5 · xhigh  =  −$2.31 cheaper models  +$0.47 cache rebuilds  ·  64 replies',
+      'session  routing −$1.84 (−22%) vs Opus 5.5 · xhigh  =  −$2.31 cheaper models  +$0.47 cache rebuilds  ·  $6.40 at API prices · 64 replies',
     ],
     [
       { ...HAIKU, usageSession: record(MORE) },
       140,
-      'session  routing +$2.48 (×5.0) vs Haiku 5.5 · high  =  +$2.31 stronger models  +$0.17 cache rebuilds  ·  41 replies',
+      'session  routing +$2.48 (×5.0) vs Haiku 5.5 · high  =  +$2.31 stronger models  +$0.17 cache rebuilds  ·  $3.10 at API prices · 41 replies',
     ],
-    [{ ...OPUS, usageSession: record(SAME) }, 140, 'session  routing $0.00 vs Opus 5.5 · xhigh  ·  20 replies'],
+    [
+      { ...OPUS, usageSession: record(SAME) },
+      140,
+      'session  routing $0.00 vs Opus 5.5 · xhigh  ·  $1.00 at API prices · 20 replies',
+    ],
     [
       { ...OPUS, usageSession: record(EARLY) },
       140,
-      'session  routing −$0.05 (−19%) vs Opus 5.5 · xhigh  ·  3 replies · early sample',
+      'session  routing −$0.05 (−19%) vs Opus 5.5 · xhigh  ·  $0.21 at API prices · 3 replies · early sample',
     ],
     [{ ...OPUS, usageSession: record(EARLY) }, 60, 'session  routing −$0.05 (−19%) vs Opus 5.5 · xhigh'],
     [
       { ...OPUS, usageSession: record(SAVES) },
-      90,
-      'session  routing −$1.84 (−22%) vs Opus 5.5 · xhigh  =  −$2.31 + $0.47  ·  64 replies',
+      110,
+      'session  routing −$1.84 (−22%) vs Opus 5.5 · xhigh  =  −$2.31 + $0.47  ·  $6.40 at API prices · 64 replies',
     ],
     [
       { ...OPUS, usageSession: record(SAVES) },
-      75,
-      'session  routing −$1.84 (−22%) vs Opus 5.5 · xhigh  =  −$2.31 + $0.47',
+      90,
+      'session  routing −$1.84 (−22%) vs Opus 5.5 · xhigh  ·  $6.40 at API prices · 64 replies',
+    ],
+    [
+      { ...OPUS, usageSession: record(SAVES) },
+      80,
+      'session  routing −$1.84 (−22%) vs Opus 5.5 · xhigh  ·  $6.40 at API prices',
     ],
     [{ ...OPUS, usageSession: record(SAVES) }, 50, 'session  routing −$1.84 (−22%) vs Opus 5.5 · xhigh'],
     // After a /model change the session stays against the model its replies ran against.
     [
       { ...HAIKU, usageSession: record(SAVES) },
       140,
-      'session  routing −$1.84 (−22%) vs Opus 5.5  =  −$2.31 cheaper models  +$0.47 cache rebuilds  ·  64 replies',
+      'session  routing −$1.84 (−22%) vs Opus 5.5  =  −$2.31 cheaper models  +$0.47 cache rebuilds  ·  $6.40 at API prices · 64 replies',
     ],
     [{ ...OPUS }, 140, 'no replies yet'],
     [{ nativeModel: 'claude-fable-5-1', nativeEffort: null }, 140, 'session  Fable 5.1 has no list price'],
@@ -165,11 +168,11 @@ test('the band counts the running turn’s replies before the turn is recorded',
     )[1];
   assert.equal(
     second({ usageLive: Array(10).fill(live) }),
-    'session  routing −$4.00 (−80%) vs Opus 5.5 · xhigh  =  −$4.00 cheaper models  ·  10 replies',
+    'session  routing −$4.00 (−80%) vs Opus 5.5 · xhigh  =  −$4.00 cheaper models  ·  $1.00 at API prices · 10 replies',
   );
   assert.equal(
     second({ usageSession: record(SAVES), usageLive: [live] }),
-    'session  routing −$2.24 (−26%) vs Opus 5.5 · xhigh  =  −$2.71 cheaper models  +$0.47 cache rebuilds  ·  65 replies',
+    'session  routing −$2.24 (−26%) vs Opus 5.5 · xhigh  =  −$2.71 cheaper models  +$0.47 cache rebuilds  ·  $6.50 at API prices · 65 replies',
   );
 });
 
@@ -178,15 +181,15 @@ test('/router without a surface says the session in the band’s words, in one l
   for (const [props, expected] of [
     [
       { ...OPUS, usageSession: record(SAVES) },
-      'Session: routing −$1.84 (−22%) vs Opus 5.5 · xhigh = −$2.31 cheaper models +$0.47 cache rebuilds, 64 replies, est. at list prices',
+      'Session: routing −$1.84 (−22%) vs Opus 5.5 · xhigh = −$2.31 cheaper models +$0.47 cache rebuilds, $6.40 at API prices, 64 replies',
     ],
     [
       { ...HAIKU, usageSession: record(MORE) },
-      'Session: routing +$2.48 (×5.0) vs Haiku 5.5 · high = +$2.31 stronger models +$0.17 cache rebuilds, 41 replies, est. at list prices',
+      'Session: routing +$2.48 (×5.0) vs Haiku 5.5 · high = +$2.31 stronger models +$0.17 cache rebuilds, $3.10 at API prices, 41 replies',
     ],
     [
       { ...OPUS, usageSession: record(EARLY) },
-      'Session: routing −$0.05 (−19%) vs Opus 5.5 · xhigh, 3 replies, early sample, est. at list prices',
+      'Session: routing −$0.05 (−19%) vs Opus 5.5 · xhigh, $0.21 at API prices, 3 replies, early sample',
     ],
     [
       { nativeModel: 'claude-sonnet-5-5', nativeEffort: 'medium' },

@@ -58,7 +58,7 @@ New provider sources: [MiniMax pricing](https://platform.minimax.io/docs/pricing
 [MiMo pricing](https://mimo.mi.com/docs/en-US/pricing), and [Kimi pricing](https://platform.kimi.ai/docs/pricing/chat).
 All non-Anthropic built-in presets use `billing: "credits"`.
 For an included-plan model, set `billing: "plan"` to disable the cold-input cash cap.
-When a profile mixes plan and credits models, Usage gives each billing its own difference instead of one sum; see [plan and credits apart](user-guide.md#plan-and-credits-apart).
+`billing` does not change a readout: Usage prices plan and credits models alike, at API prices; see [every dollar is an API price](user-guide.md#every-dollar-is-an-api-price).
 A provider name or URL does not establish its billing product.
 
 ### Provider cache behavior

@@ -72,7 +72,7 @@ test('band and pane show observed-only totals without invented savings in every 
   const band = sessionRow(config, view, 120, NOW)
     .map((p) => p.text)
     .join('');
-  assert.match(band, /observed/);
+  assert.match(band, /at API prices · .* · comparison unavailable/);
   assert.match(band, /1 repl/);
   assert.ok(!band.includes('no replies yet'));
   for (const period of ['session', 'today', '7d', '30d', 'month', 'all']) {
@@ -82,7 +82,7 @@ test('band and pane show observed-only totals without invented savings in every 
         now: NOW,
       }),
     ).join('\n');
-    assert.match(lines, /observed/i);
+    assert.match(lines, /at API prices/);
     assert.match(lines, /comparison unavailable/i);
     assert.match(lines, /input 1\.1K/);
     assert.match(lines, /coding/);
@@ -138,13 +138,13 @@ test('text status and an unpriced native model cannot hide observed spend', () =
   const config = loadConfig({ provider: 'minimax' });
   const record = recordUsage(emptyUsage(), [entry()], { now: NOW });
   const view = { nativeModel: 'unpriced-native-model', usageSession: record, usageStore: record };
-  assert.match(savingsLine(config, view, NOW), /observed/);
+  assert.match(savingsLine(config, view, NOW), /at API prices/);
   assert.match(savingsLine(config, view, NOW), /comparison unavailable/);
   assert.match(
     sessionRow(config, view, 120, NOW)
       .map((p) => p.text)
       .join(''),
-    /observed/,
+    /at API prices/,
   );
 });
 
@@ -217,5 +217,5 @@ test('native hook records provider cost with no comparison and keeps it after tu
   await h.event('turn.complete', { turnId: 't1' });
   assert.equal(summarize(readUsage(h.view().usageSession), ALL).observed.replies, 1);
   await press(h, 'tab-usage');
-  assert.match(screen(await h.render()).join('\n'), /observed/i);
+  assert.match(screen(await h.render()).join('\n'), /at API prices/);
 });

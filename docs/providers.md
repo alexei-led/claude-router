@@ -312,14 +312,14 @@ Launch on the model you would otherwise use:
 
 | Launch model | Routing starts | Usage compares with |
 | --- | --- | --- |
-| `deepseek-flash[1m]` | at `low`, on DeepSeek | DeepSeek: Opus turns show as plan quota spent and credits saved |
-| `claude-opus-5-5` | at `high`, on Opus, until the classifier supports a cheaper tier | Opus: DeepSeek turns show as credits spent and plan quota saved |
+| `deepseek-flash[1m]` | at `low`, on DeepSeek | DeepSeek: Opus turns show as stronger models, at their API price |
+| `claude-opus-5-5` | at `high`, on Opus, until the classifier supports a cheaper tier | Opus: DeepSeek turns show as cheaper models |
 
 A launch model must be a model that some route runs. On any other model, a fresh session starts with routing off.
 To start on another Claude model, such as Sonnet, add it to `models`, put it on a route, and map it in the proxy configuration.
 
-Opus is billed by the plan and DeepSeek in credits, so Usage keeps the two apart: `routing credits +$4.10 · plan −$50.00 vs Opus 5.5 · medium`.
-See [plan and credits apart](user-guide.md#plan-and-credits-apart).
+Opus is billed by the plan and DeepSeek in credits, but Usage prices both at API prices, so one sum compares them: `routing −$41.20 (−10%) vs Opus 5.5 · high`.
+See [every dollar is an API price](user-guide.md#every-dollar-is-an-api-price).
 
 Open `/router` and check the selected file, classifier health and routing state before use.
 The catalog must contain the bare native IDs; `[1m]` is client metadata, not a proxy alias.
