@@ -10,13 +10,13 @@ import { isSameModel } from '../lib/route.mjs';
 import { compareReply } from '../lib/savings.mjs';
 import { drain, harness, press, start, step, texts } from './harness.mjs';
 
-test('provider models match sourced rates, modalities and live-accepted efforts', () => {
+test('provider models match sourced modalities and live-accepted efforts', () => {
   const fixture = JSON.parse(readFileSync(new URL('./fixtures/provider-support.json', import.meta.url), 'utf8'));
   assert.match(fixture.checked, /^\d{4}-\d{2}-\d{2}$/);
   for (const provider of ['deepseek', 'zai', 'minimax', 'mimo', 'kimi'])
     for (const model of Object.values(loadConfig({ provider }).models)) {
-      const { input, output, cacheRead, efforts, imageInput } = model;
-      assert.deepEqual({ input, output, cacheRead, efforts, imageInput }, fixture.models[model.id.replace('[1m]', '')]);
+      const { efforts, imageInput } = model;
+      assert.deepEqual({ efforts, imageInput }, fixture.models[model.id.replace('[1m]', '')]);
       assert.ok(fixture.sources[provider].every((url) => url.startsWith('https://')));
     }
 });
@@ -50,23 +50,26 @@ test('context suffix is not another served model, but real versions remain disti
   assert.equal(isSameModel('glm-5.3', 'glm-5.2'), false);
 });
 
+// Wednesday 02:00 UTC: DeepSeek's peak hours, at its list prices.
+const PEAK = Date.UTC(2026, 10, 4, 2);
+
 test('automatic prefix caches use hit/miss bounds, no TTL guarantee or write premium', () => {
   const config = loadConfig({ provider: 'deepseek' });
   const route = resolveRoute(config, 'high');
   const spec = config.models[route.model];
   const facts = { effort: 'high', models: {}, contextTokens: 1000 };
-  const bounds = inputBounds(config, route, 1000, facts, 1000);
+  const bounds = inputBounds(config, route, 1000, facts, PEAK);
   assert.equal(bounds.min, (spec.cacheRead * 1000) / 1e6);
   assert.equal(bounds.max, (spec.input * 1000) / 1e6);
   const afterMiss = inputBounds(
     config,
     route,
     1000,
-    { ...facts, models: { 'deepseek-flash@max': { prefixTokens: 0, lastAt: 1000 } } },
-    1001,
+    { ...facts, models: { 'deepseek-flash@max': { prefixTokens: 0, lastAt: PEAK } } },
+    PEAK + 1,
   );
   assert.equal(afterMiss.min, bounds.min);
-  assert.equal(coldWriteUsd(config, route.model, 1000), bounds.max);
+  assert.equal(coldWriteUsd(config, route.model, 1000, PEAK), bounds.max);
   assert.equal(cacheState({ prefixTokens: 1000, lastAt: 1000 }, 1000, config.cache), 'unknown');
 });
 
@@ -80,7 +83,7 @@ test('automatic-cache comparisons do not fabricate another route cache hit rate'
     cache_creation_input_tokens: 0,
     output_tokens: 10,
   };
-  const args = { usage, served: { model, effort: 'low' }, yours: { model, effort: 'max' }, ttl: '1h', now: 1000 };
+  const args = { usage, served: { model, effort: 'low' }, yours: { model, effort: 'max' }, ttl: '1h', now: PEAK };
   assert.equal(compareReply(config, null, args).reply, null);
   const same = compareReply(config, null, { ...args, yours: args.served }).reply;
   assert.ok(same);

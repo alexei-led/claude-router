@@ -279,7 +279,7 @@ Claude Code sends every request to one local `claude-proxy` endpoint. The proxy 
 ```
 
 These are experimental starting routes, not measured quality rankings. Both lower tiers use DeepSeek at low effort; medium uses high effort; high uses Opus at xhigh.
-The price fields are API list-price estimates, not subscription charges. DeepSeek values use peak prices.
+The price fields are API list-price estimates, not subscription charges. DeepSeek values are its peak prices; add DeepSeek's `offPeak` rule from [`lib/prices.mjs`](../lib/prices.mjs) to price its off-peak hours at half.
 Cache-cost assumptions, activity routing and subagent routing are off initially; upstream caching remains active.
 The default classifier is Jev and needs its existing plugin credential. Select another configured classifier explicitly if needed; no local classifier server is required.
 
@@ -318,8 +318,8 @@ Launch on the model you would otherwise use:
 A launch model must be a model that some route runs. On any other model, a fresh session starts with routing off.
 To start on another Claude model, such as Sonnet, add it to `models`, put it on a route, and map it in the proxy configuration.
 
-Opus is billed by the plan and DeepSeek in credits, but Usage prices both at API prices, so one sum compares them: `routing −$41.20 (−10%) vs Opus 5.5 · high`.
-See [every dollar is an API price](user-guide.md#every-dollar-is-an-api-price).
+Opus is billed by the plan and DeepSeek in credits, but the pane prices both at list prices, so one sum compares them: `session ≈$24.10 API value   billed $4.10   −$45.90 (−66%) vs no routing`, where `billed $4.10` is the DeepSeek part.
+See [how dollars are paid](user-guide.md#how-dollars-are-paid).
 
 Open `/router` and check the selected file, classifier health and routing state before use.
 The catalog must contain the bare native IDs; `[1m]` is client metadata, not a proxy alias.

@@ -262,4 +262,4 @@ Limits:
 - Claude Opus 5.5 system card: Table 8.1.A; FrontierCode (§8.4); CursorBench 4.0 (§8.8); AA-Briefcase (§8.14.4).
 - Anthropic prompting guides for Haiku 5.5 and Sonnet 5.5: effort starting points, Haiku at `xhigh` in multi-turn
   chat.
-- List prices: [`test/fixtures/list-prices.json`](../test/fixtures/list-prices.json).
+- List prices: [`lib/prices.mjs`](../lib/prices.mjs).

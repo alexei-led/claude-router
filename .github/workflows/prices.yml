@@ -1,0 +1,163 @@
+name: Prices
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  PRICES_BRANCH: bot/prices
+  ISSUE_TITLE: Price check failed
+
+concurrency:
+  group: prices
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check list prices
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      result: ${{ steps.check.outputs.result }}
+      tests: ${{ steps.test.outputs.tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: tools/package-lock.json
+      - name: Install dependencies
+        run: npm ci --prefix tools --ignore-scripts
+      # Exit 0: prices match. 1: drift, lib/prices.mjs rewritten. 2: a source failed to fetch or parse.
+      - name: Check prices
+        id: check
+        run: |
+          mkdir -p "$RUNNER_TEMP/prices"
+          code=0
+          npm run prices:check -- --write --report "$RUNNER_TEMP/prices/report.md" || code=$?
+          case "$code" in
+            0) result=same ;;
+            1) result=drift ;;
+            2) result=error ;;
+            *) echo "::error::prices:check exited $code"; result=error
+               printf 'prices:check exited with code %s. See the workflow run.\n' "$code" >"$RUNNER_TEMP/prices/report.md" ;;
+          esac
+          echo "result=$result" >>"$GITHUB_OUTPUT"
+          if [ "$result" = drift ]; then
+            git diff --binary >"$RUNNER_TEMP/prices/prices.patch"
+          fi
+      # A failing test does not block the proposal: the pull request opens as a draft with the failure attached.
+      - name: Test
+        id: test
+        if: steps.check.outputs.result == 'drift'
+        run: |
+          if npm test >"$RUNNER_TEMP/prices/test.log" 2>&1; then
+            echo "tests=pass" >>"$GITHUB_OUTPUT"
+          else
+            echo "tests=fail" >>"$GITHUB_OUTPUT"
+            tail -n 60 "$RUNNER_TEMP/prices/test.log" >"$RUNNER_TEMP/prices/test-tail.log"
+          fi
+      - name: Upload result
+        if: steps.check.outputs.result != 'same'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: prices
+          path: ${{ runner.temp }}/prices/
+          if-no-files-found: error
+          retention-days: 7
+
+  propose:
+    name: Open price pull request
+    needs: check
+    if: needs.check.outputs.result == 'drift'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TESTS: ${{ needs.check.outputs.tests }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        # The push below needs the token.
+        with:
+          persist-credentials: true # zizmor: ignore[artipacked]
+      - name: Download result
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: prices
+          path: ${{ runner.temp }}/prices
+      - name: Commit and push
+        run: |
+          git apply --index "$RUNNER_TEMP/prices/prices.patch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update embedded list prices"
+          git push --force origin "HEAD:refs/heads/$PRICES_BRANCH"
+      - name: Open or update pull request
+        run: |
+          body="$RUNNER_TEMP/prices/body.md"
+          cp "$RUNNER_TEMP/prices/report.md" "$body"
+          draft=()
+          if [ "$TESTS" = fail ]; then
+            draft=(--draft)
+            # shellcheck disable=SC2016 # backticks are Markdown, not command substitution
+            {
+              printf '\n## Tests failed\n\n'
+              printf 'Golden dollar estimates may need regenerating with `GOLDEN_WRITE=1 npm test`. Last lines of the log:\n\n'
+              printf '```\n'
+              cat "$RUNNER_TEMP/prices/test-tail.log"
+              printf '```\n'
+            } >>"$body"
+          fi
+          printf '\nCI does not run on pull requests opened with the workflow token. Close and reopen this pull request to start it.\n' >>"$body"
+          number=$(gh pr list --head "$PRICES_BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$number" ]; then
+            gh pr create --base "$DEFAULT_BRANCH" --head "$PRICES_BRANCH" \
+              --title "Update embedded list prices" --body-file "$body" "${draft[@]}"
+          else
+            gh pr edit "$number" --body-file "$body"
+            if [ "$TESTS" = fail ]; then gh pr ready "$number" --undo; else gh pr ready "$number"; fi
+          fi
+
+  report-failure:
+    name: Report check failure
+    needs: check
+    if: needs.check.outputs.result == 'error'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download result
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: prices
+          path: ${{ runner.temp }}/prices
+      - name: Open or update issue
+        run: |
+          body="$RUNNER_TEMP/prices/body.md"
+          { cat "$RUNNER_TEMP/prices/report.md"; printf '\nRun: %s/%s/actions/runs/%s\n' "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID"; } >"$body"
+          number=$(gh issue list --state open --search "\"$ISSUE_TITLE\" in:title" --json number,title \
+            --jq "map(select(.title == \"$ISSUE_TITLE\")) | .[0].number // empty")
+          if [ -z "$number" ]; then
+            gh issue create --title "$ISSUE_TITLE" --body-file "$body"
+          else
+            gh issue edit "$number" --body-file "$body"
+          fi

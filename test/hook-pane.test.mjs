@@ -442,12 +442,12 @@ test('an unsaved routing draft shows on every tab, Discard drops it, and a new s
   await press(h, 'route-medium-model', 'sonnet');
   await press(h, 'tab-classifier');
   let pane = await h.render();
-  assert.equal(controls(pane).find((node) => node.key === 'tab-routes').label, 'Routes ●');
+  assert.equal(controls(pane).find((node) => node.key === 'tab-routes').label, '2 Routes ●');
   assert.ok(texts(pane).includes('● 1 unsaved routing change  '));
   assert.ok(controls(pane).some((node) => node.key === 'save-routing'));
   await press(h, 'discard-routing');
   pane = await h.render();
-  assert.equal(controls(pane).find((node) => node.key === 'tab-routes').label, 'Routes');
+  assert.equal(controls(pane).find((node) => node.key === 'tab-routes').label, '2 Routes');
   assert.equal(
     controls(pane).find((node) => node.key === 'save-routing'),
     undefined,
@@ -466,7 +466,7 @@ test('Manual mode shows no pin buttons', async () => {
   await press(h, 'manual');
   const pane = await h.render();
   assert.ok(!controls(pane).some((node) => node.key.startsWith('pin-')));
-  assert.ok(texts(pane).includes('needs routing on (o above)'));
+  assert.ok(texts(pane).includes('needs routing on (o)'));
 });
 
 test('a classifier row switches at once, Undo from any tab returns to the previous one, and a switch clears the old health', async () => {
@@ -558,7 +558,7 @@ test('a switch clears the previous classifier readings, so no label claims them'
   const pins = controls(pane).filter((c) => c.key.startsWith('pin-'));
   assert.deepEqual(
     pins.map((c) => c.label),
-    ['▶ high —', 'medium —', 'low —', 'micro —'],
+    ['▂ Haiku·medium —', '▂▄ Haiku·high —', '▂▄▆ Opus·medium —', '▶ ▂▄▆█ Opus·xhigh —'],
   );
 });
 

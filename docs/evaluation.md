@@ -1,6 +1,6 @@
 # Evaluation
 
-The native Mod has no measured savings result. The pane reports Claude's own usage and configured-price scenarios. Its one counterfactual is [routing vs your model](#routing-vs-your-model), an estimate at configured list prices, not a bill or a measured saving.
+The native Mod has no measured savings result. The pane reports Claude's own usage and configured-price scenarios. Its one counterfactual is [routing vs no routing](#routing-vs-no-routing), an estimate at configured list prices, not a bill or a measured saving.
 
 This page separates an older gateway experiment from a shadow replay of native policy. Neither result measures answer quality or proves lower real spend. [Activity routing](#activity-routing) adds two checks of the activity label, with no savings result either.
 
@@ -150,9 +150,9 @@ Five probe results are checked in, run on 2026-10-09 and 2026-10-10 (UTC) with t
 
 Ollama's latency covers both requests and stays inside its 5000 ms deadline; on slower hardware the activity step is skipped when less than 300 ms remain. They measure the label on synthetic prompts, not routing quality or savings. The activity question costs little time: 30 alternating pairs of the same prompts, with and without it, gave Jev p50 259 ms both ways and p95 300 ms without, 306 ms with; OpenAI p50 163 ms and 162 ms, p95 296 ms and 349 ms. OpenAI's first request of a run took about 2.3 s of its 3000 ms deadline. The Classifier tab shows each result under its classifier, such as `activity probe 70/70 · p95 299 ms · Oct 10` (UTC date), when the classifier runs the probed model. The script regenerates `lib/probe-results.mjs` from the result files after each run; `npm run probe:results` does it alone, and a test fails when the two disagree. A run without a single activity answer (an activity or `uncertain`) or without a p95 latency, such as one with a revoked key or a model whose answers all lack the activity, exits with an error and writes neither file. `policy.activityMass` was not tuned on any classifier; run the probe before you trust it with a new one. Clef Omni has no probe result yet, so its Classifier tab row shows none.
 
-## Routing vs your model
+## Routing vs no routing
 
-The Usage tab compares what routed replies cost with what the same tokens would cost on your model, the model `/model` selected at the session effort when each reply ran. It answers "at list prices, did routing spend more or less than my own model for this work". It does not answer whether the answers were as good.
+The pane compares what routed replies and subagents cost with what the same tokens would cost without the router: on your model, the model `/model` selected at the session effort when each reply ran, and for each subagent on the model Claude Code would have picked. It answers "at list prices, did routing spend more or less than no routing for this work". It does not answer whether the answers were as good. The main thread's method follows; a subagent is priced on its own tokens on both models, as [Subagent routing](#subagent-routing) describes.
 
 Method, per main reply that routing chose:
 
@@ -173,7 +173,7 @@ Limits:
 - Answer quality is not measured. A saving bought with worse answers would read the same.
 - Your model's cache is simulated, and a five-minute session that the lifetime rule takes for one hour (a plan subscriber billed as overage) would read too much cache on your side.
 - A route that changes only the effort costs the same per token. On Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 it shares your cache and reads $0.00; on a provider that caches each effort apart, it shows its cache writes.
-- Subagents (see [Subagent routing](#subagent-routing)), classifier charges and replies with routing off are not counted. On a Claude plan the dollars stand for quota, not cash.
+- Classifier charges, replies with routing off, and the side calls the router does not see (titles, compaction, server-side tools) are not counted; Claude Code's `/cost` counts them. On a Claude plan the dollars stand for quota, not cash, and the pane marks them `≈`.
 - The usage records keep one record per session, by local calendar day, so sessions finishing turns at the same moment both count. A turn's switch counts on the day it ended, its replies on the days they arrived. Claude Code's store has no atomic update, which leaves these gaps: the same session open in two Claude Code processes at once can lose one's turn; a turn finishing in another process during **Delete history** can be lost; and a session's total from before a reset comes back if its first saved reply has the same millisecond as the reset, or if the system clock moved back across the reset. The router reads every session's record at session start and when the pane opens, so that read grows with the number of sessions kept. A session drops its days older than 400 days when it writes its record; on that read, another session's record with no day in the last 400 days is deleted, and past 1,000 records of other sessions those with the oldest last day go too. A record that does not read whole, such as one a later version wrote, counts toward the 1,000 but is never deleted. Totals kept before the dated usage records have no dates: All adds them, and the other periods leave them out.
 
 ## Subagent routing

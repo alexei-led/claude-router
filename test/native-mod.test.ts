@@ -84,9 +84,8 @@ test('observed-only replies render in native terminal and desktop Usage panes', 
     });
     await pane.press({ key: 'tab-usage' });
     await pane.redraw();
-    expect(
-      await pane.find({ type: 'Text', text: /\$0\.42 at API prices · 1 reply · comparison unavailable/ }),
-    ).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /^No reply has a comparison: no saving is shown\.$/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /\$0\.42$/ })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /input 1\.1K/ })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /No routed replies/ })).toBeUndefined();
     await pane.unmount();
@@ -157,14 +156,15 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
         view: {},
       },
     });
-    expect(await pane.find({ type: 'Text', text: /Context.*15%.*1.00M/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /80% reused on the last reply/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: / · 3 replies/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /^low 2/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /cost \$0.250/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: / 15%$/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /~150\.5K \/ 1\.00M/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: '80%' })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /no priced replies: cost unknown/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: ' 2   ' })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /\/cost|0\.25/ })).toBeUndefined();
     await pane.press({ key: 'usage-detail' });
     await pane.redraw();
-    expect(await pane.find({ type: 'Text', text: /Next-turn difference\s+−\$0.020 to \+\$0.030/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /Next-turn difference\s+−\$0.02 to \+\$0.03/ })).toBeDefined();
     await pane.press({ key: 'usage-detail' });
     await pane.redraw();
     expect(await pane.find({ type: 'Text', text: /Next-turn difference/ })).toBeUndefined();
@@ -175,10 +175,10 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
     expect(await pane.find({ key: 'delete-history' })).toBeDefined();
     await pane.press({ key: 'help' });
     await pane.redraw();
-    expect(await pane.find({ type: 'Text', text: /does not measure answer quality/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /Answer quality is not measured/ })).toBeDefined();
     await pane.press({ key: 'help' });
     await pane.redraw();
-    expect(await pane.find({ type: 'Text', text: /does not measure answer quality/ })).toBeUndefined();
+    expect(await pane.find({ type: 'Text', text: /Answer quality is not measured/ })).toBeUndefined();
     await pane.press({ key: 'tab-classifier' });
     await pane.redraw();
     expect(await pane.find({ key: 'classifier-jev' })).toBeDefined();
@@ -231,8 +231,8 @@ test('unknown readings remain unknown and the band preserves other Mods', async 
         view: {},
       },
     });
-    expect(await pane.find({ type: 'Text', text: /cost not reported/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /Context\s+unknown/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: /no replies yet/ })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: 'no reading yet' })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: 'no reply yet' })).toBeDefined();
     await pane.unmount();
     const band = await $.ui.mount({

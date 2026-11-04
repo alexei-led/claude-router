@@ -7,7 +7,7 @@ import { loadConfig } from '../lib/config.mjs';
 import { renderPanel, routeDraftOf } from '../lib/panel.mjs';
 import { emptySubagentStore, recordAgent, spawnRecord } from '../lib/subagents.mjs';
 import { emptyUsage, mergeUsage, recordUsage, replyEntry } from '../lib/usage.mjs';
-import { addToStrip, switchView } from '../lib/view.mjs';
+import { addToStrip } from '../lib/view.mjs';
 
 const OUT = fileURLToPath(new URL('../docs', import.meta.url));
 const NOW = new Date(2026, 9, 13, 16).getTime();
@@ -147,14 +147,16 @@ const base = {
   help: false,
   bandDetail: false,
 };
+// Claude Code's session usage on a Claude plan.
 const usage = {
   context: { tokens: 402_400 },
-  cost: { usd: 18.003 },
   rateLimits: [
-    { kind: 'five_hour', percentUsed: 48 },
-    { kind: 'seven_day', percentUsed: 43 },
+    { kind: 'five_hour', percentUsed: 48, resetsAt: new Date(NOW + 2 * 3600e3).toISOString() },
+    { kind: 'seven_day', percentUsed: 43, resetsAt: new Date(NOW + 3 * 86400e3).toISOString() },
   ],
 };
+// The band's two-row session on an API key: no plan windows.
+const keyUsage = { context: usage.context };
 
 // Routing vs your model: a session on Opus 5.5 at xhigh that routing ran mostly on cheaper tiers.
 const yours = { nativeModel: 'claude-opus-5-5', nativeEffort: 'xhigh' };
@@ -189,9 +191,15 @@ const COLUMNS = 112;
 const states = [
   ['Routing on: routed to the high tier on a clear jump', base, false],
   [
-    'Two rows, with the hover row shown: the session against your model, pins, Turn off',
+    'Two rows on a Claude plan, with the hover row shown: plan windows, the session as API value against no routing, pins',
     { ...base, ...yours, bandDetail: true, usageSession: savingsSession, estimate: null },
     true,
+  ],
+  [
+    'Two rows on an API key: the session as billed against no routing',
+    { ...base, ...yours, bandDetail: true, usageSession: savingsSession, estimate: null },
+    false,
+    keyUsage,
   ],
   [
     'A pin waits for the next turn; ✕ cancels it',
@@ -267,8 +275,8 @@ const states = [
 ];
 let y = 30;
 const parts = [];
-for (const [caption, view, hover] of states) {
-  const tree = renderBand(elements, config, view, usage, { columns: COLUMNS }, actions);
+for (const [caption, view, hover, readings = usage] of states) {
+  const tree = renderBand(elements, config, view, readings, { columns: COLUMNS, now: NOW }, actions);
   const lines = lay(tree, { hover });
   parts.push(`<text class="cap" x="20" y="${y}">${esc(caption)}</text>`);
   parts.push(
@@ -281,7 +289,7 @@ writeFileSync(
   `${OUT}/router-band.svg`,
   svg({
     title: 'The Router band above the Claude Code prompt',
-    desc: 'Seven band states drawn by the router code: routed to high, two rows with the hover row, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode set for the session.',
+    desc: 'Eight band states drawn by the router code: routed to high, two rows on a Claude plan with the hover row, two rows on an API key, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode set for the session.',
     body: parts.join('\n'),
     w: Math.ceil(COLUMNS * CW + 48),
     h: y - 14,
@@ -315,7 +323,7 @@ const draft = {
 pane(
   { ...base, tab: 'routes', routeDraft: draft, routeCell: 'code.high' },
   'Router pane, Routes tab',
-  'The activity routing mode, then one grid of tiers by activities: the tiers’ own models on top, each activity override in its cell with built-in defaults marked °, unsaved edits ●; the editor of the selected cell, coding at high, with Use tier model; the model setups in use; and the unsaved router.json changes with Save and Discard.',
+  'The activity routing mode, then one grid of tiers by activities: the tiers’ own models on top, each activity override in its cell with built-in defaults marked °, unsaved edits ●; the editor of the selected cell, code at high, with Use tier model; the model setups in use; and the unsaved router.json changes with Save and Discard.',
   'router-pane-routes.svg',
 );
 pane(
@@ -440,17 +448,6 @@ const usageSession = sessionKinds.reduce(
   emptyUsage(),
 );
 const strip = sessionKinds.reduce((built, kind) => addToStrip(built, tierOf(kind)), null);
-const last = sessionKinds.findLastIndex((kind, i) => i && tierOf(kind) !== tierOf(sessionKinds[i - 1]));
-const routeOfKind = (kind) => {
-  const [model, effort] = KINDS[kind][2].split('@');
-  return { tier: tierOf(kind), model, effort };
-};
-const { lastSwitch } = switchView(
-  routeOfKind(sessionKinds[last - 1]),
-  routeOfKind(sessionKinds[last]),
-  'code',
-  replyAt(last),
-);
 const usageStore = mergeUsage([
   usageSession,
   [
@@ -510,7 +507,7 @@ function usagePane(props, title, desc, file) {
     usageStore,
     savingsStore,
     subagentStore: SUBAGENTS,
-    subagentSession: SUBAGENTS,
+    subagentSession: SESSION_AGENTS,
     ...props,
   };
   const tree = renderPanel(elements, config, view, usage, actions, {
@@ -531,18 +528,17 @@ pane(
     usageSession,
     usageStore,
     strip,
-    lastSwitch,
     subagentSession: SESSION_AGENTS,
     subagentsRunning: 1,
   },
   'Router pane, Now tab',
-  'What runs next turn: tier, model and activity, with the reason and the classifier support it weighed; one pin button per tier with its support; this session since its first reply, as a strip of every reply colored by tier, with the replies per tier and per activity, the last route switch and what routing saved against your model; today across sessions; this session’s subagents as squares by model, one running, with what routing saved on them; today’s first finding worth a look with a link to Routes; and context, cache and cost.',
+  'NEXT TURN: the tier meter, model and activity, the reason with the classifier support it weighed and the switch cost, and one pin per tier, low to high, with its support. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total of the main thread and one running subagent as API value, the difference against no routing, the main thread and the subagents as bars on one scale, and a strip of every reply colored by tier with the replies per tier. CONTEXT: the window fill and the cache reuse.',
   'router-pane-now.svg',
 );
 usagePane(
   { usagePeriod: '7d', usageGroup: 'activity', usageOpen: 'activity:code' },
   'Router pane, Usage tab',
-  'The last 7 days across sessions: the period row, routing saved against each session’s own model as a ledger (your model, cheaper models, stronger models, switch cache writes, routed), the replies and tokens, the cost by activity with coding opened to its routes and cost parts, the cost by day, what is worth a look with a link to Routes, subagents, and Delete history.',
+  'The last 7 days across sessions: the period row, the difference against no routing first, then a cost table whose rows add up (the main thread with its cheaper-model saving and cache rebuilds, the subagents, the total) with each row against no routing, the replies and tokens, the cost by activity with code opened to its routes and cost parts, the cost by day, what is worth a look with a link to Routes, subagents, and Delete history.',
   'router-pane-usage.svg',
 );
 usagePane(

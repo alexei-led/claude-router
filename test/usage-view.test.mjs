@@ -95,30 +95,43 @@ test('the scope line says whose replies the period holds and what each is compar
     assert.equal(lines({ usagePeriod: period })[4], expected, period);
 });
 
-test('the answer leads in the band’s words, then a ledger whose cents add up: your model − cheaper + stronger + cache rebuilds = routed', () => {
-  assert.deepEqual(after(lines(), 'routing −$4.70 (−52%) vs Opus 5.5 · xhigh', 9), [
-    'routing −$4.70 (−52%) vs Opus 5.5 · xhigh',
+test('the answer leads, then a cost table whose cents add up: cost − no routing = the difference, and its parts', () => {
+  assert.deepEqual(after(lines(), '−$4.70 (−52%) vs no routing', 12), [
+    '−$4.70 (−52%) vs no routing',
     '',
-    '    Your model              $9.00   Opus 5.5 · xhigh',
-    '  − Cheaper models          $4.92',
-    '  + Stronger models         $0.00',
-    '  + Cache rebuilds          $0.22   4 route switches · 4% of the saving',
-    '  = Routed                  $4.30   ███████████░░░░░░░░░░░ 48% of your model',
+    '                              cost  vs no routing  no routing',
+    'main · 20 replies            $4.30         −$4.70       $9.00',
+    '  cheaper models                           −$4.92',
+    '  cache rebuilds                           +$0.22   4% of the saving',
+    '─────────────────────────────────────────────────────────────',
+    'session · billed             $4.30         −$4.70       $9.00',
     '',
     '  20 replies · 10 turns · input 22.0K · cache hit 73% · output 200',
+    '',
+    'BY  [ Activity ] [ Model ] [ Tier ]   g next',
   ]);
-  assert.equal(
-    lines({}, { columns: 72 }).find((line) => line.includes('= Routed')),
-    '  = Routed                  $4.30',
-  );
 });
 
-test('the footer says every dollar is API prices, plan and credits alike, and what that means on a plan', () => {
+test('on a Claude plan every amount in the cost table is API value with ≈, and only the differences go without', () => {
+  const usage = { rateLimits: [{ kind: 'five_hour', percentUsed: 40 }], cost: { usd: 4.5 } };
+  // Claude Code's own /cost is not shown: the router's total is the only one.
+  const all = screen(renderPanel(ELEMENTS, DEFAULTS, view(), usage, recording().actions, { columns: 100, now: NOW }));
+  assert.deepEqual(after(all, 'main · 20 replies           ≈$4.30         −$4.70      ≈$9.00', 6), [
+    'main · 20 replies           ≈$4.30         −$4.70      ≈$9.00',
+    '  cheaper models                           −$4.92',
+    '  cache rebuilds                           +$0.22   4% of the saving',
+    '─────────────────────────────────────────────────────────────',
+    'session · ≈ API value       ≈$4.30         −$4.70      ≈$9.00',
+    '',
+  ]);
+});
+
+test('the footer says what $ and ≈ mean and that answer quality is not measured', () => {
   const all = lines();
-  const at = all.findIndex((line) => line.includes('every $ at API prices'));
+  const at = all.indexOf('  $ = tokens × list prices · ≈ = API value of plan quota');
   assert.deepEqual(all.slice(at, at + 2), [
-    '  every $ at API prices, plan and credits alike · not a bill;',
-    '  on a Claude plan it shows quota use · answer quality not measured',
+    '  $ = tokens × list prices · ≈ = API value of plan quota',
+    '  answer quality not measured',
   ]);
 });
 
@@ -133,7 +146,7 @@ test('every period counts the running turn’s replies in its answer, ledger and
   for (const usagePeriod of ['session', 'today', 'all']) {
     const before = lines({ usagePeriod });
     const after = lines({ usagePeriod, usageLive: [live] });
-    const answer = (shown) => shown.find((line) => line.startsWith('routing '));
+    const answer = (shown) => shown.find((line) => line.endsWith(' vs no routing'));
     const stats = (shown) => shown.find((line) => / replies · \d+ turns/.test(line));
     const cents = (line) => Math.round(Number(line.match(/\$(\d+\.\d\d)/)[1]) * 100);
     assert.equal(cents(answer(after)) - cents(answer(before)), 40, usagePeriod);
@@ -144,23 +157,25 @@ test('every period counts the running turn’s replies in its answer, ledger and
 
 test('a period sums every session’s days in it, and All adds the undated totals with a note', () => {
   const week = lines({ usagePeriod: '7d' });
-  assert.ok(week.includes('routing −$4.90 (−52%) vs each session’s own model'), week.join('\n'));
-  assert.ok(week.includes('    Your model              $9.50   each session’s own model'));
+  assert.ok(week.includes('−$4.90 (−52%) vs no routing'), week.join('\n'));
+  assert.ok(week.includes('7 days · billed              $4.60         −$4.90       $9.50'));
   const all = lines({ usagePeriod: 'all' });
-  assert.ok(all.includes('routing −$16.52 (−26%) vs each session’s own model'), all.join('\n'));
-  assert.ok(all.includes('    includes $41.18 routed before dated records, kept without a breakdown'));
+  assert.deepEqual(after(all, '−$16.52 (−26%) vs no routing', 10).slice(3), [
+    'main · 422 replies          $46.08        −$16.52      $62.60',
+    '  cheaper models                          −$20.26',
+    '  cache rebuilds                           +$3.74   18% of the saving',
+    '─────────────────────────────────────────────────────────────',
+    'all · billed                $46.08        −$16.52      $62.60',
+    'includes $41.18 routed before dated records, kept without a breakdown',
+    '',
+  ]);
   assert.ok(!lines({ usagePeriod: 'month' }).some((line) => line.includes('before dated records')));
-  assert.match(
-    all.find((line) => line.includes('Cache rebuilds')),
-    /\$\d+\.\d\d {3}\d+% of the saving$/,
-    'the undated totals kept no switch count',
-  );
 });
 
 test('after /model selects another model, the session still names the model its replies were priced against', () => {
   const all = lines({ nativeModel: 'claude-sonnet-5-5', mode: 'manual' });
   assert.equal(all[4], 'this session · your model Opus 5.5');
-  assert.ok(all.some((line) => line.startsWith('    Your model') && line.endsWith('Opus 5.5')));
+  assert.ok(all.includes('−$4.70 (−52%) vs no routing'));
 });
 
 test('a models key that names another model later keeps the history under the model that ran', () => {
@@ -183,7 +198,7 @@ test('a session whose /model changed names every model its replies were priced a
   const changed = recordUsage(SESSION, [sonnet], { now: at(2026, 10, 13, 14) });
   const all = lines({ usageSession: changed });
   assert.equal(all[4], 'this session · each reply vs the model /model selected: Opus 5.5, Sonnet 5.5');
-  assert.ok(all.some((line) => line.startsWith('    Your model') && line.endsWith('Opus 5.5, Sonnet 5.5')));
+  assert.ok(all.includes('session · billed             $4.35         −$5.05       $9.40'));
 });
 
 test('without routed replies the tab says why, and below ten replies the answer is marked early', () => {
@@ -202,9 +217,7 @@ test('without routed replies the tab says why, and below ten replies the answer 
     assert.ok(!shown.some((line) => line.startsWith('BY ')), expected);
   }
   assert.ok(
-    lines({ usagePeriod: '30d', usageStore: OTHER }).includes(
-      'routing −$0.40 (−40%) vs each session’s own model   early sample · 2 replies',
-    ),
+    lines({ usagePeriod: '30d', usageStore: OTHER }).includes('−$0.40 (−40%) vs no routing   early sample · 2 replies'),
   );
 });
 
@@ -220,13 +233,14 @@ test('the breakdown groups by activity, model or tier, g presses the next groupi
       ['Tier', 'secondary', null],
     ],
   );
-  assert.deepEqual(after(screen(tree), '                         replies      cost   vs yours   mostly on', 6), [
-    '                         replies      cost   vs yours   mostly on',
-    '  ▾ coding                    10     $3.80     −$1.20   Sonnet 5.5 · high',
-    '      Opus 5.5 · xhigh         4     $2.00      $0.00',
-    '      Sonnet 5.5 · high        6     $1.80     −$1.20',
-    '      cheaper −$1.32 · stronger $0.00 · switch +$0.12 · input 11.0K · output 100',
-    '  ▸ exploring                 10     $0.50     −$3.50   Haiku 5.5 · high',
+  const HEAD = '                         replies      cost  vs no routing   mostly on';
+  assert.deepEqual(after(screen(tree), HEAD, 6), [
+    HEAD,
+    '  ▾ code                      10     $3.80         −$1.20   Sonnet 5.5 · high',
+    '      Opus 5.5 · xhigh         4     $2.00          $0.00',
+    '      Sonnet 5.5 · high        6     $1.80         −$1.20',
+    '      cheaper −$1.32 · stronger $0.00 · cache rebuilds +$0.12 · input 11.0K · output 100',
+    '  ▸ explore                   10     $0.50         −$3.50   Haiku 5.5 · high',
   ]);
   controls(tree)
     .find((c) => c.key === 'row-activity:explore')
@@ -241,15 +255,18 @@ test('the breakdown groups by activity, model or tier, g presses the next groupi
     ['usageGroup', 'model'],
   ]);
   const byModel = lines({ usageGroup: 'model' });
-  assert.deepEqual(after(byModel, '                         replies      cost   vs yours   share', 4).slice(1), [
-    '  ▸ Opus 5.5                   4     $2.00      $0.00   47%',
-    '  ▸ Sonnet 5.5                 6     $1.80     −$1.20   42%',
-    '  ▸ Haiku 5.5                 10     $0.50     −$3.50   12%',
+  assert.deepEqual(after(byModel, '                         replies      cost  vs no routing   share', 4).slice(1), [
+    '  ▸ Opus 5.5                   4     $2.00          $0.00   47%',
+    '  ▸ Sonnet 5.5                 6     $1.80         −$1.20   42%',
+    '  ▸ Haiku 5.5                 10     $0.50         −$3.50   12%',
   ]);
+  // By tier the rows run low to high, each named by its meter.
   const narrow = lines({ usageGroup: 'tier' }, { columns: 72 });
-  assert.deepEqual(after(narrow, '                         replies      cost   vs yours', 2), [
-    '                         replies      cost   vs yours',
-    '  ▸ high                       4     $2.00      $0.00',
+  assert.deepEqual(after(narrow, '                         replies      cost  vs no routing', 4), [
+    '                         replies      cost  vs no routing',
+    '  ▸ ▂▄                        10     $0.50         −$3.50',
+    '  ▸ ▂▄▆                        6     $1.80         −$1.20',
+    '  ▸ ▂▄▆█                       4     $2.00          $0.00',
   ]);
 });
 
@@ -278,7 +295,7 @@ test('what is worth a look links to the tab that changes it, and never names a m
   const tree = render({}, { actions });
   assert.deepEqual(after(screen(tree), 'WORTH A LOOK · from the numbers; answer quality is not measured', 2), [
     'WORTH A LOOK · from the numbers; answer quality is not measured',
-    '  coding · high carried 47% of the cost · mostly Opus 5.5 · xhigh  [ Routes ]',
+    '  code · ▂▄▆█ carried 47% of the cost · mostly Opus 5.5 · xhigh  [ Routes ]',
   ]);
   controls(tree)
     .find((c) => c.key === 'insight-cost')

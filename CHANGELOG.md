@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.21.0 (2026-11-04)
+
+### Changed
+
+- The band shows the tier meter (`▂` micro to `▂▄▆█` high) and the model instead of tier words, and activities as nouns: `code`, `debug`, `explore`, `plan`, `review`, `ops`, `docs`.
+- One cost model for the band, the pane and `/router`. The session total includes subagents and says how it is paid: `≈ API value` on a Claude plan, `billed` on an API key or credits.
+- Routing is compared with no routing: your `/model` choice for the main thread, Claude Code's own pick for subagents. Usage shows one table that adds up.
+- The Now tab reads in order: next turn with a pin per tier, plan windows with reset times, the session cost, then context.
+
+### Added
+
+- `lib/prices.mjs`: every built-in price with its vendor's page and check date. All were checked on 2026-11-04.
+- `npm run prices:check` compares those prices with the Anthropic, DeepSeek, Kimi, MiniMax and z.ai pages. A weekly GitHub Actions job opens a pull request when a price changes, or an issue when a page cannot be read. MiMo needs a manual check.
+
+### Removed
+
+- Claude Code's `/cost` value and the `/cost differs` warning. Run `/cost` for the whole session cost, side calls included.
+
+### Fixed
+
+- Sonnet 5.5 cache reads cost $0.10 per million tokens, not $0.20. Sonnet sessions read cheaper, and moving down from Sonnet saves less per turn. No golden routing decision changes.
+- DeepSeek Flash is priced at half outside its peak hours (01:00–04:00 and 06:00–10:00 UTC, weekdays). A Chinese public holiday is priced at peak. `router.json` models can set the same `offPeak` rule.
+
+### Upgrade
+
+Restart Claude Code after updating. No router-file or record changes are needed.
+
 ## 1.20.1 (2026-11-03)
 
 ### Changed

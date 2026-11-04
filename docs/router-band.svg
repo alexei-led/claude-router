@@ -1,156 +1,177 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 922 509" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 922 593" role="img" aria-labelledby="title desc">
   <title id="title">The Router band above the Claude Code prompt</title>
-  <desc id="desc">Seven band states drawn by the router code: routed to high, two rows with the hover row, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode set for the session.</desc>
+  <desc id="desc">Eight band states drawn by the router code: routed to high, two rows on a Claude plan with the hover row, two rows on an API key, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode set for the session.</desc>
   <style>
     text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; }
     .cap { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; fill: #9a988f; }
   </style>
-  <rect width="922" height="509" rx="8" fill="#1c1c1c"/>
+  <rect width="922" height="593" rx="8" fill="#1c1c1c"/>
 <text class="cap" x="20" y="30">Routing on: routed to the high tier on a clear jump</text>
 <rect x="12" y="38" width="897.6" height="29" rx="5" fill="#232323"/>
 <text x="24.0" y="56" fill="#e0708a" xml:space="preserve">▂</text>
 <text x="31.8" y="56" fill="#e0708a" xml:space="preserve">▄</text>
 <text x="39.6" y="56" fill="#e0708a" xml:space="preserve">▆</text>
 <text x="47.4" y="56" fill="#e0708a" xml:space="preserve">█</text>
-<rect x="55.2" y="42" width="46.8" height="18" rx="4" fill="#e0708a"/>
-<text x="55.2" y="56" fill="#0d1016" font-weight="700" xml:space="preserve"> high </text>
-<text x="109.8" y="56" fill="#d77757" font-style="italic" xml:space="preserve">coding → </text>
-<text x="180.0" y="56" fill="#d0d0d0" xml:space="preserve">Opus 5.5 · xhigh</text>
-<text x="304.8" y="56" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="343.8" y="56" fill="#7c7c7c" xml:space="preserve">↑ jump</text>
-<text x="390.6" y="56" fill="#7c7c7c" xml:space="preserve">  ·  </text>
+<text x="63.0" y="56" fill="#d0d0d0" font-weight="700" xml:space="preserve">Opus 5.5</text>
+<text x="125.4" y="56" fill="#d0d0d0" xml:space="preserve"> · xhigh</text>
+<text x="211.2" y="56" fill="#d77757" font-style="italic" xml:space="preserve">code</text>
+<text x="265.8" y="56" fill="#7c7c7c" xml:space="preserve">↑ clearly stronger</text>
 <text x="429.6" y="56" fill="#7c7c7c" xml:space="preserve">Jev 88% ≥ 82%</text>
-<text x="531.0" y="56" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="570.0" y="56" fill="#d0d0d0" xml:space="preserve">ctx </text>
-<text x="601.2" y="56" fill="#87d787" xml:space="preserve">40%</text>
-<text x="624.6" y="56" fill="#d0d0d0" xml:space="preserve"> · cache hit </text>
-<text x="726.0" y="56" fill="#87d787" xml:space="preserve">100%</text>
-<text x="772.8" y="56" fill="#d0d0d0" xml:space="preserve">Router</text>
-<text class="cap" x="20" y="95">Two rows, with the hover row shown: the session against your model, pins, Turn off</text>
+<text x="593.4" y="56" fill="#7c7c7c" xml:space="preserve">ctx </text>
+<text x="624.6" y="56" fill="#87d787" xml:space="preserve">▰▰</text>
+<text x="640.2" y="56" fill="#7c7c7c" xml:space="preserve">▱▱▱</text>
+<text x="663.6" y="56" fill="#87d787" xml:space="preserve"> 40%</text>
+<text x="718.2" y="56" fill="#7c7c7c" xml:space="preserve">cache </text>
+<text x="765.0" y="56" fill="#87d787" xml:space="preserve">100%</text>
+<text x="796.2" y="56" fill="#7c7c7c" xml:space="preserve"> last</text>
+<text x="850.8" y="56" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text class="cap" x="20" y="95">Two rows on a Claude plan, with the hover row shown: plan windows, the session as API value against no routing, pins</text>
 <rect x="12" y="103" width="897.6" height="67" rx="5" fill="#232323"/>
 <text x="24.0" y="121" fill="#e0708a" xml:space="preserve">▂</text>
 <text x="31.8" y="121" fill="#e0708a" xml:space="preserve">▄</text>
 <text x="39.6" y="121" fill="#e0708a" xml:space="preserve">▆</text>
 <text x="47.4" y="121" fill="#e0708a" xml:space="preserve">█</text>
-<rect x="55.2" y="107" width="46.8" height="18" rx="4" fill="#e0708a"/>
-<text x="55.2" y="121" fill="#0d1016" font-weight="700" xml:space="preserve"> high </text>
-<text x="109.8" y="121" fill="#d77757" font-style="italic" xml:space="preserve">coding → </text>
-<text x="180.0" y="121" fill="#d0d0d0" xml:space="preserve">Opus 5.5 · xhigh</text>
-<text x="304.8" y="121" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="343.8" y="121" fill="#7c7c7c" xml:space="preserve">↑ jump</text>
-<text x="390.6" y="121" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="429.6" y="121" fill="#7c7c7c" xml:space="preserve">balanced (default)</text>
-<text x="570.0" y="121" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="609.0" y="121" fill="#d0d0d0" xml:space="preserve">ctx </text>
-<text x="640.2" y="121" fill="#87d787" xml:space="preserve">40%</text>
-<text x="663.6" y="121" fill="#d0d0d0" xml:space="preserve"> · cache hit </text>
+<text x="63.0" y="121" fill="#d0d0d0" font-weight="700" xml:space="preserve">Opus 5.5</text>
+<text x="125.4" y="121" fill="#d0d0d0" xml:space="preserve"> · xhigh</text>
+<text x="211.2" y="121" fill="#d77757" font-style="italic" xml:space="preserve">code</text>
+<text x="265.8" y="121" fill="#7c7c7c" xml:space="preserve">↑ clearly stronger</text>
+<text x="593.4" y="121" fill="#7c7c7c" xml:space="preserve">ctx </text>
+<text x="624.6" y="121" fill="#87d787" xml:space="preserve">▰▰</text>
+<text x="640.2" y="121" fill="#7c7c7c" xml:space="preserve">▱▱▱</text>
+<text x="663.6" y="121" fill="#87d787" xml:space="preserve"> 40%</text>
+<text x="718.2" y="121" fill="#7c7c7c" xml:space="preserve">cache </text>
 <text x="765.0" y="121" fill="#87d787" xml:space="preserve">100%</text>
-<text x="811.8" y="121" fill="#d0d0d0" xml:space="preserve">Router</text>
-<text x="24.0" y="140" fill="#7c7c7c" xml:space="preserve">session  </text>
-<text x="94.2" y="140" fill="#6fcf97" font-weight="700" xml:space="preserve">routing −$1.84 (−22%)</text>
-<text x="258.0" y="140" fill="#d0d0d0" xml:space="preserve"> vs Opus 5.5 · xhigh</text>
-<text x="414.0" y="140" fill="#7c7c7c" xml:space="preserve">  =  −$2.31 + $0.47</text>
-<text x="562.2" y="140" fill="#7c7c7c" xml:space="preserve">  ·  $6.40 at API prices · 64 replies</text>
-<text x="24.0" y="159" fill="#7c7c7c" xml:space="preserve">pin next turn </text>
-<rect x="133.2" y="145" width="70.2" height="18" rx="4" fill="#2e3340"/>
-<text x="133.2" y="159" fill="#d0d0d0" xml:space="preserve">[ micro ]</text>
-<rect x="211.2" y="145" width="54.6" height="18" rx="4" fill="#2e3340"/>
-<text x="211.2" y="159" fill="#d0d0d0" xml:space="preserve">[ low ]</text>
-<rect x="273.6" y="145" width="78.0" height="18" rx="4" fill="#2e3340"/>
-<text x="273.6" y="159" fill="#d0d0d0" xml:space="preserve">[ medium ]</text>
-<rect x="359.4" y="145" width="62.4" height="18" rx="4" fill="#2e3340"/>
-<text x="359.4" y="159" fill="#d0d0d0" xml:space="preserve">[ high ]</text>
-<text x="437.4" y="159" fill="#7c7c7c" xml:space="preserve">routing on </text>
-<rect x="523.2" y="145" width="93.6" height="18" rx="4" fill="#2e3340"/>
-<text x="523.2" y="159" fill="#d0d0d0" xml:space="preserve">[ Turn off ]</text>
-<rect x="632.4" y="145" width="70.2" height="18" rx="4" fill="#2e3340"/>
-<text x="632.4" y="159" fill="#d0d0d0" xml:space="preserve">[ 1 row ]</text>
-<text class="cap" x="20" y="198">A pin waits for the next turn; ✕ cancels it</text>
-<rect x="12" y="206" width="897.6" height="29" rx="5" fill="#232323"/>
-<text x="24.0" y="224" fill="#5f9fe0" xml:space="preserve">▂</text>
-<text x="31.8" y="224" fill="#5f9fe0" xml:space="preserve">▄</text>
-<text x="39.6" y="224" fill="#7c7c7c" xml:space="preserve">▆</text>
-<text x="47.4" y="224" fill="#7c7c7c" xml:space="preserve">█</text>
-<rect x="55.2" y="210" width="39.0" height="18" rx="4" fill="#5f9fe0"/>
-<text x="55.2" y="224" fill="#0d1016" font-weight="700" xml:space="preserve"> low </text>
-<text x="102.0" y="224" fill="#d77757" font-style="italic" xml:space="preserve">running → </text>
-<text x="180.0" y="224" fill="#d0d0d0" xml:space="preserve">Haiku 5.5 · high</text>
-<text x="304.8" y="224" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="343.8" y="224" fill="#7c9cff" xml:space="preserve">⏵ next turn: </text>
-<text x="445.2" y="224" fill="#d7af5f" font-weight="700" xml:space="preserve">medium</text>
-<text x="499.8" y="224" fill="#d0d0d0" xml:space="preserve">✕</text>
-<text x="507.6" y="224" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="546.6" y="224" fill="#7c7c7c" xml:space="preserve">= fits</text>
-<text x="593.4" y="224" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="632.4" y="224" fill="#d0d0d0" xml:space="preserve">ctx </text>
-<text x="663.6" y="224" fill="#87d787" xml:space="preserve">40%</text>
-<text x="687.0" y="224" fill="#d0d0d0" xml:space="preserve"> · cache hit </text>
-<text x="788.4" y="224" fill="#87d787" xml:space="preserve">100%</text>
-<text x="835.2" y="224" fill="#d0d0d0" xml:space="preserve">Router</text>
-<text class="cap" x="20" y="263">No classifier key: routing keeps the model and offers Set up</text>
-<rect x="12" y="271" width="897.6" height="29" rx="5" fill="#232323"/>
-<text x="24.0" y="289" fill="#f0b429" xml:space="preserve">⚠ Jev: no API key</text>
-<text x="156.6" y="289" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<rect x="195.6" y="275" width="78.0" height="18" rx="4" fill="#87afff"/>
-<text x="195.6" y="289" fill="#0d1016" font-weight="700" xml:space="preserve">[ Set up ]</text>
-<text x="273.6" y="289" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="312.6" y="289" fill="#5f9fe0" xml:space="preserve">▂</text>
-<text x="320.4" y="289" fill="#5f9fe0" xml:space="preserve">▄</text>
-<text x="328.2" y="289" fill="#7c7c7c" xml:space="preserve">▆</text>
-<text x="336.0" y="289" fill="#7c7c7c" xml:space="preserve">█</text>
-<rect x="343.8" y="275" width="39.0" height="18" rx="4" fill="#5f9fe0"/>
-<text x="343.8" y="289" fill="#0d1016" font-weight="700" xml:space="preserve"> low </text>
-<text x="390.6" y="289" fill="#d0d0d0" xml:space="preserve">Haiku 5.5 · high</text>
-<text x="515.4" y="289" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="554.4" y="289" fill="#f0b429" xml:space="preserve">keeping model</text>
-<text x="671.4" y="289" fill="#d0d0d0" xml:space="preserve">Router</text>
-<text class="cap" x="20" y="328">Routing off: /model chose the model; Turn on resumes routing</text>
-<rect x="12" y="336" width="897.6" height="29" rx="5" fill="#232323"/>
-<text x="24.0" y="354" fill="#7c7c7c" xml:space="preserve">○ </text>
-<text x="39.6" y="354" fill="#d0d0d0" xml:space="preserve">Routing </text>
-<rect x="102.0" y="340" width="23.4" height="18" rx="4" fill="#2a3040"/>
-<text x="102.0" y="354" fill="#8b93a7" xml:space="preserve">off</text>
-<rect x="133.2" y="340" width="85.8" height="18" rx="4" fill="#87afff"/>
-<text x="133.2" y="354" fill="#0d1016" font-weight="700" xml:space="preserve">[ Turn on ]</text>
-<text x="219.0" y="354" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="258.0" y="354" fill="#d0d0d0" xml:space="preserve">every turn uses </text>
-<text x="382.8" y="354" fill="#d0d0d0" xml:space="preserve">Sonnet 5.5</text>
-<text x="460.8" y="354" fill="#7c7c7c" xml:space="preserve"> (/model)</text>
-<text x="546.6" y="354" fill="#d0d0d0" xml:space="preserve">Router</text>
-<text class="cap" x="20" y="393">Activity routing on: an ops turn at medium moves from Opus to Haiku</text>
-<rect x="12" y="401" width="897.6" height="29" rx="5" fill="#232323"/>
-<text x="24.0" y="419" fill="#d7af5f" xml:space="preserve">▂</text>
-<text x="31.8" y="419" fill="#d7af5f" xml:space="preserve">▄</text>
-<text x="39.6" y="419" fill="#d7af5f" xml:space="preserve">▆</text>
-<text x="47.4" y="419" fill="#7c7c7c" xml:space="preserve">█</text>
-<rect x="55.2" y="405" width="62.4" height="18" rx="4" fill="#d7af5f"/>
-<text x="55.2" y="419" fill="#0d1016" font-weight="700" xml:space="preserve"> medium </text>
-<text x="125.4" y="419" fill="#d77757" font-style="italic" xml:space="preserve">running → </text>
-<text x="203.4" y="419" fill="#d0d0d0" xml:space="preserve">Haiku 5.5 · high</text>
-<text x="328.2" y="419" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="367.2" y="419" fill="#7c7c7c" xml:space="preserve">↘ running</text>
-<text x="437.4" y="419" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="476.4" y="419" fill="#d0d0d0" xml:space="preserve">ctx </text>
-<text x="507.6" y="419" fill="#87d787" xml:space="preserve">40%</text>
-<text x="531.0" y="419" fill="#d0d0d0" xml:space="preserve"> · cache hit </text>
-<text x="632.4" y="419" fill="#87d787" xml:space="preserve">100%</text>
-<text x="679.2" y="419" fill="#d0d0d0" xml:space="preserve">Router</text>
-<text class="cap" x="20" y="458">Cost mode for this session: high runs Opus at high instead of xhigh</text>
-<rect x="12" y="466" width="897.6" height="29" rx="5" fill="#232323"/>
-<text x="24.0" y="484" fill="#e0708a" xml:space="preserve">▂</text>
-<text x="31.8" y="484" fill="#e0708a" xml:space="preserve">▄</text>
-<text x="39.6" y="484" fill="#e0708a" xml:space="preserve">▆</text>
-<text x="47.4" y="484" fill="#e0708a" xml:space="preserve">█</text>
-<rect x="55.2" y="470" width="46.8" height="18" rx="4" fill="#e0708a"/>
-<text x="55.2" y="484" fill="#0d1016" font-weight="700" xml:space="preserve"> high </text>
-<text x="109.8" y="484" fill="#d77757" font-style="italic" xml:space="preserve">coding → </text>
-<text x="180.0" y="484" fill="#d0d0d0" xml:space="preserve">Opus 5.5 · high</text>
-<text x="297.0" y="484" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="336.0" y="484" fill="#7c7c7c" xml:space="preserve">= fits</text>
-<text x="382.8" y="484" fill="#7c7c7c" xml:space="preserve">  ·  </text>
-<text x="421.8" y="484" fill="#d0d0d0" xml:space="preserve">ctx </text>
-<text x="453.0" y="484" fill="#87d787" xml:space="preserve">40%</text>
-<text x="476.4" y="484" fill="#d0d0d0" xml:space="preserve"> · cache hit </text>
-<text x="577.8" y="484" fill="#87d787" xml:space="preserve">100%</text>
-<text x="624.6" y="484" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text x="796.2" y="121" fill="#7c7c7c" xml:space="preserve"> last</text>
+<text x="850.8" y="121" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text x="24.0" y="140" fill="#7c7c7c" xml:space="preserve">plan 5h </text>
+<text x="86.4" y="140" fill="#87d787" xml:space="preserve">▰▰▰▰</text>
+<text x="117.6" y="140" fill="#7c7c7c" xml:space="preserve">▱▱▱▱</text>
+<text x="148.8" y="140" fill="#87d787" xml:space="preserve"> 48%</text>
+<text x="180.0" y="140" fill="#7c7c7c" xml:space="preserve"> ↻18:00</text>
+<text x="258.0" y="140" fill="#7c7c7c" xml:space="preserve">7d </text>
+<text x="281.4" y="140" fill="#87d787" xml:space="preserve">43%</text>
+<text x="328.2" y="140" fill="#7c7c7c" xml:space="preserve">session </text>
+<text x="390.6" y="140" fill="#d0d0d0" font-weight="700" xml:space="preserve">≈$6.40</text>
+<text x="437.4" y="140" fill="#7c7c7c" xml:space="preserve"> API value</text>
+<text x="538.8" y="140" fill="#6fcf97" font-weight="700" xml:space="preserve">−$1.84 (−22%)</text>
+<text x="640.2" y="140" fill="#7c7c7c" xml:space="preserve"> vs no routing</text>
+<text x="772.8" y="140" fill="#7c7c7c" xml:space="preserve">64 replies</text>
+<text x="24.0" y="159" fill="#7c7c7c" xml:space="preserve">pin </text>
+<rect x="55.2" y="145" width="140.4" height="18" rx="4" fill="#2e3340"/>
+<text x="55.2" y="159" fill="#d0d0d0" xml:space="preserve">[ ▂ Haiku·medium ]</text>
+<rect x="203.4" y="145" width="132.6" height="18" rx="4" fill="#2e3340"/>
+<text x="203.4" y="159" fill="#d0d0d0" xml:space="preserve">[ ▂▄ Haiku·high ]</text>
+<rect x="343.8" y="145" width="148.2" height="18" rx="4" fill="#2e3340"/>
+<text x="343.8" y="159" fill="#d0d0d0" xml:space="preserve">[ ▂▄▆ Opus·medium ]</text>
+<rect x="499.8" y="145" width="148.2" height="18" rx="4" fill="#2e3340"/>
+<text x="499.8" y="159" fill="#d0d0d0" xml:space="preserve">[ ▂▄▆█ Opus·xhigh ]</text>
+<rect x="663.6" y="145" width="93.6" height="18" rx="4" fill="#2e3340"/>
+<text x="663.6" y="159" fill="#d0d0d0" xml:space="preserve">[ Turn off ]</text>
+<rect x="772.8" y="145" width="70.2" height="18" rx="4" fill="#2e3340"/>
+<text x="772.8" y="159" fill="#d0d0d0" xml:space="preserve">[ 1 row ]</text>
+<text class="cap" x="20" y="198">Two rows on an API key: the session as billed against no routing</text>
+<rect x="12" y="206" width="897.6" height="48" rx="5" fill="#232323"/>
+<text x="24.0" y="224" fill="#e0708a" xml:space="preserve">▂</text>
+<text x="31.8" y="224" fill="#e0708a" xml:space="preserve">▄</text>
+<text x="39.6" y="224" fill="#e0708a" xml:space="preserve">▆</text>
+<text x="47.4" y="224" fill="#e0708a" xml:space="preserve">█</text>
+<text x="63.0" y="224" fill="#d0d0d0" font-weight="700" xml:space="preserve">Opus 5.5</text>
+<text x="125.4" y="224" fill="#d0d0d0" xml:space="preserve"> · xhigh</text>
+<text x="211.2" y="224" fill="#d77757" font-style="italic" xml:space="preserve">code</text>
+<text x="265.8" y="224" fill="#7c7c7c" xml:space="preserve">↑ clearly stronger</text>
+<text x="593.4" y="224" fill="#7c7c7c" xml:space="preserve">ctx </text>
+<text x="624.6" y="224" fill="#87d787" xml:space="preserve">▰▰</text>
+<text x="640.2" y="224" fill="#7c7c7c" xml:space="preserve">▱▱▱</text>
+<text x="663.6" y="224" fill="#87d787" xml:space="preserve"> 40%</text>
+<text x="718.2" y="224" fill="#7c7c7c" xml:space="preserve">cache </text>
+<text x="765.0" y="224" fill="#87d787" xml:space="preserve">100%</text>
+<text x="796.2" y="224" fill="#7c7c7c" xml:space="preserve"> last</text>
+<text x="850.8" y="224" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text x="24.0" y="243" fill="#7c7c7c" xml:space="preserve">session </text>
+<text x="86.4" y="243" fill="#d0d0d0" font-weight="700" xml:space="preserve">$6.40</text>
+<text x="125.4" y="243" fill="#7c7c7c" xml:space="preserve"> billed</text>
+<text x="203.4" y="243" fill="#6fcf97" font-weight="700" xml:space="preserve">−$1.84 (−22%)</text>
+<text x="304.8" y="243" fill="#7c7c7c" xml:space="preserve"> vs no routing</text>
+<text x="437.4" y="243" fill="#7c7c7c" xml:space="preserve">64 replies</text>
+<text class="cap" x="20" y="282">A pin waits for the next turn; ✕ cancels it</text>
+<rect x="12" y="290" width="897.6" height="29" rx="5" fill="#232323"/>
+<text x="24.0" y="308" fill="#5f9fe0" xml:space="preserve">▂</text>
+<text x="31.8" y="308" fill="#5f9fe0" xml:space="preserve">▄</text>
+<text x="39.6" y="308" fill="#7c7c7c" xml:space="preserve">▆</text>
+<text x="47.4" y="308" fill="#7c7c7c" xml:space="preserve">█</text>
+<text x="63.0" y="308" fill="#d0d0d0" font-weight="700" xml:space="preserve">Haiku 5.5</text>
+<text x="133.2" y="308" fill="#d0d0d0" xml:space="preserve"> · high</text>
+<text x="211.2" y="308" fill="#d77757" font-style="italic" xml:space="preserve">ops</text>
+<text x="258.0" y="308" fill="#7c9cff" xml:space="preserve">⏵ next </text>
+<text x="312.6" y="308" fill="#d7af5f" xml:space="preserve">▂▄▆</text>
+<text x="336.0" y="308" fill="#d7af5f" xml:space="preserve"> Opus·medium</text>
+<text x="437.4" y="308" fill="#d0d0d0" xml:space="preserve">✕</text>
+<text x="468.6" y="308" fill="#7c7c7c" xml:space="preserve">= fits</text>
+<text x="593.4" y="308" fill="#7c7c7c" xml:space="preserve">ctx </text>
+<text x="624.6" y="308" fill="#87d787" xml:space="preserve">▰▰</text>
+<text x="640.2" y="308" fill="#7c7c7c" xml:space="preserve">▱▱▱</text>
+<text x="663.6" y="308" fill="#87d787" xml:space="preserve"> 40%</text>
+<text x="718.2" y="308" fill="#7c7c7c" xml:space="preserve">cache </text>
+<text x="765.0" y="308" fill="#87d787" xml:space="preserve">100%</text>
+<text x="796.2" y="308" fill="#7c7c7c" xml:space="preserve"> last</text>
+<text x="850.8" y="308" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text class="cap" x="20" y="347">No classifier key: routing keeps the model and offers Set up</text>
+<rect x="12" y="355" width="897.6" height="29" rx="5" fill="#232323"/>
+<text x="24.0" y="373" fill="#f0b429" xml:space="preserve">⚠ Jev: no API key</text>
+<rect x="180.0" y="359" width="78.0" height="18" rx="4" fill="#87afff"/>
+<text x="180.0" y="373" fill="#0d1016" font-weight="700" xml:space="preserve">[ Set up ]</text>
+<text x="281.4" y="373" fill="#5f9fe0" xml:space="preserve">▂</text>
+<text x="289.2" y="373" fill="#5f9fe0" xml:space="preserve">▄</text>
+<text x="297.0" y="373" fill="#7c7c7c" xml:space="preserve">▆</text>
+<text x="304.8" y="373" fill="#7c7c7c" xml:space="preserve">█</text>
+<text x="320.4" y="373" fill="#d0d0d0" font-weight="700" xml:space="preserve">Haiku 5.5</text>
+<text x="390.6" y="373" fill="#d0d0d0" xml:space="preserve"> · high</text>
+<text x="468.6" y="373" fill="#7c7c7c" xml:space="preserve">= no advice</text>
+<text x="570.0" y="373" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text class="cap" x="20" y="412">Routing off: /model chose the model; Turn on resumes routing</text>
+<rect x="12" y="420" width="897.6" height="29" rx="5" fill="#232323"/>
+<text x="24.0" y="438" fill="#7c7c7c" xml:space="preserve">○ </text>
+<text x="39.6" y="438" fill="#d0d0d0" font-weight="700" xml:space="preserve">Sonnet 5.5</text>
+<rect x="125.4" y="424" width="85.8" height="18" rx="4" fill="#87afff"/>
+<text x="125.4" y="438" fill="#0d1016" font-weight="700" xml:space="preserve">[ Turn on ]</text>
+<text x="234.6" y="438" fill="#7c7c7c" xml:space="preserve">routing off · /model</text>
+<text x="406.2" y="438" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text class="cap" x="20" y="477">Activity routing on: an ops turn at medium moves from Opus to Haiku</text>
+<rect x="12" y="485" width="897.6" height="29" rx="5" fill="#232323"/>
+<text x="24.0" y="503" fill="#d7af5f" xml:space="preserve">▂</text>
+<text x="31.8" y="503" fill="#d7af5f" xml:space="preserve">▄</text>
+<text x="39.6" y="503" fill="#d7af5f" xml:space="preserve">▆</text>
+<text x="47.4" y="503" fill="#7c7c7c" xml:space="preserve">█</text>
+<text x="63.0" y="503" fill="#d0d0d0" font-weight="700" xml:space="preserve">Haiku 5.5</text>
+<text x="133.2" y="503" fill="#d0d0d0" xml:space="preserve"> · high</text>
+<text x="211.2" y="503" fill="#7c7c7c" xml:space="preserve">↓ ops</text>
+<text x="593.4" y="503" fill="#7c7c7c" xml:space="preserve">ctx </text>
+<text x="624.6" y="503" fill="#87d787" xml:space="preserve">▰▰</text>
+<text x="640.2" y="503" fill="#7c7c7c" xml:space="preserve">▱▱▱</text>
+<text x="663.6" y="503" fill="#87d787" xml:space="preserve"> 40%</text>
+<text x="718.2" y="503" fill="#7c7c7c" xml:space="preserve">cache </text>
+<text x="765.0" y="503" fill="#87d787" xml:space="preserve">100%</text>
+<text x="796.2" y="503" fill="#7c7c7c" xml:space="preserve"> last</text>
+<text x="850.8" y="503" fill="#d0d0d0" xml:space="preserve">Router</text>
+<text class="cap" x="20" y="542">Cost mode for this session: high runs Opus at high instead of xhigh</text>
+<rect x="12" y="550" width="897.6" height="29" rx="5" fill="#232323"/>
+<text x="24.0" y="568" fill="#e0708a" xml:space="preserve">▂</text>
+<text x="31.8" y="568" fill="#e0708a" xml:space="preserve">▄</text>
+<text x="39.6" y="568" fill="#e0708a" xml:space="preserve">▆</text>
+<text x="47.4" y="568" fill="#e0708a" xml:space="preserve">█</text>
+<text x="63.0" y="568" fill="#d0d0d0" font-weight="700" xml:space="preserve">Opus 5.5</text>
+<text x="125.4" y="568" fill="#d0d0d0" xml:space="preserve"> · high</text>
+<text x="203.4" y="568" fill="#d77757" font-style="italic" xml:space="preserve">code</text>
+<text x="258.0" y="568" fill="#7c7c7c" xml:space="preserve">= fits</text>
+<rect x="328.2" y="554" width="46.8" height="18" rx="4" fill="#2a3040"/>
+<text x="328.2" y="568" fill="#8b93a7" xml:space="preserve"> cost </text>
+<text x="375.0" y="568" fill="#7c7c7c" xml:space="preserve"> effort only</text>
+<text x="593.4" y="568" fill="#7c7c7c" xml:space="preserve">ctx </text>
+<text x="624.6" y="568" fill="#87d787" xml:space="preserve">▰▰</text>
+<text x="640.2" y="568" fill="#7c7c7c" xml:space="preserve">▱▱▱</text>
+<text x="663.6" y="568" fill="#87d787" xml:space="preserve"> 40%</text>
+<text x="718.2" y="568" fill="#7c7c7c" xml:space="preserve">cache </text>
+<text x="765.0" y="568" fill="#87d787" xml:space="preserve">100%</text>
+<text x="796.2" y="568" fill="#7c7c7c" xml:space="preserve"> last</text>
+<text x="850.8" y="568" fill="#d0d0d0" xml:space="preserve">Router</text>
 </svg>

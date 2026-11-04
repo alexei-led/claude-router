@@ -234,8 +234,7 @@ test('a fresh session on a model no tier routes to says why routing starts off, 
   h.model('claude-sonnet-5-5');
   await start(h);
   const line = (await band(h)).line;
-  assert.match(line, /Routing off .*every turn uses Sonnet 5\.5/);
-  assert.match(line, /Sonnet 5\.5 is not a routing tier/);
+  assert.match(line, /^○ Sonnet 5\.5 +routing off +not a routing tier/);
   await h.event('command.run', { command: 'router', args: 'auto' });
   assert.doesNotMatch((await band(h)).line, /not a routing tier/);
 });
@@ -590,7 +589,7 @@ test('a turn routed as ops moves up once its own tool calls edit code, and stays
   );
   assert.deepEqual([h.loop().decision.reason, h.loop().lastActivity], ['activity-up', 'code']);
   assert.equal(h.toasts.length, 1);
-  assert.match(h.toasts[0], /^Model changed: Haiku 5\.5 · high → Opus 5\.5 · medium · coding/);
+  assert.match(h.toasts[0], /^Model changed: Haiku 5\.5 · high → Opus 5\.5 · medium · ↑ code/);
   const { at, ...moved } = h.view().lastSwitch;
   assert.ok(Number.isFinite(at));
   assert.deepEqual(moved, {
@@ -800,16 +799,15 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   assert.equal(h.view().mode, 'auto');
   assert.deepEqual([h.requests[0].model, h.requests[0].effort], ['claude-sonnet-5-5', 'high']);
   let line = (await band(h)).line;
-  assert.match(line, / low {2}coding → Sonnet 5\.5 · high/);
-  assert.match(line, /ctx \d+% · cache hit \d+%/);
+  assert.match(line, /^▂▄▆█ Sonnet 5\.5 · high {3}code {3}= fits/);
+  assert.match(line, /ctx [▰▱]+ \d+% {3}cache \d+% last/);
   await turn(h, 't2', 'claude-sonnet-5-5', ['Bash']);
   assert.deepEqual([h.requests[1].model, h.requests[1].effort], ['claude-haiku-5-5', 'high']);
   assert.deepEqual([h.loop().decision.reason, h.loop().lastActivity], ['activity-down', 'ops']);
   assert.equal(h.toasts.length, 1);
-  assert.match(h.toasts[0], /^Model changed: Sonnet 5\.5 · high → Haiku 5\.5 · high · running/);
+  assert.match(h.toasts[0], /^Model changed: Sonnet 5\.5 · high → Haiku 5\.5 · high · ↓ ops/);
   line = (await band(h)).line;
-  assert.match(line, / low {2}running → Haiku 5\.5 · high/);
-  assert.match(line, /↘ running/);
+  assert.match(line, /^▂▄▆█ Haiku 5\.5 · high {3}↓ ops /);
   const { at, ...moved } = h.view().lastSwitch;
   assert.ok(Number.isFinite(at));
   assert.deepEqual(moved, {
@@ -818,11 +816,8 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
     activity: 'ops',
   });
   const now = texts(await h.render());
-  assert.ok(
-    now.includes('Sonnet 5.5 · high') && now.includes('Haiku 5.5 · high'),
-    'a switch inside a tier names routes',
-  );
-  assert.ok(now.includes(' 1 · ') && now.includes(' 1'), 'the session counts a reply per activity');
+  assert.ok(now.includes('Haiku 5.5 · high') && now.includes('↓ ops'), 'Now names the route and why it moved');
+  assert.ok(now.includes('ops') && now.includes(' 81%'), 'Now shows the activity answer it weighed');
   const { byActivity, ...counts } = h.view().activityStats;
   assert.deepEqual(
     Object.fromEntries(Object.entries(byActivity).map(([name, { routedUsd, ...rest }]) => [name, rest])),
@@ -1828,7 +1823,7 @@ test('with routing off a reply is not counted, and your model’s cache still fo
   assert.equal(h.preferences.get(`${USAGE}s1`), undefined);
   h.surfaces([]);
   const { text } = await h.event('command.run', { command: 'router', args: '' });
-  assert.match(text, /^Session vs Haiku 5\.5 · medium: no routed replies yet$/m);
+  assert.match(text, /^Session: no routed replies yet$/m);
 });
 
 test('a session usage without rate limits prices cache writes at five minutes', async () => {

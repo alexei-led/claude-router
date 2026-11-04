@@ -1,6 +1,6 @@
 {
   "name": "@alexeiled/claude-router",
-  "version": "1.20.1",
+  "version": "1.21.0",
   "description": "Native Claude Code model and effort routing with Anthropic, DeepSeek, z.ai, MiniMax, MiMo and Kimi defaults, custom provider profiles, and classifier advice.",
   "license": "MIT",
   "author": "Alexei Ledenev",
@@ -37,6 +37,7 @@
     "test:providers": "node experiments/mod-router/scripts/provider-acceptance.mjs",
     "format": "tools/node_modules/.bin/biome format --write .",
     "docs:images": "node scripts/render-doc-images.mjs",
+    "prices:check": "node scripts/check-prices.mjs",
     "docs:modes": "node scripts/mode-matrix.mjs",
     "probe:results": "node scripts/probe-results.mjs",
     "pack:dry": "npm pack --dry-run",
