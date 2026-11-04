@@ -30,9 +30,6 @@
   "method": "Live Anthropic Messages calls with synthetic text: six per provider, all HTTP 200. DeepSeek low/high/max; both GLM models low/high/max. No quality or savings measurement. DeepSeek rates below are peak rates; z.ai rates are API list-price equivalents, not plan quota. New profiles checked 2026-10-31: primary documentation plus synthetic HTTP acceptance and per-activity JSON microchecks, not quality rankings. MiMo accepts effort-shaped fields but does not document depth differentiation; efforts is deliberately empty. MiniMax xhigh accepted raw but omitted from preset due client normalization risk.",
   "models": {
     "deepseek-flash": {
-      "input": 0.3,
-      "output": 1.2,
-      "cacheRead": 0.006,
       "efforts": [
         "low",
         "high",
@@ -41,9 +38,6 @@
       "imageInput": true
     },
     "glm-5.3-flash": {
-      "input": 0.15,
-      "output": 0.5,
-      "cacheRead": 0.03,
       "efforts": [
         "low",
         "high",
@@ -52,9 +46,6 @@
       "imageInput": true
     },
     "glm-5.3": {
-      "input": 1.4,
-      "output": 4.4,
-      "cacheRead": 0.26,
       "efforts": [
         "low",
         "high",
@@ -63,9 +54,6 @@
       "imageInput": false
     },
     "MiniMax-M3.1-Flash": {
-      "input": 0.15,
-      "output": 0.6,
-      "cacheRead": 0.015,
       "efforts": [
         "low",
         "medium",
@@ -75,23 +63,14 @@
       "imageInput": true
     },
     "mimo-v2.6-flash": {
-      "input": 0.14,
-      "output": 0.28,
-      "cacheRead": 0.0028,
       "efforts": [],
       "imageInput": true
     },
     "mimo-v2.6-pro": {
-      "input": 0.435,
-      "output": 0.87,
-      "cacheRead": 0.0036,
       "efforts": [],
       "imageInput": true
     },
     "kimi-k3.1-pro": {
-      "input": 2,
-      "output": 10,
-      "cacheRead": 0.2,
       "efforts": [
         "low",
         "high",

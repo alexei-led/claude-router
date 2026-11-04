@@ -1158,7 +1158,7 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
   const route = `${request.model}@${request.effort ?? 'session'}`;
   // Why the usage record leaves this reply out, when it does (UNPRICED_CAUSES).
-  const observedUsd = compared?.reply?.routedUsd ?? observedReplyUsd(cfg, response.usage, compared?.ttl);
+  const observedUsd = compared?.reply?.routedUsd ?? observedReplyUsd(cfg, response.usage, compared?.ttl, at);
   const cause = !compared
     ? response.usage?.model
       ? 'error'
@@ -1638,7 +1638,10 @@ async function* stepAgent($, router, e, next) {
       const ttl = await subagentTtlOf($);
       const agent = router.agents.get(e.agentId);
       if (agent)
-        router.agents.set(e.agentId, { ...addAgentReply(router.config, agent, response.usage, ttl), running: true });
+        router.agents.set(e.agentId, {
+          ...addAgentReply(router.config, agent, response.usage, ttl, Date.now()),
+          running: true,
+        });
       if (agent && !agent.running) await showRunning($, router);
     } catch {}
   }
