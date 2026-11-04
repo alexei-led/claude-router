@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.21.0 (2026-11-04)
+
+### Changed
+
+- Redesign the band and the pane for one look and clear cost numbers. The band leads with the tier meter (`▂` micro to `▂▄▆█` high) and the model; the tier words are gone. Activities read as nouns: `code`, `debug`, `explore`, `plan`, `review`, `ops`, `docs`. The band does not repeat an activity its reason already names.
+- One cost model for the band, the pane and `/router`. The session total counts the main thread and its subagents, labelled by how it is paid: `≈ API value` on a Claude plan, `billed` on an API key or credits, and a `billed` part beside the API value when a plan profile mixes in credits models.
+- Compare against no routing instead of your model: the main thread against your `/model` choice, the subagents against Claude Code's own pick. Usage shows one table that adds up, main plus subagents against no routing; `ledger`, `at API prices` and `vs yours` are gone.
+- The Now tab answers three questions in order: NEXT TURN (meter, model, why, one pin per tier with its classifier support), PLAN (the 5-hour and 7-day windows with reset times, on a Claude plan), SESSION (total, difference against no routing, main and subagent bars, the tier strip), then CONTEXT.
+- The hover row's second line shows the plan windows and the session cost against no routing. The pane header reads `ROUTER`.
+- Subagent transcripts read `agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)`.
+
+### Removed
+
+- Claude Code's `/cost` value from the band, the pane and `/router`, with the `/cost differs` warning. The router does not see titles, compaction or server-side tools; run `/cost` for the whole session cost.
+
+### Fixed
+
+- A replies-without-comparison session says `N of M not compared` instead of showing no difference or `0 of 0`.
+- A plan window whose reset time has passed shows no reset.
+- Amounts on a plan carry `≈` in every Usage row, breakdown and bar.
+
+### Upgrade
+
+Restart Claude Code after updating. No router-file or record changes are needed.
+
 ## 1.20.1 (2026-11-03)
 
 ### Changed
