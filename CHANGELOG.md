@@ -4,29 +4,24 @@
 
 ### Changed
 
-- Redesign the band and the pane for one look and clear cost numbers. The band leads with the tier meter (`▂` micro to `▂▄▆█` high) and the model; the tier words are gone. Activities read as nouns: `code`, `debug`, `explore`, `plan`, `review`, `ops`, `docs`. The band does not repeat an activity its reason already names.
-- One cost model for the band, the pane and `/router`. The session total counts the main thread and its subagents, labelled by how it is paid: `≈ API value` on a Claude plan, `billed` on an API key or credits, and a `billed` part beside the API value when a plan profile mixes in credits models.
-- Compare against no routing instead of your model: the main thread against your `/model` choice, the subagents against Claude Code's own pick. Usage shows one table that adds up, main plus subagents against no routing; `ledger`, `at API prices` and `vs yours` are gone.
-- The Now tab answers three questions in order: NEXT TURN (meter, model, why, one pin per tier with its classifier support), PLAN (the 5-hour and 7-day windows with reset times, on a Claude plan), SESSION (total, difference against no routing, main and subagent bars, the tier strip), then CONTEXT.
-- The hover row's second line shows the plan windows and the session cost against no routing. The pane header reads `ROUTER`.
-- Subagent transcripts read `agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)`.
+- The band shows the tier meter (`▂` micro to `▂▄▆█` high) and the model instead of tier words, and activities as nouns: `code`, `debug`, `explore`, `plan`, `review`, `ops`, `docs`.
+- One cost model for the band, the pane and `/router`. The session total includes subagents and says how it is paid: `≈ API value` on a Claude plan, `billed` on an API key or credits.
+- Routing is compared with no routing: your `/model` choice for the main thread, Claude Code's own pick for subagents. Usage shows one table that adds up.
+- The Now tab reads in order: next turn with a pin per tier, plan windows with reset times, the session cost, then context.
 
 ### Added
 
-- One price list, `lib/prices.mjs`, for every built-in model, with each vendor's official price page and the date it was checked. All of them were checked against those pages on 2026-11-04: Anthropic, DeepSeek, Kimi, MiniMax, z.ai and MiMo.
-- `npm run prices:check` reads the vendors' price pages and reports any change; `-- --write` rewrites the list. A weekly GitHub Actions job runs it and opens a pull request when a price changes, or an issue when a page cannot be read. The MiMo page needs a browser and is listed for a manual check.
+- `lib/prices.mjs`: every built-in price with its vendor's page and check date. All were checked on 2026-11-04.
+- `npm run prices:check` compares those prices with the Anthropic, DeepSeek, Kimi, MiniMax and z.ai pages. A weekly GitHub Actions job opens a pull request when a price changes, or an issue when a page cannot be read. MiMo needs a manual check.
 
 ### Removed
 
-- Claude Code's `/cost` value from the band, the pane and `/router`, with the `/cost differs` warning. The router does not see titles, compaction or server-side tools; run `/cost` for the whole session cost.
+- Claude Code's `/cost` value and the `/cost differs` warning. Run `/cost` for the whole session cost, side calls included.
 
 ### Fixed
 
-- A replies-without-comparison session says `N of M not compared` instead of showing no difference or `0 of 0`.
-- A plan window whose reset time has passed shows no reset.
-- Amounts on a plan carry `≈` in every Usage row, breakdown and bar.
-- Price Sonnet 5.5 cache reads at $0.10 per million tokens, 0.05x input as on Opus 5.5, from Anthropic's current price list. It was $0.20. Sonnet sessions now cost less in every readout, and a move from Sonnet to a cheaper model saves less per turn, so its payback is longer. No routing decision in the golden scenarios changes.
-- Price DeepSeek Flash at half outside its peak hours (01:00–04:00 and 06:00–10:00 UTC, Monday to Friday), as DeepSeek bills. Each reply and each routing estimate uses the rate of its time; a Chinese public holiday is priced at peak, the higher bound. A `router.json` model can set the same `offPeak` rule.
+- Sonnet 5.5 cache reads cost $0.10 per million tokens, not $0.20. Sonnet sessions read cheaper, and moving down from Sonnet saves less per turn. No golden routing decision changes.
+- DeepSeek Flash is priced at half outside its peak hours (01:00–04:00 and 06:00–10:00 UTC, weekdays). A Chinese public holiday is priced at peak. `router.json` models can set the same `offPeak` rule.
 
 ### Upgrade
 
