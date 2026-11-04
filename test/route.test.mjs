@@ -89,7 +89,7 @@ test('switch comparison needs observed usage and preserves savings and added-cos
   assert.ok(comparison.minUsd < 0);
   assert.ok(comparison.maxUsd > 0);
   assert.equal(comparison.outputTokens, 1500);
-  assert.equal(comparison.paybackTurns, 12);
+  assert.equal(comparison.paybackTurns, 37);
 });
 
 test('a model without an output price still gets a finite input-only comparison', () => {

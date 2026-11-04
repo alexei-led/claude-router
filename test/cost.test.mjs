@@ -87,20 +87,20 @@ test('every default model is checked against the shared-cache list', () => {
 
 test('bounds distinguish observed cached prefix from generated and uncached tokens', () => {
   const bounds = native.inputBounds(SONNET_MEDIUM, resolveRoute(SONNET_MEDIUM, 'medium'), 151_500, facts, now);
-  near(bounds.min, 0.0366);
-  near(bounds.max, 0.0436);
+  near(bounds.min, 0.0218);
+  near(bounds.max, 0.0288);
   near(native.coldWriteUsd(SONNET_MEDIUM, 'tiny', 151_500), 0.303);
 });
 
 test('unknown TTL keeps an optimistic incumbent scenario and a cold candidate upper cost', () => {
   const later = now + 600_000;
   const [micro, medium] = ['micro', 'medium'].map((tier) => resolveRoute(SONNET_MEDIUM, tier));
-  near(native.switchingTaxUsd(SONNET_MEDIUM, micro, medium, facts, later), 0.2664);
-  near(native.downgradeTaxUsd(SONNET_MEDIUM, micro, medium, facts, later, 5), 0.1683);
+  near(native.switchingTaxUsd(SONNET_MEDIUM, micro, medium, facts, later), 0.2812);
+  near(native.downgradeTaxUsd(SONNET_MEDIUM, micro, medium, facts, later, 5), 0.2437);
   const estimate = native.switchEconomics(SONNET_MEDIUM, micro, medium, facts, later);
-  near(estimate.nextTurnUsd, 0.2589);
-  near(estimate.laterTurnUsd, -0.02265);
-  assert.equal(estimate.paybackTurns, 12);
+  near(estimate.nextTurnUsd, 0.2737);
+  near(estimate.laterTurnUsd, -0.0075);
+  assert.equal(estimate.paybackTurns, 37);
   assert.equal(native.cacheState(facts.models['claude-sonnet-5-5'], later, SONNET_MEDIUM.cache), 'unknown');
 });
 
@@ -120,7 +120,7 @@ test('the default policy accounts for bounded native switching costs', () => {
   assert.deepEqual(original, bounded);
   assert.equal(bounded.tier, 'medium');
   assert.equal(bounded.reason, 'downgrade-pending');
-  near(bounded.estimate.threshold, 0.9 + (0.08 * 0.1683) / 0.6683);
+  near(bounded.estimate.threshold, 0.9 + (0.08 * 0.2437) / 0.7437);
   assert.deepEqual(decide(args), original);
 });
 

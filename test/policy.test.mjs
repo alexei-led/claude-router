@@ -364,7 +364,10 @@ for (const { name, cfg = config, candidate, f = facts(opusWarm), want } of [
   {
     name: 'equal output prices keep the bar without output savings',
     cfg: loadConfig({
-      userFile: { models: { sonnet: { output: 20 } }, routes: { low: { model: 'sonnet', effort: null } } },
+      userFile: {
+        models: { sonnet: { output: 20, cacheRead: 0.2 } },
+        routes: { low: { model: 'sonnet', effort: null } },
+      },
     }),
     candidate: 'low',
     want: 'without-output-savings',

@@ -20,6 +20,7 @@
 - A replies-without-comparison session says `N of M not compared` instead of showing no difference or `0 of 0`.
 - A plan window whose reset time has passed shows no reset.
 - Amounts on a plan carry `≈` in every Usage row, breakdown and bar.
+- Price Sonnet 5.5 cache reads at $0.10 per million tokens, 0.05x input as on Opus 5.5, from Anthropic's current price list. It was $0.20. Sonnet sessions now cost less in every readout, and a move from Sonnet to a cheaper model saves less per turn, so its payback is longer. No routing decision in the golden scenarios changes.
 
 ### Upgrade
 
