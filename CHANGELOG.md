@@ -11,6 +11,11 @@
 - The hover row's second line shows the plan windows and the session cost against no routing. The pane header reads `ROUTER`.
 - Subagent transcripts read `agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)`.
 
+### Added
+
+- One price list, `lib/prices.mjs`, for every built-in model, with each vendor's official price page and the date it was checked. All of them were checked against those pages on 2026-11-04: Anthropic, DeepSeek, Kimi, MiniMax, z.ai and MiMo.
+- `npm run prices:check` reads the vendors' price pages and reports any change; `-- --write` rewrites the list. A weekly GitHub Actions job runs it and opens a pull request when a price changes, or an issue when a page cannot be read. The MiMo page needs a browser and is listed for a manual check.
+
 ### Removed
 
 - Claude Code's `/cost` value from the band, the pane and `/router`, with the `/cost differs` warning. The router does not see titles, compaction or server-side tools; run `/cost` for the whole session cost.
@@ -21,6 +26,7 @@
 - A plan window whose reset time has passed shows no reset.
 - Amounts on a plan carry `≈` in every Usage row, breakdown and bar.
 - Price Sonnet 5.5 cache reads at $0.10 per million tokens, 0.05x input as on Opus 5.5, from Anthropic's current price list. It was $0.20. Sonnet sessions now cost less in every readout, and a move from Sonnet to a cheaper model saves less per turn, so its payback is longer. No routing decision in the golden scenarios changes.
+- Price DeepSeek Flash at half outside its peak hours (01:00–04:00 and 06:00–10:00 UTC, Monday to Friday), as DeepSeek bills. Each reply and each routing estimate uses the rate of its time; a Chinese public holiday is priced at peak, the higher bound. A `router.json` model can set the same `offPeak` rule.
 
 ### Upgrade
 

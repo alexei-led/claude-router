@@ -279,7 +279,7 @@ Claude Code sends every request to one local `claude-proxy` endpoint. The proxy 
 ```
 
 These are experimental starting routes, not measured quality rankings. Both lower tiers use DeepSeek at low effort; medium uses high effort; high uses Opus at xhigh.
-The price fields are API list-price estimates, not subscription charges. DeepSeek values use peak prices.
+The price fields are API list-price estimates, not subscription charges. DeepSeek values are its peak prices; add DeepSeek's `offPeak` rule from [`lib/prices.mjs`](../lib/prices.mjs) to price its off-peak hours at half.
 Cache-cost assumptions, activity routing and subagent routing are off initially; upstream caching remains active.
 The default classifier is Jev and needs its existing plugin credential. Select another configured classifier explicitly if needed; no local classifier server is required.
 

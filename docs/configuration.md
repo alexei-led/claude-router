@@ -40,8 +40,7 @@ A non-Anthropic file must exist and validate. It never falls back to `router.jso
 ### Provider prices
 
 All non-Anthropic built-in model windows are at least 1M tokens.
-Price estimates use the [DeepSeek peak API rates](https://api-docs.deepseek.com/quick_start/pricing) and [z.ai API list rates](https://docs.z.ai/guides/overview/pricing.md).
-DeepSeek and z.ai rates were checked on 2026-10-28; the new provider rates on 2026-10-31.
+Every built-in price, Claude and provider, comes from [`lib/prices.mjs`](../lib/prices.mjs), which names each vendor's official price page and the date the prices were last checked: 2026-11-04 for all of them. See [Keep prices current](#keep-prices-current).
 
 | Model | Input / output / cached input, USD per million tokens |
 | --- | --- |
@@ -53,9 +52,11 @@ DeepSeek and z.ai rates were checked on 2026-10-28; the new provider rates on 20
 | MiMo-V2.6-Pro | 0.435 / 0.87 / 0.0036 |
 | Kimi-K3.1-Pro | 2.00 / 10.00 / 0.20 |
 
-These are fixed estimate inputs, not an invoice. DeepSeek off-peak rates differ, and z.ai plan quota uses its own multipliers.
-New provider sources: [MiniMax pricing](https://platform.minimax.io/docs/pricing/overview),
-[MiMo pricing](https://mimo.mi.com/docs/en-US/pricing), and [Kimi pricing](https://platform.kimi.ai/docs/pricing/chat).
+These are estimate inputs, not an invoice; z.ai plan quota uses its own multipliers. DeepSeek Flash lists its peak rates: 01:00–04:00 and 06:00–10:00 UTC, Monday to Friday. At every other hour it bills half, and the router prices each reply and each routing estimate at the rate of its time. DeepSeek also bills Chinese public holidays at off-peak rates, which the router does not know, so a holiday is priced at peak, the higher bound.
+
+### Keep prices current
+
+A weekly GitHub Actions job (`.github/workflows/prices.yml`) runs `npm run prices:check`. It reads the Anthropic, DeepSeek, Kimi, MiniMax and z.ai price pages, compares them with `lib/prices.mjs`, and opens a pull request when a price, a long-context tier or DeepSeek's peak hours change. A page it cannot read opens a "Price check failed" issue. The MiMo page needs a browser, so the job lists it for a person to check. The pull request needs the repository setting **Allow GitHub Actions to create and approve pull requests**, and CI starts on it once a maintainer closes and reopens it. Run the check yourself with `npm run prices:check`; add `-- --write` to rewrite `lib/prices.mjs`. Prices in `router.json` always override the built-in ones.
 All non-Anthropic built-in presets use `billing: "credits"`.
 For an included-plan model, set `billing: "plan"` to disable the cold-input cash cap.
 `billing` does not change a price: the pane prices plan and credits models alike, at list prices, and labels the plan part `≈ API value` and the credits part billed; see [how dollars are paid](user-guide.md#how-dollars-are-paid).
@@ -328,7 +329,7 @@ The Mod validates the whole file. Unknown keys and invalid values make routing u
 | `mode`                         | `cost`, `balanced`, `quality` ([Routing modes](routing-modes.md))                    | `balanced`                                               |
 | `modes.<cost\|quality>.policy` | any `policy` field, used while that mode is active                                   | [Routing modes](routing-modes.md#policy-per-mode); not tuned |
 | `activities.<activity>.<tier>` | optional `model` and `effort`, as in `routes`                                        | The overrides in [Activity routing](#activity-routing)   |
-| `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, optional `longContext` (`above`, `multiplier`, or `null`), `contextWindow`, `billing`, `efforts`, optional `strength`, `imageInput` | Three defaults above                                     |
+| `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, optional `longContext` (`above`, `multiplier`, or `null`), optional `offPeak` (`multiplier`, `peakDays` as UTC weekdays 0–6 from Sunday, `peakHoursUtc` as `[from, to)` hour ranges, or `null`), `contextWindow`, `billing`, `efforts`, optional `strength`, `imageInput` | Three defaults above                                     |
 | `cache`                        | `mode`, `effortScope`, `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms |
 | `policy`                       | Fields below                                                                         | Values below                                             |
 | `classifier`                   | An id in `classifiers`                                                               | `jev`                                                    |
