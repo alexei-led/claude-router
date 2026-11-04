@@ -596,7 +596,8 @@ async function routerCommand($, router, args) {
     };
   const storedView = await readView($, router);
   const view = { ...storedView, mode: await modeOf($, router, storedView.mode) };
-  if (!(await $.session.surfaces()).length) return { text: detailText(router.config, view) };
+  if (!(await $.session.surfaces()).length)
+    return { text: detailText(router.config, view, await $.session.usage().catch(() => null)) };
   await openPane($, router);
   return {};
 }
@@ -712,7 +713,7 @@ async function saveConfig($, active, change) {
 
 const unavailableText = (view) => `Routing unavailable: ${unavailableReason(view)}. Claude’s model is kept.`;
 
-function detailText(config, view) {
+function detailText(config, view, usage) {
   if (view.phase === 'unavailable')
     return [
       unavailableText(view),
@@ -732,7 +733,7 @@ function detailText(config, view) {
     ...activityDetailLines(config, view),
     storeAgreementLine(view),
     ...[unpricedLine(view.activityMetrics)].filter(Boolean),
-    savingsLine(config, view, Date.now()),
+    savingsLine(config, view, usage, Date.now()),
     view.error || missing ? classifierStatus(config, view.error ?? missing) : `${activeClassifier(config).label} ready`,
     `Context: ${view.contextKnown ? `${view.contextTokens} tokens (estimate)` : 'unknown'}`,
     `Observed cache: ${view.cacheRead ?? 'unknown'} read, ${view.cacheWrite ?? 'unknown'} written tokens`,

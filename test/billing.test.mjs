@@ -4,6 +4,7 @@ import test from 'node:test';
 import { renderBand } from '../lib/band.mjs';
 import { loadConfig } from '../lib/config.mjs';
 import { savingsLine } from '../lib/display.mjs';
+import { renderPanel } from '../lib/panel.mjs';
 import { ELEMENTS, screen } from './harness.mjs';
 
 const PROXY = loadConfig({
@@ -43,39 +44,65 @@ const view = (props) => ({
   savingsStore: null,
   ...props,
 });
-const band = (props) => screen(renderBand(ELEMENTS, PROXY, view(props), null, { columns: 160 }, actions))[1];
+const band = (props, usage = null) =>
+  screen(renderBand(ELEMENTS, PROXY, view(props), usage, { columns: 160, now: NOW }, actions))[1];
+// Claude Code's session usage on a plan: its windows show the plan; DeepSeek runs on provider credits.
+const PLAN = {
+  rateLimits: [
+    { kind: 'five_hour', percentUsed: 37, resetsAt: '2026-11-03T11:00:00Z' },
+    { kind: 'seven_day', percentUsed: 81, resetsAt: '2026-11-01T00:00:00Z' },
+  ],
+};
+const STARTS = {
+  'started on Opus: DeepSeek turns are cheaper': {
+    nativeModel: OPUS,
+    nativeEffort: 'xhigh',
+    usageSession: record(
+      { [`low|${DEEPSEEK}@low`]: [60, 4.1, 50, -45.9, 0, 0], [`high|${OPUS}@xhigh`]: [40, 20, 20, 0, 0, 0] },
+      { [OPUS]: 100 },
+    ),
+  },
+  'started on DeepSeek: Opus turns are stronger': {
+    nativeModel: DEEPSEEK,
+    nativeEffort: 'low',
+    usageSession: record(
+      { [`low|${DEEPSEEK}@low`]: [60, 4.1, 4.1, 0, 0, 0], [`high|${OPUS}@xhigh`]: [40, 20, 1.5, 0, 18.5, 0] },
+      { [DEEPSEEK]: 100 },
+    ),
+  },
+};
 
-test('plan and credits models add up at API prices: one sum, its parts and the cost, whichever model is yours', () => {
-  for (const [name, props, expected] of [
-    [
-      'started on Opus: DeepSeek turns are cheaper models',
-      {
-        nativeModel: OPUS,
-        nativeEffort: 'xhigh',
-        usageSession: record(
-          { [`low|${DEEPSEEK}@low`]: [60, 4.1, 50, -45.9, 0, 0], [`high|${OPUS}@xhigh`]: [40, 20, 20, 0, 0, 0] },
-          { [OPUS]: 100 },
-        ),
-      },
-      'session  routing −$45.90 (−66%) vs Opus 5.5 · xhigh  =  −$45.90 cheaper models  ·  $24.10 at API prices · 100 replies',
-    ],
-    [
-      'started on DeepSeek: Opus turns are stronger models',
-      {
-        nativeModel: DEEPSEEK,
-        nativeEffort: 'low',
-        usageSession: record(
-          { [`low|${DEEPSEEK}@low`]: [60, 4.1, 4.1, 0, 0, 0], [`high|${OPUS}@xhigh`]: [40, 20, 1.5, 0, 18.5, 0] },
-          { [DEEPSEEK]: 100 },
-        ),
-      },
-      'session  routing +$18.50 (×4.3) vs DeepSeek Flash · low  =  +$18.50 stronger models  ·  $24.10 at API prices · 100 replies',
-    ],
+test('plan and credits models add up at API prices in one sum against no routing, whichever model is yours', () => {
+  for (const [name, diff] of [
+    ['started on Opus: DeepSeek turns are cheaper', '−$45.90 (−66%)'],
+    ['started on DeepSeek: Opus turns are stronger', '+$18.50 (×4.3)'],
   ]) {
-    const row = band(props);
-    assert.equal(row, expected, name);
-    assert.doesNotMatch(row, /\b(plan|credits|observed)\b/, name);
+    assert.equal(band(STARTS[name]), `session $24.10 billed   ${diff} vs no routing   100 replies`, name);
+    assert.equal(
+      band(STARTS[name], PLAN),
+      `plan 5h ▰▰▰▱▱▱▱▱ 37%   7d 81%   session ≈$24.10 API value   billed $4.10   ${diff} vs no routing   100 replies`,
+      `${name} on a plan`,
+    );
   }
+});
+
+test('on a plan /router says the API value with ≈ and the credits part as billed, as the band does', () => {
+  const props = STARTS['started on Opus: DeepSeek turns are cheaper'];
+  assert.equal(
+    savingsLine(PROXY, view(props), PLAN, NOW),
+    'Plan: 5h 37% · 7d 81%\nSession: ≈$24.10 API value · billed $4.10 · −$45.90 (−66%) vs no routing · 100 replies',
+  );
+  assert.equal(
+    savingsLine(PROXY, view(props), null, NOW),
+    'Session: $24.10 billed · −$45.90 (−66%) vs no routing · 100 replies',
+  );
+});
+
+test('a plan window shows its reset only while it is ahead', () => {
+  const props = STARTS['started on Opus: DeepSeek turns are cheaper'];
+  const ahead = { ...PLAN, rateLimits: [{ kind: 'five_hour', percentUsed: 37, resetsAt: '2026-11-03T13:30:00Z' }] };
+  assert.match(band(props, ahead), /^plan 5h ▰▰▰▱▱▱▱▱ 37% ↻\d\d:30 /);
+  assert.match(band(props, PLAN), /^plan 5h ▰▰▰▱▱▱▱▱ 37% {3}7d/);
 });
 
 test('after /model moved between plan and credits models, /router still compares in one sum', () => {
@@ -89,8 +116,18 @@ test('after /model moved between plan and credits models, /router still compares
         { [DEEPSEEK]: 50, [OPUS]: 50 },
       ),
     }),
+    null,
     NOW,
   );
-  assert.match(line, /^Session: routing \$0\.00 vs .+, \$24\.10 at API prices, 100 replies$/);
-  assert.doesNotMatch(line, /mix plan and credits/);
+  assert.equal(line, 'Session: $24.10 billed · $0.00 vs no routing · 100 replies');
+});
+
+test('the Usage tab on a plan with credits models shows the total as API value and its credits part as billed', () => {
+  const props = { ...STARTS['started on Opus: DeepSeek turns are cheaper'], tab: 'usage', usagePeriod: 'session' };
+  const lines = screen(renderPanel(ELEMENTS, PROXY, view(props), PLAN, actions, { columns: 100, now: NOW }));
+  const at = lines.findIndex((line) => line.startsWith('session · ≈ API value'));
+  assert.deepEqual(lines.slice(at, at + 2), [
+    'session · ≈ API value      ≈$24.10        −$45.90     ≈$70.00',
+    '  billed as credits          $4.10',
+  ]);
 });

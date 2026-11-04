@@ -53,19 +53,17 @@ test('a small-window model is measured against its own window, not the native se
       outputTokens: 500,
       cacheRead: 120_000,
     },
-    { context: { window: 1_000_000, tokens: 150_000 }, cost: { usd: 0.03 } },
+    { context: { window: 1_000_000, tokens: 150_000 } },
   );
   assert.equal(metrics.window, 200_000);
   assert.equal(metrics.contextBar.percent, 75);
   assert.equal(metrics.cacheBar.percent, 80);
   assert.equal(metrics.cacheBar.color, 'green');
-  assert.equal(metrics.cost, 0.03);
   assert.equal(metrics.cacheBenefit, 0.108);
 });
 
-test('unreported ledgers and model pricing produce no fake savings', () => {
+test('an unpriced model produces no fake savings', () => {
   const metrics = usageMetrics(DEFAULTS, { nativeModel: 'unknown-model' }, { context: { window: 1_000_000 } });
-  assert.equal(metrics.cost, null);
   assert.equal(metrics.window, null);
   assert.equal(metrics.cacheBenefit, null);
   assert.equal(metrics.reuse, null);
@@ -193,19 +191,19 @@ test('Why names the cell for an activity move or a stay on an override, and keep
       'a move up to an override',
       on,
       { tier: 'low', activity: 'code', reason: 'activity-up' },
-      'coding at low runs on Sonnet 5.5 · high',
+      'code at low runs on Sonnet 5.5 · high',
     ],
     [
       'a move down to an override',
       on,
       { tier: 'medium', activity: 'ops', reason: 'activity-down' },
-      'running at medium runs on Haiku 5.5 · high',
+      'ops at medium runs on Haiku 5.5 · high',
     ],
     [
       'a move to an activity on the base route',
       on,
       { tier: 'low', activity: 'ops', reason: 'activity-down' },
-      'running at low runs on Haiku 5.5 · high',
+      'ops at low runs on Haiku 5.5 · high',
     ],
     [
       'a move back to the base route',
@@ -217,7 +215,7 @@ test('Why names the cell for an activity move or a stay on an override, and keep
       'a stay on an override',
       on,
       { tier: 'low', activity: 'debug', reason: 'same-tier' },
-      'debugging at low runs on Sonnet 5.5 · high',
+      'debug at low runs on Sonnet 5.5 · high',
     ],
     [
       'a stay on a cell without an override',
@@ -256,7 +254,7 @@ test('Why names the cell for an activity move or a stay on an override, and keep
         effort: 'medium',
         routingMode: { mode: 'cost', source: 'session' },
       },
-      'coding at low runs on Sonnet 5.5 · medium',
+      'code at low runs on Sonnet 5.5 · medium',
     ],
     [
       'a tier move onto an override',

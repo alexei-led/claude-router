@@ -69,12 +69,10 @@ test('band and pane show observed-only totals without invented savings in every 
     tab: 'usage',
     routingMode: { mode: 'cost', source: 'session' },
   };
-  const band = sessionRow(config, view, 120, NOW)
+  const band = sessionRow(config, view, null, 120, NOW)
     .map((p) => p.text)
     .join('');
-  assert.match(band, /at API prices · .* · comparison unavailable/);
-  assert.match(band, /1 repl/);
-  assert.ok(!band.includes('no replies yet'));
+  assert.equal(band, 'session $0.00 billed   effort low 1   1 reply');
   for (const period of ['session', 'today', '7d', '30d', 'month', 'all']) {
     const lines = screen(
       renderPanel(ELEMENTS, config, { ...view, usagePeriod: period }, null, new Proxy({}, { get: () => () => {} }), {
@@ -82,12 +80,11 @@ test('band and pane show observed-only totals without invented savings in every 
         now: NOW,
       }),
     ).join('\n');
-    assert.match(lines, /at API prices/);
-    assert.match(lines, /comparison unavailable/i);
-    assert.match(lines, /input 1\.1K/);
-    assert.match(lines, /coding/);
-    assert.ok(!lines.includes('No routed replies'));
-    assert.ok(!lines.includes('routing +'));
+    assert.match(lines, /Effort routing on one model: no saving is estimated/, period);
+    assert.match(lines, /^[\w ]+ · billed +\$0\.00$/m, period);
+    assert.match(lines, /input 1\.1K/, period);
+    assert.match(lines, /▸ code/, period);
+    assert.doesNotMatch(lines, /vs no routing/, period);
   }
 });
 
@@ -138,26 +135,21 @@ test('text status and an unpriced native model cannot hide observed spend', () =
   const config = loadConfig({ provider: 'minimax' });
   const record = recordUsage(emptyUsage(), [entry()], { now: NOW });
   const view = { nativeModel: 'unpriced-native-model', usageSession: record, usageStore: record };
-  assert.match(savingsLine(config, view, NOW), /at API prices/);
-  assert.match(savingsLine(config, view, NOW), /comparison unavailable/);
-  assert.match(
-    sessionRow(config, view, 120, NOW)
-      .map((p) => p.text)
-      .join(''),
-    /at API prices/,
-  );
+  assert.equal(savingsLine(config, view, null, NOW), 'Session: $0.00 billed · effort low 1 · 1 reply');
 });
 
 test('mixed comparison coverage never treats unmeasured savings as zero', () => {
-  const config = loadConfig({ provider: 'minimax' });
+  const config = loadConfig({});
+  const haiku = { route: 'claude-haiku-5-5@high', yours: 'claude-opus-5-5' };
   const compared = entry({
+    ...haiku,
     reply: { routedUsd: 0.001, yoursUsd: 0.003, cheaperUsd: -0.002, strongerUsd: 0, switchUsd: 0 },
   });
-  const record = recordUsage(emptyUsage(), [entry(), compared], { now: NOW });
+  const record = recordUsage(emptyUsage(), [entry(haiku), compared], { now: NOW });
   const base = {
     phase: 'routed',
     mode: 'auto',
-    nativeModel: config.models.flash.id,
+    nativeModel: 'claude-opus-5-5',
     tab: 'usage',
     usageSession: record,
     usageStore: record,
@@ -165,9 +157,23 @@ test('mixed comparison coverage never treats unmeasured savings as zero', () => 
   };
   const actions = new Proxy({}, { get: () => () => {} });
   const lines = screen(renderPanel(ELEMENTS, config, base, null, actions, { columns: 62, now: NOW })).join('\n');
-  assert.match(lines, /2 replies/);
-  assert.match(lines, /1 comparable reply only/);
-  assert.match(lines, /comparison unavailable.*input/i);
+  assert.match(lines, /^1 of 2 replies have no comparison: no saving is shown\.$/m);
+  assert.match(lines, /^ {2}▾ code +2 +\$0\.00 +—$/m);
+  assert.match(lines, /comparison unavailable · input 2\.2K/);
+  assert.doesNotMatch(lines, /[−+]\$\d/);
+  assert.equal(
+    sessionRow(config, base, null, 120, NOW)
+      .map((p) => p.text)
+      .join(''),
+    'session $0.00 billed   1 of 2 not compared   2 replies',
+  );
+  const none = recordUsage(emptyUsage(), [entry(haiku)], { now: NOW });
+  assert.equal(
+    sessionRow(config, { ...base, usageSession: none }, null, 120, NOW)
+      .map((p) => p.text)
+      .join(''),
+    'session $0.00 billed   not compared   1 reply',
+  );
   const whatIf = screen(
     renderPanel(ELEMENTS, config, { ...base, usageCompare: true }, null, actions, { now: NOW }),
   ).join('\n');
@@ -217,5 +223,5 @@ test('native hook records provider cost with no comparison and keeps it after tu
   await h.event('turn.complete', { turnId: 't1' });
   assert.equal(summarize(readUsage(h.view().usageSession), ALL).observed.replies, 1);
   await press(h, 'tab-usage');
-  assert.match(screen(await h.render()).join('\n'), /at API prices/);
+  assert.match(screen(await h.render()).join('\n'), /^session · billed +\$0\.00$/m);
 });

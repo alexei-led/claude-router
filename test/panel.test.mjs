@@ -29,7 +29,11 @@ test('the band, the pane and the router agree on which served model is a fallbac
       fallback,
       label,
     );
-    assert.equal(texts(pane(routed)).includes('Served     '), fallback, label);
+    assert.equal(
+      texts(pane(routed)).some((t) => t.endsWith('· native fallback')),
+      fallback,
+      label,
+    );
   }
 });
 
@@ -61,7 +65,7 @@ test('the pane header is one line: the on/off pair with its o and f hotkeys, the
     for (const c of pair) c.onPress();
     assert.deepEqual(pressed, ['auto', 'manual'], mode);
     const [first] = screen(tree);
-    assert.equal(first, `ROUTING  [ ${expected[0][1]} ] [ ${expected[1][1]} ]  Jev ready · 347 ms`, mode);
+    assert.equal(first, `ROUTER  [ ${expected[0][1]} ] [ ${expected[1][1]} ]  Jev ready · 347 ms`, mode);
   }
 });
 
@@ -71,11 +75,11 @@ test('five tabs take the digits 1 to 5, and a draft marks the tab whose settings
       .filter((c) => c.key.startsWith('tab-'))
       .map((c) => [c.key, c.label, c.hotkey]);
   assert.deepEqual(tabs({}), [
-    ['tab-now', 'Now', '1'],
-    ['tab-routes', 'Routes', '2'],
-    ['tab-policy', 'Policy', '3'],
-    ['tab-classifier', 'Classifier', '4'],
-    ['tab-usage', 'Usage', '5'],
+    ['tab-now', '1 Now', '1'],
+    ['tab-routes', '2 Routes', '2'],
+    ['tab-policy', '3 Policy', '3'],
+    ['tab-classifier', '4 Classifier', '4'],
+    ['tab-usage', '5 Usage', '5'],
   ]);
   const config = loadConfig();
   const routeEdit = editActivity(routeDraftOf(config, {}), config, 'code', 'high', 'add');
@@ -85,15 +89,15 @@ test('five tabs take the digits 1 to 5, and a draft marks the tab whose settings
       1,
       3,
     ),
-    ['Routes ●', 'Policy'],
+    ['2 Routes ●', '3 Policy'],
   );
-  assert.deepEqual(labels({ tuning: { horizon: 10 } }).slice(1, 3), ['Routes', 'Policy ●']);
+  assert.deepEqual(labels({ tuning: { horizon: 10 } }).slice(1, 3), ['2 Routes', '3 Policy ●']);
   assert.deepEqual(labels({ routeDraft: { ...routeDraftOf(config, {}), baselineTier: 'micro' } }).slice(1, 3), [
-    'Routes',
-    'Policy ●',
+    '2 Routes',
+    '3 Policy ●',
   ]);
   // A tab saved by an older version falls back to Now.
-  assert.equal(screen(pane({ tab: 'routing' }))[3].startsWith('Next turn'), true);
+  assert.equal(screen(pane({ tab: 'routing' }))[3], 'NEXT TURN');
 });
 
 test('while routing is unavailable the header says why and offers no on/off or pins', () => {
@@ -103,45 +107,30 @@ test('while routing is unavailable the header says why and offers no on/off or p
   ]) {
     const tree = pane({ phase: 'unavailable', error, tier: null });
     const lines = texts(tree);
-    assert.deepEqual(lines.slice(0, 5), ['ROUTING', '  ', 'unavailable', '  Claude’s model is kept', reason], reason);
+    assert.deepEqual(lines.slice(0, 5), ['ROUTER', '  ', 'unavailable', '  Claude’s model is kept', reason], reason);
     assert.equal(lines.includes(GATEWAY_CLEANUP[0]), cleanup, reason);
     assert.ok(!lines.some((line) => /Jev ready|keeping the model/.test(line)), reason);
-    assert.ok(lines.includes('needs routing, which is unavailable'), reason);
+    assert.ok(lines.includes('needs routing'), reason);
     const keys = controls(tree).map((c) => c.key);
     for (const key of ['auto', 'manual', 'pin-low']) assert.ok(!keys.includes(key), `${reason}: ${key}`);
   }
 });
 
-test('a pending pin shows on the Now tab with unpin', () => {
-  let unpinned = 0;
-  const tree = pane({ tier: 'low', selectedModel: 'claude-sonnet-5-5', pendingPin: 'high' }, null, {
-    ...actions,
-    unpin: () => {
-      unpinned += 1;
-    },
-  });
-  const lines = texts(tree);
-  const at = lines.indexOf('Pinned     ');
-  assert.deepEqual(lines.slice(at, at + 3), ['Pinned     ', 'next turn → ', 'high']);
-  controls(tree)
-    .find((c) => c.key === 'unpin')
-    .onPress();
-  assert.equal(unpinned, 1);
-  assert.ok(!texts(pane({ tier: 'low', selectedModel: 'claude-sonnet-5-5' })).includes('Pinned     '));
-});
-
 test('help explains what the numbers are and that savings are not measured', () => {
   const lines = texts(pane({ help: true }));
   const at = lines.indexOf('ABOUT THESE NUMBERS');
-  assert.deepEqual(lines.slice(at, at + 7), [
+  assert.deepEqual(lines.slice(at, at + 9), [
     'ABOUT THESE NUMBERS',
-    'Cost, context and cache are Claude readings. Every $ is API prices:',
-    'tokens × router.json list prices, as if paid per token, on a plan too.',
-    'Routing vs your model holds tokens and output length the same',
-    'and does not measure answer quality. Cache benefit is before writes.',
-    'The context bar uses the routed model’s window, 20% in reserve.',
-    'Cache estimates follow the selected provider profile; minus means cheaper.',
+    '$ is tokens × router.json list prices. On a Claude plan it is the quota’s',
+    'API value, shown ≈$; with an API key or credits it is what is billed.',
+    'No routing: your model on the main thread, Claude Code’s pick per agent,',
+    'same tokens and output length. Answer quality is not measured.',
+    'For the whole session cost, with side calls such as titles and compaction',
+    'that the router does not see, run /cost.',
+    'Plan bars are Claude Code’s 5-hour and 7-day readings. Tiers show as',
+    'bars ▂▄▆█, low to high; a route never moves past 80% of its window.',
   ]);
+  assert.ok(lines.indexOf('ABOUT THESE NUMBERS') < lines.indexOf('NEXT TURN'), 'help sits above the tab');
   assert.ok(!texts(pane({ help: false })).includes('ABOUT THESE NUMBERS'));
 });
 
@@ -149,17 +138,19 @@ test('the Now tab says what runs next turn and why: the tier, the model, the sup
   const estimate = { threshold: 0.82, upgradeMass: 0.88, taxUsd: 0.476 };
   const routed = { tier: 'high', selectedModel: 'claude-opus-5-5', effort: 'xhigh', reason: 'jump', estimate };
   assert.deepEqual(screen(pane(routed)).slice(3, 6), [
-    'Next turn  ▌high  Opus 5.5 · xhigh',
-    'Why        clear need for a stronger model',
-    '           Jev gave stronger tiers 88% (needs 82%) · next switch ≈ $0.48',
+    'NEXT TURN',
+    '  ▂▄▆█  Opus 5.5 · xhigh',
+    '  why   ↑ clearly stronger   Jev 88% ≥ 82% · switch ≈ $0.48',
   ]);
-  const down = { ...routed, estimate: { threshold: 0.9, downgradeMass: 0.93 } };
-  assert.equal(screen(pane(down))[5], '           Jev gave cheaper tiers 93% (needs 90%)');
+  const down = { ...routed, reason: 'downgrade', estimate: { threshold: 0.9, downgradeMass: 0.93 } };
+  assert.equal(screen(pane(down))[5], '  why   ↓ cheaper fits   Jev 93% ≥ 90%');
   // Routing off: the /model choice runs, no support line, and the pins say what they need.
   const off = screen(pane({ ...routed, mode: 'manual', selectedModel: null, nativeModel: 'claude-opus-5-5' }));
-  assert.equal(off[3], 'Next turn  ▌high  Opus 5.5 · xhigh  your /model choice, routing off');
-  assert.ok(!off.some((line) => line.includes('needs 82%')));
-  assert.ok(off.includes('Pin next   needs routing on (o above)'));
+  assert.deepEqual(off.slice(4, 6), [
+    '  ○ Opus 5.5 · xhigh   routing off · /model choice',
+    '  pin   needs routing on (o)',
+  ]);
+  assert.ok(!off.some((line) => line.includes('82%')));
 });
 
 const recording = () => {
@@ -181,24 +172,25 @@ const sonnetLow = { tier: 'low', selectedModel: 'claude-sonnet-5-5', effort: 'hi
 const haikuLow = { tier: 'low', selectedModel: 'claude-haiku-5-5', effort: 'high', activity: 'code' };
 const reading = { activityChoice: 'code', activityProbabilities: { code: 0.81, ops: 0.09, explore: 0.06, plan: 0 } };
 
-test('the Now tab names the activity as a verb and marks an override', () => {
-  for (const [mode, props, first] of [
-    ['on', sonnetLow, 'Next turn  ▌low  Sonnet 5.5 · high   override · low runs Haiku 5.5 · high'],
-    ['on', { ...haikuLow, activity: 'ops' }, 'Next turn  ▌low  Haiku 5.5 · high'],
-    ['off', haikuLow, 'Next turn  ▌low  Haiku 5.5 · high'],
+test('the Now tab names the activity with its share and marks an override with the tier’s own route', () => {
+  for (const [mode, props, first, override] of [
+    [
+      'on',
+      sonnetLow,
+      '  ▂▄  Sonnet 5.5 · high   code 81%  ops 9%',
+      '        code at low runs on Sonnet 5.5 · high · tier route Haiku 5.5 · high',
+    ],
+    ['on', { ...haikuLow, activity: 'ops' }, '  ▂▄  Haiku 5.5 · high   code 81%  ops 9%', null],
+    ['off', haikuLow, '  ▂▄  Haiku 5.5 · high', null],
   ]) {
     const config = { ...DEFAULTS, activityRouting: mode };
     const lines = screen(renderPanel(ELEMENTS, config, view({ ...props, ...reading }), null, actions));
     const name = `${mode} ${JSON.stringify(props)}`;
-    assert.equal(lines[3], first, name);
-    assert.equal(
-      lines[4],
-      mode === 'off' ? 'Why        ready' : 'Activity   coding 81%   running 9% · exploring 6%   applies at 60%+',
-      name,
-    );
+    assert.equal(lines[4], first, name);
+    assert.equal(lines.includes(override), override !== null, name);
   }
   const why = screen(renderPanel(ELEMENTS, DEFAULTS, view({ ...sonnetLow, reason: 'activity-up' }), null, actions));
-  assert.ok(why.includes('Why        coding at low runs on Sonnet 5.5 · high'));
+  assert.ok(why.includes('  why   ↑ code'));
   const unsure = { activityChoice: 'uncertain', activityProbabilities: { uncertain: 0.94, explore: 0.03 } };
   const nodes = [];
   (function walk(node) {
@@ -211,7 +203,7 @@ test('the Now tab names the activity as a verb and marks an override', () => {
     'uncertain is not drawn as an activity',
   );
   const verb = texts(renderPanel(ELEMENTS, DEFAULTS, view({ ...sonnetLow, ...reading }), null, actions));
-  assert.ok(verb.includes('coding'), 'the activity is its own orange italic Text');
+  assert.ok(verb.includes('code'), 'the activity is its own orange italic Text');
 });
 
 const routesTab = (config, routeDraft = null, props = {}, paneActions = actions, options = {}) =>
@@ -281,13 +273,13 @@ test('the Routes tab is one grid: the tiers’ own models on top, built-in overr
   assert.deepEqual(grid(tree), [
     '              micro           low             medium          high',
     'every turn    haiku·medium    haiku·high      opus·medium     opus·xhigh',
-    'coding        ·               sonnet·high°    ·               ·',
-    'debugging     ·               sonnet·high°    ·               ·',
-    'exploring     ·               ·               ·               ·',
-    'planning      ·               sonnet·high°    ·               ·',
-    'reviewing     ·               sonnet·high°    ·               ·',
-    'running       ·               ·               haiku·high°     ·',
-    'documenting   ·               ·               ·               ·',
+    'code          ·               sonnet·high°    ·               ·',
+    'debug         ·               sonnet·high°    ·               ·',
+    'explore       ·               ·               ·               ·',
+    'plan          ·               sonnet·high°    ·               ·',
+    'review        ·               sonnet·high°    ·               ·',
+    'ops           ·               ·               haiku·high°     ·',
+    'docs          ·               ·               ·               ·',
     '  · runs the tier’s model   ° built-in default   ● unsaved',
   ]);
   const lines = screen(tree);
@@ -306,7 +298,7 @@ test('the Routes tab is one grid: the tiers’ own models on top, built-in overr
   // A narrow pane shortens the efforts and keeps a space between the cells.
   const narrow = grid(routesTab(DEFAULTS, null, {}, actions, { columns: 70 }));
   assert.equal(narrow[1], 'every turn    haiku·med     haiku·high    opus·med      opus·xh');
-  assert.equal(narrow[2], 'coding        ·             sonnet·high°  ·             ·');
+  assert.equal(narrow[2], 'code          ·             sonnet·high°  ·             ·');
 });
 
 test('the activity mode leads the Routes tab, and a line says when the overrides do not run', () => {
@@ -346,9 +338,9 @@ test('a selected activity cell edits its model and effort, says what it is, and 
   let draft = routeDraftOf(config, {});
   draft = editActivity(draft, config, 'review', 'low', 'model', 'opus');
   const reviewing = routesTab(config, draft, { routeCell: 'review.low' });
-  assert.equal(grid(reviewing)[6], 'reviewing     ·              ▸opus·high●      ·               ·');
+  assert.equal(grid(reviewing)[6], 'review        ·              ▸opus·high●      ·               ·');
   assert.deepEqual(editor(reviewing), [
-    'reviewing at low      opus ▾        high ▾      ●',
+    'review at low         opus ▾        high ▾      ●',
     '                      your override',
     '                      [ Use tier model: Haiku 5.5 · high ] [ Restore default: Sonnet 5.5 · high ]',
     '                      ! stronger than the tier above',
@@ -367,12 +359,12 @@ test('a selected activity cell edits its model and effort, says what it is, and 
     ],
   );
   assert.deepEqual(editor(routesTab(config, null, { routeCell: 'code.low' })), [
-    'coding at low         sonnet ▾      high ▾',
+    'code at low           sonnet ▾      high ▾',
     '                      built-in default',
     '                      [ Use tier model: Haiku 5.5 · high ]',
   ]);
   assert.deepEqual(editor(routesTab(config, null, { routeCell: 'docs.high' })), [
-    'documenting at high   opus ▾        xhigh ▾',
+    'docs at high          opus ▾        xhigh ▾',
     '                      runs the tier’s model',
   ]);
 });
@@ -380,9 +372,9 @@ test('a selected activity cell edits its model and effort, says what it is, and 
 test('a removed built-in override shows the tier’s model and can be restored', () => {
   const config = loadConfig({ userFile: { activities: { code: { low: { model: 'haiku', effort: 'high' } } } } });
   const tree = routesTab(config, null, { routeCell: 'code.low' });
-  assert.equal(grid(tree)[2], 'coding        ·              ▸·               ·               ·');
+  assert.equal(grid(tree)[2], 'code          ·              ▸·               ·               ·');
   assert.deepEqual(editor(tree), [
-    'coding at low         haiku ▾       high ▾',
+    'code at low           haiku ▾       high ▾',
     '                      runs the tier’s model; the built-in default is removed',
     '                      [ Restore default: Sonnet 5.5 · high ]',
   ]);
@@ -601,7 +593,7 @@ test('the Now tab keeps Claude’s readings on one line, and details show them w
   };
   const usage = { context: { tokens: 400_000 }, cost: { usd: 18.003 } };
   const folded = screen(renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'now', ...props }), usage, actions));
-  assert.ok(folded.includes('Cache    90% reused on the last reply  ·  cost $18.003 by Claude  [ details ]'));
+  assert.ok(folded.includes('  cache  90% last reply   [ details ]'), folded.join('\n'));
   assert.ok(!folded.some((line) => line.startsWith('Compared tiers') || line.startsWith('INPUT PER REPLY')));
   const { calls, actions: recorded } = recording();
   const tree = renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'now', usageDetail: true, ...props }), usage, recorded);
@@ -609,7 +601,7 @@ test('the Now tab keeps Claude’s readings on one line, and details show them w
   const at = lines.indexOf('Compared tiers        low → high');
   assert.deepEqual(lines.slice(at, at + 3), [
     'Compared tiers        low → high',
-    'Next-turn difference  −$0.012 to +$0.500',
+    'Next-turn difference  −$0.01 to +$0.50',
     'Payback               3 later turns',
   ]);
   controls(tree)
