@@ -150,7 +150,7 @@ The Usage tab keeps observed routed spend and, when the cache history permits it
 
 The top row picks the period: **Session**, **Today**, **7d** (today and the six days before), **30d**, **Month** (since the first of this month) and **All**. Press `p` for the next one. The pane remembers the choice across sessions. Session holds this session's replies, and the line under the row names your model, or every model when `/model` changed during the session. The other periods add up the replies of every session on those calendar days. Each session counts against its own model, and the line reads `all projects · Oct 7 – Oct 13 · each session vs its own model`.
 
-When the period is comparable, the difference comes first, then one table whose cents add up:
+When the period is comparable, the difference comes first, then one table whose cents add up. The Usage tab always says `unrouted`, even for the session, because a period mixes your model with Claude Code's picks; the Now tab and the band name your model when they can:
 
 ```text
 −$12.29 (−37%) vs unrouted
@@ -280,7 +280,7 @@ On the running task:
   - `explore`, `plan`, `review`: a turn finished, nothing was edited, written, run or delegated, and the last tool result was not an error.
   - `code`, `debug` and a route with no activity: only a passed check counts.
 
-  A failed check blocks every one of these, and so does a check whose result is not the check's own (chained, redirected, piped, after `;` or `||`, or in the background). While no checkpoint is met, the route stays: for a tier the band shows `… down after a checkpoint`; a held activity keeps the running one and shows `= fits`. A cheaper activity also needs 90% probability (`policy.downgradeMass`).
+  A failed check blocks every one of these, and so does a check whose result is not the check's own (chained, redirected, piped, after `;` or `||`, or in the background). While no checkpoint is met, the route stays: for a tier the band shows `… down after a checkpoint`; a held activity keeps the running one and shows `= fits`. A cheaper activity also needs 90% probability (`policy.downgradeMass`; 65% in `cost`).
 - A cheaper tier lands where the answer as a whole points: when the classifier says `micro` 63% and `low` 30%, the turn moves to `low`, which 93% of the answer supports, instead of staying until `micro` alone reaches 90%.
 - A pinned turn does not move. A new task, a prompt the classifier does not score as a continuation, is routed as a fresh turn. Ollama does not answer the continuation question, so every prompt is a new task to it; reviews inside a turn still apply.
 
@@ -295,7 +295,7 @@ These thresholds are starting values. They are not tuned on data yet.
 
 On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the counts kept across sessions, once there are any: the turns labelled from their tools, **Agreement** over them, **Code/ops/explore**, the same agreement over the turns the classifier answered `code`, `ops` or `explore` (omitted when there are none), the two most frequent mismatches as `predicted → observed count` (`code → read 3`), **Activity moves**, the moves to another route inside a tier, taken and refused for any reason, **Escalations**, such as `after a cheaper activity move: 1 in 12 moves`, the tool-error escalations that followed a move to a cheaper route in `on` while the turns stayed on it in `on` (turning routing off, a turn with routing off, or a turn in `off` ends the watch, a pin in between does not, and an escalation the credits cap held counts). Each of these lines appears only when it has data. The active classifier's p95 wait across sessions shows on its **Deadline** line instead (not recorded with activity routing `off`). This agreement compares the classifier's raw answer, so it can differ from the session's. The pane reads these counts when the session starts and when it opens, and adds this session's turns as they finish; another session's new latency and escalation readings show the next time the pane opens. **Delete history** on the Usage tab deletes these counts with the usage and subagent records, for this session and across sessions.
 
-`/router` without a UI surface adds an `Activity: ops (81%)` line, the resolved route, and `Agreement across sessions: 19 of 22 turns (86%) · code/ops/explore 9 of 10 (90%)`. It also prints the session in the band's words, such as `Session: $6.40 billed · −$1.84 (−22%) vs no routing · 64 replies`, after a `Plan: 5h 48% · 7d 43%` line on a Claude plan.
+`/router` without a UI surface adds an `Activity: ops (81%)` line, the resolved route, and `Agreement across sessions: 19 of 22 turns (86%) · code/ops/explore 9 of 10 (90%)`. It also prints the session in the band's words, such as `Session: $6.40 billed · −$1.84 (−22%) vs Opus 5.5 $8.24 · 64 replies`, after a `Plan: 5h 48% · 7d 43%` line on a Claude plan.
 
 ## Change routing
 

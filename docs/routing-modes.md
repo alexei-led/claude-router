@@ -48,16 +48,18 @@ Each mode except `balanced` replaces some `policy` fields while it is active. Th
 codex-router's and are **not tuned** on outcomes. Since 1.16, `cost` upgrades on balanced's bar (2 votes from 0.75):
 with 3 votes from 0.85, the cache write of a cold stronger model raised the bar to about 0.92 from 60k tokens and 0.97
 at 250k, so a cost turn on Haiku kept a task the classifier scored hard at 90%. `cost` still moves down sooner than
-`balanced`: one vote, a 4-request dwell, and since 1.21.1 60% support with a flatter cache-cost slope. At 80% support
+`balanced`: one vote, a 4-request dwell, and since 1.21.1 65% support. At 80% support
 the cold cache of a cheaper model raised the bar to about 0.87 at ~430k tokens. In 578 recorded cost decisions the
 classifier chose `high` on 33% of answers, the router ran `high` on 58%, and none of the 136 answers for a lower tier
-cleared the bar:
+cleared the bar. Not 60%: an upgrade counts all the mass above the running tier, so an answer split between medium
+and high can move `low` to `high`, and at 60% the next such answer dropped straight back to the still-warm cheaper
+cache:
 
 ```json
 {
   "modes": {
     "cost": { "policy": { "upgradeVotes": 2, "upgradeBase": 0.75, "jumpConfidence": 0.98, "downgradeVotes": 1,
-                          "downgradeMass": 0.6, "downgradeSlope": 0.04, "minDwellRequests": 4,
+                          "downgradeMass": 0.65, "minDwellRequests": 4,
                           "escalationHoldTurns": 1 } },
     "quality": { "policy": { "upgradeVotes": 1, "upgradeBase": 0.6, "jumpConfidence": 0.9, "downgradeVotes": 3,
                              "downgradeMass": 0.95, "minDwellRequests": 16, "escalationHoldTurns": 4 } }

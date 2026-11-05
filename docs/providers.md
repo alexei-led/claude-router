@@ -202,7 +202,7 @@ Generate these tables with `node scripts/provider-matrix.mjs`.
 
 MiniMax uses all four preset effort levels. `xhigh` is omitted because some Claude Code versions send it as `high`;
 `max` supplies the deeper setting. Legacy M3 ignores effort and is not a stronger tier by default.
-MiMo's cost/quality modes change models where a neighbouring tier permits it; otherwise the route stays the same.
+MiMo's cost/quality modes change models where a neighbouring tier permits it, except that `cost` keeps `high` on its model; otherwise the route stays the same.
 Kimi uses only `low`, `high`, `max`, the documented controls, and never promotes a session into another model.
 These are starting policies, not an optimal activity matrix. See [research and experiments](provider-experiments.md).
 

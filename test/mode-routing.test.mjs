@@ -236,7 +236,7 @@ const withActivity = (tier, activity, p, continuation = 0) => ({
   activity: { choice: activity, probabilities: { [activity]: p, explore: 1 - p } },
 });
 
-// A session that ran a coding turn at low in cost mode: Sonnet at medium.
+// A session that ran a coding turn at low in cost mode: Haiku at high, the low route.
 function codingInCost() {
   const cost = inMode('cost');
   let loop = turn(
@@ -344,6 +344,35 @@ test('in cost, a hard task on a long Haiku history moves to Opus after two answe
   };
   assert.deepEqual(run(0.9), [`${HAIKU}@high`, `${OPUS}@high`, `${OPUS}@high`, `${OPUS}@high`]);
   assert.deepEqual(run(0.8), Array(4).fill(`${HAIKU}@high`));
+});
+
+// The cost downgrade bar (1.21.1: 0.65 from 0.8). On a long, warm Opus history with a cold Haiku cache the old bar sat
+// near 0.87 and no answer for a lower tier cleared it; a near-tie that an upgrade over two tiers counts as support for
+// `high` must still not drop straight back.
+test('in cost, a new task scored medium at 70% leaves a long Opus history, and a near-tie stays', () => {
+  const context = 254_000;
+  const first = (config, medium, warmHaiku = false) => {
+    const answer = advice('medium', { low: 0.1, medium, high: 0.9 - medium }, { continuation: 0.1 });
+    let loop = { ...emptyLoop(base, OPUS), lastRoute: 'high', historyMeasured: true };
+    const warm = { lastAt: T0 - 30_000, prefixTokens: context };
+    loop = { ...loop, models: { [OPUS]: warm, ...(warmHaiku ? { [HAIKU]: warm } : {}) } };
+    loop = { ...loop, lastRequest: { model: OPUS, tokens: context, outputTokens: 500, at: T0 - 30_000 } };
+    const facts = nativeFacts(config, loop, {
+      messages: UNVERIFIED,
+      prompt: 'Fix it.',
+      effort: 'high',
+      turnId: 't0',
+      contextTokens: context,
+    });
+    const next = chooseRoute(config, loop, { facts, advice: answer, nativeModel: OPUS, contextKnown: true, now: T0 });
+    return [ran_(next), next.decision.reason];
+  };
+  const cost = inMode('cost');
+  assert.deepEqual(first(cost, 0.6), [`${HAIKU}@high`, 'downgrade']);
+  // Just up from Haiku, whose cache is still warm: nothing raises the bar.
+  assert.deepEqual(first(cost, 0.5, true), [`${OPUS}@high`, 'downgrade-pending']);
+  const before = inMode('cost', loadConfig({ userFile: { modes: { cost: { policy: { downgradeMass: 0.8 } } } } }));
+  assert.deepEqual(first(before, 0.6), [`${OPUS}@high`, 'downgrade-pending']);
 });
 
 // A move to a cheaper route on the same task waits for a checkpoint the running activity can show (completedSince):
