@@ -191,12 +191,12 @@ const COLUMNS = 112;
 const states = [
   ['Routing on: routed to the high tier on a clear jump', base, false],
   [
-    'Two rows on a Claude plan, with the hover row shown: plan windows, the session as API value against no routing, pins',
+    'Two rows on a Claude plan, with the hover row shown: plan windows, the session as API value against your model, pins',
     { ...base, ...yours, bandDetail: true, usageSession: savingsSession, estimate: null },
     true,
   ],
   [
-    'Two rows on an API key: the session as billed against no routing',
+    'Two rows on an API key: the session as billed against your model',
     { ...base, ...yours, bandDetail: true, usageSession: savingsSession, estimate: null },
     false,
     keyUsage,
@@ -532,13 +532,13 @@ pane(
     subagentsRunning: 1,
   },
   'Router pane, Now tab',
-  'NEXT TURN: the tier meter, model and activity, the reason with the classifier support it weighed and the switch cost, and one pin per tier, low to high, with its support. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total of the main thread and one running subagent as API value, the difference against no routing, the main thread and the subagents as bars on one scale, and a strip of every reply colored by tier with the replies per tier. CONTEXT: the window fill and the cache reuse.',
+  'NEXT TURN: the tier meter, model and activity, the reason with the classifier support it weighed and the switch cost, and one pin per tier, low to high, with its support. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total of the main thread and one running subagent as API value, the difference against unrouted, the main thread and the subagents as bars on one scale, and a strip of every reply colored by tier with the replies per tier. CONTEXT: the window fill and the cache reuse.',
   'router-pane-now.svg',
 );
 usagePane(
   { usagePeriod: '7d', usageGroup: 'activity', usageOpen: 'activity:code' },
   'Router pane, Usage tab',
-  'The last 7 days across sessions: the period row, the difference against no routing first, then a cost table whose rows add up (the main thread with its cheaper-model saving and cache rebuilds, the subagents, the total) with each row against no routing, the replies and tokens, the cost by activity with code opened to its routes and cost parts, the cost by day, what is worth a look with a link to Routes, subagents, and Delete history.',
+  'The last 7 days across sessions: the period row, the difference against unrouted first, then a cost table whose rows add up (the main thread with its cheaper-model saving and cache rebuilds, the subagents, the total) with each row against unrouted, the replies and tokens, the cost by activity with code opened to its routes and cost parts, the cost by day, what is worth a look with a link to Routes, subagents, and Delete history.',
   'router-pane-usage.svg',
 );
 usagePane(

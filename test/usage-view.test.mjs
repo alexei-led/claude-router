@@ -96,10 +96,10 @@ test('the scope line says whose replies the period holds and what each is compar
 });
 
 test('the answer leads, then a cost table whose cents add up: cost − no routing = the difference, and its parts', () => {
-  assert.deepEqual(after(lines(), '−$4.70 (−52%) vs no routing', 12), [
-    '−$4.70 (−52%) vs no routing',
+  assert.deepEqual(after(lines(), '−$4.70 (−52%) vs unrouted', 12), [
+    '−$4.70 (−52%) vs unrouted',
     '',
-    '                              cost  vs no routing  no routing',
+    '                              cost    vs unrouted    unrouted',
     'main · 20 replies            $4.30         −$4.70       $9.00',
     '  cheaper models                           −$4.92',
     '  cache rebuilds                           +$0.22   4% of the saving',
@@ -146,7 +146,7 @@ test('every period counts the running turn’s replies in its answer, ledger and
   for (const usagePeriod of ['session', 'today', 'all']) {
     const before = lines({ usagePeriod });
     const after = lines({ usagePeriod, usageLive: [live] });
-    const answer = (shown) => shown.find((line) => line.endsWith(' vs no routing'));
+    const answer = (shown) => shown.find((line) => line.endsWith(' vs unrouted'));
     const stats = (shown) => shown.find((line) => / replies · \d+ turns/.test(line));
     const cents = (line) => Math.round(Number(line.match(/\$(\d+\.\d\d)/)[1]) * 100);
     assert.equal(cents(answer(after)) - cents(answer(before)), 40, usagePeriod);
@@ -157,10 +157,10 @@ test('every period counts the running turn’s replies in its answer, ledger and
 
 test('a period sums every session’s days in it, and All adds the undated totals with a note', () => {
   const week = lines({ usagePeriod: '7d' });
-  assert.ok(week.includes('−$4.90 (−52%) vs no routing'), week.join('\n'));
+  assert.ok(week.includes('−$4.90 (−52%) vs unrouted'), week.join('\n'));
   assert.ok(week.includes('7 days · billed              $4.60         −$4.90       $9.50'));
   const all = lines({ usagePeriod: 'all' });
-  assert.deepEqual(after(all, '−$16.52 (−26%) vs no routing', 10).slice(3), [
+  assert.deepEqual(after(all, '−$16.52 (−26%) vs unrouted', 10).slice(3), [
     'main · 422 replies          $46.08        −$16.52      $62.60',
     '  cheaper models                          −$20.26',
     '  cache rebuilds                           +$3.74   18% of the saving',
@@ -175,7 +175,7 @@ test('a period sums every session’s days in it, and All adds the undated total
 test('after /model selects another model, the session still names the model its replies were priced against', () => {
   const all = lines({ nativeModel: 'claude-sonnet-5-5', mode: 'manual' });
   assert.equal(all[4], 'this session · your model Opus 5.5');
-  assert.ok(all.includes('−$4.70 (−52%) vs no routing'));
+  assert.ok(all.includes('−$4.70 (−52%) vs unrouted'));
 });
 
 test('a models key that names another model later keeps the history under the model that ran', () => {
@@ -217,7 +217,9 @@ test('without routed replies the tab says why, and below ten replies the answer 
     assert.ok(!shown.some((line) => line.startsWith('BY ')), expected);
   }
   assert.ok(
-    lines({ usagePeriod: '30d', usageStore: OTHER }).includes('−$0.40 (−40%) vs no routing   early sample · 2 replies'),
+    lines({ usagePeriod: '30d', usageStore: OTHER }).includes(
+      '−$0.40 (−40%) vs unrouted   2 replies so far: one model switch can still move this a lot',
+    ),
   );
 });
 
@@ -233,7 +235,7 @@ test('the breakdown groups by activity, model or tier, g presses the next groupi
       ['Tier', 'secondary', null],
     ],
   );
-  const HEAD = '                         replies      cost  vs no routing   mostly on';
+  const HEAD = '                         replies      cost    vs unrouted   mostly on';
   assert.deepEqual(after(screen(tree), HEAD, 6), [
     HEAD,
     '  ▾ code                      10     $3.80         −$1.20   Sonnet 5.5 · high',
@@ -255,15 +257,15 @@ test('the breakdown groups by activity, model or tier, g presses the next groupi
     ['usageGroup', 'model'],
   ]);
   const byModel = lines({ usageGroup: 'model' });
-  assert.deepEqual(after(byModel, '                         replies      cost  vs no routing   share', 4).slice(1), [
+  assert.deepEqual(after(byModel, '                         replies      cost    vs unrouted   share', 4).slice(1), [
     '  ▸ Opus 5.5                   4     $2.00          $0.00   47%',
     '  ▸ Sonnet 5.5                 6     $1.80         −$1.20   42%',
     '  ▸ Haiku 5.5                 10     $0.50         −$3.50   12%',
   ]);
   // By tier the rows run low to high, each named by its meter.
   const narrow = lines({ usageGroup: 'tier' }, { columns: 72 });
-  assert.deepEqual(after(narrow, '                         replies      cost  vs no routing', 4), [
-    '                         replies      cost  vs no routing',
+  assert.deepEqual(after(narrow, '                         replies      cost    vs unrouted', 4), [
+    '                         replies      cost    vs unrouted',
     '  ▸ ▂▄                        10     $0.50         −$3.50',
     '  ▸ ▂▄▆                        6     $1.80         −$1.20',
     '  ▸ ▂▄▆█                       4     $2.00          $0.00',

@@ -86,19 +86,19 @@ test('the two-row band says the session against your model and the parts that ad
     screen(renderBand(ELEMENTS, DEFAULTS, view({ bandDetail: true, ...props }), null, { columns }, actions))[1];
   const SAME = { ...SAVES, replies: 20, routedUsd: 1, yoursUsd: 1, cheaperUsd: 0, switchUsd: 0 };
   for (const [props, columns, expected] of [
-    [{ ...OPUS, usageSession: record(SAVES) }, 140, 'session $6.40 billed   −$1.84 (−22%) vs no routing   64 replies'],
-    [{ ...HAIKU, usageSession: record(MORE) }, 140, 'session $3.10 billed   +$2.48 (×5.0) vs no routing   41 replies'],
-    [{ ...OPUS, usageSession: record(SAME) }, 140, 'session $1.00 billed   $0.00 vs no routing   20 replies'],
+    [{ ...OPUS, usageSession: record(SAVES) }, 140, 'session $6.40 billed   −$1.84 (−22%) vs Opus 5.5   64 replies'],
+    [{ ...HAIKU, usageSession: record(MORE) }, 140, 'session $3.10 billed   +$2.48 (×5.0) vs Haiku 5.5   41 replies'],
+    [{ ...OPUS, usageSession: record(SAME) }, 140, 'session $1.00 billed   $0.00 vs Opus 5.5   20 replies'],
     [
       { ...OPUS, usageSession: record(EARLY) },
       140,
-      'session $0.21 billed   −$0.05 (−19%) vs no routing · early   3 replies',
+      'session $0.21 billed   −$0.05 (−19%) vs Opus 5.5   3 replies so far',
     ],
-    [{ ...OPUS, usageSession: record(EARLY) }, 60, 'session $0.21 billed   −$0.05 (−19%) vs no routing'],
-    [{ ...OPUS, usageSession: record(SAVES) }, 50, 'session $6.40 billed   −$1.84 (−22%) vs no routing'],
+    [{ ...OPUS, usageSession: record(EARLY) }, 60, 'session $0.21 billed   −$0.05 (−19%) vs Opus 5.5'],
+    [{ ...OPUS, usageSession: record(SAVES) }, 50, 'session $6.40 billed   −$1.84 (−22%) vs Opus 5.5'],
     [{ ...OPUS, usageSession: record(SAVES) }, 30, 'session $6.40'],
     // After a /model change the session stays against the model its replies ran against.
-    [{ ...HAIKU, usageSession: record(SAVES) }, 140, 'session $6.40 billed   −$1.84 (−22%) vs no routing   64 replies'],
+    [{ ...HAIKU, usageSession: record(SAVES) }, 140, 'session $6.40 billed   −$1.84 (−22%) vs Opus 5.5   64 replies'],
     [{ ...OPUS }, 140, 'session · no replies yet'],
   ])
     assert.equal(second(props, columns), expected, `${columns}: ${props.usageSession ? 'record' : 'none'}`);
@@ -122,22 +122,22 @@ test('the band counts the running turn’s replies before the turn is recorded',
     )[1];
   assert.equal(
     second({ usageLive: Array(10).fill(live) }),
-    'session $1.00 billed   −$4.00 (−80%) vs no routing   10 replies',
+    'session $1.00 billed   −$4.00 (−80%) vs Opus 5.5   10 replies',
   );
   assert.equal(
     second({ usageSession: record(SAVES), usageLive: [live] }),
-    'session $6.50 billed   −$2.24 (−26%) vs no routing   65 replies',
+    'session $6.50 billed   −$2.24 (−26%) vs Opus 5.5   65 replies',
   );
 });
 
 test('/router without a surface says the session in the band’s words, in one line', () => {
   const line = (props) => savingsLine(DEFAULTS, view(props), null, Date.parse('2026-10-29T12:00:00Z'));
   for (const [props, expected] of [
-    [{ ...OPUS, usageSession: record(SAVES) }, 'Session: $6.40 billed · −$1.84 (−22%) vs no routing · 64 replies'],
-    [{ ...HAIKU, usageSession: record(MORE) }, 'Session: $3.10 billed · +$2.48 (×5.0) vs no routing · 41 replies'],
+    [{ ...OPUS, usageSession: record(SAVES) }, 'Session: $6.40 billed · −$1.84 (−22%) vs Opus 5.5 $8.24 · 64 replies'],
+    [{ ...HAIKU, usageSession: record(MORE) }, 'Session: $3.10 billed · +$2.48 (×5.0) vs Haiku 5.5 $0.62 · 41 replies'],
     [
       { ...OPUS, usageSession: record(EARLY) },
-      'Session: $0.21 billed · −$0.05 (−19%) vs no routing, early sample · 3 replies',
+      'Session: $0.21 billed · −$0.05 (−19%) vs Opus 5.5 $0.26 · 3 replies so far',
     ],
     [{ nativeModel: 'claude-sonnet-5-5', nativeEffort: 'medium' }, 'Session: no routed replies yet'],
     [{ ...OPUS, savingsStore: 'corrupted' }, 'Session: no routed replies yet'],

@@ -25,7 +25,7 @@
 <text x="765.0" y="56" fill="#87d787" xml:space="preserve">100%</text>
 <text x="796.2" y="56" fill="#7c7c7c" xml:space="preserve"> last</text>
 <text x="850.8" y="56" fill="#d0d0d0" xml:space="preserve">Router</text>
-<text class="cap" x="20" y="95">Two rows on a Claude plan, with the hover row shown: plan windows, the session as API value against no routing, pins</text>
+<text class="cap" x="20" y="95">Two rows on a Claude plan, with the hover row shown: plan windows, the session as API value against your model, pins</text>
 <rect x="12" y="103" width="897.6" height="67" rx="5" fill="#232323"/>
 <text x="24.0" y="121" fill="#e0708a" xml:space="preserve">▂</text>
 <text x="31.8" y="121" fill="#e0708a" xml:space="preserve">▄</text>
@@ -54,8 +54,8 @@
 <text x="390.6" y="140" fill="#d0d0d0" font-weight="700" xml:space="preserve">≈$6.40</text>
 <text x="437.4" y="140" fill="#7c7c7c" xml:space="preserve"> API value</text>
 <text x="538.8" y="140" fill="#6fcf97" font-weight="700" xml:space="preserve">−$1.84 (−22%)</text>
-<text x="640.2" y="140" fill="#7c7c7c" xml:space="preserve"> vs no routing</text>
-<text x="772.8" y="140" fill="#7c7c7c" xml:space="preserve">64 replies</text>
+<text x="640.2" y="140" fill="#7c7c7c" xml:space="preserve"> vs Opus 5.5</text>
+<text x="757.2" y="140" fill="#7c7c7c" xml:space="preserve">64 replies</text>
 <text x="24.0" y="159" fill="#7c7c7c" xml:space="preserve">pin </text>
 <rect x="55.2" y="145" width="140.4" height="18" rx="4" fill="#2e3340"/>
 <text x="55.2" y="159" fill="#d0d0d0" xml:space="preserve">[ ▂ Haiku·medium ]</text>
@@ -69,7 +69,7 @@
 <text x="663.6" y="159" fill="#d0d0d0" xml:space="preserve">[ Turn off ]</text>
 <rect x="772.8" y="145" width="70.2" height="18" rx="4" fill="#2e3340"/>
 <text x="772.8" y="159" fill="#d0d0d0" xml:space="preserve">[ 1 row ]</text>
-<text class="cap" x="20" y="198">Two rows on an API key: the session as billed against no routing</text>
+<text class="cap" x="20" y="198">Two rows on an API key: the session as billed against your model</text>
 <rect x="12" y="206" width="897.6" height="48" rx="5" fill="#232323"/>
 <text x="24.0" y="224" fill="#e0708a" xml:space="preserve">▂</text>
 <text x="31.8" y="224" fill="#e0708a" xml:space="preserve">▄</text>
@@ -91,8 +91,8 @@
 <text x="86.4" y="243" fill="#d0d0d0" font-weight="700" xml:space="preserve">$6.40</text>
 <text x="125.4" y="243" fill="#7c7c7c" xml:space="preserve"> billed</text>
 <text x="203.4" y="243" fill="#6fcf97" font-weight="700" xml:space="preserve">−$1.84 (−22%)</text>
-<text x="304.8" y="243" fill="#7c7c7c" xml:space="preserve"> vs no routing</text>
-<text x="437.4" y="243" fill="#7c7c7c" xml:space="preserve">64 replies</text>
+<text x="304.8" y="243" fill="#7c7c7c" xml:space="preserve"> vs Opus 5.5</text>
+<text x="421.8" y="243" fill="#7c7c7c" xml:space="preserve">64 replies</text>
 <text class="cap" x="20" y="282">A pin waits for the next turn; ✕ cancels it</text>
 <rect x="12" y="290" width="897.6" height="29" rx="5" fill="#232323"/>
 <text x="24.0" y="308" fill="#5f9fe0" xml:space="preserve">▂</text>

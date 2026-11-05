@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 602 496" role="img" aria-labelledby="title desc">
   <title id="title">Router pane, Now tab</title>
-  <desc id="desc">NEXT TURN: the tier meter, model and activity, the reason with the classifier support it weighed and the switch cost, and one pin per tier, low to high, with its support. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total of the main thread and one running subagent as API value, the difference against no routing, the main thread and the subagents as bars on one scale, and a strip of every reply colored by tier with the replies per tier. CONTEXT: the window fill and the cache reuse.</desc>
+  <desc id="desc">NEXT TURN: the tier meter, model and activity, the reason with the classifier support it weighed and the switch cost, and one pin per tier, low to high, with its support. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total of the main thread and one running subagent as API value, the difference against unrouted, the main thread and the subagents as bars on one scale, and a strip of every reply colored by tier with the replies per tier. CONTEXT: the window fill and the cache reuse.</desc>
   <style>
     text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; }
     .cap { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; fill: #9a988f; }
@@ -63,8 +63,8 @@
 <rect x="382.8" y="286" width="70.2" height="18" rx="4" fill="#2e3340"/>
 <text x="382.8" y="300" fill="#d0d0d0" xml:space="preserve">[ Usage ]</text>
 <text x="39.6" y="319" fill="#6fcf97" font-weight="700" xml:space="preserve">−$4.09 (−31%)</text>
-<text x="141.0" y="319" fill="#d0d0d0" xml:space="preserve"> vs no routing</text>
-<text x="250.2" y="319" fill="#7c7c7c" xml:space="preserve">  of ≈$13.06</text>
+<text x="141.0" y="319" fill="#d0d0d0" xml:space="preserve"> vs unrouted</text>
+<text x="234.6" y="319" fill="#7c7c7c" xml:space="preserve"> ≈$13.06</text>
 <text x="24.0" y="338" fill="#d0d0d0" xml:space="preserve">  main  </text>
 <text x="86.4" y="338" fill="#d0d0d0" xml:space="preserve"> ≈$6.45</text>
 <text x="156.6" y="338" fill="#5fafd7" xml:space="preserve">████████████████</text>

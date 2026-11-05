@@ -84,7 +84,7 @@ test('band and pane show observed-only totals without invented savings in every 
     assert.match(lines, /^[\w ]+ · billed +\$0\.00$/m, period);
     assert.match(lines, /input 1\.1K/, period);
     assert.match(lines, /▸ code/, period);
-    assert.doesNotMatch(lines, /vs no routing/, period);
+    assert.doesNotMatch(lines, /vs unrouted/, period);
   }
 });
 
