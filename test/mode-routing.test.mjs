@@ -123,18 +123,22 @@ test('where effort splits the cache, the switch tax holds the effort lever after
 });
 
 test('a cost switch to a model with no output price waits out the dwell on the same task', () => {
-  // Cost picks the tier below by input price; with no output price the pair does not order by strength.
+  // Cost takes the tier below by input price; with no output price the pair does not order by strength.
   const local = loadConfig({
     userFile: {
       models: {
         local: { id: 'local-coder', input: 1, cacheRead: 0.1, contextWindow: 1_000_000, billing: 'plan', efforts: [] },
       },
-      routes: { medium: { model: 'local' } },
+      routes: { low: { model: 'local' } },
     },
   });
-  const loop = turn(inMode('cost', local), onOpusXhigh(local), { at: T0 + 10 });
-  assert.deepEqual([ran_(loop), loop.decision.reason], [`${OPUS}@xhigh`, 'downgrade-held']);
-  const moved = turn(inMode('cost', local), onOpusXhigh(local), { answer: NEW_TASK, at: T0 + 10 });
+  const medium = (continuation) => advice('medium', { medium: 0.99, low: 0.01 }, { continuation });
+  let onOpus = turn(local, { ...emptyLoop(local, OPUS), lastRoute: 'medium' }, { answer: medium(0.9) });
+  assert.equal(ran_(onOpus), `${OPUS}@medium`);
+  for (let i = 0; i < 2; i += 1) onOpus = reply(onOpus, T0 + i, 600, local);
+  const loop = turn(inMode('cost', local), onOpus, { answer: medium(0.9), at: T0 + 10 });
+  assert.deepEqual([ran_(loop), loop.decision.reason], [`${OPUS}@medium`, 'downgrade-held']);
+  const moved = turn(inMode('cost', local), onOpus, { answer: medium(0), at: T0 + 10 });
   assert.equal(moved.decision.model, 'local-coder');
 });
 
@@ -240,7 +244,7 @@ function codingInCost() {
     { ...emptyLoop(cost, SONNET), lastRoute: 'low' },
     { answer: withActivity('low', 'code', 0.95) },
   );
-  assert.equal(ran_(loop), `${SONNET}@medium`);
+  assert.equal(ran_(loop), `${HAIKU}@high`);
   loop = reply(loop, T0);
   return loop;
 }
