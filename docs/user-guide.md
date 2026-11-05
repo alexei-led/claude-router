@@ -71,10 +71,10 @@ While routing is on, hover over the band for a second row: a pin per tier, low t
 **2 rows** adds the session under the route, in the same numbers as the pane's SESSION block. On a Claude plan it leads with the plan windows Claude Code reports:
 
 ```text
-plan 5h ▰▰▰▰▱▱▱▱ 48% ↻18:00   7d 43%   session ≈$6.40 API value   −$1.84 (−22%) vs no routing   64 replies
+plan 5h ▰▰▰▰▱▱▱▱ 48% ↻18:00   7d 43%   session ≈$6.40 API value   −$1.84 (−22%) vs Opus 5.5   64 replies
 ```
 
-On an API key, or a provider billed in credits, the same row reads `session $6.40 billed   −$1.84 (−22%) vs no routing   64 replies`. Read it as: this session's replies and subagents cost $6.40 at list prices, $1.84 less than without the router. **No routing** is your model on every main-thread reply and Claude Code's own pick for every subagent, priced on the same tokens. Minus is cheaper than no routing, plus is dearer; past double it reads as a ratio, `+$2.48 (×5.0)`. `≈` marks [API value](#how-dollars-are-paid): plan quota, not a charge. A profile that mixes plan and credits models adds the billed part, `billed $4.10`. Before the tenth routed reply the difference adds `· early`, because one switch can decide a short run. Some situations change the middle part:
+On an API key, or a provider billed in credits, the same row reads `session $6.40 billed   −$1.84 (−22%) vs Opus 5.5   64 replies`. Read it as: this session's replies cost $6.40 at list prices, $1.84 less than the same tokens on Opus 5.5, the model `/model` selected. The band names that model while every main reply was priced against it and no subagent ran. Otherwise it reads `vs unrouted`: your model on every main-thread reply and Claude Code's own pick for every subagent, priced on the same tokens. Minus is cheaper, plus is dearer; past double it reads as a ratio, `+$2.48 (×5.0)`. `≈` marks [API value](#how-dollars-are-paid): plan quota, not a charge. A profile that mixes plan and credits models adds the billed part, `billed $4.10`. Before the tenth routed reply the count reads `3 replies so far`, because one model switch and its cache write can still decide a short run. Some situations change the middle part:
 
 - `effort low 4 · high 2`: the profile runs one model and routing moves only the effort, so no saving is estimated; see [Providers](providers.md).
 - `3 of 20 not compared`: some replies have no comparison, such as on a provider whose cache hit rate cannot be known; no saving is shown.
@@ -103,7 +103,7 @@ Run `/router` or select **Router** above the prompt. Without a UI surface, as in
 
 The top line of every tab, `ROUTER  [ ◉ on ] [ ○ off ]  Jev ready · 347 ms`, shows the routing mode, switches it, and says whether the classifier is ready. Press `o` or `f` while the pane has focus. The tabs under it carry their digits, `[ 1 Now ] [ 2 Routes ] …`, and **?** shows what the numbers mean above the tab. When routing is unavailable, the top line reads `ROUTER  unavailable  Claude’s model is kept` with the reason under it, and offers no on or off: see [Troubleshooting](#troubleshooting).
 
-![The Now tab in four blocks. NEXT TURN: the tier meter, model and activity, the reason with the classifier support and the switch cost, one pin per tier. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total with one running subagent as API value, the difference against no routing, the main thread and the subagents as bars, and a strip of every reply colored by tier. CONTEXT: the window fill and the cache reuse](router-pane-now.svg)
+![The Now tab in four blocks. NEXT TURN: the tier meter, model and activity, the reason with the classifier support and the switch cost, one pin per tier. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total with one running subagent as API value, the difference against unrouted, the main thread and the subagents as bars, and a strip of every reply colored by tier. CONTEXT: the window fill and the cache reuse](router-pane-now.svg)
 
 The **Now** tab has four blocks, each with its name in capitals.
 
@@ -116,7 +116,7 @@ The **Now** tab has four blocks, each with its name in capitals.
 ```text
 SESSION  since 14:18 · 86 replies · 6 agents · 9 switches  ● 1 running
   ≈$8.97  API value · plan quota, not billed  [ Usage ]
-  −$4.09 (−31%) vs no routing  of ≈$13.06
+  −$4.09 (−31%) vs unrouted ≈$13.06
   main   ≈$6.45  ████████████████  −$4.17 vs Opus 5.5 · xhigh
   agents ≈$2.52  ██████░░░░░░░░░░  +$0.08 vs their picks
   tiers ███████████████████████████████████████████  2 replies per cell
@@ -124,7 +124,7 @@ SESSION  since 14:18 · 86 replies · 6 agents · 9 switches  ● 1 running
 ```
 
 - The first line is the total and how it is paid: `API value · plan quota, not billed` on a plan, `billed at list prices` on an API key or credits, and `API value · $4.10 of it billed as credits` when a profile mixes the two. See [How dollars are paid](#how-dollars-are-paid). **Usage** opens the Usage tab on this session.
-- The second line is the difference against no routing and what no routing would have cost. The parts add up: main and agents make the total, and their differences make the session's difference (−$4.17 + $0.08 = −$4.09). Before the tenth main reply it adds `early sample`; a narrow pane drops that note first.
+- The second line is the difference and what the same tokens would have cost: `vs Opus 5.5 ≈$13.06` when every main reply was priced against your model and no subagent ran, else `vs unrouted ≈$13.06`. The parts add up: main and agents make the total, and their differences make the session's difference (−$4.17 + $0.08 = −$4.09). Before the tenth main reply a line follows: `3 replies so far: one model switch can still move this a lot`. A narrow pane drops the amount first.
 - **main** compares the main thread with your model, **agents** compares the subagents with Claude Code's picks. The bars share one scale.
 - An effort-only profile shows `effort routing on one model: no saving is estimated` and its effort mix instead. When some replies have no comparison, the block says how many and shows no saving.
 - When cache rebuilds cost more than the cheaper models saved, `▲ switches cost more than they saved` follows, with **Policy** to raise the bar for a switch.
@@ -144,18 +144,18 @@ Every write applies from the next turn and can be undone. **Undo** (`u`) puts ba
 
 ### Compare routing with no routing
 
-![The Usage tab over 7 days: the period buttons, the difference against no routing first, then a cost table whose rows add up (the main thread with its cheaper-model saving and cache rebuilds, the subagents, the total), the tokens, the cost by activity with code opened to its routes, the cost by day, and the cell worth a look with a link to Routes](router-pane-usage.svg)
+![The Usage tab over 7 days: the period buttons, the difference against unrouted first, then a cost table whose rows add up (the main thread with its cheaper-model saving and cache rebuilds, the subagents, the total), the tokens, the cost by activity with code opened to its routes, the cost by day, and the cell worth a look with a link to Routes](router-pane-usage.svg)
 
-The Usage tab keeps observed routed spend and, when the cache history permits it, compares it with **no routing**: your model on every main-thread reply and Claude Code's own pick for every subagent, priced on the same tokens. Your model is the model `/model` (or `--model`) selected, at the session effort, when a reply ran. The router prices observed tokens at the list prices in `router.json`.
+The Usage tab keeps observed routed spend and, when the cache history permits it, compares it with **unrouted**: your model on every main-thread reply and Claude Code's own pick for every subagent, priced on the same tokens. Your model is the model `/model` (or `--model`) selected, at the session effort, when a reply ran. The router prices observed tokens at the list prices in `router.json`.
 
 The top row picks the period: **Session**, **Today**, **7d** (today and the six days before), **30d**, **Month** (since the first of this month) and **All**. Press `p` for the next one. The pane remembers the choice across sessions. Session holds this session's replies, and the line under the row names your model, or every model when `/model` changed during the session. The other periods add up the replies of every session on those calendar days. Each session counts against its own model, and the line reads `all projects · Oct 7 – Oct 13 · each session vs its own model`.
 
-When the period is comparable, the difference comes first, then one table whose cents add up:
+When the period is comparable, the difference comes first, then one table whose cents add up. The Usage tab always says `unrouted`, even for the session, because a period mixes your model with Claude Code's picks; the Now tab and the band name your model when they can:
 
 ```text
-−$12.29 (−37%) vs no routing
+−$12.29 (−37%) vs unrouted
 
-                              cost  vs no routing  no routing
+                              cost    vs unrouted    unrouted
 main · 221 replies         ≈$15.33        −$11.78     ≈$27.11
   cheaper models                          −$12.29
   cache rebuilds                           +$0.51   4% of the saving
@@ -171,9 +171,9 @@ agents · 15                 ≈$5.60         −$0.51      ≈$6.11
 | stronger models  | What replies on models stronger than yours cost on top. Shown only when not zero.                            |
 | cache rebuilds   | What rewriting the prompt cache after a model switch cost, and its share of the saving.                      |
 | agents           | The subagents, against the same tokens on Claude Code's pick for each.                                       |
-| total            | The period's cost, its difference, and what no routing would have cost: `billed` or `≈ API value`.          |
+| total            | The period's cost, its difference, and what unrouted would have cost: `billed` or `≈ API value`.          |
 
-Each row reads across: cost − no routing = the difference. Down the table, main and agents make the total, and cheaper models, stronger models and cache rebuilds make main's difference. A profile that mixes plan and credits models adds `billed as credits` under the total. Below 10 routed replies the difference adds `early sample`, because one switch and its cache write can decide a short run.
+Each row reads across: cost − unrouted = the difference. Down the table, main and agents make the total, and cheaper models, stronger models and cache rebuilds make main's difference. A profile that mixes plan and credits models adds `billed as credits` under the total. Below 10 routed replies the difference adds `3 replies so far: one model switch can still move this a lot`, because one switch and its cache write can decide a short run.
 
 When some replies have no comparison, the tab says `3 of 20 replies have no comparison: no saving is shown.`, and the table shows the cost alone. Counts, tokens, breakdowns and trends still include those replies; a row with incomplete coverage shows `—` against no routing, and **What if** stays unavailable rather than inventing a baseline. This is common with automatic provider caches, whose future hit rates are unknown. An effort-only profile says `Effort routing on one model: no saving is estimated; the cost is what was billed.`
 
@@ -280,7 +280,7 @@ On the running task:
   - `explore`, `plan`, `review`: a turn finished, nothing was edited, written, run or delegated, and the last tool result was not an error.
   - `code`, `debug` and a route with no activity: only a passed check counts.
 
-  A failed check blocks every one of these, and so does a check whose result is not the check's own (chained, redirected, piped, after `;` or `||`, or in the background). While no checkpoint is met, the route stays: for a tier the band shows `… down after a checkpoint`; a held activity keeps the running one and shows `= fits`. A cheaper activity also needs 90% probability (`policy.downgradeMass`).
+  A failed check blocks every one of these, and so does a check whose result is not the check's own (chained, redirected, piped, after `;` or `||`, or in the background). While no checkpoint is met, the route stays: for a tier the band shows `… down after a checkpoint`; a held activity keeps the running one and shows `= fits`. A cheaper activity also needs 90% probability (`policy.downgradeMass`; 65% in `cost`).
 - A cheaper tier lands where the answer as a whole points: when the classifier says `micro` 63% and `low` 30%, the turn moves to `low`, which 93% of the answer supports, instead of staying until `micro` alone reaches 90%.
 - A pinned turn does not move. A new task, a prompt the classifier does not score as a continuation, is routed as a fresh turn. Ollama does not answer the continuation question, so every prompt is a new task to it; reviews inside a turn still apply.
 
@@ -295,7 +295,7 @@ These thresholds are starting values. They are not tuned on data yet.
 
 On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the counts kept across sessions, once there are any: the turns labelled from their tools, **Agreement** over them, **Code/ops/explore**, the same agreement over the turns the classifier answered `code`, `ops` or `explore` (omitted when there are none), the two most frequent mismatches as `predicted → observed count` (`code → read 3`), **Activity moves**, the moves to another route inside a tier, taken and refused for any reason, **Escalations**, such as `after a cheaper activity move: 1 in 12 moves`, the tool-error escalations that followed a move to a cheaper route in `on` while the turns stayed on it in `on` (turning routing off, a turn with routing off, or a turn in `off` ends the watch, a pin in between does not, and an escalation the credits cap held counts). Each of these lines appears only when it has data. The active classifier's p95 wait across sessions shows on its **Deadline** line instead (not recorded with activity routing `off`). This agreement compares the classifier's raw answer, so it can differ from the session's. The pane reads these counts when the session starts and when it opens, and adds this session's turns as they finish; another session's new latency and escalation readings show the next time the pane opens. **Delete history** on the Usage tab deletes these counts with the usage and subagent records, for this session and across sessions.
 
-`/router` without a UI surface adds an `Activity: ops (81%)` line, the resolved route, and `Agreement across sessions: 19 of 22 turns (86%) · code/ops/explore 9 of 10 (90%)`. It also prints the session in the band's words, such as `Session: $6.40 billed · −$1.84 (−22%) vs no routing · 64 replies`, after a `Plan: 5h 48% · 7d 43%` line on a Claude plan.
+`/router` without a UI surface adds an `Activity: ops (81%)` line, the resolved route, and `Agreement across sessions: 19 of 22 turns (86%) · code/ops/explore 9 of 10 (90%)`. It also prints the session in the band's words, such as `Session: $6.40 billed · −$1.84 (−22%) vs Opus 5.5 $8.24 · 64 replies`, after a `Plan: 5h 48% · 7d 43%` line on a Claude plan.
 
 ## Change routing
 

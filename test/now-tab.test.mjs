@@ -124,7 +124,7 @@ test('the session leads with its total and how it is paid, then the difference a
     [
       SESSION_HEAD,
       '  $4.30  billed at list prices  [ Usage ]',
-      '  −$4.70 (−52%) vs no routing  of $9.00',
+      '  −$4.70 (−52%) vs Opus 5.5 $9.00',
       '  main    $4.30  ████████████████  −$4.70 vs Opus 5.5',
       '  tiers ███·',
       '        ▂▄ 3   ▂▄▆ 1   ▂▄▆█ 1   · not routed 1',
@@ -145,7 +145,7 @@ test('on a plan the pane shows the plan windows and the session as API value wit
   ]);
   assert.deepEqual(block(all, 'SESSION').slice(1, 4), [
     '  ≈$4.30  API value · plan quota, not billed  [ Usage ]',
-    '  −$4.70 (−52%) vs no routing  of ≈$9.00',
+    '  −$4.70 (−52%) vs Opus 5.5 ≈$9.00',
     '  main   ≈$4.30  ████████████████  −$4.70 vs Opus 5.5',
   ]);
   assert.ok(!all.some((line) => line.includes('/cost')));
@@ -164,13 +164,17 @@ test('a session without replies says so, and replies without a list price keep t
   ]);
 });
 
-test('an early session marks its difference as an early sample, and a narrow pane drops that note first', () => {
+test('an early session names its replies so far and why, and a narrow pane drops the unrouted amount first', () => {
   const early = recordUsage(emptyUsage(), [reply(at(2026, 10, 13, 10), 'code')], { now: NOW });
   for (const [columns, expected] of [
-    [100, '  −$0.20 (−40%) vs no routing  of $0.50 · early sample'],
-    [50, '  −$0.20 (−40%) vs no routing'],
+    [100, '  −$0.20 (−40%) vs Opus 5.5 $0.50'],
+    [30, '  −$0.20 (−40%) vs Opus 5.5'],
   ])
-    assert.equal(block(lines({ usageSession: early }, { columns }), 'SESSION')[2], expected, `${columns} columns`);
+    assert.deepEqual(
+      block(lines({ usageSession: early }, { columns }), 'SESSION').slice(2, 4),
+      [expected, '  1 reply so far: one model switch can still move this a lot'],
+      `${columns} columns`,
+    );
 });
 
 test('the session counts the running turn’s replies and warns when the switches cost more than they saved', () => {
@@ -179,7 +183,7 @@ test('the session counts the running turn’s replies and warns when the switche
   assert.deepEqual(block(lines({ usageSession: emptyUsage(), usageLive: [lost, lost] }), 'SESSION').slice(0, 3), [
     'SESSION  2 replies',
     '  $2.00  billed at list prices  [ Usage ]',
-    '  +$1.00 (+100%) vs no routing  of $1.00 · early sample',
+    '  +$1.00 (+100%) vs Opus 5.5 $1.00',
   ]);
   const warned = render({ usageSession: emptyUsage(), usageLive: Array(10).fill(lost) }, { actions });
   assert.ok(screen(warned).includes('  ▲ switches cost more than they saved  [ Policy ]'));

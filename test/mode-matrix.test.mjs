@@ -22,7 +22,7 @@ const GOLDEN = {
   defaults: {
     micro: [[EVERY, ['haiku/medium', 'haiku/medium', 'haiku/medium']]],
     low: [
-      [ENGINEERING, ['sonnet/medium', 'sonnet/high', 'sonnet/xhigh']],
+      [ENGINEERING, ['haiku/high', 'sonnet/high', 'sonnet/xhigh']],
       [
         [...REST, 'ops'],
         ['haiku/medium', 'haiku/high', 'haiku/xhigh'],
@@ -38,11 +38,11 @@ const GOLDEN = {
         [...ENGINEERING, ...REST],
         ['opus/high', 'opus/xhigh', 'opus/max'],
       ],
-      [['ops'], ['haiku/high', 'opus/xhigh', 'opus/max']],
+      [['ops'], ['opus/high', 'opus/xhigh', 'opus/max']],
     ],
     // `uncertain` keeps the incumbent tier: a fresh session's is the baseline, low.
     uncertain: [
-      [ENGINEERING, ['sonnet/medium', 'sonnet/high', 'sonnet/xhigh']],
+      [ENGINEERING, ['haiku/high', 'sonnet/high', 'sonnet/xhigh']],
       [
         [...REST, 'ops'],
         ['haiku/medium', 'haiku/high', 'haiku/xhigh'],
@@ -55,7 +55,7 @@ const GOLDEN = {
         [...ENGINEERING, ...REST],
         ['opus/medium', 'opus/high', 'opus/xhigh'],
       ],
-      [['ops'], ['haiku/high', 'opus/high', 'opus/xhigh']],
+      [['ops'], ['opus/medium', 'opus/high', 'opus/xhigh']],
     ],
   },
 };

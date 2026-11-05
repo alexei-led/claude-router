@@ -73,14 +73,14 @@ const STARTS = {
 };
 
 test('plan and credits models add up at API prices in one sum against no routing, whichever model is yours', () => {
-  for (const [name, diff] of [
-    ['started on Opus: DeepSeek turns are cheaper', '−$45.90 (−66%)'],
-    ['started on DeepSeek: Opus turns are stronger', '+$18.50 (×4.3)'],
+  for (const [name, diff, yours] of [
+    ['started on Opus: DeepSeek turns are cheaper', '−$45.90 (−66%)', 'Opus 5.5'],
+    ['started on DeepSeek: Opus turns are stronger', '+$18.50 (×4.3)', 'DeepSeek Flash'],
   ]) {
-    assert.equal(band(STARTS[name]), `session $24.10 billed   ${diff} vs no routing   100 replies`, name);
+    assert.equal(band(STARTS[name]), `session $24.10 billed   ${diff} vs ${yours}   100 replies`, name);
     assert.equal(
       band(STARTS[name], PLAN),
-      `plan 5h ▰▰▰▱▱▱▱▱ 37%   7d 81%   session ≈$24.10 API value   billed $4.10   ${diff} vs no routing   100 replies`,
+      `plan 5h ▰▰▰▱▱▱▱▱ 37%   7d 81%   session ≈$24.10 API value   billed $4.10   ${diff} vs ${yours}   100 replies`,
       `${name} on a plan`,
     );
   }
@@ -90,11 +90,11 @@ test('on a plan /router says the API value with ≈ and the credits part as bill
   const props = STARTS['started on Opus: DeepSeek turns are cheaper'];
   assert.equal(
     savingsLine(PROXY, view(props), PLAN, NOW),
-    'Plan: 5h 37% · 7d 81%\nSession: ≈$24.10 API value · billed $4.10 · −$45.90 (−66%) vs no routing · 100 replies',
+    'Plan: 5h 37% · 7d 81%\nSession: ≈$24.10 API value · billed $4.10 · −$45.90 (−66%) vs Opus 5.5 ≈$70.00 · 100 replies',
   );
   assert.equal(
     savingsLine(PROXY, view(props), null, NOW),
-    'Session: $24.10 billed · −$45.90 (−66%) vs no routing · 100 replies',
+    'Session: $24.10 billed · −$45.90 (−66%) vs Opus 5.5 $70.00 · 100 replies',
   );
 });
 
@@ -119,7 +119,7 @@ test('after /model moved between plan and credits models, /router still compares
     null,
     NOW,
   );
-  assert.equal(line, 'Session: $24.10 billed · $0.00 vs no routing · 100 replies');
+  assert.equal(line, 'Session: $24.10 billed · $0.00 vs unrouted $24.10 · 100 replies');
 });
 
 test('the Usage tab on a plan with credits models shows the total as API value and its credits part as billed', () => {

@@ -5,7 +5,7 @@ your routes stay as they are. The mode moves the route each tier runs by one fix
 
 | Mode | What changes |
 | --- | --- |
-| `cost` | A cheaper route where the turn allows it: the tier below when that tier runs a model with a lower input price, else one effort level less on the same model. Never below `low`. |
+| `cost` | A cheaper route where the turn allows it: the tier below when that tier runs a model with a lower input price (at `low`, the `low` route without its activity override), else one effort level less on the same model. `high` keeps its model and drops one effort level. Never below `low`. |
 | `balanced` | Nothing: every tier runs its route as configured. |
 | `quality` | One effort level more on the same model, else the route of the tier above. |
 
@@ -48,13 +48,19 @@ Each mode except `balanced` replaces some `policy` fields while it is active. Th
 codex-router's and are **not tuned** on outcomes. Since 1.16, `cost` upgrades on balanced's bar (2 votes from 0.75):
 with 3 votes from 0.85, the cache write of a cold stronger model raised the bar to about 0.92 from 60k tokens and 0.97
 at 250k, so a cost turn on Haiku kept a task the classifier scored hard at 90%. `cost` still moves down sooner than
-`balanced` (one vote, 80% support, a 4-request dwell):
+`balanced`: one vote, a 4-request dwell, and since 1.21.1 65% support. At 80% support
+the cold cache of a cheaper model raised the bar to about 0.87 at ~430k tokens. In 578 recorded cost decisions the
+classifier chose `high` on 33% of answers, the router ran `high` on 58%, and none of the 136 answers for a lower tier
+cleared the bar. Not 60%: an upgrade counts all the mass above the running tier, so an answer split between medium
+and high can move `low` to `high`, and at 60% the next such answer dropped straight back to the still-warm cheaper
+cache:
 
 ```json
 {
   "modes": {
     "cost": { "policy": { "upgradeVotes": 2, "upgradeBase": 0.75, "jumpConfidence": 0.98, "downgradeVotes": 1,
-                          "downgradeMass": 0.8, "minDwellRequests": 4, "escalationHoldTurns": 1 } },
+                          "downgradeMass": 0.65, "minDwellRequests": 4,
+                          "escalationHoldTurns": 1 } },
     "quality": { "policy": { "upgradeVotes": 1, "upgradeBase": 0.6, "jumpConfidence": 0.9, "downgradeVotes": 3,
                              "downgradeMass": 0.95, "minDwellRequests": 16, "escalationHoldTurns": 4 } }
   }
@@ -75,14 +81,13 @@ path. Generated from the test data by `npm run docs:modes`; `test/mode-matrix.te
 | Classifier | Activities | cost | balanced | quality |
 | --- | --- | --- | --- | --- |
 | micro | code, debug, explore, plan, review, ops, docs, uncertain | Haiku · medium | Haiku · medium | Haiku · medium |
-| low | code, debug, plan, review | Sonnet · medium | Sonnet · high | Sonnet · xhigh |
+| low | code, debug, plan, review | Haiku · high | Sonnet · high | Sonnet · xhigh |
 | low | explore, ops, docs, uncertain | Haiku · medium | Haiku · high | Haiku · xhigh |
 | medium | code, debug, plan, review | Sonnet · high | Opus · medium | Opus · high |
 | medium | explore, docs, uncertain | Haiku · high | Opus · medium | Opus · high |
 | medium | ops | Haiku · medium | Haiku · high | Haiku · xhigh |
-| high | code, debug, explore, plan, review, docs, uncertain | Opus · high | Opus · xhigh | Opus · max |
-| high | ops | Haiku · high | Opus · xhigh | Opus · max |
-| uncertain | code, debug, plan, review | Sonnet · medium | Sonnet · high | Sonnet · xhigh |
+| high | code, debug, explore, plan, review, ops, docs, uncertain | Opus · high | Opus · xhigh | Opus · max |
+| uncertain | code, debug, plan, review | Haiku · high | Sonnet · high | Sonnet · xhigh |
 | uncertain | explore, ops, docs, uncertain | Haiku · medium | Haiku · high | Haiku · xhigh |
 
 **`routes.high` = Opus · high**
@@ -90,33 +95,30 @@ path. Generated from the test data by `npm run docs:modes`; `test/mode-matrix.te
 | Classifier | Activities | cost | balanced | quality |
 | --- | --- | --- | --- | --- |
 | micro | code, debug, explore, plan, review, ops, docs, uncertain | Haiku · medium | Haiku · medium | Haiku · medium |
-| low | code, debug, plan, review | Sonnet · medium | Sonnet · high | Sonnet · xhigh |
+| low | code, debug, plan, review | Haiku · high | Sonnet · high | Sonnet · xhigh |
 | low | explore, ops, docs, uncertain | Haiku · medium | Haiku · high | Haiku · xhigh |
 | medium | code, debug, plan, review | Sonnet · high | Opus · medium | Opus · high |
 | medium | explore, docs, uncertain | Haiku · high | Opus · medium | Opus · high |
 | medium | ops | Haiku · medium | Haiku · high | Haiku · xhigh |
-| high | code, debug, explore, plan, review, docs, uncertain | Opus · medium | Opus · high | Opus · xhigh |
-| high | ops | Haiku · high | Opus · high | Opus · xhigh |
-| uncertain | code, debug, plan, review | Sonnet · medium | Sonnet · high | Sonnet · xhigh |
+| high | code, debug, explore, plan, review, ops, docs, uncertain | Opus · medium | Opus · high | Opus · xhigh |
+| uncertain | code, debug, plan, review | Haiku · high | Sonnet · high | Sonnet · xhigh |
 | uncertain | explore, ops, docs, uncertain | Haiku · medium | Haiku · high | Haiku · xhigh |
 <!-- mode-matrix:end -->
 
 ## Known trade-offs
 
-The steps are fixed rules, with no per-activity exceptions. Two cells go against this router's own model notes
-(`lib/config.mjs`), and replay data should decide them later:
+The steps are fixed rules, with no per-activity exceptions. Before 1.21.1, `cost` ran `high` ops on Haiku 5.5 and `low`
+code on Sonnet 5.5 at medium, which scored below Haiku 5.5 at high on FrontierCode and costs more per token. One cell
+still goes against this router's own model notes (`lib/config.mjs`):
 
-- `cost` at `high` for **ops** runs Haiku 5.5 at high (the `medium` ops route), although Haiku trails Opus on
-  multi-step tool work. Repeated tool errors cannot escalate it: no tier is above `high`. For such a task, pin `high`
-  or switch to `balanced`.
-- `cost` at `low` for **code, debug, plan and review** runs Sonnet 5.5 at medium, which scored below Haiku 5.5 at high
-  on FrontierCode and costs more per token.
+- `cost` at `medium` for **ops** runs Haiku 5.5 at medium, although Haiku trails on shell work (Artificial Analysis
+  v5.0.1 Terminal-Bench 4.0: Haiku 5.5 15.2% at medium, Sonnet 5.5 29.8%). Repeated tool errors still escalate it.
 
-With the built-in routes, `cost` at `low` runs Haiku 5.5 at medium, the same route as `micro`.
+With the built-in routes, `cost` at `low` runs Haiku 5.5 at medium for read-only work and Haiku 5.5 at high for code.
 
 ## Measured impact
 
-One 5-turn coding task (read two files, add a function with tests, run the tests, review, add edge-case tests), the
+Measured on 1.16, before the 1.21.1 rule and policy changes, which are not measured yet. One 5-turn coding task (read two files, add a function with tests, run the tests, review, add edge-case tests), the
 same prompts in a new session per mode, Jev classifier, built-in routes. Cost is a list-price estimate of the measured
 tokens ([raw results](../experiments/mod-router/results/mode-live-acceptance.json)).
 

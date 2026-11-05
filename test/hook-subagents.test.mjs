@@ -323,16 +323,16 @@ test('Usage and Now show the session’s agents by model, who picked it, and wha
   });
   const now = screen(await h.render()).join('\n');
   assert.match(now, /^SESSION {2}1 agent {2}● 1 running$/m);
-  assert.match(now, /^ {2}−\$0\.49 \(−86%\) vs no routing {2}of \$0\.57$/m);
+  assert.match(now, /^ {2}−\$0\.49 \(−86%\) vs unrouted \$0\.57$/m);
   assert.match(now, /^ {2}main {4}\$0\.00 {2}░+$/m);
   assert.match(now, /^ {2}agents {2}\$0\.08 {2}█+ {2}−\$0\.49 vs their picks$/m);
   await finish(h, 'w1', 'claude-opus-5-5');
   await press(h, 'tab-usage');
   const lines = screen(await h.render());
   assert.deepEqual(lines.slice(6, 13), [
-    '−$0.49 (−86%) vs no routing',
+    '−$0.49 (−86%) vs unrouted',
     '',
-    '                              cost  vs no routing  no routing',
+    '                              cost    vs unrouted    unrouted',
     'main · 0 replies             $0.00          $0.00       $0.00',
     'agents · 2                   $0.08         −$0.49       $0.57',
     '─────────────────────────────────────────────────────────────',

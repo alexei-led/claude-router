@@ -187,8 +187,7 @@ Generate these tables with `node scripts/provider-matrix.mjs`.
 | low | explore, ops, docs | flash · no routed effort | flash · no routed effort | flash · no routed effort |
 | medium | base/uncertain, code, debug, plan, review | flash · no routed effort | pro · no routed effort | pro · no routed effort |
 | medium | explore, ops, docs | flash · no routed effort | flash · no routed effort | pro · no routed effort |
-| high | base/uncertain, code, debug, plan, review | pro · no routed effort | pro · no routed effort | pro · no routed effort |
-| high | explore, ops, docs | flash · no routed effort | pro · no routed effort | pro · no routed effort |
+| high | base/uncertain, code, debug, explore, plan, review, ops, docs | pro · no routed effort | pro · no routed effort | pro · no routed effort |
 
 **kimi**
 
@@ -203,7 +202,7 @@ Generate these tables with `node scripts/provider-matrix.mjs`.
 
 MiniMax uses all four preset effort levels. `xhigh` is omitted because some Claude Code versions send it as `high`;
 `max` supplies the deeper setting. Legacy M3 ignores effort and is not a stronger tier by default.
-MiMo's cost/quality modes change models where a neighbouring tier permits it; otherwise the route stays the same.
+MiMo's cost/quality modes change models where a neighbouring tier permits it, except that `cost` keeps `high` on its model; otherwise the route stays the same.
 Kimi uses only `low`, `high`, `max`, the documented controls, and never promotes a session into another model.
 These are starting policies, not an optimal activity matrix. See [research and experiments](provider-experiments.md).
 
@@ -318,7 +317,7 @@ Launch on the model you would otherwise use:
 A launch model must be a model that some route runs. On any other model, a fresh session starts with routing off.
 To start on another Claude model, such as Sonnet, add it to `models`, put it on a route, and map it in the proxy configuration.
 
-Opus is billed by the plan and DeepSeek in credits, but the pane prices both at list prices, so one sum compares them: `session ≈$24.10 API value   billed $4.10   −$45.90 (−66%) vs no routing`, where `billed $4.10` is the DeepSeek part.
+Opus is billed by the plan and DeepSeek in credits, but the pane prices both at list prices, so one sum compares them: `session ≈$24.10 API value   billed $4.10   −$45.90 (−66%) vs Opus 5.5`, where `billed $4.10` is the DeepSeek part.
 See [how dollars are paid](user-guide.md#how-dollars-are-paid).
 
 Open `/router` and check the selected file, classifier health and routing state before use.

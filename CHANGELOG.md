@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.21.1 (2026-11-05)
+
+### Changed
+
+- `cost` mode moves down sooner. A cheaper tier now needs 65% support (`downgradeMass` 0.65), down from 80%. In 578 recorded cost decisions the classifier chose `high` on 33% of answers, but the router ran `high` on 58%: none of the 136 answers for a lower tier cleared the old bar of about 0.87 at ~430k tokens. A weaker activity on the same task uses the same bar. The upgrade bar is unchanged.
+- `cost` keeps the `high` tier's model and drops one effort level. `high` ops runs Opus 5.5 at high, not Haiku 5.5.
+- `cost` at `low` takes the `low` route when its model is cheaper than the activity's. `low` code, debug, plan and review run Haiku 5.5 at high, not Sonnet 5.5 at medium, which scored lower on FrontierCode and costs more per token. On MiMo, `high` read-only work runs Pro.
+- The session difference names what it compares with: `−$1.84 (−22%) vs Opus 5.5` when every main reply was priced against your `/model` and no subagent ran, else `vs unrouted`. The pane and `/router` add the unrouted amount: `vs Opus 5.5 ≈$8.24`.
+- Below 10 main replies the count reads `3 replies so far` instead of `early` or `early sample`, and the pane adds why: one model switch can still move the difference a lot.
+
+### Upgrade
+
+Restart Claude Code after updating. A `modes.cost.policy` in `router.json` still overrides the new values.
+
 ## 1.21.0 (2026-11-04)
 
 ### Changed

@@ -213,10 +213,6 @@
         {
           "tier": "medium",
           "mode": "balanced"
-        },
-        {
-          "tier": "high",
-          "mode": "cost"
         }
       ],
       "requested": "mimo-v2.6-flash",
@@ -240,6 +236,10 @@
         {
           "tier": "medium",
           "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
         },
         {
           "tier": "high",
@@ -471,10 +471,6 @@
         {
           "tier": "medium",
           "mode": "balanced"
-        },
-        {
-          "tier": "high",
-          "mode": "cost"
         }
       ],
       "requested": "mimo-v2.6-flash",
@@ -498,6 +494,10 @@
         {
           "tier": "medium",
           "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
         },
         {
           "tier": "high",
@@ -557,10 +557,6 @@
         {
           "tier": "medium",
           "mode": "balanced"
-        },
-        {
-          "tier": "high",
-          "mode": "cost"
         }
       ],
       "requested": "mimo-v2.6-flash",
@@ -584,6 +580,10 @@
         {
           "tier": "medium",
           "mode": "quality"
+        },
+        {
+          "tier": "high",
+          "mode": "cost"
         },
         {
           "tier": "high",

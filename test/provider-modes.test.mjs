@@ -46,7 +46,7 @@ const GOLDEN = {
         [null, ...ENGINEERING],
         ['pro/null', 'pro/null', 'pro/null'],
       ],
-      [READONLY, ['flash/null', 'pro/null', 'pro/null']],
+      [READONLY, ['pro/null', 'pro/null', 'pro/null']],
     ],
   },
   kimi: {

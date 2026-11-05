@@ -247,14 +247,14 @@ test('Why names the cell for an activity move or a stay on an override, and keep
       'a stay on an override in cost mode, on its mode route',
       on,
       {
-        tier: 'low',
+        tier: 'medium',
         activity: 'code',
         reason: 'same-tier',
         selectedModel: 'claude-sonnet-5-5',
-        effort: 'medium',
+        effort: 'high',
         routingMode: { mode: 'cost', source: 'session' },
       },
-      'code at low runs on Sonnet 5.5 · medium',
+      'code at medium runs on Sonnet 5.5 · high',
     ],
     [
       'a tier move onto an override',
@@ -298,7 +298,7 @@ test('modeLever names an effort-only change of the mode on the cell the band sho
   for (const [name, view, expected] of [
     ['cost high code keeps Opus, one effort less', { ...cost, tier: 'high', activity: 'code' }, 'effort only'],
     ['cost high without an activity', { ...cost, tier: 'high', activity: null }, 'effort only'],
-    ['cost high ops moves to Haiku', { ...cost, tier: 'high', activity: 'ops' }, null],
+    ['cost high ops keeps Opus, one effort less', { ...cost, tier: 'high', activity: 'ops' }, 'effort only'],
     ['cost medium moves to Haiku', { ...cost, tier: 'medium', activity: null }, null],
     ['micro keeps its route in every mode', { ...cost, tier: 'micro', activity: null }, null],
     ['balanced changes nothing', { tier: 'high', activity: 'code' }, null],

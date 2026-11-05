@@ -12,12 +12,12 @@ test('the built-in routes in every mode, tier and activity', () => {
   const cases = [
     // [tier, activities, balanced, cost, quality]
     ['high', [...PLAIN, ...ENGINEERING], r('opus', 'xhigh'), r('opus', 'high'), r('opus', 'max')],
-    ['high', ['ops'], r('opus', 'xhigh'), r('haiku', 'high'), r('opus', 'max')],
+    ['high', ['ops'], r('opus', 'xhigh'), r('opus', 'high'), r('opus', 'max')],
     ['medium', PLAIN, r('opus', 'medium'), r('haiku', 'high'), r('opus', 'high')],
     ['medium', ENGINEERING, r('opus', 'medium'), r('sonnet', 'high'), r('opus', 'high')],
     ['medium', ['ops'], r('haiku', 'high'), r('haiku', 'medium'), r('haiku', 'xhigh')],
     ['low', [...PLAIN, 'ops'], r('haiku', 'high'), r('haiku', 'medium'), r('haiku', 'xhigh')],
-    ['low', ENGINEERING, r('sonnet', 'high'), r('sonnet', 'medium'), r('sonnet', 'xhigh')],
+    ['low', ENGINEERING, r('sonnet', 'high'), r('haiku', 'high'), r('sonnet', 'xhigh')],
     ['micro', [...PLAIN, ...ENGINEERING, 'ops'], r('haiku', 'medium'), r('haiku', 'medium'), r('haiku', 'medium')],
   ];
   for (const [tier, activities, balanced, cost, quality] of cases)
@@ -73,13 +73,18 @@ test('quality at max effort moves to the tier above, and high stays at the top',
   assert.deepEqual(modeRoute(top, 'quality', 'high'), r('opus', 'max'));
 });
 
-test('cost takes the tier below only for a lower input price, and never goes to micro', () => {
-  const samePrice = loadConfig({
-    userFile: { models: { sonnet: { input: 4 } }, routes: { medium: { model: 'sonnet', effort: 'high' } } },
-  });
-  assert.deepEqual(modeRoute(samePrice, 'cost', 'high'), r('opus', 'high'));
-  const pricier = loadConfig({ userFile: { routes: { medium: { model: 'opus', effort: 'low' } } } });
-  assert.deepEqual(modeRoute(pricier, 'cost', 'high'), r('opus', 'high'));
+test('cost takes a cheaper model below only for a lower input price, keeps high on its model, never goes to micro', () => {
+  const cases = [
+    // [user file, tier, activity, expected cost route]
+    [{ models: { haiku: { input: 4 } } }, 'medium', null, r('opus', 'low')],
+    [{ routes: { low: { model: 'opus', effort: 'high' } } }, 'medium', null, r('opus', 'low')],
+    [{ routes: { medium: { model: 'haiku', effort: 'high' } } }, 'high', null, r('opus', 'high')],
+    [{ routes: { medium: { model: 'haiku', effort: 'high' } } }, 'high', 'ops', r('opus', 'high')],
+    [{}, 'low', 'code', r('haiku', 'high')],
+    [{ routes: { low: { model: 'opus', effort: 'high' } } }, 'low', 'code', r('sonnet', 'medium')],
+  ];
+  for (const [userFile, tier, activity, expected] of cases)
+    assert.deepEqual(modeRoute(loadConfig({ userFile }), 'cost', tier, activity), expected, `${tier} ${activity}`);
   const config = loadConfig({ userFile: { routes: { micro: { model: 'haiku', effort: 'low' } } } });
   for (const tier of ['low', 'medium', 'high']) assert.notDeepEqual(modeRoute(config, 'cost', tier), r('haiku', 'low'));
 });
