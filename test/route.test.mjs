@@ -258,6 +258,9 @@ test('allowed models handle exact versions and alias narrowing', () => {
     ['claude-haiku-4-5-20251001', ['claude-haiku-4-5'], true],
     ['custom.provider/model', ['custom.provider/model'], true],
     [sonnet, ['default'], true],
+    ['claude-fable-5-2', ['claude-fable-5-2'], true],
+    ['claude-fable-5-2', ['claude-fable-5-1'], false],
+    ['claude-fable-5-2', ['fable'], true],
     [sonnet, 'invalid', false],
   ])
     assert.equal(isModelAllowed(id, allowed, sonnet), expected);

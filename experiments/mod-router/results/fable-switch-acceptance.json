@@ -1,0 +1,21 @@
+{
+  "scenario": "fable-5-2-model-switch",
+  "claudeVersion": "2.1.322 (Claude Code)",
+  "driver": "claude -p with --model per turn, --resume of one session, --strict-mcp-config, router plugin disabled through --settings",
+  "scope": "Real API on a Claude plan. Each turn reads package.json with Read and replies OK, continuing the previous models' thinking and tool history. Small context, warm 5m cache between turns. Not covered: contexts above ~100k tokens, expired caches, a switch inside a tool loop. No content is recorded.",
+  "checked": "2026-11-10",
+  "passed": true,
+  "turns": [
+    { "model": "claude-opus-5-5", "ok": true, "toolUses": 1, "costUsd": 0.4219, "cache": "cold" },
+    { "model": "claude-fable-5-2", "ok": true, "toolUses": 1, "costUsd": 0.3791, "cache": "cold" },
+    { "model": "claude-opus-5-5", "ok": true, "toolUses": 1, "costUsd": 0.0268, "cache": "warm" },
+    { "model": "claude-fable-5-2", "ok": true, "toolUses": 1, "costUsd": 0.0333, "cache": "warm" },
+    { "model": "claude-haiku-5-5", "ok": true, "toolUses": 1, "costUsd": 0.0048, "cache": "cold" },
+    { "model": "claude-sonnet-5-5", "ok": true, "toolUses": 1, "costUsd": 0.2167, "cache": "cold" },
+    { "model": "claude-fable-5-2", "ok": true, "toolUses": 1, "costUsd": 0.0408, "cache": "warm" }
+  ],
+  "efforts": {
+    "driver": "claude -p --model claude-fable-5-2 --effort <level>, router plugin disabled",
+    "accepted": ["low", "medium", "high", "xhigh", "max"]
+  }
+}

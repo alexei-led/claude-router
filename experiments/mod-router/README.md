@@ -16,6 +16,7 @@ See the [architecture](../../docs/architecture.md), [configuration](../../docs/c
 | Request shape per routed model (loopback stub)                     | [Compat acceptance](results/native-compat-acceptance.json): engine builds each model's request; names only       |
 | Billed pin chain Opus → Haiku → Sonnet with Read on every turn     | [Live compat](results/native-live-compat-acceptance.json): five turns, each with a tool call, none rejected      |
 | Installed Team package and authenticated Jev                       | [Team canary](results/team-canary.json): one router, version 1.0.0, native Sonnet response                       |
+| Fable 5.2 next to the 5.5 models in one session                    | [Fable switch](results/fable-switch-acceptance.json): Opus ↔ Fable ↔ Haiku ↔ Sonnet resumes, all 7 turns OK; every effort accepted |
 | Historical decision replay                                         | [Trace evaluation](results/trace-evaluation.json): coverage and uncertainty bounds, not measured savings         |
 
 Earlier direct probes accepted signed-thinking/tool history across Sonnet → Opus → Haiku and input contexts of 589399 tokens on Sonnet and 589481 on Opus. Their summary is in [runtime gates](results/runtime-gates.json). These observations apply to Claude Code 2.1.289 and the tested Team policy.

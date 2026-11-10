@@ -127,10 +127,24 @@ To restore the 1.3 ladder, with Sonnet 5.5 at `low` on the session effort and Ha
 { "routes": { "low": { "model": "sonnet", "effort": null }, "micro": { "model": "haiku", "effort": "low" } } }
 ```
 
+No default route runs Claude Fable 5.2 (`fable`). It costs twice Opus 5.5 per input and output token, with the same
+$0.20 cache read. It costs less per task only against Opus at its top
+efforts: on FrontierCode 2.0, Fable at `high` scored 45.3% at $6.72 per task and Opus at `max` 45.5% at $12.82
+(Anthropic's system card, Cognition's runs). Artificial Analysis, with both at `max`, ranks Fable first (index 65 vs
+59) at $26.54 vs $10.04 and 44.6 vs 25.1 minutes per task. To run it where Opus would run at `xhigh` or `max`:
+
+```json
+{ "routes": { "high": { "model": "fable", "effort": "high" } } }
+```
+
+Fable 5.2 requires 30-day data retention (no zero data retention) and has separate, lower rate limits than Opus 5.5.
+A switch to or from it starts a new prompt cache, as any model switch does; its cache writes cost twice Opus's.
+
 Default model settings:
 
 | Alias    | Input / output / cache read, USD per million tokens | Context window | Billing | Effort levels                           |
 | -------- | --------------------------------------------------- | -------------- | ------- | --------------------------------------- |
+| `fable`  | 8 / 40 / 0.2                                        | 1,000,000      | `plan`  | `low`, `medium`, `high`, `xhigh`, `max` |
 | `opus`   | 4 / 20 / 0.2                                        | 1,000,000      | `plan`  | `low`, `medium`, `high`, `xhigh`, `max` |
 | `sonnet` | 2 / 10 / 0.1                                        | 1,000,000      | `plan`  | `low`, `medium`, `high`, `xhigh`, `max` |
 | `haiku`  | 0.1 / 0.5 / 0.01                                    | 1,000,000      | `plan`  | `low`, `medium`, `high`, `xhigh`, `max` |
@@ -191,7 +205,7 @@ An override for a cell with no built-in names both fields, or inherits the missi
 - A cell cannot be `null`. To drop a built-in override, set it to the base route, for example `"ops": { "medium": { "model": "opus", "effort": "medium" } }`. The pane writes this for you when you press **Use tier model** on a built-in cell. The cell keeps that route if you later change the tier's route; drop it again then.
 - An override applies to whatever the tier's route is. If you move `routes.low` to Opus, the built-in `code` override at `low` still runs Sonnet. Set it to match, or remove it.
 - Unknown activities and tiers, unknown model aliases, and invalid efforts make the file invalid, like any other invalid setting. The pane refuses to save one and names it, such as `activities.code.low.model is not in models`.
-- The Routes tab counts the prompt caches the routes use: one per model on Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1, one per (model, effort) pair on a provider that caches each effort apart.
+- The Routes tab counts the prompt caches the routes use: one per model on Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.1 and Fable 5.2, one per (model, effort) pair on a provider that caches each effort apart.
 
 `policy.activityMass` (default `0.6`) is the lowest probability at which an activity applies. The Policy tab sets it under **Activities**, from 50% to 80%. It has not been tuned on any classifier, and the probe results do not record probabilities, so there is no data to tune it on yet.
 
@@ -363,7 +377,7 @@ The pane writes a subset of these settings. The **Routes** and **Policy** tabs s
 
 A project can set the routing mode, and only that, in `.claude/router.json` in the directory Claude Code runs in: `{ "mode": "cost" }`. Any other content is ignored with a notice; it never makes routing unavailable. A session's `/router mode` beats it, and it beats the profile's `mode`. See [Routing modes](routing-modes.md).
 
-Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.1 keep one prompt cache across effort levels, so the policy prices an effort-only move, such as Opus at `medium` to Opus at `high`, as no cache write. On Amazon Bedrock, Google Cloud, Microsoft Foundry, a custom `ANTHROPIC_BASE_URL`, or with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`, each effort has its own cache and the move pays its write. A HIPAA configuration cannot be detected; the router then prices those moves as free.
+Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.1 and Fable 5.2 keep one prompt cache across effort levels, so the policy prices an effort-only move, such as Opus at `medium` to Opus at `high`, as no cache write. On Amazon Bedrock, Google Cloud, Microsoft Foundry, a custom `ANTHROPIC_BASE_URL`, or with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`, each effort has its own cache and the move pays its write. A HIPAA configuration cannot be detected; the router then prices those moves as free.
 
 Native cache freshness is unknown after 270 seconds or after a history reset. Claude usage does not report the cache TTL. The policy evaluates price bounds for five-minute and one-hour writes, but the one-hour case is not observed fact. See the [architecture](architecture.md#cache-and-cost) for the estimate rules.
 
