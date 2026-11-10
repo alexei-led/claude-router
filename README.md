@@ -20,7 +20,7 @@ With `CLAUDE_CONFIG_DIR`, put the file in that directory instead.
 
 | Built-in profile | Router file | Default models |
 | --- | --- | --- |
-| Anthropic, the default | `router.json` | Haiku 5.5, Sonnet 5.5, Opus 5.5 |
+| Anthropic, the default | `router.json` | Haiku 5.5, Sonnet 5.5, Opus 5.5; Fable 5.2 for routes you set |
 | `deepseek` | `deepseek-router.json` | DeepSeek Flash, routed by effort |
 | `zai` | `zai-router.json` | GLM-5.3-Flash and GLM-5.3 |
 | `minimax` | `minimax-router.json` | MiniMax-M3.1-Flash, routed by effort |

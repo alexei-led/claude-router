@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Claude Fable 5.2 as the `fable` model alias: $8 / $40 per million tokens, $0.20 cache read, all five effort levels. No default route runs it; set it in `routes` or `activities`, for example `"high": { "model": "fable", "effort": "high" }`. See [configuration](docs/configuration.md#built-in-defaults) for when it costs less per task than Opus 5.5.
+- An effort-only move on Fable 5.2 is priced as no cache write, as on the 5.5 models.
+- `availableModels: ["fable"]` allows Fable models. A versioned entry such as `claude-fable-5-1` still admits only that version.
+
 ## 1.21.1 (2026-11-05)
 
 ### Changed

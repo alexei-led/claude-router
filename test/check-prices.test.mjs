@@ -14,6 +14,7 @@ import {
 const anthropicPage = ({ opus = '$4 / MTok', write5m = '$5 / MTok', haikuOver = '$0.50 / MTok' } = {}) => `
 | Model | Base input tokens | 5m cache writes | 1h cache writes | Cache hits and refreshes | Output tokens |
 | :--- | :--- | :--- | :--- | :--- | :--- |
+| Claude Fable 5.2 | $8 / MTok | $10 / MTok | $16 / MTok | $0.20 / MTok<sup>2</sup> | $40 / MTok |
 | Claude Opus 5.5 | ${opus} | ${write5m} | $8 / MTok | $0.20 / MTok<sup>2</sup> | $20 / MTok |
 | Claude Sonnet 5.5 | $2 / MTok | $2.50 / MTok | $4 / MTok | $0.10 / MTok<sup>2</sup> | $10 / MTok |
 | Claude Haiku 5.5 (for prompts up to 100,000 tokens) | $0.10 / MTok | $0.125 / MTok | $0.20 / MTok | $0.01 / MTok | $0.50 / MTok |
@@ -26,6 +27,7 @@ const anthropicPage = ({ opus = '$4 / MTok', write5m = '$5 / MTok', haikuOver = 
 
 test('Anthropic: base rows, footnote marks dropped, and one long-context multiplier for a tiered model', () => {
   const read = parseAnthropic(anthropicPage());
+  assert.deepEqual(read['claude-fable-5-2'], { input: 8, output: 40, cacheRead: 0.2, longContext: null });
   assert.deepEqual(read['claude-opus-5-5'], { input: 4, output: 20, cacheRead: 0.2, longContext: null });
   assert.deepEqual(read['claude-sonnet-5-5'].cacheRead, 0.1);
   assert.deepEqual(read['claude-haiku-5-5'], {

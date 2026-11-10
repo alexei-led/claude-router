@@ -68,6 +68,7 @@ test('only the models that keep one cache across efforts share it, and never whe
     ['claude-sonnet-5-5[1m]', true],
     ['claude-haiku-5-5-20260101', true],
     ['claude-fable-5-1', true],
+    ['claude-fable-5-2', true],
     ['claude-haiku-4-5', false],
     ['claude-opus-5', false],
     [undefined, false],
