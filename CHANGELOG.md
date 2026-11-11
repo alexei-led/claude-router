@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- A decision row keeps the probability mass the policy compared and the bar it had to clear (`mass`, `bar`), when it compared one. `/router decisions` shows them after the reason: `(upgrade-pending 52% vs bar 79%)`. Rows saved before this change still read.
+
 ## 1.21.2 (2026-11-10)
 
 ### Added

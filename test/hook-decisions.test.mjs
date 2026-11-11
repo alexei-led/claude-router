@@ -129,6 +129,7 @@ test('each turn writes its decision rows and its end, with unpriced replies by c
   const [start, end] = decisions(h).rows;
   assert.equal(start.kind, 'start');
   assert.equal(start.route, 'claude-opus-5-5@xhigh');
+  assert.deepEqual([start.reason, start.mass, start.bar], ['jump', 1, 0.75]);
   assert.deepEqual(end, { at: end.at, kind: 'end', observed: 'check', requests: 1, priced: 0, unpriced: { ttl: 1 } });
   assert.deepEqual(h.preferences.get('activity:metrics:v1:s1').unpriced, {
     usage: 0,
@@ -140,7 +141,7 @@ test('each turn writes its decision rows and its end, with unpriced replies by c
   const listed = await h.event('command.run', { command: 'router', args: 'decisions 5' });
   assert.match(
     listed.text,
-    /start {5}composer {2}asked high 95% {2}new task {2}-> high claude-opus-5-5@xhigh {2}\(jump\)/,
+    /start {5}composer {2}asked high 95% {2}new task {2}-> high claude-opus-5-5@xhigh {2}\(jump 100% vs bar 75%\)/,
   );
   assert.match(listed.text, /end {7}tools check {2}1 request {2}0 priced {2}unpriced ttl 1$/);
 });

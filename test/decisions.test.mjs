@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { lateralMove } from '../lib/activity.mjs';
+import { loadConfig } from '../lib/config.mjs';
+import * as costs from '../lib/cost.mjs';
 import {
   addTurnRow,
   appendDecisions,
@@ -23,6 +26,8 @@ import {
   readDecisions,
   takeOrigin,
 } from '../lib/decisions.mjs';
+import { decide, initialState } from '../lib/policy.mjs';
+import { served, advice as tierAdvice } from './helpers.mjs';
 
 const T = Date.parse('2026-10-27T10:00:00Z');
 const decision = {
@@ -149,6 +154,48 @@ test('a decision row keeps labels, rounded shares and counts, never text', () =>
   assert.equal(bare.ctx, null);
 });
 
+test('a row of a weighed move keeps the mass compared and the bar it had to clear', () => {
+  const config = loadConfig({});
+  const facts = (lastRoute) => ({ lastRoute, ...served('claude-sonnet-5-5', { at: T }) });
+  const tierStep = (lastRoute, answer) =>
+    decide({
+      config,
+      facts: facts(lastRoute),
+      advice: answer,
+      state: initialState(),
+      baseline: 'low',
+      now: T + 10_000,
+    });
+  const lateral = lateralMove({
+    config,
+    from: { model: 'haiku', effort: 'high' },
+    to: { model: 'sonnet', effort: 'medium' },
+    mass: 0.7,
+    hold: false,
+    facts: facts('low'),
+    now: T + 10_000,
+    costs,
+  });
+  for (const [reason, step, mass] of [
+    ['upgrade-pending', tierStep('low', tierAdvice('medium', { medium: 0.62, low: 0.38 })), 0.62],
+    ['downgrade-pending', tierStep('high', tierAdvice('low', { low: 0.454, high: 0.546 })), 0.45],
+    ['activity-pending', lateral, 0.7],
+  ]) {
+    assert.equal(step.reason, reason);
+    const row = decisionRow({ at: T, kind: 'review', decision: { ...decision, ...step } });
+    assert.equal(row.mass, mass, reason);
+    assert.equal(row.bar, Math.round(step.estimate.threshold * 100) / 100, reason);
+    assert.ok(row.bar > row.mass, reason);
+  }
+});
+
+test('a row of a decision that compared no mass has neither field', () => {
+  for (const estimate of [undefined, null, { taxUsd: 0.2 }, { coldUsd: 3, cap: 1 }, { upgradeMass: 0.6 }]) {
+    const row = decisionRow({ at: T, kind: 'start', decision: { ...decision, estimate } });
+    assert.ok(!('mass' in row) && !('bar' in row), JSON.stringify(estimate));
+  }
+});
+
 test('an end row keeps the turn bucket, request counts and only positive unpriced causes', () => {
   assert.deepEqual(
     endRow({ at: T, observed: 'shell', requests: 9, priced: 7, unpriced: { ttl: 2, model: 0, bad: -1 } }),
@@ -166,6 +213,7 @@ test('an end row keeps the turn bucket, request counts and only positive unprice
 
 test('readDecisions keeps the rows that read and drops the rest', () => {
   const good = decisionRow({ at: T, kind: 'review', advice, decision });
+  const weighed = { ...good, reason: 'upgrade-pending', mass: 0.52, bar: 0.79 };
   const end = endRow({ at: T + 1, observed: 'code', requests: 2, priced: 2 });
   const value = {
     version: 1,
@@ -177,13 +225,17 @@ test('readDecisions keeps the rows that read and drops the rest', () => {
       { at: T, kind: 'bogus' },
       null,
       { ...good, tier: 7, extra: 'kept out' },
+      weighed,
+      { ...weighed, mass: '0.52', bar: null },
     ],
   };
   const read = readDecisions(value);
-  assert.equal(read.rows.length, 3);
-  assert.deepEqual(read.rows[0], good);
+  assert.equal(read.rows.length, 5);
+  assert.deepEqual(read.rows[0], good, 'a row saved before mass and bar existed');
   assert.deepEqual(read.rows[1], end);
   assert.ok(!('tier' in read.rows[2]) && !('extra' in read.rows[2]));
+  assert.deepEqual(read.rows[3], weighed);
+  assert.ok(!('mass' in read.rows[4]) && !('bar' in read.rows[4]));
   for (const bad of [
     null,
     [],
@@ -255,9 +307,13 @@ test('decision lines read as one routing step each, oldest first', () => {
     decisionRow({ at: T, kind: 'start', origin: 'task-notification', advice, decision, sameTask: true }),
     decisionRow({ at: T + 1000, kind: 'review', error: 'timeout', decision: { ...decision, reason: 'no-advice' } }),
     endRow({ at: T + 2000, observed: 'code', requests: 1, priced: 0, unpriced: { ttl: 1 } }),
+    { ...decisionRow({ at: T + 3000, kind: 'review', decision }), reason: 'upgrade-pending', mass: 0.52, bar: 0.79 },
+    { ...decisionRow({ at: T + 4000, kind: 'review', decision }), mass: 0.52 },
   ];
   const lines = decisionLines(rows);
-  assert.equal(lines.length, 3);
+  assert.equal(lines.length, 5);
+  assert.match(lines[3], / {2}\(upgrade-pending 52% vs bar 79%\)$/);
+  assert.match(lines[4], / {2}\(upgrade\)$/);
   assert.match(
     lines[0],
     /start {5}task-notification {2}asked high 90% code 80% {2}same task {2}-> high code claude-opus-5-5@medium {2}\(upgrade\)$/,
