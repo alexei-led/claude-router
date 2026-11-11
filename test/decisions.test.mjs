@@ -189,10 +189,34 @@ test('a row of a weighed move keeps the mass compared and the bar it had to clea
   }
 });
 
-test('a row of a decision that compared no mass has neither field', () => {
-  for (const estimate of [undefined, null, { taxUsd: 0.2 }, { coldUsd: 3, cap: 1 }, { upgradeMass: 0.6 }]) {
-    const row = decisionRow({ at: T, kind: 'start', decision: { ...decision, estimate } });
-    assert.ok(!('mass' in row) && !('bar' in row), JSON.stringify(estimate));
+test('a row keeps a mass and a bar only when its reason compared that mass with that bar', () => {
+  const full = { upgradeMass: 0.62, threshold: 0.79 };
+  for (const [name, kind, reason, estimate, expected] of [
+    ['no estimate', 'start', 'upgrade-pending', undefined, null],
+    ['a null estimate', 'start', 'upgrade-pending', null, null],
+    ['a cheaper route held by its cache write', 'review', 'activity-pending', { taxUsd: 0.2 }, null],
+    ['a cash gate', 'start', 'cash-gate', { coldUsd: 3, cap: 1 }, null],
+    ['a mass without a bar', 'start', 'upgrade-pending', { upgradeMass: 0.6 }, null],
+    ['a bar without a mass', 'start', 'upgrade-pending', { threshold: 0.8 }, null],
+    ['a mass that is no number', 'start', 'upgrade-pending', { upgradeMass: Number.NaN, threshold: 0.8 }, null],
+    ['a mass of zero', 'review', 'activity-pending', { upgradeMass: 0, threshold: 0.8 }, [0, 0.8]],
+    [
+      'a move down that waits for its checkpoint',
+      'review',
+      'downgrade-held',
+      { downgradeMass: 0.97, threshold: 0.9 },
+      [0.97, 0.9],
+    ],
+    ['a taken move', 'start', 'upgrade', full, [0.62, 0.79]],
+    ['a jump, weighed against jumpConfidence', 'start', 'jump', full, null],
+    ['a context override over a pending move', 'start', 'context-fit', full, null],
+    ['an unmeasured context', 'start', 'context-unknown', full, null],
+    ['a full context', 'start', 'context-full', full, null],
+    ['a model that cannot run', 'start', 'model-unavailable', full, null],
+    ['a move on the turn’s tools', 'observed', 'activity-up', { upgradeMass: 1, threshold: 0.79 }, null],
+  ]) {
+    const row = decisionRow({ at: T, kind, decision: { ...decision, reason, estimate } });
+    assert.deepEqual('mass' in row || 'bar' in row ? [row.mass, row.bar] : null, expected, name);
   }
 });
 

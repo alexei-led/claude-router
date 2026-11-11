@@ -4,7 +4,7 @@
 
 ### Added
 
-- A decision row keeps the probability mass the policy compared and the bar it had to clear (`mass`, `bar`), when it compared one. `/router decisions` shows them after the reason: `(upgrade-pending 52% vs bar 79%)`. Rows saved before this change still read.
+- A decision row keeps the probability mass the policy compared and the bar it compared it with (`mass`, `bar`), for a tier move and an activity move up, taken or held. `/router decisions` shows them after the reason: `(upgrade-pending 52% vs bar 79%)`. A held move can show a mass above its bar: it waits for a second vote or a checkpoint. A `jump`, a move on the turn's own tool calls and a context or availability override show neither. Rows saved before this change still read.
 
 ## 1.21.2 (2026-11-10)
 
