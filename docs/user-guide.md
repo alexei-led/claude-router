@@ -27,7 +27,7 @@ In Claude Code:
    - **OpenAI**: an OpenAI API key. The prompt text goes to OpenAI.
    - **Ollama**: no credential. Run `ollama serve` and pull the model; the prompt text stays on this machine.
 3. To use another classifier, open the pane's **Classifier** tab and select its row. See [Choose the classifier](#choose-the-classifier).
-4. Check the band above the prompt: `Routing on · ready`. On a model that no tier routes to, and that no activity override uses with activity routing `on`, the session starts with routing off and the band says why; run `/router auto` to route. That model then keeps running until a decision moves it: a new task goes to the start tier's route at once when the move pays back its cache write, and a task in progress waits for the dwell and a passed check.
+4. Check the band above the prompt: `Routing on · ready`. On a model that no tier routes to, and that no activity override uses with activity routing `on`, the session starts with routing off and the band says why; run `/router auto` to route. That model then keeps running until a decision moves it: a stronger tier the classifier supports (two votes, or one very sure answer) moves at once; a cheaper route goes at once on a new task when it pays back its cache write, and waits for the dwell and a passed check on a task in progress.
 
 Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers settings and migrations.
 

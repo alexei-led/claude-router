@@ -466,14 +466,14 @@ test('an interrupt while the transcript is still loading never publishes choosin
   assert.equal(h.requests[0].model, step.model);
 });
 
-test('routing resumed after /model chose a model no route names keeps it: its failures do not escalate below it', async () => {
+test('a session that starts on a model no route names keeps it when routing is turned on: its failures do not escalate below it', async () => {
   const fable = 'claude-fable-5-2';
+  const fableStep = { ...step, model: fable, effort: 'xhigh' };
   const h = harness();
-  await start(h);
-  await drain(h.step(step));
   h.model(fable);
-  await h.event('command.run', { command: 'model', origin: { kind: 'user' } });
-  await drain(h.step({ ...step, turnId: 't2', model: fable, effort: 'xhigh' }));
+  await start(h);
+  await drain(h.step(fableStep));
+  assert.equal(h.view().mode, 'manual');
   await h.event('command.run', { command: 'router', args: 'auto' });
   h.messages(async () => [
     user('Fix the test.'),
@@ -483,10 +483,10 @@ test('routing resumed after /model chose a model no route names keeps it: its fa
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ]);
-  await drain(h.step({ ...step, turnId: 't3', model: fable, effort: 'xhigh' }));
+  await drain(h.step({ ...fableStep, turnId: 't2' }));
   assert.deepEqual(
     h.requests.map((r) => `${r.model}@${r.effort}`),
-    ['claude-haiku-5-5@high', `${fable}@xhigh`, `${fable}@xhigh`],
+    [`${fable}@xhigh`, `${fable}@xhigh`],
   );
   assert.equal(h.loop().decision.escalated, false);
 });
