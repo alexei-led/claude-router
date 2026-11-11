@@ -491,6 +491,20 @@ test('a session that starts on a model no route names keeps it when routing is t
   assert.equal(h.loop().decision.escalated, false);
 });
 
+test('a /model change before routing starts replaces the seeded route, so Auto starts from the model in use', async () => {
+  const fable = 'claude-fable-5-2';
+  const h = harness();
+  h.model(fable);
+  await start(h);
+  await drain(h.step({ ...step, model: fable, effort: 'xhigh' }));
+  h.model(step.model);
+  await h.event('command.run', { command: 'model', origin: { kind: 'user' } });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  await drain(h.step({ ...step, turnId: 't3' }));
+  assert.equal(h.requests.at(-1).model, step.model);
+});
+
 test('clear after a manual /model choice on a non-baseline model starts Auto', async () => {
   const h = harness();
   await start(h);
