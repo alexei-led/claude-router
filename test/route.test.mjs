@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
+import { applyMode } from '../lib/modes.mjs';
 import {
   cellForModel,
   chooseRoute,
@@ -566,4 +567,37 @@ test('a shortened history moves the checkpoint and edit cursors to its end and k
     assert.deepEqual([next.switchedAt, next.observedFrom], expected, name);
   }
   assert.equal(prepareLoop({ ...loop, switchedAt: null }, 20).switchedAt, null);
+});
+
+test('routing turned on for a model no tier routes to keeps it running: failures never escalate to a weaker route', () => {
+  const fable = 'claude-fable-5-2';
+  const cost = applyMode(DEFAULTS, { mode: 'cost', source: 'session' });
+  const failure = "not ok 1 - login\n  error: 'unauthorized'\n";
+  const messages = [
+    user('fix the tests'),
+    assistant('running', ['Bash']),
+    toolResult(failure, { isError: true }),
+    assistant('editing', ['Edit']),
+    toolResult(failure, { isError: true }),
+    user('continue'),
+  ];
+  // Routing was off while Fable served the session; the loop saw its replies.
+  const loop = observeResponse(DEFAULTS, emptyLoop(DEFAULTS, fable), {
+    usage: usage({ model: fable, cache_read_input_tokens: 350_000 }),
+    requestedModel: fable,
+    effort: 'xhigh',
+    stopReason: 'tool_use',
+    now,
+  });
+  const facts = nativeFacts(cost, loop, { ...context, messages, effort: 'xhigh', contextTokens: 353_000 });
+  assert.ok(facts.failure);
+  const sameTask = { continuation: 0.86 };
+  for (const [name, answer, reason] of [
+    ['no classifier answer', null, 'no-advice'],
+    ['an uncertain answer on the running task', adviceOf('uncertain', { uncertain: 0.3 }, sameTask), 'downgrade-held'],
+  ]) {
+    const { decision } = chooseRoute(cost, loop, input(loop, { facts, advice: answer, nativeModel: fable }, cost));
+    assert.deepEqual([decision.model, decision.effort, decision.reason], [fable, 'xhigh', reason], name);
+    assert.equal(decision.escalated, false, name);
+  }
 });

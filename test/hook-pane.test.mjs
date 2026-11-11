@@ -564,7 +564,7 @@ test('a switch clears the previous classifier readings, so no label claims them'
 
 test('a turn classified when the switch lands keeps its route, and its answer touches neither health nor status', async () => {
   const h = harness({ typesafe_api_key: 'synthetic-key', ...CLOUDFLARE_KEYS });
-  // Activity routing off: Sonnet runs no route, so the policy route differs from the engine model.
+  // Activity routing off: Sonnet runs no route, so it keeps running until a decision moves it.
   h.files.set(CONFIG, JSON.stringify({ routes: { low: { model: 'opus' } }, activityRouting: 'off' }));
   h.model('claude-sonnet-5-5');
   let release;
@@ -583,7 +583,7 @@ test('a turn classified when the switch lands keeps its route, and its answer to
   await press(h, 'classifier-clef-flash');
   release({ ok: false, status: 401, text: '', headers: {} });
   await turn;
-  assert.equal(h.requests[0].model, 'claude-opus-5-5', 'the policy route, not the engine model');
+  assert.equal(h.requests[0].model, 'claude-sonnet-5-5', 'no answer keeps the running model');
   assert.notEqual(h.view().reason, 'manual');
   assert.deepEqual(JSON.parse(h.files.get(CONFIG)).classifier, 'clef-flash');
   assert.deepEqual(h.view().health, { failures: 0, pausedUntil: 0, classifier: 'clef-flash' });

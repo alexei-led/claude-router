@@ -64,7 +64,8 @@ Why each row:
 
 The matrix uses five routes on three models. Opus 5.5, Sonnet 5.5 and Haiku 5.5 keep one cache across efforts, so the
 five routes use three caches, one more (Sonnet) than the base routes alone. On a provider that caches each effort apart,
-each (model, effort) pair is its own cache.
+each (model, effort) pair is its own cache. [What we do not know yet](#what-we-do-not-know-yet) has what transcripts
+show about that shared cache, and its limits.
 
 ## Which model fits which work
 
@@ -249,8 +250,21 @@ Limits:
 - How well the classifier labels real turns. On 70 synthetic prompts, Jev and OpenAI labelled all 70 right; see
   [Evaluation](evaluation.md#activity-probe-set). The **Agreement** lines, on the
   Classifier tab for this session and across sessions, check your own turns against the tools they used.
-- Whether an effort change on the same model keeps the cache. We found only 6 cases. Claude Code's prompt-caching
-  docs say it does on the 5.5 models and Fable 5.1 with an API key or a subscription, and the router now prices it so.
+- Whether an effort change on the same model always keeps the cache. Claude Code's prompt-caching docs say it does on
+  the 5.5 models and Fable 5.1 with an API key or a subscription, and the router prices it so. On 2026-11-11 we counted
+  104 such changes with under 270 seconds between requests in 30 days of Claude Code transcripts, main thread only, up
+  or down, inside a turn or at a turn start. The request after the change still read the cache in 102 of 104. The
+  median share of the prompt written to the cache after a change was 0.4 to 0.5% on Opus and Haiku and 0.1 to 0.7% on
+  Sonnet; the same models without a change wrote 0.2 to 0.4%. Limits: these are transcripts, not a controlled test.
+  Opus had 29 changes up and 33 down and Haiku 18 up and 15 down, but Sonnet had 7 up and 1 down, and Fable 1 up,
+  which is too small to count. Two changes lost the cache, and we did not look into why.
+- Whether Claude Code sends an effort that the router changes inside a turn. The router changes it in the same
+  `turn.step` hook that changes the model. On Claude Code 2.1.322, in transcripts of 2026-11-10 and 2026-11-11, the
+  router did so in 6 cases: all 6 requests still carried the turn's first effort, while the changed model was sent in
+  every case. At the start of a turn the router's effort was sent in 145 of 145 decisions. Transcripts from older
+  versions, 2.1.296 to 2.1.319, show the effort changing between tool results inside a turn. We have not reproduced this
+  in isolation. So the band and the decision record can name an effort that did not run; the request parameters in the
+  transcript show what ran.
 - How many requests a turn needs on each model.
 
 ## Sources

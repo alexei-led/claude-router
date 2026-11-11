@@ -6,6 +6,14 @@
 
 - A decision row keeps the probability mass the policy compared and the bar it compared it with (`mass`, `bar`), for a tier move and an activity move up, taken or held. `/router decisions` shows them after the reason: `(upgrade-pending 52% vs bar 79%)`. A held move can show a mass above its bar: it waits for a second vote or a checkpoint. A `jump`, a move on the turn's own tool calls and a context or availability override show neither. Rows saved before this change still read.
 
+### Changed
+
+- The docs say what transcripts show about an effort change on the same model. The cache was kept in 102 of 104 changes, which supports pricing an effort-only move as no cache write. On Claude Code 2.1.322 an effort changed inside a turn was not sent in 6 of 6 cases, so the band and the decision record can name an effort that did not run. See [What we do not know yet](docs/activity-routing.md#what-we-do-not-know-yet) for the counts and limits.
+
+### Fixed
+
+- Repeated tool failures no longer move a session to a weaker model when routing is turned on over a model no route names, such as Fable 5.2 on the defaults. That model was counted as the start tier's route, so failures on Fable at xhigh "escalated" from Haiku at medium to Haiku at high. The session's model is now the one in use: with no stronger route it stays, and it leaves for the start tier's route through the same checks as a routing-mode change. Without a classifier answer it keeps running, unless repeated failures escalate to a stronger route. A model that `/model` chose after routed turns still resumes the last routed route.
+
 ## 1.21.2 (2026-11-10)
 
 ### Added
