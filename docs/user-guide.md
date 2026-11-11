@@ -27,7 +27,7 @@ In Claude Code:
    - **OpenAI**: an OpenAI API key. The prompt text goes to OpenAI.
    - **Ollama**: no credential. Run `ollama serve` and pull the model; the prompt text stays on this machine.
 3. To use another classifier, open the pane's **Classifier** tab and select its row. See [Choose the classifier](#choose-the-classifier).
-4. Check the band above the prompt: `Routing on · ready`. On a model that no tier routes to, and that no activity override uses with activity routing `on`, the session starts with routing off and the band says why; run `/router auto` to route.
+4. Check the band above the prompt: `Routing on · ready`. On a model that no tier routes to, and that no activity override uses with activity routing `on`, the session starts with routing off and the band says why; run `/router auto` to route. That model then keeps running until a decision moves it: a stronger tier the classifier supports (two votes, or one very sure answer) moves at once; a cheaper route goes at once on a new task when it pays back its cache write, and waits for the dwell and a passed check on a task in progress.
 
 Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers settings and migrations.
 
@@ -355,7 +355,7 @@ A new model ID needs an entry in `router.json` `models` with its price, context 
 
 The **Policy** tab writes each control inside the sentence it completes, and names the default beside a value that differs from it. One **Save** writes them with any route changes:
 
-- **Start** at a tier: the tier a session starts from when its model is no tier's model (`baselineTier`).
+- **Start** at a tier: the tier a session starts from when its model is no tier's model (`baselineTier`). The session's model runs until a decision moves it to that tier's route or another tier.
 - **Going down** after 1, 2, or 3 agreeing turns in a row, and only if a cache write pays back within 1, 3, 5, or 10 later turns. A new or reset history needs one vote.
 - **Going up** needs the classifier's support at 75%, raised up to 90% as the switch costs more. Read-only here; see [Configuration](configuration.md).
 - **Activities** apply at 50%, 60%, 70%, or 80% certainty or more. Below it a new task runs its tier's model; the running task follows [Changes during a task](#changes-during-a-task). See [Activity routing](activity-routing.md#change-a-cell).

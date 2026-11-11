@@ -466,6 +466,45 @@ test('an interrupt while the transcript is still loading never publishes choosin
   assert.equal(h.requests[0].model, step.model);
 });
 
+test('a session that starts on a model no route names keeps it when routing is turned on: its failures do not escalate below it', async () => {
+  const fable = 'claude-fable-5-2';
+  const fableStep = { ...step, model: fable, effort: 'xhigh' };
+  const h = harness();
+  h.model(fable);
+  await start(h);
+  await drain(h.step(fableStep));
+  assert.equal(h.view().mode, 'manual');
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  h.messages(async () => [
+    user('Fix the test.'),
+    assistant('running', ['Bash']),
+    toolResult('error: test_login failed', { isError: true }),
+    assistant('editing', ['Edit']),
+    toolResult('error: test_login failed', { isError: true }),
+    user('Next.'),
+  ]);
+  await drain(h.step({ ...fableStep, turnId: 't2' }));
+  assert.deepEqual(
+    h.requests.map((r) => `${r.model}@${r.effort}`),
+    [`${fable}@xhigh`, `${fable}@xhigh`],
+  );
+  assert.equal(h.loop().decision.escalated, false);
+});
+
+test('a /model change before routing starts replaces the seeded route, so Auto does not resume on the first model', async () => {
+  const fable = 'claude-fable-5-2';
+  const h = harness();
+  h.model(fable);
+  await start(h);
+  await drain(h.step({ ...step, model: fable, effort: 'xhigh' }));
+  h.model(step.model);
+  await h.event('command.run', { command: 'model', origin: { kind: 'user' } });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  await drain(h.step({ ...step, turnId: 't3' }));
+  assert.equal(h.requests.at(-1).model, step.model);
+});
+
 test('clear after a manual /model choice on a non-baseline model starts Auto', async () => {
   const h = harness();
   await start(h);
