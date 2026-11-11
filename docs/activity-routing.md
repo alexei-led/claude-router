@@ -76,7 +76,7 @@ each (model, effort) pair is its own cache.
 - Avoid `xhigh` in multi-turn chats. Anthropic reports that Haiku then sometimes puts the whole answer in its thinking
   and shows no reply.
 - Above 100,000 tokens of context, Anthropic charges 5 times Haiku's list price. Even then it costs at most a quarter
-  of what Sonnet or Opus costs per token.
+  of what Opus costs per token, and against Sonnet a quarter for input and output and half for cache reads.
 
 **Sonnet 5.5**: small, well-defined code changes.
 
