@@ -491,7 +491,7 @@ test('a session that starts on a model no route names keeps it when routing is t
   assert.equal(h.loop().decision.escalated, false);
 });
 
-test('a /model change before routing starts replaces the seeded route, so Auto starts from the model in use', async () => {
+test('a /model change before routing starts replaces the seeded route, so Auto does not resume on the first model', async () => {
   const fable = 'claude-fable-5-2';
   const h = harness();
   h.model(fable);
