@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The docs say what transcripts show about an effort change on the same model. The cache was kept in 102 of 104 changes, which supports pricing an effort-only move as no cache write. On Claude Code 2.1.322 an effort changed inside a turn was not sent in 6 of 6 cases, so the band and the decision record can name an effort that did not run. See [What we do not know yet](docs/activity-routing.md#what-we-do-not-know-yet) for the counts and limits.
+
 ## 1.21.2 (2026-11-10)
 
 ### Added
