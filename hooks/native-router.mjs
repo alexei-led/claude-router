@@ -92,6 +92,7 @@ import {
   nativeFacts,
   observedMove,
   observeResponse,
+  ownRoute,
   prepareLoop,
   resetHistory,
 } from '../lib/route.mjs';
@@ -780,6 +781,9 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, router)
       stopReason: response.stopReason,
       now: Date.now(),
     });
+    // Before routing has chosen a route, the one in use is the model serving now: /model can change it with routing
+    // off. Once a decision exists, the last routed route is kept, as for every model.
+    if (reason === 'manual' && !loop.decision) observed.route = ownRoute(router.config, e.model);
     // Routing chose nothing here, so the reply is not counted; your model's cache still follows it.
     const compared = await compareYours($, router, loop, response, e.effort ?? null, nativeModel);
     if (compared) observed.yoursBy = compared.states;
