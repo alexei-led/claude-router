@@ -129,6 +129,7 @@ test('each turn writes its decision rows and its end, with unpriced replies by c
   const [start, end] = decisions(h).rows;
   assert.equal(start.kind, 'start');
   assert.equal(start.route, 'claude-opus-5-5@xhigh');
+  assert.ok(start.reason === 'jump' && !('mass' in start) && !('bar' in start));
   assert.deepEqual(end, { at: end.at, kind: 'end', observed: 'check', requests: 1, priced: 0, unpriced: { ttl: 1 } });
   assert.deepEqual(h.preferences.get('activity:metrics:v1:s1').unpriced, {
     usage: 0,
@@ -143,6 +144,21 @@ test('each turn writes its decision rows and its end, with unpriced replies by c
     /start {5}composer {2}asked high 95% {2}new task {2}-> high claude-opus-5-5@xhigh {2}\(jump\)/,
   );
   assert.match(listed.text, /end {7}tools check {2}1 request {2}0 priced {2}unpriced ttl 1$/);
+});
+
+test('a held move writes the mass it compared and the bar, and /router decisions prints them', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, HIGH);
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h, 't1', 'Design the cache.', 'composer');
+  answering(h, jevResponse('low', { micro: 0, low: 0.6, medium: 0, high: 0.4, uncertain: 0 }, 0.2));
+  await turn(h, 't2', 'Rename one variable.', 'composer');
+  const held = decisions(h).rows.filter((row) => row.kind === 'start')[1];
+  assert.equal(held.reason, 'downgrade-pending');
+  assert.equal(held.mass, 0.6);
+  assert.ok(held.bar >= 0.9 && held.bar <= 1, String(held.bar));
+  const listed = await h.event('command.run', { command: 'router', args: 'decisions 5' });
+  assert.match(listed.text, new RegExp(`\\(downgrade-pending 60% vs bar ${Math.round(held.bar * 100)}%\\)`));
 });
 
 test('/router decisions reads no session text and says when nothing is recorded', async () => {

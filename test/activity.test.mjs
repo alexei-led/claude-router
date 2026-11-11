@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import { acceptActivity, compareRoutes } from '../lib/activity.mjs';
 import { loadConfig, resolveRoute } from '../lib/config.mjs';
 import { routeCacheKey } from '../lib/cost.mjs';
+import { decisionRow } from '../lib/decisions.mjs';
 import { initialState } from '../lib/policy.mjs';
 import { chooseRoute, emptyLoop } from '../lib/route.mjs';
 import { advice, T0 } from './helpers.mjs';
@@ -390,6 +391,31 @@ test('the activity decision: (route now, tier advice, activity advice, cache, co
     assert.deepEqual(
       [decision.tier, decision.activity, decision.reason, decision.model, decision.effort],
       expected,
+      name,
+    );
+  }
+});
+
+const smallHaiku = fixed({ activityRouting: 'on', models: { haiku: { contextWindow: 200_000 } } });
+
+test('the row of a routed decision keeps the mass its reason compared and the bar, and none for an override', () => {
+  for (const [name, setup, reason, mass] of [
+    ['a tier move waiting for its second vote', { choice: 'medium', label: labelOf('ops') }, 'upgrade-pending', 0.97],
+    ['an activity move below the bar', { label: labelOf('code', 0.7) }, 'activity-pending', 0.7],
+    ['an activity move taken', { label: labelOf('code') }, 'activity-up', 0.9],
+    [
+      'a context too large for the cell, over a pending move',
+      { config: smallHaiku, choice: 'medium', label: labelOf('ops'), tokens: 180_000 },
+      'context-fit',
+    ],
+  ]) {
+    const { decision } = turn(setup);
+    assert.equal(decision.reason, reason, name);
+    assert.ok(Number.isFinite(decision.estimate?.threshold), name);
+    const row = decisionRow({ at: NOW, kind: 'start', decision });
+    assert.deepEqual(
+      [row.mass, row.bar],
+      mass === undefined ? [undefined, undefined] : [mass, Math.round(decision.estimate.threshold * 100) / 100],
       name,
     );
   }
