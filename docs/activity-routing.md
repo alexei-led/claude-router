@@ -259,12 +259,12 @@ Limits:
   Opus had 29 changes up and 33 down and Haiku 18 up and 15 down, but Sonnet had 7 up and 1 down, and Fable 1 up,
   which is too small to count. Two changes lost the cache, and we did not look into why.
 - Whether Claude Code sends an effort that the router changes inside a turn. The router changes it in the same
-  `turn.step` hook that changes the model. On Claude Code 2.1.322, in transcripts of 2026-11-10 and 2026-11-11, it did
-  so in 6 cases: all 6 requests still carried the turn's first effort, while the changed model was sent in every case.
-  At the start of a turn the router's effort was sent in 145 of 145 decisions. Transcripts from older versions, 2.1.296
-  to 2.1.319, show the effort changing between tool results inside a turn. We have not reproduced this in isolation.
-  So the band and the decision record can name an effort that did not run; the request parameters in the transcript
-  show what ran.
+  `turn.step` hook that changes the model. On Claude Code 2.1.322, in transcripts of 2026-11-10 and 2026-11-11, the
+  router did so in 6 cases: all 6 requests still carried the turn's first effort, while the changed model was sent in
+  every case. At the start of a turn the router's effort was sent in 145 of 145 decisions. Transcripts from older
+  versions, 2.1.296 to 2.1.319, show the effort changing between tool results inside a turn. We have not reproduced this
+  in isolation. So the band and the decision record can name an effort that did not run; the request parameters in the
+  transcript show what ran.
 - How many requests a turn needs on each model.
 
 ## Sources
