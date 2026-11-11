@@ -43,7 +43,7 @@ Router draws one line above the prompt. The line ends with a **Router** button t
 Read the first line from left to right:
 
 - **Tier meter** `▂▄▆█`: one bar per tier, lit up to the current tier in its color, like signal strength. The same bars name the tiers everywhere: `▂` micro, `▂▄` low, `▂▄▆` medium, `▂▄▆█` high.
-- **Model**: the model and effort that run this turn, such as `Opus 5.5 · xhigh`. **fallback** after it means Claude Code answered with another model.
+- **Model**: the model and effort the router chose for this turn, such as `Opus 5.5 · xhigh`; see [Changes during a task](#changes-during-a-task) for when the effort is not the one sent. **fallback** after it means Claude Code answered with another model.
 - **Activity**: the kind of work, in orange italic: `code`, `debug`, `explore`, `plan`, `review`, `ops` (commands: git, builds, tests, CI) or `docs`. See [Route by activity](#route-by-activity). When the reason already names the activity, the band does not repeat it.
 - **Reason**: a glyph and a few words. `↑` moved up, `↓` moved down, `=` stayed, `…` waits, `!` a problem, `⏵` a pin: `↑ clearly stronger`, `↓ cheaper fits`, `= fits`, `… cheaper, waiting`, `↑ code` for an activity move.
 - **Classifier support**: what the active classifier, such as Jev or Clef Flash, gave the switch against the bar the policy required, such as `Jev 88% ≥ 82%`. When whole percents would read as equal, it shows tenths: `Jev 81.0% < 81.4%`.
@@ -286,6 +286,8 @@ On the running task:
 
 These thresholds are starting values. They are not tuned on data yet.
 
+On Claude Code 2.1.322 an effort that the router changed inside a turn was not sent in the 6 cases found, while a changed model was, so the band and the decision record can name an effort that did not run. See [What we do not know yet](activity-routing.md#what-we-do-not-know-yet).
+
 ### Read the activity on the pane
 
 - **Now**: the first line of **NEXT TURN** names the classifier's activity with its share and the next answer, such as `code 84%  debug 8%`. An `uncertain` answer is shown dim: it applies no activity. In `on`, a line under it names the cell when the route is an override, such as `code at low runs on Sonnet 5.5 · high · tier route Haiku 5.5 · high`, and **why** reads `↑ code` or `↓ ops` when the activity moved the route; a refused move, a hold, or a tier change keeps its reason.
@@ -318,7 +320,7 @@ A routing mode moves each tier's route one step toward cost or quality; pins and
 
 ### Routing decisions
 
-Each routed turn adds rows to the session's decision record in `$.store` (`decisions:v1:<session id>`): one when the turn starts, one per classifier review or tool-based move inside it, and one when it ends. A row holds the prompt's origin (`composer`, `task-notification`, …, or `unknown`), the classifier's tier and activity with their shares, whether it counted as the running task, the tier, activity, route and reason chosen, and at the end the turn's tool bucket and how many replies were priced. It holds no prompt, tool or file text. `/router decisions [n]` prints them. Each session keeps its newest 60 rows; records of the 20 most recent other sessions stay, for at most 30 days. **Delete history** deletes them all.
+Each routed turn adds rows to the session's decision record in `$.store` (`decisions:v1:<session id>`): one when the turn starts, one per classifier review or tool-based move inside it, and one when it ends. A row holds the prompt's origin (`composer`, `task-notification`, …, or `unknown`), the classifier's tier and activity with their shares, whether it counted as the running task, the tier, activity, route and reason chosen, and at the end the turn's tool bucket and how many replies were priced. It holds no prompt, tool or file text. The route is the one chosen, which is not always the one sent; see [Changes during a task](#changes-during-a-task). `/router decisions [n]` prints them. Each session keeps its newest 60 rows; records of the 20 most recent other sessions stay, for at most 30 days. **Delete history** deletes them all.
 
 A pin does not change the next turn after the pinned turn finishes. A fresh session on a model that a tier routes to, or with activity routing `on` a model an activity override uses (Sonnet 5.5 on the defaults), starts with routing on. A fresh session on any other model starts with routing off. `/clear` starts the new session with routing on. Resuming a saved session restores its saved routing on or off.
 
