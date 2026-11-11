@@ -76,7 +76,7 @@ each (model, effort) pair is its own cache.
 - Avoid `xhigh` in multi-turn chats. Anthropic reports that Haiku then sometimes puts the whole answer in its thinking
   and shows no reply.
 - Above 100,000 tokens of context, Anthropic charges 5 times Haiku's list price. Even then it costs at most a quarter
-  of what Sonnet or Opus costs per token.
+  of what Opus costs per token, and against Sonnet a quarter for input and output and half for cache reads.
 
 **Sonnet 5.5**: small, well-defined code changes.
 
@@ -84,8 +84,8 @@ each (model, effort) pair is its own cache.
   on FrontierCode Main.
 - At `medium` it scored about 37% and 39.2%, below Haiku at `high` on FrontierCode Main. That is why the defaults use
   `high`.
-- It reads cached context at the same price as Opus. In long sessions a request costs only about 20% less than on
-  Opus.
+- Every Sonnet rate is half of Opus's: it reads cached context at $0.10 per million tokens against $0.20. In long
+  sessions a request costs about half of one on Opus.
 
 **Opus 5.5**: ordinary and hard engineering, design, review, and research answers.
 
@@ -101,18 +101,19 @@ These are Anthropic's results, mostly at `max` effort and in other harnesses. Th
 Each model keeps its own cache of the conversation. A model change writes the whole conversation into the new model's
 cache. In the sample below Claude Code always wrote a one-hour cache, which costs twice the input price.
 
-At 350,000 tokens of context, the typical size in that sample, at list prices:
+At 350,000 tokens of context, the typical size in that sample, at list prices, for a request that reads the whole
+context from the cache and writes about 3,000 output tokens:
 
 | Cost                         | Haiku 5.5   | Sonnet 5.5  | Opus 5.5    |
 | ---------------------------- | ----------- | ----------- | ----------- |
 | Write the whole context once | $0.35       | $1.40       | $2.80       |
-| One request on a warm cache  | about $0.03 | about $0.10 | about $0.13 |
+| One request on a warm cache  | about $0.03 | about $0.07 | about $0.13 |
 
-- A move from Opus to Haiku pays back after about 4 requests, from Sonnet after about 5. Command runs lasted 6 to 11
-  requests at the median, so the `ops` move pays back. Question-and-answer runs lasted 1 to 3, so moving `explore`
-  does not.
-- A move from Opus to Sonnet saves about $0.03 per request and costs $1.40 to start. It rarely pays back. That is why
-  the defaults do not move `medium` or `high` work to Sonnet.
+- A move from Opus to Haiku pays back after about 4 requests, from Sonnet after about 9. Command runs lasted 6 to 11
+  requests at the median, so the `ops` move at `medium`, from Opus, pays back. Question-and-answer runs lasted 1 to 3,
+  so moving `explore` does not.
+- A move from Opus to Sonnet saves about $0.07 per request and costs $1.40 to start: about 22 requests to pay back.
+  It rarely does. That is why the defaults do not move `medium` or `high` work to Sonnet.
 
 The router does this sum for every move with the prices in `router.json`. A move to a cheaper route inside a tier is
 taken only when it pays back within the payback horizon. A move down a tier weighs the same cost against the
