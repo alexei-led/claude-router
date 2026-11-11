@@ -466,6 +466,31 @@ test('an interrupt while the transcript is still loading never publishes choosin
   assert.equal(h.requests[0].model, step.model);
 });
 
+test('routing resumed after /model chose a model no route names keeps it: its failures do not escalate below it', async () => {
+  const fable = 'claude-fable-5-2';
+  const h = harness();
+  await start(h);
+  await drain(h.step(step));
+  h.model(fable);
+  await h.event('command.run', { command: 'model', origin: { kind: 'user' } });
+  await drain(h.step({ ...step, turnId: 't2', model: fable, effort: 'xhigh' }));
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  h.messages(async () => [
+    user('Fix the test.'),
+    assistant('running', ['Bash']),
+    toolResult('error: test_login failed', { isError: true }),
+    assistant('editing', ['Edit']),
+    toolResult('error: test_login failed', { isError: true }),
+    user('Next.'),
+  ]);
+  await drain(h.step({ ...step, turnId: 't3', model: fable, effort: 'xhigh' }));
+  assert.deepEqual(
+    h.requests.map((r) => `${r.model}@${r.effort}`),
+    ['claude-haiku-5-5@high', `${fable}@xhigh`, `${fable}@xhigh`],
+  );
+  assert.equal(h.loop().decision.escalated, false);
+});
+
 test('clear after a manual /model choice on a non-baseline model starts Auto', async () => {
   const h = harness();
   await start(h);

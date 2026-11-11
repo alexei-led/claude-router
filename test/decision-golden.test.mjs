@@ -122,6 +122,7 @@ function scenario(config, s) {
     ...emptyLoop(config, nativeModel),
     lastRoute,
     lastActivity: null,
+    route: null,
     state,
     models,
     resolutions,
