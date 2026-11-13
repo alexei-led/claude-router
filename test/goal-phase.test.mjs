@@ -85,6 +85,8 @@ test('invalid continuation never replaces the goal and a low threshold never mak
     assert.equal(continuedGoal('old', 'new', parsed.continuation, 0.7), null);
   }
   assert.equal(continuedGoal('old', 'new', 0.5, 0.3), null);
+  assert.equal(continuedGoal('old', 'Yes, proceed.', 0.4, 0.3), null);
+  assert.equal(continuedGoal(null, 'Yes, proceed.', 0.4, 0.3), null);
   for (const value of [null, 0.5, 0.9]) assert.equal(continuedGoal(null, 'Yes, proceed.', value, 0.7), null);
   assert.equal(continuedGoal(null, 'Implement the service.', 0.1, 0.7), 'Implement the service.');
   assert.equal(continuedGoal('old', 'new', 0.9, 0.7), 'old');
