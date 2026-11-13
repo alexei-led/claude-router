@@ -125,6 +125,31 @@ test('OpenAI phase choices are strict and a refused phase preserves the goal', (
   assert.equal(parseAnswers(config, raw).activity.choice, 'code');
 });
 
+test('malformed OpenAI phase values cannot discard a valid route and goal', () => {
+  const config = loadConfig({ userFile: { classifier: 'openai' } });
+  for (const value of [17, null, true, {}]) {
+    const probabilities = phases.map((p) => ({ value: p, probability: p === 'verify' ? 1 : 0 }));
+    probabilities[5] = { value, probability: 0 };
+    const raw = {
+      answers: [
+        {
+          type: 'choice',
+          name: 'route',
+          choice: 'medium',
+          confidence: 0.9,
+          probabilities: [{ value: 'medium', probability: 1 }],
+        },
+        { type: 'choice', name: 'activity', choice: 'code', probabilities: [{ value: 'code', probability: 1 }] },
+        { type: 'choice', name: 'phase', choice: 'verify', probabilities },
+      ],
+    };
+    const parsed = parseAnswers(config, raw);
+    assert.equal(parsed.choice, 'medium');
+    assert.equal(parsed.activity.choice, 'code');
+    assert.equal(parsed.phase, null);
+  }
+});
+
 test('bounded verify/execute can use ops without losing the code goal; other phases cannot', () => {
   const config = loadConfig();
   for (const name of phases) {
