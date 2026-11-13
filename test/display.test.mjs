@@ -171,14 +171,22 @@ test('the /router agreement line adds code, ops and explore only when those were
     lateral: { taken: 0, refused: 0 },
   });
   for (const [name, activityStore, expected] of [
-    ['no store', null, 'Agreement across sessions: no labelled turns yet'],
-    ['a corrupted store', { version: 1 }, 'Agreement across sessions: no labelled turns yet'],
-    ['only uncertain answers', store({ uncertain: { talk: 3 } }), 'Agreement across sessions: no labelled turns yet'],
-    ['no code, ops or explore', store({ plan: { talk: 2, ops: 2 } }), 'Agreement across sessions: 2 of 4 turns (50%)'],
+    ['no store', null, 'Tool compatibility across sessions: no labelled turns yet'],
+    ['a corrupted store', { version: 1 }, 'Tool compatibility across sessions: no labelled turns yet'],
+    [
+      'only uncertain answers',
+      store({ uncertain: { talk: 3 } }),
+      'Tool compatibility across sessions: no labelled turns yet',
+    ],
+    [
+      'no code, ops or explore',
+      store({ plan: { talk: 2, ops: 2 } }),
+      'Tool compatibility across sessions (not accuracy): 2 of 4 turns (50%)',
+    ],
     [
       'with code, ops and explore',
       store({ code: { code: 9, read: 1 }, plan: { ops: 2 } }),
-      'Agreement across sessions: 9 of 12 turns (75%) · code/ops/explore 9 of 10 (90%)',
+      'Tool compatibility across sessions (not accuracy): 9 of 12 turns (75%) · code/ops/explore 9 of 10 (90%)',
     ],
   ])
     assert.equal(storeAgreementLine({ activityStore }), expected, name);

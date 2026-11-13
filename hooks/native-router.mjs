@@ -1,9 +1,11 @@
 import {
+  ACTIVITY_CONTRACT,
   advanceDown,
   advanceRun,
   emptyMetrics,
   emptySession,
   emptyStore,
+  LEGACY_STORE_PREFIX,
   METRICS_PREFIX,
   mergeMetrics,
   mergeStores,
@@ -47,6 +49,7 @@ import { changedLeaves, notSaved, restored, rewrittenConfig } from '../lib/confi
 import {
   addTurnRow,
   appendDecisions,
+  continuedGoal,
   DECISIONS_PREFIX,
   decisionLines,
   decisionRow,
@@ -75,7 +78,16 @@ import {
   unavailableReason,
   unpricedLine,
 } from '../lib/display.mjs';
-import { clip, hasImages, observedActivity, promptIndex, routingBucket } from '../lib/facts.mjs';
+import {
+  clip,
+  currentStepText,
+  hasImages,
+  historySignature,
+  observedActivity,
+  promptIndex,
+  routingBucket,
+  stripReminders,
+} from '../lib/facts.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
@@ -239,6 +251,9 @@ function createRouter(options) {
     // The session's active goal, the last prompt from a goal origin, clipped, `{ sessionId, text }`, in memory only;
     // and each progress turn's report (`progressNotes`), which the classifier reads as dialogue (progressInput).
     goal: null,
+    goalTurnId: null,
+    goalEpoch: 0,
+    turnGoals: new Map(),
     progressNotes: new Map(),
     // Each turn's decision rows until turn.complete writes them, with the turn's end, to the session's record, held as
     // `{ sessionId, record }` once read (`decisionRecord`).
@@ -816,6 +831,7 @@ async function decideTurn($, router, e, signal, step) {
       $.session.messages({ as: 'api' }),
     ]);
     if (!(await live())) return null;
+    validateGoal(router, e.turnId, messages);
     const origin = router.turnOrigins.get(e.turnId) ?? 'unknown';
     // A progress turn is the same task (sameTaskOf).
     const facts = {
@@ -825,6 +841,7 @@ async function decideTurn($, router, e, signal, step) {
         effort: e.effort,
         turnId: e.turnId,
         contextTokens: context.tokens,
+        progress: isProgressOrigin(origin),
       }),
       progress: isProgressOrigin(origin),
     };
@@ -850,6 +867,8 @@ async function decideTurn($, router, e, signal, step) {
           endpoint: credentials.endpoint,
           prompt: asked.prompt,
           turns: asked.turns,
+          activeGoal: router.turnGoals.get(e.turnId)?.goal,
+          currentStep: router.progressNotes.get(e.turnId) ?? facts.prompt,
           signal: controller.signal,
         });
     // The wait for advice alone, comparable with the activity probe's p95; the routing after it is not the classifier's.
@@ -874,6 +893,7 @@ async function decideTurn($, router, e, signal, step) {
     if (written.isSet && pin) router.turnPins.set(e.turnId, pinPresses);
     // Manual, /clear and turn completion abort the controller; one may land during the write.
     if (!written.isSet || controller.signal.aborted) return null;
+    rememberGoal(router, e.turnId, result.advice, cfg.policy.continuationMass, messages);
     if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
       $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
     const activity = turnActivity(cfg, result.advice, previous, selected.decision);
@@ -939,6 +959,10 @@ async function decideTurn($, router, e, signal, step) {
       effort: selected.decision.effort,
       reason: selected.decision.reason,
       activity: activity.label,
+      goal: selected.decision.goal,
+      taskPhase: selected.decision.taskPhase,
+      phaseChoice: result.advice?.phase?.choice ?? null,
+      phaseProbabilities: result.advice?.phase?.probabilities ?? null,
       contextTokens: context.tokens,
       contextKnown: context.known,
       comparison: selected.decision.comparison,
@@ -973,6 +997,7 @@ function stepFacts(cfg, router, loop, e, messages, context) {
     effort: e.effort,
     turnId: e.turnId,
     contextTokens: context.tokens,
+    progress: isProgressOrigin(router.turnOrigins.get(e.turnId)),
   });
 }
 
@@ -1037,7 +1062,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
     if (!review.answer.advice || loop.decision?.pinned || review.generation !== loop.generation) return loop;
     // Only the advice is from the review; the checkpoint, context and cache facts are read now.
     const messages = await transcript($);
-    if (!messages) return loop;
+    if (!messages || historySignature(messages, review.observedUpTo) !== review.prefix) return loop;
     const advice = review.answer.advice;
     const facts = { ...stepFacts(cfg, router, loop, e, messages, context), midTurn: true };
     const selected = chooseRoute(cfg, loop, {
@@ -1083,6 +1108,10 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
         estimate: selected.decision.estimate ?? null,
         activityChoice: advice.activity?.choice ?? null,
         activityProbabilities: advice.activity?.probabilities ?? null,
+        goal: selected.decision.goal,
+        taskPhase: selected.decision.taskPhase,
+        phaseChoice: advice.phase?.choice ?? null,
+        phaseProbabilities: advice.phase?.probabilities ?? null,
       });
     // Tool calls up to the review's snapshot were judged by it; later ones can still move the route up.
     return { ...selected, observedFrom: review.observedUpTo };
@@ -1090,7 +1119,13 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
   const every = cfg.policy.reviewEveryRequests;
   if (review || every === 0 || !loop.decision?.tier || loop.decision.pinned) return loop;
   if ((loop.requests ?? 0) - (loop.reviewedAt ?? 0) < every) return loop;
-  const job = { controller: new AbortController(), generation: loop.generation, observedUpTo: 0, answer: null };
+  const job = {
+    controller: new AbortController(),
+    generation: loop.generation,
+    observedUpTo: 0,
+    prefix: null,
+    answer: null,
+  };
   router.reviews.set(e.turnId, job);
   try {
     const [credentials, messages] = await Promise.all([
@@ -1098,6 +1133,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       $.session.messages({ as: 'api' }),
     ]);
     job.observedUpTo = messages.length;
+    job.prefix = historySignature(messages);
     const facts = stepFacts(cfg, router, loop, e, messages, context);
     clientOf(router, cfg.classifier)
       .ask({
@@ -1108,6 +1144,8 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
         endpoint: credentials.endpoint,
         prompt: facts.prompt,
         turns: facts.turns,
+        activeGoal: router.turnGoals.get(e.turnId)?.goal,
+        currentStep: currentStepText(messages, facts.prompt, cfg.context.maxTextChars),
         signal: job.controller.signal,
       })
       .then((answer) => {
@@ -1286,17 +1324,70 @@ async function flushUsage($, router, turnId, switched) {
 // its report as dialogue (progressInput); without a goal from this session it reads as before. A goal origin's prompt
 // becomes the goal.
 async function startTurn($, router, e) {
-  const text = clip(e.text, router.config.context.maxTextChars);
+  const epoch = ++router.goalEpoch;
+  router.goalTurnId = e.turnId;
+  await fixTurnConfig($, router, e.turnId);
+  const text = clip(stripReminders(e.text), router.config.context.maxTextChars);
   const origin = originOfTurn(router, e.text);
   router.turnOrigins.set(e.turnId, origin);
   const sessionId = await $.session.id();
-  if (isProgressOrigin(origin) && router.goal?.sessionId === sessionId) {
+  if (router.goalEpoch !== epoch || router.goalTurnId !== e.turnId) return;
+  const previous = router.goal?.sessionId === sessionId ? router.goal.text : null;
+  const candidate = isGoalOrigin(origin) ? text : null;
+  router.turnGoals.set(e.turnId, {
+    sessionId,
+    previous,
+    previousRecord: previous ? router.goal : null,
+    candidate,
+    goal: previous,
+  });
+  if (isProgressOrigin(origin) && previous) {
     router.prompts.set(e.turnId, router.goal.text);
     router.progressNotes.set(e.turnId, text);
     return;
   }
   router.prompts.set(e.turnId, text);
-  if (isGoalOrigin(origin)) router.goal = { sessionId, text };
+}
+
+function validateGoal(router, turnId, messages) {
+  const pending = router.turnGoals.get(turnId);
+  const record = pending?.previousRecord;
+  if (!record || historySignature(messages, record.prefixCount) === record.prefix) return;
+  if (router.goal === record) router.goal = null;
+  const note = router.progressNotes.get(turnId);
+  if (note) {
+    router.prompts.set(turnId, note);
+    router.progressNotes.delete(turnId);
+  }
+  router.turnGoals.set(turnId, { ...pending, previous: null, previousRecord: null, goal: null });
+}
+
+function rememberGoal(router, turnId, advice, threshold, messages) {
+  const pending = router.turnGoals.get(turnId);
+  if (!pending?.candidate || router.goalTurnId !== turnId) return;
+  const text = continuedGoal(pending.previous, pending.candidate, advice?.continuation, threshold);
+  const retained = text && text === pending.previous && advice?.continuation > 0.5;
+  router.goal = text
+    ? retained
+      ? pending.previousRecord
+      : {
+          sessionId: pending.sessionId,
+          text,
+          prefixCount: messages.length,
+          prefix: historySignature(messages),
+        }
+    : null;
+  router.turnGoals.set(turnId, { ...pending, goal: text });
+}
+
+function clearGoal(router) {
+  router.goal = null;
+  router.goalTurnId = null;
+  router.goalEpoch += 1;
+  router.turnGoals.clear();
+  // A notification must not keep a goal that a rewind/compaction invalidated.
+  for (const [turnId, note] of router.progressNotes) router.prompts.set(turnId, note);
+  router.progressNotes.clear();
 }
 
 // The engine stamps each prompt with where it came from (PromptOrigin); turn.start does not carry it. An idle
@@ -1342,6 +1433,7 @@ async function flushDecisions($, router, turnId, turn) {
   router.turnDecisions.delete(turnId);
   router.turnOrigins.delete(turnId);
   router.progressNotes.delete(turnId);
+  router.turnGoals.delete(turnId);
   if (!rows.length) return;
   try {
     const resets = router.statsResets;
@@ -1868,6 +1960,8 @@ function paneActions($, router, view) {
         const keys = (await $.store.keys()).filter(
           (key) =>
             key.startsWith(DECISIONS_PREFIX) ||
+            key === LEGACY_STORE_PREFIX ||
+            key.startsWith(`${LEGACY_STORE_PREFIX}:`) ||
             Object.values(LEDGERS).some(({ prefix, legacy }) => key.startsWith(prefix) || key === legacy),
         );
         await Promise.all(keys.map((key) => $.store.delete(key)));
@@ -1953,6 +2047,7 @@ function paneActions($, router, view) {
 async function endSession($, router) {
   for (const controller of router.controllers) controller.abort();
   router.decisions.clear();
+  clearGoal(router);
   router.prompts.clear();
   router.turnOrigins.clear();
   router.progressNotes.clear();
@@ -2037,6 +2132,9 @@ export function register(on, options) {
         Boolean(base?.includes('127.0.0.1:43170') || base?.includes('localhost:43170'));
       await updateView($, router, {
         nativeModel: model,
+        ...(existing.activityContract !== ACTIVITY_CONTRACT
+          ? { activityContract: ACTIVITY_CONTRACT, activityStats: null }
+          : {}),
         ...(await startView($, router, model)),
         phase: gateway || !supported ? 'unavailable' : 'ready',
         error: !supported ? 'requires Claude Code 2.1.289 or newer' : gateway ? GATEWAY_SETTINGS : null,
@@ -2085,7 +2183,6 @@ export function register(on, options) {
   on('command.run', { command: 'router' }, ($, e) => routerCommand($, router, e.args));
 
   on('turn.start', async ($, e, next) => {
-    await fixTurnConfig($, router, e.turnId);
     await startTurn($, router, e);
     return next(e);
   });
@@ -2117,6 +2214,7 @@ export function register(on, options) {
     let loopVersion = loaded.version;
     // The session's model names its tier in the configured routes: a mode's table can run it at another tier.
     let loop = prepareLoop(loaded.value ?? emptyLoop(turn.configured, e.model), e.messageCount);
+    if (loaded.value && loop.generation !== loaded.value.generation) clearGoal(router);
     if (view.phase === 'unavailable' || mode === 'manual') {
       return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'manual', router);
     }
@@ -2216,6 +2314,7 @@ export function register(on, options) {
       const ref = { ...LOOP, id: 'main' };
       const loop = (await $.state.get(ref)).value;
       if (loop) await $.state.set(ref, resetHistory(loop));
+      clearGoal(router);
       for (const controller of router.controllers) controller.abort();
     }
     return result;

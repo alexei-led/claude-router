@@ -1,8 +1,8 @@
 # Activity routing
 
-The router picks a model for each turn from two labels. The **tier** says how hard the work is. The **activity** says
-what the turn produces: changed code, a found cause, an answer, a plan, review findings, executed commands, or prose.
-Since 1.7 activity routing is `on` by default. This page shows the default choices, why each one is there, and how to
+The router uses **tier** for difficulty, **goal** for the task's final deliverable, and **phase** for the current step.
+The route uses the goal's activity unless a supported verification-only or execution-only phase qualifies for `ops`.
+Activity routing is `on` by default. This page shows the default choices, why each one is there, and how to
 change them.
 
 The numbers below come from Anthropic's system cards and from a replay of one developer's sessions at list prices.
@@ -10,18 +10,35 @@ They do not measure this router's answer quality or your bill.
 
 ## What it does
 
-For each new turn the classifier answers two questions, the tier and the activity, in the same request (Ollama makes
-a second call). The router looks up the route for that pair. A route is a model and an effort.
+For each new turn, Jev, Clef and OpenAI answer tier, continuation, goal and phase questions together. The existing
+`activity` field and route matrix name the goal; the phase can select the `ops` cell for bounded command-only work.
+Ollama asks tier and goal in two calls and does not provide a phase, so it uses the goal route. A route is a model and an effort.
 
-| Activity  | The turn produces                                               |
+| Goal      | The task produces                                               |
 | --------- | --------------------------------------------------------------- |
-| `code`    | Changed code or config, including tests                         |
+| `code`    | Changed code or config, including tests and their verification  |
 | `debug`   | A found cause: failing tests, stack traces, "why does X..."     |
 | `explore` | An answer: explain code, find where something happens, research |
 | `plan`    | A decision or plan: design, task breakdown, trade-offs          |
 | `review`  | Findings about existing code: a PR, a diff, an audit            |
-| `ops`     | Executed commands: git, builds, test runs, CI, deploys          |
+| `ops`     | Specified operations as the task's final deliverable            |
 | `docs`    | Prose for people: README, docs, comments, commit messages       |
+
+The phases are `produce`, `reason`, `verify`, `execute`, `report` and `uncertain`. A request to implement
+an endpoint and run tests has goal `code`; “run the tests” can have phase `verify` while the goal stays `code`.
+Tests **and fixes** are not verification-only. A terminal command by itself does not make the task an `ops` goal.
+
+When both the goal and a `verify` or `execute` phase meet `policy.activityMass`, the router considers the
+`ops` cell. It uses the lower of their supports for the existing activity-switch gates; it does not multiply them
+or claim they are independently calibrated. A missing, malformed, uncertain or weak phase keeps the goal route.
+The usual cache, dwell, escalation, model availability, context and credits checks still apply. A successful
+classifier decision displays goal, phase and the route activity separately. Pins ignore activity routing.
+
+The router keeps a bounded goal in memory for this session. It sends it as untrusted classifier context; a positively
+identified continuation keeps it, a new task replaces it, and an ambiguous continuation drops it. A progress
+notification uses the active goal but does not replace it or authorize a downgrade, because its originating task is not reliably known. The goal clears on session end, compaction or a detected
+history rewind. A late notification may concern an older task; it is not proof of the current goal.
+Goal memory is created only on positive new-task evidence; an unanchored continuation does not become a new goal. Ollama has no continuity answer and does not retain the anchor. No goal text is written to the activity or decision records. Classifier providers receive the goal and recent text.
 
 Most cells use the tier's own route, the **base route**. A few cells have an **override**. When the activity is
 unclear, or the classifier gives it less than 60% probability, the router moves back to the base route if the move
@@ -32,7 +49,7 @@ The router compares routes, not labels. If the new activity resolves to the rout
 A move to a cheaper route must pay back its cache write first. A move to a stronger route needs the classifier's
 support. The [user guide](user-guide.md#route-by-activity) has the full rules.
 
-The label comes from the prompt, so it can be wrong. A prompt such as "run the worker brief" reads as `ops` and the
+The goal and phase come from the prompt, so they can be wrong. A prompt such as "run the worker brief" reads as `ops` and the
 turn may then spend 80 requests writing code. The router therefore also watches the turn's own tool calls. Once the
 turn edits a file, it moves to the `code` route of its tier (or `docs` for doc files) if that route is stronger. This
 move only goes up. The cache cost does not hold it back; only the cash cap on a credits-billed model can. A later
@@ -199,7 +216,7 @@ Two other directions, with what they trade:
 
 **Activity threshold.** An activity applies only when the classifier gives it at least this probability. Below it, a
 new task goes back to the base route if that move passes the usual checks; the running task follows
-[Changes during a task](user-guide.md#changes-during-a-task). The default is 60% (`policy.activityMass: 0.6`). Change it on the Policy tab under **Activities**,
+[Changes during a task](user-guide.md#changes-during-a-task). The default is 60% (`policy.activityMass: 0.6`); the same threshold applies independently to the phase. Change it on the Policy tab under **Activities**,
 or in `router.json`. There is no data to tune it on yet: the probe results record whether the
 label was right, not the classifier's probabilities.
 
@@ -248,7 +265,7 @@ Limits:
 
 - The answer quality of routed sessions.
 - How well the classifier labels real turns. On 70 synthetic prompts, Jev and OpenAI labelled all 70 right; see
-  [Evaluation](evaluation.md#activity-probe-set). The **Agreement** lines, on the
+  [Evaluation](evaluation.md#activity-probe-set). The **Tool compatibility** lines, on the
   Classifier tab for this session and across sessions, check your own turns against the tools they used.
 - Whether an effort change on the same model always keeps the cache. Claude Code's prompt-caching docs say it does on
   the 5.5 models and Fable 5.1 with an API key or a subscription, and the router prices it so. On 2026-11-11 we counted

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.22.1 (2026-11-13)
+
+### Changed
+
+- Separate the task goal from the current phase. Implementation stays `code` through verification, commit and reporting; a supported command-only phase can still use `ops` after the normal routing gates. Mixed tests and fixes are not execution-only.
+- Keep a bounded goal in session memory only on explicit new-task/continuation evidence. History-prefix and request-generation fences reject replaced context and stale reviews. Unassociated notifications cannot justify downgrades.
+- Show goal, phase and effective activity separately. Start a separate goal-contract counter series; older turn-label counters remain stored until **Delete history**. Tool compatibility is explicitly not accuracy.
+- Use Jev `jev-1.14.0` by default. Explicit model overrides remain unchanged; Ollama remains goal-only without phase or continuity.
+
+No configuration migration is required. Restart the plugin session after updating. Synthetic checks do not establish better real-task quality, calibration or savings.
+
 ## 1.22.0 (2026-11-11)
 
 ### Added

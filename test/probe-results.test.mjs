@@ -77,7 +77,13 @@ test('a run without a single activity answer or a p95 is refused, and never reac
 test('a classifier shows its probe only for the model that was probed', () => {
   const other = loadConfig({ userFile: { classifiers: { ollama: { model: 'llama9:1b' } } } });
   for (const [name, config, id, expected] of [
-    ['jev', DEFAULTS, 'jev', 'activity probe 70/70 · p95 299 ms · Oct 10'],
+    ['current Jev has no legacy probe', DEFAULTS, 'jev', null],
+    [
+      'probed Jev',
+      loadConfig({ userFile: { classifiers: { jev: { model: 'jev-1.13.0' } } } }),
+      'jev',
+      'activity probe 70/70 · p95 299 ms · Oct 10',
+    ],
     ['a run before midnight UTC', DEFAULTS, 'clef', 'activity probe 69/70 · p95 883 ms · Oct 9'],
     ['another model', other, 'ollama', null],
     [
@@ -94,7 +100,7 @@ test('the Classifier tab puts each probe in its classifier row', () => {
   const lines = screen(
     renderPanel(ELEMENTS, DEFAULTS, { mode: 'auto', phase: 'routed', credentials: {}, tab: 'classifier' }, null, {}),
   );
-  assert.ok(lines.some((line) => /^\[ ◉ Jev\s+\] api\.typesafe\.ai\s+70\/70\s+299 ms\s+○ no API key/.test(line)));
+  assert.ok(lines.some((line) => /^\[ ◉ Jev\s+\] api\.typesafe\.ai\s+—\s+—\s+○ no API key/.test(line)));
   assert.ok(lines.some((line) => /^\[ ○ Ollama\s+\] this machine\s+66\/70\s+3483 ms\s+● ready/.test(line)));
   assert.ok(lines.some((line) => /^\[ ○ Clef Omni\s+\] api\.cloudflare\.com\s+—\s+—\s+○ no API token/.test(line)));
 });

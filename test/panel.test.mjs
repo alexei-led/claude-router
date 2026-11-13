@@ -576,7 +576,7 @@ const ACROSS = 'ACROSS SESSIONS · since the last reset';
 const ACROSS_LINES = [
   ACROSS,
   'Labelled   22 turns',
-  'Agreement  classifier vs tools: 16 of 20 turns (80%)',
+  'Tool compatibility (not accuracy): 16 of 20 turns (80%)',
   'Code/ops/explore  classifier vs tools: 14 of 18 turns (78%)',
   'Mismatch   code → read 3 · ops → code 1',
   'Activity moves  4 taken · 2 refused',
@@ -648,7 +648,7 @@ test('the Classifier tab shows the counts across sessions when there are any', (
       [
         ACROSS,
         'Labelled   3 turns',
-        'Agreement  classifier vs tools: 2 of 3 turns (67%)',
+        'Tool compatibility (not accuracy): 2 of 3 turns (67%)',
         'Mismatch   debug → talk 1',
         'Escalations  after a cheaper activity move: 1 in 12 moves',
       ],
@@ -664,10 +664,10 @@ test('the Classifier tab shows the counts across sessions when there are any', (
 test('the deadline line compares the active classifier’s wait with its deadline', () => {
   const deadline = (props, config) => classifierLines(props, config).find((line) => line.startsWith('Deadline'));
   assert.equal(deadline({ activityMetrics: METRICS }), 'Deadline    1500 ▾      p95 ≤ 350 ms over 20 turns');
-  assert.equal(deadline({ activityMetrics: null }), 'Deadline    1500 ▾      p95 299 ms in its probe');
+  assert.equal(deadline({ activityMetrics: null }), 'Deadline    1500 ▾      no wait measured yet');
   assert.equal(
     deadline({ activityMetrics: { ...METRICS, latency: { jev: [1, 2, 3] } } }),
-    'Deadline    1500 ▾      p95 299 ms in its probe',
+    'Deadline    1500 ▾      no wait measured yet',
   );
   const slow = {
     ...DEFAULTS,
@@ -719,6 +719,6 @@ test('the Classifier tab says this session’s tool agreement once a turn was la
   });
   const lines = classifierLines({ activityStats: stats(19, 22) });
   const at = lines.indexOf('THIS SESSION');
-  assert.equal(lines[at + 1], 'Agreement  classifier vs tools: 19 of 22 turns (86%)');
+  assert.equal(lines[at + 1], 'Tool compatibility (not accuracy): 19 of 22 turns (86%)');
   assert.ok(!classifierLines({ activityStats: stats(0, 0) }).includes('THIS SESSION'));
 });

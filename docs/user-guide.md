@@ -227,9 +227,9 @@ The router keeps no bill. Its dollars are estimates at configured list prices an
 
 ## Route by activity
 
-A tier says how hard the work is. The activity says what kind of work it is. The classifier names it for each new turn, by what the turn produces:
+A tier says how hard the work is. The goal says what the active task must deliver, while phase describes this step. The existing activity names describe goals:
 
-| Activity  | The turn produces                                               |
+| Goal      | The task produces                                               |
 | --------- | --------------------------------------------------------------- |
 | `code`    | Changed code or config, including tests                         |
 | `debug`   | A found cause: failing tests, stack traces, "why does X..."     |
@@ -239,7 +239,7 @@ A tier says how hard the work is. The activity says what kind of work it is. The
 | `ops`     | Executed commands: git, builds, test runs, CI, deploys          |
 | `docs`    | Prose for people: README, docs, comments, commit messages       |
 
-A mixed turn such as "fix it and commit" takes the hardest part, here `code`. The router then picks the route by tier and activity. With the default overrides, a `low` coding turn runs on Sonnet 5.5 at `high`, a `low` git turn stays on Haiku 5.5 at `high`, and a `medium` git turn moves from Opus 5.5 to Haiku 5.5 at `high`. [Activity routing](activity-routing.md) explains the default matrix, why each cell is there, and how to change it.
+A mixed turn such as "fix it and commit" keeps goal `code`. Verification and delivery steps can retain that goal while changing phase. A positively supported verification-only or execution-only phase can use the `ops` cell; mixed checks and fixes cannot. The router then picks the route by tier and activity. With the default overrides, a `low` coding turn runs on Sonnet 5.5 at `high`, a `low` git turn stays on Haiku 5.5 at `high`, and a `medium` git turn moves from Opus 5.5 to Haiku 5.5 at `high`. [Activity routing](activity-routing.md) explains the default matrix, why each cell is there, and how to change it.
 
 The mode decides what happens with the label:
 
@@ -255,13 +255,13 @@ When an override runs, **NEXT TURN** on the Now tab adds a line with the tier's 
 How the router moves inside a tier:
 
 - It compares routes, not labels. If the new activity resolves to the route already running, nothing switches.
-- A move to a stronger route needs the classifier's support, as an upgrade between tiers does. A move to a cheaper one must pay back its cache write within the payback horizon. One vote is enough for either, because the activity is a fact about this turn.
-- An activity applies only when the classifier gives it at least 60% probability (`policy.activityMass`). Below that, or on `uncertain`, a new task goes back to its base route if the move passes the same checks. On the running task the activity can move either way while the turn runs; see [Changes during a task](#changes-during-a-task).
+- A move to a stronger route needs the classifier's support, as an upgrade between tiers does. A move to a cheaper one must pay back its cache write within the payback horizon. One vote is enough for either, because this proposes a cell for the current step, not a new task goal.
+- A goal applies only when the classifier gives it at least 60% probability (`policy.activityMass`). Phase must independently meet that same bar before a verification/execution step can propose `ops`; its support is capped at the lower of goal and phase support, not a multiplied probability. Below that, or on `uncertain`, a new task goes back to its base route if the move passes the same checks. On the running task the activity can move either way while the turn runs; see [Changes during a task](#changes-during-a-task).
 - A pinned turn uses the pin's base route and shows no activity.
 - When the classifier gives no answer at all (a timeout, a failure, a pause, or a missing key), the running route stays. When it answers the tier but gives no usable activity, only the running activity stays: the tier answer still applies, so the turn can change tier and keeps its activity there. In `off` the base route always runs.
 - A fresh session starts with routing on when the session model is a tier's route. With activity routing `on`, a model that only an activity override uses also counts: Sonnet 5.5 on the defaults. In `off` it does not.
 
-The band's activity label appears only when the activity applies, so a weak or `uncertain` answer shows none. The two-row band and the **Replies** strip show the activities of recent replies.
+The band names the accepted goal and phase when available, and distinguishes the effective route activity: `code / verify → ops`. These are classifier estimates, not observed proof of the work done. The two-row band and the **Replies** strip show the activities of recent replies.
 
 ### Changes during a task
 
@@ -269,7 +269,7 @@ The classifier labels a turn from its prompt, and the work can change after that
 
 - **On every later step of a turn** it reads the turn's tool calls. A turn labelled `ops` or `explore` that edits a code file moves at once to the tier's `code` route (`docs` when it edits only Markdown or `docs/` files). The tools are the evidence, so this needs no classifier support, and the cache cost does not hold it back; only the cash cap on a credits-billed model can. This move only goes up. The toast and the band show it as `↗ coding`.
 - **Every 4 requests inside a turn** (`policy.reviewEveryRequests`) it asks the classifier again, in the background, with the turn's prompt and the recent dialogue. A step never waits for the answer: it applies at the first step after it arrives. Each review sends the classifier the same kind of text a new turn does. `0` turns reviews off.
-- **A new prompt that continues the task** is decided the same way as a review. Claude Code stamps each prompt with where it came from. A task notification, an observer's report or a programmatic follow-up is always progress on the running task: the classifier is asked about your last request, with the notification as the newest dialogue line, so it judges the work still to do rather than the notification's wording. A message from you or another agent, or "go on", counts as the running task when the classifier scores it as a continuation. After a resume the router does not know your last request yet, so a notification is judged as it reads.
+- **A new prompt that continues the task** is decided the same way as a review. Claude Code stamps each prompt with where it came from. A task notification, observer report or automatic continuation is treated as progress, not as a new goal. It is asked about the known goal with the report as dialogue. Such a report may belong to an older task, so it cannot justify a downgrade. A message from you or another agent, or "go on", counts as the running task when the classifier scores it as a continuation. After a resume the router does not know your last request yet, so a notification is judged as it reads.
 
 On the running task:
 
@@ -282,7 +282,7 @@ On the running task:
 
   A failed check blocks every one of these, and so does a check whose result is not the check's own (chained, redirected, piped, after `;` or `||`, or in the background). While no checkpoint is met, the route stays: for a tier the band shows `… down after a checkpoint`; a held activity keeps the running one and shows `= fits`. A cheaper activity also needs 90% probability (`policy.downgradeMass`; 65% in `cost`).
 - A cheaper tier lands where the answer as a whole points: when the classifier says `micro` 63% and `low` 30%, the turn moves to `low`, which 93% of the answer supports, instead of staying until `micro` alone reaches 90%.
-- A pinned turn does not move. A new task, a prompt the classifier does not score as a continuation, is routed as a fresh turn. Ollama does not answer the continuation question, so every prompt is a new task to it; reviews inside a turn still apply.
+- A pinned turn does not move. A prompt not scored as a continuation is routed as a fresh turn. The bounded in-memory goal anchor is created or replaced only on positive new-task evidence, retained only on positive continuation, and dropped on ambiguity, history replacement or session end. A continuation without an anchor cannot seed a short reply as a new goal. Ollama provides neither phase nor continuity, so it does not retain this anchor; recent dialogue can still help its goal answer.
 
 These thresholds are starting values. They are not tuned on data yet.
 
@@ -293,11 +293,11 @@ On Claude Code 2.1.322 an effort that the router changed inside a turn was not s
 - **Now**: the first line of **NEXT TURN** names the classifier's activity with its share and the next answer, such as `code 84%  debug 8%`. An `uncertain` answer is shown dim: it applies no activity. In `on`, a line under it names the cell when the route is an override, such as `code at low runs on Sonnet 5.5 · high · tier route Haiku 5.5 · high`, and **why** reads `↑ code` or `↓ ops` when the activity moved the route; a refused move, a hold, or a tier change keeps its reason.
 - **Routes**: see [Edit routes and policy](#edit-routes-and-policy). Each activity is a row of the grid, and a cell shows the model the activity runs at that tier.
 - **Usage**: **BY** with **Activity** lists the period's replies, cost and difference against no routing per activity, and `mostly on`, the route most of its replies used, such as `Sonnet 5.5 · high`; opening a row lists its routes. Replies whose turn had no applied activity count as `no activity`. The **cache rebuilds** row counts the route switches by tier and by activity together. See [Compare routing with no routing](#compare-routing-with-no-routing).
-- **Classifier**: **THIS SESSION** gives **Agreement**, how often the tools a turn used fit the classifier's activity (see [Evaluation](evaluation.md#tool-agreement)).
+- **Classifier**: **THIS SESSION** gives **Tool compatibility (not accuracy)**, how often the tools fit the classifier's goal (see [Evaluation](evaluation.md#tool-agreement)).
 
-On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the counts kept across sessions, once there are any: the turns labelled from their tools, **Agreement** over them, **Code/ops/explore**, the same agreement over the turns the classifier answered `code`, `ops` or `explore` (omitted when there are none), the two most frequent mismatches as `predicted → observed count` (`code → read 3`), **Activity moves**, the moves to another route inside a tier, taken and refused for any reason, **Escalations**, such as `after a cheaper activity move: 1 in 12 moves`, the tool-error escalations that followed a move to a cheaper route in `on` while the turns stayed on it in `on` (turning routing off, a turn with routing off, or a turn in `off` ends the watch, a pin in between does not, and an escalation the credits cap held counts). Each of these lines appears only when it has data. The active classifier's p95 wait across sessions shows on its **Deadline** line instead (not recorded with activity routing `off`). This agreement compares the classifier's raw answer, so it can differ from the session's. The pane reads these counts when the session starts and when it opens, and adds this session's turns as they finish; another session's new latency and escalation readings show the next time the pane opens. **Delete history** on the Usage tab deletes these counts with the usage and subagent records, for this session and across sessions.
+On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the counts kept across sessions, once there are any: the turns labelled from their tools, **Tool compatibility** over them, **Code/ops/explore**, the same agreement over the turns the classifier answered `code`, `ops` or `explore` (omitted when there are none), the two most frequent mismatches as `predicted → observed count` (`code → read 3`), **Activity moves**, the moves to another route inside a tier, taken and refused for any reason, **Escalations**, such as `after a cheaper activity move: 1 in 12 moves`, the tool-error escalations that followed a move to a cheaper route in `on` while the turns stayed on it in `on` (turning routing off, a turn with routing off, or a turn in `off` ends the watch, a pin in between does not, and an escalation the credits cap held counts). Each of these lines appears only when it has data. The active classifier's p95 wait across sessions shows on its **Deadline** line instead (not recorded with activity routing `off`). This agreement compares the classifier's raw answer, so it can differ from the session's. The pane reads these counts when the session starts and when it opens, and adds this session's turns as they finish; another session's new latency and escalation readings show the next time the pane opens. **Delete history** on the Usage tab deletes these counts with the usage and subagent records, for this session and across sessions.
 
-`/router` without a UI surface adds an `Activity: ops (81%)` line, the resolved route, and `Agreement across sessions: 19 of 22 turns (86%) · code/ops/explore 9 of 10 (90%)`. It also prints the session in the band's words, such as `Session: $6.40 billed · −$1.84 (−22%) vs Opus 5.5 $8.24 · 64 replies`, after a `Plan: 5h 48% · 7d 43%` line on a Claude plan.
+`/router` without a UI surface distinguishes `Goal: code (95%)`, `Phase: verify` and `Route activity: ops`, followed by the resolved route. It labels tool compatibility explicitly as not accuracy. Goal-contract counters start a separate series; pre-change turn-label counters remain stored but are excluded until **Delete history** removes them. It also prints the session in the band's words, such as `Session: $6.40 billed · −$1.84 (−22%) vs Opus 5.5 $8.24 · 64 replies`, after a `Plan: 5h 48% · 7d 43%` line on a Claude plan.
 
 ## Change routing
 
