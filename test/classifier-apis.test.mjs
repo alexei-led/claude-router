@@ -24,7 +24,7 @@ test('every declared API has an adapter that builds a request for its entry', ()
         classifiers: { house: { ...DEFAULTS.classifiers.jev, api, endpoint: 'https://example.test/v1' } },
       },
     });
-    assert.equal(buildRequest(config, 'do x', []).model, 'jev-1.13.0', api);
+    assert.equal(buildRequest(config, 'do x', []).model, 'jev-1.14.0', api);
   }
 });
 
@@ -143,7 +143,15 @@ const offRequests = fixture('activity-off-requests.json');
 test('activity routing off sends the 1.5 request bodies byte for byte', () => {
   for (const [classifier, body] of Object.entries(offRequests.bodies))
     assert.equal(
-      JSON.stringify(buildRequest(configFor(classifier, 'off'), offRequests.prompt, offRequests.turns)),
+      JSON.stringify(
+        buildRequest(
+          loadConfig({
+            userFile: { classifier, activityRouting: 'off', classifiers: { jev: { model: 'jev-1.13.0' } } },
+          }),
+          offRequests.prompt,
+          offRequests.turns,
+        ),
+      ),
       body,
       classifier,
     );
@@ -178,21 +186,21 @@ test('System One asks the activity as a choice over every activity and uncertain
   const { activity } = buildRequest(configFor('jev', 'on'), 'deploy the fix', []).questions;
   assert.equal(activity.type, 'choice');
   assert.deepEqual(Object.keys(activity.criteria), ACTIVITY_VALUES);
-  assert.match(activity.instructions.question, /Which activity/);
-  assert.match(activity.criteria.ops.notFor.join(' '), /writing new code/);
+  assert.match(activity.instructions.question, /task goal/);
+  assert.match(activity.criteria.ops.notFor.join(' '), /implementation/);
 });
 
 test('OpenAI asks the activity as a second choice after the route and continuation', () => {
   const questions = buildRequest(configFor('openai', 'on'), 'deploy the fix', []).questions;
   assert.deepEqual(
     questions.map((question) => question.name),
-    ['route', 'continuation', 'activity'],
+    ['route', 'continuation', 'activity', 'phase'],
   );
   assert.deepEqual(
     questions[2].choices.map((choice) => choice.value),
     ACTIVITY_VALUES,
   );
-  assert.match(questions[2].instructions, /hardest part/);
+  assert.match(questions[2].instructions, /final deliverable/);
 });
 
 test('a valid activity answer reads as the activity advice next to the route', () => {

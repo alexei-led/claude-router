@@ -153,7 +153,7 @@ Prices are configured list-price inputs for estimates. They are not a subscripti
 
 ## Activity routing
 
-The classifier also names the activity of a turn: what the turn produces. `activityRouting` decides what the router does with it. [Activity routing](activity-routing.md) explains the defaults for end users.
+The classifier names the task goal separately from its current phase. The existing `activities` matrix still selects routes; a supported command-only phase can select `ops` without changing the goal. `activityRouting` decides what the router does with it. [Activity routing](activity-routing.md) explains the defaults for end users.
 
 | `activityRouting` | Behavior                                                                                   |
 | ----------------- | ------------------------------------------------------------------------------------------ |
@@ -221,7 +221,7 @@ Switch the mode with `/router activities off|on`, or with the **Activity routing
 
 | `classifier` | Endpoint                                                                                                 | Request `model` | Key option             | `timeoutMs` |
 | ------------ | -------------------------------------------------------------------------------------------------------- | --------------- | ---------------------- | ----------: |
-| `jev`        | `https://api.typesafe.ai/v1/systemone`                                                                   | `jev-1.13.0`    | `typesafe_api_key`     |      `1500` |
+| `jev`        | `https://api.typesafe.ai/v1/systemone`                                                                   | `jev-1.14.0`    | `typesafe_api_key`     |      `1500` |
 | `clef`       | `https://api.cloudflare.com/client/v4/accounts/{cloudflare_account_id}/ai/run/@cf/cloudflare/clef`       | `clef`          | `cloudflare_api_token` |      `3000` |
 | `clef-flash` | `https://api.cloudflare.com/client/v4/accounts/{cloudflare_account_id}/ai/run/@cf/cloudflare/clef-flash` | `clef-flash`    | `cloudflare_api_token` |      `3000` |
 | `clef-omni`  | `https://api.cloudflare.com/client/v4/accounts/{cloudflare_account_id}/ai/run/@cf/cloudflare/clef-omni`  | `clef-omni`     | `cloudflare_api_token` |      `3000` |
@@ -245,7 +245,7 @@ You can add an entry for another service that speaks one of the three protocols.
     "jev-proxy": {
       "label": "Jev",
       "endpoint": "https://jev-proxy.example.internal/v1/systemone",
-      "model": "jev-1.13.0",
+      "model": "jev-1.14.0",
       "keyOption": "typesafe_api_key",
       "timeoutMs": 1500
     }

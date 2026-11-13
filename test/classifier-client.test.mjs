@@ -292,7 +292,7 @@ test('Ollama asks the activity in a second request and returns both answers', as
   assert.equal(result.advice.choice, 'medium');
   assert.equal(result.advice.activity.choice, 'code');
   assert.equal(bodies.length, 2);
-  assert.match(bodies[1].messages[1].content, /Which activity/);
+  assert.match(bodies[1].messages[1].content, /task goal/);
 });
 
 test('with activity routing off Ollama sends one request and reads no activity', async () => {

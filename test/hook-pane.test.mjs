@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { emptyStore } from '../lib/activity-stats.mjs';
+import { emptyStore, STORE_KEY, STORE_PREFIX } from '../lib/activity-stats.mjs';
 import { readUsage, summarize } from '../lib/usage.mjs';
 import {
   CLEF_FLASH_ANSWER,
@@ -702,9 +702,9 @@ test('Delete history clears usage, activity and subagent records, the session co
   await drain(h.step(step));
   await h.event('turn.complete', { turnId: 't1' });
   assert.equal(h.view().activityStats.byActivity.code.turns, 1);
-  assert.deepEqual(h.preferences.get('activity:stats:v1:s1').confusion, { code: { talk: 1 } });
-  h.preferences.set('activity:stats:v1:s0', h.preferences.get('activity:stats:v1:s1'));
-  h.preferences.set('activity:stats:v1', {
+  assert.deepEqual(h.preferences.get(`${STORE_PREFIX}s1`).confusion, { code: { talk: 1 } });
+  h.preferences.set(`${STORE_PREFIX}s0`, h.preferences.get(`${STORE_PREFIX}s1`));
+  h.preferences.set(STORE_KEY, {
     version: 1,
     confusion: { ops: { ops: 2 } },
     runs: {},
@@ -760,13 +760,13 @@ test('opening the pane reloads the counts another session added', async () => {
   const h = harness();
   await start(h);
   assert.equal(h.view().activityStore.lateral.taken, 0);
-  h.preferences.set('activity:stats:v1', {
+  h.preferences.set(STORE_KEY, {
     version: 1,
     confusion: { ops: { ops: 3 } },
     runs: {},
     lateral: { taken: 2, refused: 0 },
   });
-  h.preferences.set('activity:stats:v1:s0', {
+  h.preferences.set(`${STORE_PREFIX}s0`, {
     version: 1,
     since: 1,
     confusion: { code: { code: 1 } },
@@ -777,7 +777,7 @@ test('opening the pane reloads the counts another session added', async () => {
   assert.equal(h.view().activityStore.lateral.taken, 3);
   await press(h, 'tab-classifier');
   const lines = texts(await h.render());
-  assert.ok(lines.includes('Agreement  classifier vs tools: 4 of 4 turns (100%)'));
+  assert.ok(lines.includes('Tool compatibility (not accuracy): 4 of 4 turns (100%)'));
   assert.ok(lines.includes('Code/ops/explore  classifier vs tools: 4 of 4 turns (100%)'));
 });
 
@@ -800,7 +800,7 @@ test('Delete history during a turn completion is not undone by that turn', async
       gate.reached();
       return promise;
     }
-  })([['activity:stats:v1:s1', earlier]]);
+  })([[`${STORE_PREFIX}s1`, earlier]]);
   const h = harness({ typesafe_api_key: 'synthetic-key' }, preferences);
   h.http(async () => ({
     ok: true,
@@ -835,7 +835,7 @@ test('Delete history during a turn completion is not undone by that turn', async
 });
 
 test('Delete history while a turn writes its counts leaves the readout empty', async () => {
-  const STORE = 'activity:stats:v1:s1';
+  const STORE = `${STORE_PREFIX}s1`;
   let gate = null;
   const preferences = new (class extends Map {
     set(key, value) {

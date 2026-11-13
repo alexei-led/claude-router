@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { STORE_KEY, STORE_PREFIX } from '../lib/activity-stats.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
 import { comparedModel } from '../lib/display.mjs';
 import { modelAlias } from '../lib/savings.mjs';
@@ -1197,12 +1198,12 @@ test('the counts across sessions reach the view and survive a restart', async ()
   await press(h, 'tab-classifier');
   const lines = texts(await h.render());
   assert.ok(lines.includes('THIS SESSION'));
-  assert.ok(lines.includes('Agreement  classifier vs tools: 2 of 2 turns (100%)'));
+  assert.ok(lines.includes('Tool compatibility (not accuracy): 2 of 2 turns (100%)'));
   h.surfaces([]);
   const detail = async (r) => (await r.event('command.run', { command: 'router', args: '' })).text;
   assert.match(
     await detail(h),
-    /^Agreement across sessions: 2 of 2 turns \(100%\) · code\/ops\/explore 2 of 2 \(100%\)$/m,
+    /^Tool compatibility across sessions \(not accuracy\): 2 of 2 turns \(100%\) · code\/ops\/explore 2 of 2 \(100%\)$/m,
   );
   await h.event('session.end', { reason: 'clear' });
 
@@ -1242,9 +1243,9 @@ test('two sessions finishing turns at the same moment both keep their counts', a
   assert.deepEqual(savedStats(preferences).confusion, { code: { code: 2 } });
 });
 
-test('a Reset in another session empties the shared counts from before 1.10.3 at the next turn', async () => {
+test('a Reset in another session empties a shared goal-contract counter at the next turn', async () => {
   const shared = { version: 1, confusion: { ops: { ops: 5 } }, runs: {}, lateral: { taken: 3, refused: 0 } };
-  const preferences = new Map([['activity:stats:v1', shared]]);
+  const preferences = new Map([[STORE_KEY, shared]]);
   const a = harness(JEV_KEY, preferences);
   const b = harness(JEV_KEY, preferences);
   b.clear('s2');
@@ -1257,14 +1258,14 @@ test('a Reset in another session empties the shared counts from before 1.10.3 at
   await press(b, 'delete-history');
   await press(b, 'delete-confirm');
   await turn(a, 't1', 'claude-haiku-5-5', ['Edit']);
-  assert.equal(preferences.has('activity:stats:v1'), false);
+  assert.equal(preferences.has(STORE_KEY), false);
   assert.deepEqual(a.view().activityStore.confusion, { code: { code: 1 } });
   assert.deepEqual(a.view().activityStore, savedStats(preferences));
 });
 
 test('a corrupted or unreadable stats store shows an empty readout and never breaks the session', async () => {
   for (const [name, preferences] of [
-    ['corrupted', new Map([['activity:stats:v1:s0', { version: 1, confusion: 'text' }]])],
+    ['corrupted', new Map([[`${STORE_PREFIX}s0`, { version: 1, confusion: 'text' }]])],
     [
       'unreadable',
       {
@@ -1283,7 +1284,7 @@ test('a corrupted or unreadable stats store shows an empty readout and never bre
     assert.ok(!lines.includes('ACROSS SESSIONS · since the last reset'), name);
     h.surfaces([]);
     const { text } = await h.event('command.run', { command: 'router', args: '' });
-    assert.match(text, /^Agreement across sessions: no labelled turns yet$/m, name);
+    assert.match(text, /^Tool compatibility across sessions: no labelled turns yet$/m, name);
   }
 });
 

@@ -35,18 +35,18 @@ Execution provider selection is separate from classifier selection. Observed usa
 
 ## Supported classifiers
 
-The active classifier is asked at the start of each logical turn, for the tier and for the turn's activity, and again in the background every 4 requests while the turn runs (`policy.reviewEveryRequests`). Pick one on the pane's **Classifier** tab or in the selected router file; only the active one receives prompt text. With subagent routing `on` (the default), it is also asked once per routed subagent, with the task's description and prompt; set `"subagentRouting": "off"` to keep that text local.
+The active classifier is asked at the start of each logical turn, for the tier, task goal and current phase, and again in the background every 4 requests while the turn runs (`policy.reviewEveryRequests`). Pick one on the pane's **Classifier** tab or in the selected router file; only the active one receives prompt text. With subagent routing `on` (the default), it is also asked once per routed subagent, with the task's description and prompt; set `"subagentRouting": "off"` to keep that text local.
 
 | Classifier | Service                                    | Credential                          | Prompt text goes to       | How it is asked for the activity                                      |
 | ---------- | ------------------------------------------ | ----------------------------------- | ------------------------- | --------------------------------------------------------------------- |
-| Jev        | [typesafe.ai](https://typesafe.ai)         | Jev API key                         | typesafe.ai               | A third `choice` question in the same request                         |
+| Jev        | [typesafe.ai](https://typesafe.ai)         | Jev API key                         | typesafe.ai               | Goal and phase `choice` questions in the same request                 |
 | Clef       | Cloudflare Workers AI, 27B                 | Cloudflare API token and account ID | Cloudflare                | The same                                                              |
 | Clef Flash | Cloudflare Workers AI, 9B                  | Cloudflare API token and account ID | Cloudflare                | The same                                                              |
 | Clef Omni  | Cloudflare Workers AI, 30B MoE             | Cloudflare API token and account ID | Cloudflare                | The same                                                              |
-| OpenAI     | OpenAI, `gpt-6-luna` (public beta)         | OpenAI API key                      | OpenAI (`api.openai.com`) | A second `choice` in `questions`, in the same request                 |
-| Ollama     | A local [Ollama](https://ollama.com) model | None                                | Stays on this machine     | A second request: letters A to H, one token, if 300 ms or more remain |
+| OpenAI     | OpenAI, `gpt-6-luna`         | OpenAI API key                      | OpenAI (`api.openai.com`) | Goal and phase choices in `questions`, in the same request                 |
+| Ollama     | A local [Ollama](https://ollama.com) model | None                                | Stays on this machine     | Goal only in a second request; no phase or continuation answer |
 
-Jev is the default. [Configuration](docs/configuration.md#classifiers) gives the endpoints, timeouts, and how to add another service that speaks one of the supported protocols.
+Jev 1.14 is the default; a configured model override stays in force. [Configuration](docs/configuration.md#classifiers) gives the endpoints, timeouts, and how to add another service that speaks one of the supported protocols.
 
 ![The Router band above the Claude Code prompt in eight states](docs/router-band.svg)
 
@@ -81,7 +81,7 @@ sequenceDiagram
   Mod-->>Dev: Status band and router pane
 ```
 
-The active classifier labels each new logical turn, and the router checks the route again while the task runs: a turn labelled `ops` that edits code moves up to the `code` route at once, and a background classifier review every 4 requests can move the tier or the activity either way. A cheaper route on the same task waits for a dwell and a checkpoint its work can show: a passed test, build or lint run, or for commands, docs and read-only work the success the router can see. A task notification is routed as progress on your last request. `/router decisions` lists why each turn ran where it did. See [Changes during a task](docs/user-guide.md#changes-during-a-task). A local policy applies vote, context, failure, and cache-cost rules before the Mod changes the next step. Claude Code owns request construction, model credentials, tools, streaming, and the API cost ledger.
+The active classifier labels each new logical turn, and the router checks the route again while the task runs: a turn labelled `ops` that edits code moves up to the `code` route at once, and a background classifier review every 4 requests can move the tier or the activity either way. A cheaper route on the same task waits for a dwell and a checkpoint its work can show: a passed test, build or lint run, or for commands, docs and read-only work the success the router can see. A notification is treated as progress, but cannot justify a downgrade because it may belong to an older task. `/router decisions` lists why each turn ran where it did. See [Changes during a task](docs/user-guide.md#changes-during-a-task). A local policy applies vote, context, failure, and cache-cost rules before the Mod changes the next step. Claude Code owns request construction, model credentials, tools, streaming, and the API cost ledger.
 
 With the Anthropic profile, the base routes are:
 
@@ -94,7 +94,7 @@ With the Anthropic profile, the base routes are:
 
 These are routing defaults. They do not claim equal model quality. [Configuration](docs/configuration.md#built-in-defaults) gives the published results behind them and the `router.json` lines that restore the 1.3 Sonnet ladder.
 
-Activity routing adds a second label: what the turn produces (`code`, `debug`, `explore`, `plan`, `review`, `ops`, or `docs`). A route is then picked by tier and activity. It is on by default since 1.7. A `·` cell uses the tier's own route, the base route:
+Activity routing classifies the task's goal (`code`, `debug`, `explore`, `plan`, `review`, `ops`, or `docs`) separately from the current phase. Bounded verification or execution can use the `ops` route without relabeling the goal. A route is then picked by tier and effective activity. It is on by default since 1.7. A `·` cell uses the tier's own route, the base route:
 
 The Anthropic profile uses these activity defaults. Other profiles have [their own defaults](docs/providers.md#activity-overrides).
 
