@@ -166,6 +166,34 @@ test('unassociated progress cannot use a phase-only ops route', async () => {
   );
 });
 
+test('an async verification phase cannot weaken the route after newer implementation progress', async () => {
+  const h = harness(JEV_KEY);
+  const model = 'claude-opus-5-5';
+  h.model(model);
+  h.files.set(CONFIG, JSON.stringify({ policy: { reviewEveryRequests: 1, minDwellRequests: 0 } }));
+  answering(h, answer(0, 'produce'), answer(0.99, 'verify'));
+  await h.event('session.start', { cwd: '/fixture' });
+  const goal = 'Implement the API client and its tests.';
+  await h.submit({ text: goal, origin: { kind: 'composer' }, wait: false }, () =>
+    h.event('turn.start', { turnId: 'fresh-phase', text: goal }),
+  );
+  let messages = [user(goal)];
+  h.messages(async () => messages);
+  await drain(h.step({ ...step, model, turnId: 'fresh-phase', index: 0, messageCount: messages.length }));
+  messages = [
+    user(goal),
+    { role: 'assistant', content: [{ type: 'tool_use', id: 't', name: 'Bash', input: { command: 'npm test' } }] },
+    toolResult('passed'),
+  ];
+  await drain(h.step({ ...step, model, turnId: 'fresh-phase', index: 1, messageCount: messages.length }));
+  await new Promise(setImmediate);
+  messages = [...messages, assistant('Now I need to implement the remaining client behavior.')];
+  await drain(h.step({ ...step, model, turnId: 'fresh-phase', index: 2, messageCount: messages.length }));
+  assert.equal(h.loop().decision.goal, 'code');
+  assert.notEqual(h.loop().decision.activity, 'ops');
+  assert.notEqual(h.loop().decision.taskPhase, 'verify');
+});
+
 test('old turn-activity counters are preserved but not merged into the goal contract', async () => {
   const h = harness(JEV_KEY);
   const legacy = 'activity:stats:v1:legacy';

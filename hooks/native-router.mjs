@@ -1063,7 +1063,9 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
     // Only the advice is from the review; the checkpoint, context and cache facts are read now.
     const messages = await transcript($);
     if (!messages || historySignature(messages, review.observedUpTo) !== review.prefix) return loop;
-    const advice = review.answer.advice;
+    // Appends preserve the task evidence, but a command-only phase cannot authorize work after its snapshot.
+    const advice =
+      messages.length === review.observedUpTo ? review.answer.advice : { ...review.answer.advice, phase: null };
     const facts = { ...stepFacts(cfg, router, loop, e, messages, context), midTurn: true };
     const selected = chooseRoute(cfg, loop, {
       facts,

@@ -31,7 +31,7 @@ Tests **and fixes** are not verification-only. A terminal command by itself does
 When both the goal and a `verify` or `execute` phase meet `policy.activityMass`, the router considers the
 `ops` cell. It uses the lower of their supports for the existing activity-switch gates; it does not multiply them
 or claim they are independently calibrated. A missing, malformed, uncertain or weak phase keeps the goal route.
-The usual cache, dwell, escalation, model availability, context and credits checks still apply. A successful
+The usual cache, dwell, escalation, model availability, context and credits checks still apply. A background phase answer expires when newer messages have arrived since its snapshot; stale bounded-command evidence cannot justify a cheaper step. A successful
 classifier decision displays goal, phase and the route activity separately. Pins ignore activity routing.
 
 The router keeps a bounded goal in memory for this session. It sends it as untrusted classifier context; a positively
