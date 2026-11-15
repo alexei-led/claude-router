@@ -189,6 +189,41 @@ test('a row of a weighed move keeps the mass compared and the bar it had to clea
   }
 });
 
+test('a same-task move to a model cheaper per turn waits for the checkpoint even at a higher input price', () => {
+  const model = (id, input, cacheRead, strength) => ({
+    id,
+    input,
+    cacheRead,
+    strength,
+    contextWindow: 1_000_000,
+    billing: 'credits',
+    efforts: ['low', 'high'],
+  });
+  const config = loadConfig({
+    userFile: {
+      models: {
+        dear: model('dear-cache', 0.12, 0.0232, 2),
+        cheap: model('cheap-cache', 0.255, 0.0051, 3),
+        cheapInput: model('cheap-input', 0.1, 0.05, 4),
+      },
+    },
+  });
+  const move = (from, to) =>
+    lateralMove({
+      config,
+      from: { model: from, effort: 'high' },
+      to: { model: to, effort: 'high' },
+      mass: 1,
+      hold: false,
+      sameTask: true,
+      facts: { ...served('dear-cache', { at: T }), lastRoute: 'low', downAllowed: false },
+      now: T + 10_000,
+      costs,
+    });
+  assert.equal(move('dear', 'cheap').reason, 'downgrade-held');
+  assert.notEqual(move('dear', 'cheapInput').reason, 'downgrade-held');
+});
+
 test('a row keeps a mass and a bar only when its reason compared that mass with that bar', () => {
   const full = { upgradeMass: 0.62, threshold: 0.79 };
   for (const [name, kind, reason, estimate, expected] of [

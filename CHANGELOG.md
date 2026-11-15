@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `cost` mode takes the tier below only when its model is cheaper per turn: a lower cache-read price, or an equal one and a lower input price. It compared input prices only, so in a mixed profile it could move to a model with a cheaper input but a dearer cache read (for example GLM-5.3-Flash below DeepSeek V4.1 Flash), which costs more on long sessions where almost all input is cache reads.
+- A same-task move inside a tier waits for the dwell and a checkpoint by the same order, so the hold and `cost` mode agree on which model is cheaper.
+
 ## 1.23.0 (2026-11-15)
 
 ### Changed

@@ -73,10 +73,12 @@ test('quality at max effort moves to the tier above, and high stays at the top',
   assert.deepEqual(modeRoute(top, 'quality', 'high'), r('opus', 'max'));
 });
 
-test('cost takes a cheaper model below only for a lower input price, keeps high on its model, never goes to micro', () => {
+test('cost takes a cheaper model below only when it is cheaper per turn, keeps high on its model, never goes to micro', () => {
   const cases = [
     // [user file, tier, activity, expected cost route]
-    [{ models: { haiku: { input: 4 } } }, 'medium', null, r('opus', 'low')],
+    [{ models: { haiku: { input: 4, cacheRead: 0.2 } } }, 'medium', null, r('opus', 'low')],
+    [{ models: { haiku: { input: 4 } } }, 'medium', null, r('haiku', 'high')],
+    [{ models: { haiku: { input: 1, cacheRead: 0.3 } } }, 'medium', null, r('opus', 'low')],
     [{ routes: { low: { model: 'opus', effort: 'high' } } }, 'medium', null, r('opus', 'low')],
     [{ routes: { medium: { model: 'haiku', effort: 'high' } } }, 'high', null, r('opus', 'high')],
     [{ routes: { medium: { model: 'haiku', effort: 'high' } } }, 'high', 'ops', r('opus', 'high')],
