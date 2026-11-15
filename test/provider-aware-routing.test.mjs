@@ -281,6 +281,137 @@ test('a protected inherited work floor survives later tool-context refitting, no
     }
 });
 
+test('refused phase work restores actual incumbent intent in both directions, with and without a prior floor', () => {
+  for (const [oldPhase, oldActivity, newPhase, newActivity] of [
+    ['reason', 'debug', 'produce', 'code'],
+    ['produce', 'code', 'reason', 'debug'],
+  ])
+    for (const prior of [false, true])
+      for (const refusal of ['confidence', 'cash', 'hold', 'dwell', 'inherited-unknown']) {
+        const config = mixed();
+        config.activities[oldActivity].medium = r('deepseek');
+        config.activities[newActivity].medium = r('kimi');
+        config.activities[oldActivity].high = r('opus', 'max');
+        config.activities[newActivity].high = r('sonnet');
+        for (const alias of ['glm', 'deepseek', 'kimi']) config.models[alias].contextWindow = 10_000;
+        if (refusal === 'hold') delete config.models.kimi.strength;
+        if (refusal === 'dwell') config.models.kimi.strength = 1.5;
+        if (refusal === 'inherited-unknown') {
+          delete config.activities[newActivity].medium;
+          delete config.models.glm.strength;
+        }
+        const running = select(
+          config,
+          'medium',
+          oldPhase,
+          prior
+            ? {}
+            : {
+                advice: {
+                  ...answer('medium', oldPhase),
+                  activity: { choice: oldActivity, probabilities: { [oldActivity]: 1 } },
+                },
+              },
+        );
+        assert.equal(running.decision.floorActivity, prior ? oldActivity : null);
+        const from = refusal === 'hold' ? { ...running, state: { ...running.state, holdUntilTurn: 99 } } : running;
+        const policy = refusal === 'cash' ? { ...config, policy: { ...config.policy, cashCapUsd: 0 } } : config;
+        const kept = select(policy, 'medium', newPhase, {
+          loop: from,
+          continuation: 0.99,
+          mass: refusal === 'confidence' ? 0.65 : 0.99,
+        });
+        const name = `${oldPhase} -> ${newPhase}, prior=${prior}, ${refusal}`;
+        assert.deepEqual(kept.decision.route, running.decision.route, name);
+        assert.equal(kept.decision.activity, oldActivity, name);
+        assert.equal(kept.decision.floorActivity, prior ? oldActivity : null, name);
+        const fitted = continueRoute(policy, kept, {
+          nativeModel: running.decision.model,
+          contextTokens: 20_000,
+          contextKnown: true,
+          effort: 'high',
+        });
+        assert.deepEqual(fitted.decision.route, config.activities[oldActivity].high, name);
+      }
+});
+
+test('a protected incumbent floor also owns mandatory refits in the request that refuses a new phase', () => {
+  for (const [oldPhase, oldActivity, newPhase, newActivity] of [
+    ['reason', 'debug', 'produce', 'code'],
+    ['produce', 'code', 'reason', 'debug'],
+  ]) {
+    const config = mixed();
+    delete config.activities[oldActivity].medium;
+    config.activities[newActivity].medium = r('opus');
+    config.activities[oldActivity].high = r('opus', 'max');
+    config.activities[newActivity].high = r('sonnet');
+    for (const alias of ['glm', 'deepseek', 'kimi']) config.models[alias].contextWindow = 10_000;
+    const running = select(config, 'medium', oldPhase);
+    assert.equal(running.decision.activity, 'ops');
+    const fitted = select(config, 'medium', newPhase, {
+      loop: running,
+      continuation: 0.99,
+      mass: 0.65,
+      facts: { contextTokens: 20_000 },
+    });
+    assert.equal(fitted.decision.reason, 'context-fit');
+    assert.deepEqual(fitted.decision.route, config.activities[oldActivity].high);
+    assert.equal(fitted.decision.activity, oldActivity);
+    assert.equal(fitted.decision.floorActivity, oldActivity);
+  }
+});
+
+test('same-label phase-derived physical changes use min goal/phase support, not operator mass one', () => {
+  for (const [name, activity] of [
+    ['reason', 'debug'],
+    ['produce', 'code'],
+  ]) {
+    const config = mixed();
+    delete config.activities[activity].medium;
+    const running = select(config, 'medium', null, {
+      advice: { ...answer('medium', null), activity: { choice: activity, probabilities: { [activity]: 1 } } },
+    });
+    assert.deepEqual(running.decision.route, config.routes.medium);
+    for (const [goalMass, phaseMass] of [
+      [0.99, 0.65],
+      [0.65, 0.99],
+    ]) {
+      const proposed = {
+        ...answer('medium', name, 0.99, phaseMass),
+        activity: { choice: 'ops', probabilities: { ops: goalMass } },
+      };
+      const held = select(config, 'medium', name, { loop: running, advice: proposed });
+      assert.deepEqual(held.decision.route, running.decision.route, `${name} ${goalMass}/${phaseMass}`);
+      assert.equal(held.decision.activity, activity);
+      assert.equal(held.decision.floorActivity, null);
+      assert.equal(held.decision.reason, 'activity-pending');
+      assert.equal(held.decision.estimate.upgradeMass, 0.65);
+    }
+    const strong = select(config, 'medium', name, { loop: running, continuation: 0.99 });
+    assert.deepEqual(strong.decision.route, config.activities.ops.medium);
+    assert.equal(strong.decision.floorActivity, activity);
+    const edited = { ...config, routes: { ...config.routes, medium: r('kimi') } };
+    const operator = select(edited, 'medium', null, {
+      loop: running,
+      advice: { ...answer('medium', null, 0.99), activity: { choice: activity, probabilities: { [activity]: 0.65 } } },
+    });
+    assert.deepEqual(operator.decision.route, r('kimi'));
+    assert.equal(operator.decision.estimate.upgradeMass, 1);
+    const acceptedEdit = {
+      ...config,
+      activities: { ...config.activities, ops: { ...config.activities.ops, medium: r('opus') } },
+    };
+    const changed = select(acceptedEdit, 'medium', name, { loop: strong, continuation: 0.99, mass: 0.65 });
+    assert.deepEqual(changed.decision.route, r('opus'));
+    assert.equal(changed.decision.floorActivity, activity);
+    assert.equal(changed.decision.estimate.upgradeMass, 1);
+    const quality = applyMode(config, { mode: 'quality' });
+    const modeChanged = select(quality, 'medium', name, { loop: strong, continuation: 0.99, mass: 0.65 });
+    assert.deepEqual(modeChanged.decision.route, resolveRoute(quality, 'medium', 'ops'));
+    assert.equal(modeChanged.decision.estimate.upgradeMass, 1);
+  }
+});
+
 test('phase floors retain cash, confidence, pin, model availability, context and same-task downgrade guards', () => {
   const config = loadConfig();
   const running = select(config, 'medium', 'reason');

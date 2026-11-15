@@ -42,7 +42,11 @@ cache, escalation-hold, cash and eligibility gates still decide. An inherited un
 
 When the bounded ops pair and its accepted reasoning/code preference are identical, the semantic preference still
 applies before tier policy: a later high-tier upgrade must use the work floor, not bounded ops. A protected physical
-ops cell keeps accepted work intent separately for later tool-context or modality refits. That transient intent
+ops cell keeps accepted work intent separately for later tool-context or modality refits. A nomination is not
+acceptance: confidence, hold, cash and eligibility refusals keep the incumbent's accepted intent (or none), including
+when its activity label matches the proposal. Refits use that accepted outcome, never a rejected role.
+A physical change derived from the current phase uses the lower of goal and phase support, even if the label is
+unchanged. Genuine mode/configuration changes to an already accepted preference retain their usual support rules. That transient intent
 clears with a history reset, superseding advice or observed upward move, pin/off mode, or native-unavailable fallback;
 it never creates a new goal or bypasses eligibility gates.
 

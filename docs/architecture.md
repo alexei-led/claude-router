@@ -97,8 +97,11 @@ The router decides on a _cell_: a tier and an activity. The route is `{ ...route
 5. **Fit.** Context fit and model availability resolve through `route(tier, activity)`. A fallback tries the last cell, the native model's cell, then each tier with the activity. The last and the native cell count only when they carry no activity or the turn's; otherwise, or when nothing fits, the native model runs at the session effort.
 
 `decision.floorActivity` retains accepted ops reasoning/code intent separately from a protected physical ops cell.
-Equal physical pairs can adopt the semantic preference without a switch before tier policy. `continueRoute` projects
-that preference per tier when context/modality requires a new eligible route. The field belongs to the accepted
+Equal physical pairs can adopt the semantic preference without a switch before tier policy. Nomination carries
+provenance through `chooseCell`/`decideCell`; lateral refusal restores the incumbent's accepted floor, not the proposed
+role. Same-label physical changes introduced by a new phase projection use min(goal, phase) support, not the support
+of 1 reserved for operator mode/config changes. Context/availability refits consume the post-gate accepted projection.
+`continueRoute` projects that accepted preference per tier when context/modality requires a new eligible route. The field belongs to the accepted
 turn decision: new advice recomputes it; history reset, observed upward supersession, pin/off and native-unavailable
 fallback clear it. Existing host session/generation/review fences still own when a decision can apply.
 
