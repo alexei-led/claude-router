@@ -28,7 +28,7 @@ test('native hook raises an ops reasoning phase without changing the goal and re
   h.surfaces([]);
   const status = (await h.event('command.run', { command: 'router', args: '' })).text;
   assert.match(status, /Selected: claude-opus-5-5 · effort medium/);
-  assert.match(status, /Last delegated to engine: claude-opus-5-5 · effort medium/);
+  assert.match(status, /Last recorded completed engine request: claude-opus-5-5 · effort medium/);
   assert.match(status, /Response-reported model: claude-sonnet-5-5/);
   assert.match(status, /API-transmitted and served effort: unknown/);
   assert.match(status, /configured API-rate estimates \(list\/custom\), not bills/);
@@ -49,6 +49,25 @@ test('quality never caps explicit Haiku pins or manual effort and delegated fiel
     assert.equal(h.view().delegatedEffort, 'max');
     assert.equal(h.view().delegatedModel, step.model);
   }
+});
+
+test('the recorded completed request remains distinct from a later pending engine request', async () => {
+  const h = harness();
+  await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin medium' });
+  await drain(h.step(step));
+  await h.event('turn.start', { turnId: 'pending', text: 'Another operation.' });
+  await h.event('command.run', { command: 'router', args: 'pin low' });
+  const pending = h.step({ ...step, turnId: 'pending' });
+  assert.equal((await pending.next()).done, false);
+  assert.equal(h.requests.at(-1).model, 'claude-haiku-5-5');
+  assert.equal(h.view().delegatedModel, 'claude-opus-5-5');
+  h.surfaces([]);
+  const status = (await h.event('command.run', { command: 'router', args: '' })).text;
+  assert.match(status, /Selected: claude-haiku-5-5/);
+  assert.match(status, /Last recorded completed engine request: claude-opus-5-5 · effort medium/);
+  await pending.return();
+  assert.equal(h.view().delegatedModel, 'claude-opus-5-5');
 });
 
 test('an absent response model stays unknown, never copied from the delegated request', async () => {

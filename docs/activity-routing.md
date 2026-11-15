@@ -40,6 +40,12 @@ is declared weaker than ops, the stronger ops preference is retained; unknown su
 An explicit debug/code floor may be nominated on a continuation even when model order is unknown, but confidence,
 cache, escalation-hold, cash and eligibility gates still decide. An inherited unknown generic cell gets no exception.
 
+When the bounded ops pair and its accepted reasoning/code preference are identical, the semantic preference still
+applies before tier policy: a later high-tier upgrade must use the work floor, not bounded ops. A protected physical
+ops cell keeps accepted work intent separately for later tool-context or modality refits. That transient intent
+clears with a history reset, superseding advice or observed upward move, pin/off mode, or native-unavailable fallback;
+it never creates a new goal or bypasses eligibility gates.
+
 For goal `ops`, `report` or a missing, malformed, uncertain or weak phase introduces no new ops discount: a continuation
 keeps its eligible incumbent, and a fresh task considers the existing generic tier route through the usual gates.
 Other goals keep their normal activity preference when phase is unclear.

@@ -317,7 +317,7 @@ Launch on the model you would otherwise use:
 A launch model must be a model that some route runs. On any other model, a fresh session starts with routing off.
 To start on another Claude model, such as Sonnet, add it to `models`, put it on a route, and map it in the proxy configuration.
 
-Opus is billed by the plan and DeepSeek in credits, but the pane prices both at list prices, so one sum compares them: `session ≈$24.10 API value   billed $4.10   −$45.90 (−66%) vs Opus 5.5`, where `billed $4.10` is the DeepSeek part.
+Opus uses the plan and DeepSeek uses credits, but the pane estimates both at configured API rates (list/custom): `session ≈$24.10 API estimate   credits ≈$4.10   −$45.90 (−66%) vs Opus 5.5`. The credits subtotal is a configured-rate estimate, not an invoice or attested gateway charge.
 See [how dollars are paid](user-guide.md#how-dollars-are-paid).
 
 Open `/router` and check the selected file, classifier health and routing state before use.

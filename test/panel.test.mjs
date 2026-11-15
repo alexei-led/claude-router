@@ -121,8 +121,8 @@ test('help explains what the numbers are and that savings are not measured', () 
   const at = lines.indexOf('ABOUT THESE NUMBERS');
   assert.deepEqual(lines.slice(at, at + 9), [
     'ABOUT THESE NUMBERS',
-    '$ is tokens × router.json list prices. On a Claude plan it is the quota’s',
-    'API value, shown ≈$; with an API key or credits it is what is billed.',
+    '≈$ is tokens × configured API rates in router.json (list/custom).',
+    'These are estimates, not invoices or measured plan-quota savings.',
     'No routing: your model on the main thread, Claude Code’s pick per agent,',
     'same tokens and output length. Answer quality is not measured.',
     'For the whole session cost, with side calls such as titles and compaction',

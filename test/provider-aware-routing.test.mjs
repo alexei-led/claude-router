@@ -3,7 +3,7 @@ import test from 'node:test';
 import { compareRoutes } from '../lib/activity.mjs';
 import { ACTIVITIES, loadConfig, ROUTING_MODES, resolveRoute, TIERS } from '../lib/config.mjs';
 import { applyMode, modeRoute } from '../lib/modes.mjs';
-import { chooseRoute, emptyLoop, nativeFacts } from '../lib/route.mjs';
+import { chooseRoute, continueRoute, emptyLoop, nativeFacts, resetHistory } from '../lib/route.mjs';
 import { moveOf } from '../lib/subagents.mjs';
 import { advice, user } from './helpers.mjs';
 
@@ -213,6 +213,74 @@ test('explicit unknown-order ops floors can be nominated on continuations, but c
   }
 });
 
+test('equal medium ops pairs retain the accepted semantic work preference before a high-tier upgrade', () => {
+  for (const mode of ROUTING_MODES)
+    for (const [name, activity] of [
+      ['reason', 'debug'],
+      ['produce', 'code'],
+    ]) {
+      const config = applyMode(mixed(), { mode });
+      const bounded = select(config, 'medium', 'execute');
+      assert.deepEqual(resolveRoute(config, 'medium', activity), bounded.route);
+      const work = select(config, 'medium', name, { loop: bounded, continuation: 0.99 });
+      assert.deepEqual(work.route, bounded.route);
+      assert.equal(work.decision.activity, activity, `${mode} ${name}`);
+      assert.equal(work.decision.lateral, null);
+      let loop = { ...work, historyMeasured: true };
+      for (let i = 0; i < config.policy.upgradeVotes; i += 1) {
+        loop = select(config, 'high', name, { loop, continuation: 0.99 });
+        if (i < config.policy.upgradeVotes - 1) {
+          assert.equal(loop.decision.tier, 'medium');
+          assert.deepEqual(loop.decision.route, bounded.route);
+        }
+      }
+      assert.deepEqual(loop.decision.route, resolveRoute(config, 'high', activity));
+      assert.notEqual(loop.decision.model, config.models.sonnet.id);
+      assert.equal(loop.decision.goal, 'ops');
+    }
+});
+
+test('a protected inherited work floor survives later tool-context refitting, not a history reset or new uncertainty', () => {
+  for (const mode of ROUTING_MODES)
+    for (const [name, activity] of [
+      ['reason', 'debug'],
+      ['produce', 'code'],
+    ]) {
+      const configured = mixed();
+      delete configured.activities[activity].medium;
+      for (const alias of ['glm', 'deepseek', 'kimi']) configured.models[alias].contextWindow = 10_000;
+      const config = applyMode(configured, { mode });
+      const running = select(config, 'medium', name);
+      const context = {
+        nativeModel: running.decision.model,
+        contextTokens: 20_000,
+        contextKnown: true,
+        effort: 'high',
+      };
+      const fitted = continueRoute(config, running, context);
+      assert.deepEqual(fitted.decision.route, resolveRoute(config, 'high', activity), `${mode} ${name}`);
+      assert.equal(fitted.decision.activity, activity);
+      assert.equal(fitted.decision.goal, 'ops');
+      assert.equal(fitted.decision.taskPhase, name);
+      assert.equal(running.decision.floorActivity, activity);
+      assert.deepEqual(
+        continueRoute(config, running, { ...context, contextKnown: false }).decision.route,
+        running.decision.route,
+      );
+      const unavailable = continueRoute(config, running, { ...context, availableModels: [running.decision.model] });
+      assert.equal(unavailable.decision.reason, 'model-unavailable');
+      assert.equal(unavailable.decision.floorActivity, null);
+      const textOnly = { ...config, models: { ...config.models, opus: { ...config.models.opus, imageInput: false } } };
+      const image = continueRoute(textOnly, running, { ...context, hasImages: true });
+      assert.notEqual(image.decision.model, config.models.opus.id);
+      assert.equal(image.decision.floorActivity, null);
+      const reset = resetHistory(running);
+      assert.equal(reset.decision.floorActivity, null);
+      const uncertain = select(config, 'medium', null, { loop: running, continuation: 0.99 });
+      assert.equal(uncertain.decision.floorActivity, null);
+    }
+});
+
 test('phase floors retain cash, confidence, pin, model availability, context and same-task downgrade guards', () => {
   const config = loadConfig();
   const running = select(config, 'medium', 'reason');
@@ -227,6 +295,7 @@ test('phase floors retain cash, confidence, pin, model availability, context and
   const pinned = select(config, 'medium', 'verify', { pin: 'medium' });
   assert.deepEqual(pinned.decision.route, config.routes.medium);
   assert.equal(pinned.decision.goal, null);
+  assert.equal(pinned.decision.floorActivity, null);
   const unavailable = select(config, 'medium', 'reason', { availableModels: [config.models.haiku.id] });
   assert.notEqual(unavailable.decision.model, config.models.opus.id);
   const metered = loadConfig({ userFile: { models: { opus: { billing: 'credits' } }, policy: { cashCapUsd: 0 } } });

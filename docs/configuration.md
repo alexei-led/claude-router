@@ -59,7 +59,7 @@ These are estimate inputs, not an invoice; z.ai plan quota uses its own multipli
 A weekly GitHub Actions job (`.github/workflows/prices.yml`) runs `npm run prices:check`. It reads the Anthropic, DeepSeek, Kimi, MiniMax and z.ai price pages, compares them with `lib/prices.mjs`, and opens a pull request when a price, a long-context tier or DeepSeek's peak hours change. A page it cannot read opens a "Price check failed" issue. The MiMo page needs a browser, so the job lists it for a person to check. The pull request needs the repository setting **Allow GitHub Actions to create and approve pull requests**, and CI starts on it once a maintainer closes and reopens it. Run the check yourself with `npm run prices:check`; add `-- --write` to rewrite `lib/prices.mjs`. Prices in `router.json` always override the built-in ones.
 All non-Anthropic built-in presets use `billing: "credits"`.
 For an included-plan model, set `billing: "plan"` to disable the cold-input cash cap.
-`billing` does not change a price: the pane prices plan and credits models alike, at list prices, and labels the plan part `≈ API value` and the credits part billed; see [how dollars are paid](user-guide.md#how-dollars-are-paid).
+`billing` does not change a price: the pane prices plan and credits models at configured API rates (list/custom), labels every total `API estimate` with `≈`, and identifies the mixed credits subtotal as an estimate, not an invoice; see [how dollars are paid](user-guide.md#how-dollars-are-paid).
 A provider name or URL does not establish its billing product.
 
 ### Provider cache behavior

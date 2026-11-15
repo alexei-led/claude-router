@@ -744,7 +744,7 @@ function detailText(config, view, usage) {
     ...(view.projectError ? [`Ignored: ${view.projectError}`] : []),
     `Native model: ${view.nativeModel}`,
     `Selected: ${view.selectedModel ?? 'not selected'} · effort ${view.effort ?? 'session/default'}`,
-    `Last delegated to engine: ${view.delegatedModel ?? 'none'} · effort ${view.delegatedEffort ?? 'session/default'}`,
+    `Last recorded completed engine request: ${view.delegatedModel ?? 'none'} · effort ${view.delegatedEffort ?? 'session/default'}`,
     `Response-reported model: ${view.actualModel ?? 'no response yet'}`,
     'API-transmitted and served effort: unknown (engine delegation is not wire evidence).',
     'Cost basis: configured API-rate estimates (list/custom), not bills or measured quota savings.',
