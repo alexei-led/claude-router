@@ -123,7 +123,7 @@ test('where effort splits the cache, the switch tax holds the effort lever after
 });
 
 test('a cost switch to a model with no output price waits out the dwell on the same task', () => {
-  // Cost takes the tier below by input price; with no output price the pair does not order by strength.
+  // Cost takes the tier below when it is cheaper per turn; with no output price the pair does not order by strength.
   const local = loadConfig({
     userFile: {
       models: {

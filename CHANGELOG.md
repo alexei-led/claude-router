@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.23.1 (2026-11-15)
+
+### Fixed
+
+- `cost` mode takes the tier below only when its model is cheaper per turn: a lower cache-read price, or an equal one and a lower input price. It compared input prices only, so in a mixed profile it could move to a model with a cheaper input but a dearer cache read (for example GLM-5.3-Flash below DeepSeek V4.1 Flash), which costs more on long sessions where almost all input is cache reads.
+- A same-task move inside a tier waits for the dwell and a checkpoint by the same order, so the hold and `cost` mode agree on which model is cheaper.
+
+### Upgrade
+
+Restart Claude Code after updating. In a mixed profile, a mid-task move to a model that is cheaper per turn now waits for the dwell and a checkpoint, as a tier downgrade does. No configuration is changed automatically.
+
 ## 1.23.0 (2026-11-15)
 
 ### Changed

@@ -184,3 +184,15 @@ test('context estimate uses both the previous output and the current measurement
   assert.equal(native.nextContextTokens({ contextTokens: 42 }), 42);
   assert.equal(native.nextContextTokens({}), 0);
 });
+
+test('a model is cheaper per turn by its cache-read price, then by its input price', () => {
+  const m = (input, cacheRead) => ({ input, cacheRead });
+  for (const [name, a, b, expected] of [
+    ['lower cache read, higher input', m(0.255, 0.0051), m(0.12, 0.0232), true],
+    ['higher cache read, lower input', m(0.12, 0.0232), m(0.255, 0.0051), false],
+    ['equal cache read, lower input', m(1, 0.1), m(2, 0.1), true],
+    ['equal cache read, equal input', m(2, 0.1), m(2, 0.1), false],
+    ['equal cache read, higher input', m(2, 0.1), m(1, 0.1), false],
+  ])
+    assert.equal(native.cheaperPerTurn(a, b), expected, name);
+});

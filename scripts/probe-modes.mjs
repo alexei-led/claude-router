@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { buildActivityRequest, buildRequest, parseActivityAnswer, parseAnswers } from '../lib/classifier-apis.mjs';
 import { resolveCredentials } from '../lib/classifier-contract.mjs';
 import { EFFORTS, loadConfig, ROUTING_MODES } from '../lib/config.mjs';
-import { ratesAt } from '../lib/cost.mjs';
+import { cheaperPerTurn, ratesAt } from '../lib/cost.mjs';
 import { applyMode } from '../lib/modes.mjs';
 import { decide, PROFILES } from './mode-matrix.mjs';
 
@@ -59,10 +59,11 @@ const nominalUsd = (cfg, d) => {
   const rates = ratesAt(cfg.models[d.route.model], NOMINAL.input);
   return (rates.input * NOMINAL.input + rates.output * NOMINAL.output) / 1e6;
 };
-// -1 cheaper, 0 same, 1 dearer: input price, then effort on one model.
+// -1 cheaper, 0 same, 1 dearer: price per turn (cheaperPerTurn), then effort on one model.
 const order = (cfg, a, b) => {
-  const [pa, pb] = [cfg.models[a.route.model].input, cfg.models[b.route.model].input];
-  if (pa !== pb) return Math.sign(pa - pb);
+  const [ma, mb] = [cfg.models[a.route.model], cfg.models[b.route.model]];
+  if (cheaperPerTurn(ma, mb)) return -1;
+  if (cheaperPerTurn(mb, ma)) return 1;
   if (a.route.model !== b.route.model) return 0;
   return Math.sign(EFFORTS.indexOf(a.route.effort) - EFFORTS.indexOf(b.route.effort));
 };

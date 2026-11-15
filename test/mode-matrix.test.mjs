@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { EFFORTS, loadConfig, ROUTING_MODES, rank, resolveRoute, TIERS } from '../lib/config.mjs';
+import { cheaperPerTurn } from '../lib/cost.mjs';
 import {
   ACTIVITY_ANSWERS,
   CLASSIFIED,
@@ -102,15 +103,17 @@ for (const [profile, { file }] of Object.entries(PROFILES)) {
 }
 
 function invariants(config, rows, expectedDiffering) {
-  const price = (d) => config.models[d.route.model].input;
+  const spec = (d) => config.models[d.route.model];
   const effort = (d) => EFFORTS.indexOf(d.route.effort);
-  // -1 cheaper, 0 same, 1 dearer: by input price, then by effort on the same model.
+  // -1 cheaper, 0 same, 1 dearer: by price per turn, then by effort on the same model.
   const order = (a, b) =>
-    price(a) !== price(b)
-      ? Math.sign(price(a) - price(b))
-      : a.route.model === b.route.model
-        ? Math.sign(effort(a) - effort(b))
-        : 0;
+    cheaperPerTurn(spec(a), spec(b))
+      ? -1
+      : cheaperPerTurn(spec(b), spec(a))
+        ? 1
+        : a.route.model === b.route.model
+          ? Math.sign(effort(a) - effort(b))
+          : 0;
   const differing = { cost: 0, quality: 0 };
   for (const tier of CLASSIFIED)
     for (const activity of ACTIVITY_ANSWERS) {
