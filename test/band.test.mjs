@@ -277,7 +277,14 @@ test('activity moves name their activity in the band and the switch toast', () =
     [{ reason: 'activity-down', activity: 'ops' }, '↓ ops'],
     [{ reason: 'activity-down', activity: null }, '↓ base'],
     [
-      { reason: 'activity-pending', activity: 'code', activityChoice: 'ops', activityProbabilities: probabilities },
+      {
+        reason: 'activity-pending',
+        activity: 'code',
+        activityChoice: 'ops',
+        activityProbabilities: probabilities,
+        phaseChoice: 'execute',
+        phaseProbabilities: { execute: 1 },
+      },
       '… ops, not worth a switch',
     ],
     [

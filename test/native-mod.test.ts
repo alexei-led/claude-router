@@ -1,8 +1,59 @@
 import type { PluginState } from 'claude-code';
 import { expect, mock, test } from 'claude-code/testing';
+import { compareRoutes } from '../lib/activity.mjs';
+import { loadConfig } from '../lib/config.mjs';
 import { extractFacts } from '../lib/facts.mjs';
+import { applyMode } from '../lib/modes.mjs';
+import { chooseRoute, emptyLoop, nativeFacts } from '../lib/route.mjs';
 import { emptyUsage, recordUsage, replyEntry } from '../lib/usage.mjs';
 import { assistant, body, memory, toolResult, user } from './helpers.mjs';
+
+test('provider-aware ops floors and Haiku quality preferences run inside the Mod engine', () => {
+  const configured = loadConfig();
+  const config = applyMode(configured, { mode: 'quality', source: 'session' });
+  expect(config.routes.low.effort).toBe('high');
+  expect(config.activities.ops.medium.effort).toBe('xhigh');
+  for (const [phase, activity] of [
+    ['reason', 'debug'],
+    ['produce', 'code'],
+    ['execute', 'ops'],
+  ] as const) {
+    const loop = { ...emptyLoop(configured, configured.models.opus.id), lastRoute: 'medium' };
+    const facts = nativeFacts(config, loop, {
+      messages: [user('Complete the operational task.')],
+      prompt: 'Complete the operational task.',
+      effort: 'high',
+      turnId: phase,
+      contextTokens: 8000,
+    });
+    const { decision } = chooseRoute(config, loop, {
+      facts,
+      advice: {
+        choice: 'medium',
+        probabilities: { micro: 0, low: 0, medium: 1, high: 0, uncertain: 0 },
+        activity: { choice: 'ops', probabilities: { ops: 1 } },
+        phase: { choice: phase, probabilities: { [phase]: 1 } },
+        continuation: 0,
+      },
+      pin: null,
+      nativeModel: configured.models.opus.id,
+      contextKnown: true,
+      now: 1000,
+    });
+    expect(decision.goal).toBe('ops');
+    expect(decision.activity).toBe(activity);
+    expect(decision.route).toEqual(config.activities[activity]?.medium ?? config.routes.medium);
+  }
+  const reversed = {
+    ...config,
+    models: {
+      ...config.models,
+      opus: { ...config.models.opus, output: 0.01 },
+      sonnet: { ...config.models.sonnet, output: 1000 },
+    },
+  };
+  expect(compareRoutes(reversed, { model: 'opus', effort: 'low' }, { model: 'sonnet', effort: 'max' }, 'high')).toBe(1);
+});
 
 test('full failure fingerprints distinguish test failures inside the Mod engine', () => {
   const header =

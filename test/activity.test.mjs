@@ -52,7 +52,7 @@ test('acceptActivity takes a known label at or above the activity mass, else nul
     assert.equal(acceptActivity(config, input), expected, name);
 });
 
-test('compareRoutes orders by output price, then effort; a session effort or an unpriced model may not order', () => {
+test('compareRoutes orders by declared strength, then effort; session effort or unknown strength may not order', () => {
   const unpriced = loadConfig({
     userFile: {
       models: {
@@ -68,8 +68,8 @@ test('compareRoutes orders by output price, then effort; a session effort or an 
     },
   });
   for (const [name, config, a, b, expected, sent] of [
-    ['a dearer model', ON, { model: 'sonnet', effort: 'low' }, { model: 'haiku', effort: 'max' }, 1],
-    ['a cheaper model', ON, { model: 'haiku', effort: 'high' }, { model: 'sonnet', effort: 'medium' }, -1],
+    ['a stronger model', ON, { model: 'sonnet', effort: 'low' }, { model: 'haiku', effort: 'max' }, 1],
+    ['a weaker model', ON, { model: 'haiku', effort: 'high' }, { model: 'sonnet', effort: 'medium' }, -1],
     ['a higher effort', ON, { model: 'opus', effort: 'xhigh' }, { model: 'opus', effort: 'medium' }, 1],
     ['the same route', ON, { model: 'sonnet', effort: 'medium' }, { model: 'sonnet', effort: 'medium' }, 0],
     ['two session efforts', ON, { model: 'sonnet', effort: null }, { model: 'sonnet' }, 0],
@@ -182,7 +182,14 @@ function turnInput({
     choice === 'uncertain' ? advice('uncertain', { uncertain: 1 }) : advice(choice, { [choice]: 0.97 });
   const input = {
     facts,
-    advice: noAdvice ? null : { ...tierAdvice, continuation, activity: label },
+    advice: noAdvice
+      ? null
+      : {
+          ...tierAdvice,
+          continuation,
+          activity: label,
+          ...(label?.choice === 'ops' ? { phase: { choice: 'execute', probabilities: { execute: 1 } } } : {}),
+        },
     pin,
     nativeModel: HAIKU,
     contextKnown: true,

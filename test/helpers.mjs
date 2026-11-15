@@ -68,12 +68,23 @@ export function advice(choice, probabilities, { continuation = 0, confidence = 0
 }
 
 // `activity`, when given, is the activity answer's probabilities; its choice is the most likely one.
-export function jevResponse(choice, probabilities, continuation = 0, activity = null) {
+export function jevResponse(choice, probabilities, continuation = 0, activity = null, phase = null) {
   const [activityChoice] = Object.entries(activity ?? {}).sort((a, b) => b[1] - a[1])[0] ?? [];
   return {
     answers: {
       route: { type: 'choice', choice, confidence: 0.9, probabilities },
       continuation: { type: 'noul', noul: continuation },
+      ...(phase
+        ? {
+            phase: {
+              type: 'choice',
+              choice: phase,
+              probabilities: Object.fromEntries(
+                ['produce', 'reason', 'verify', 'execute', 'report', 'uncertain'].map((p) => [p, p === phase ? 1 : 0]),
+              ),
+            },
+          }
+        : {}),
       ...(activity
         ? { activity: { type: 'choice', choice: activityChoice, confidence: 0.9, probabilities: activity } }
         : {}),

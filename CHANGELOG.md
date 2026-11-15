@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.23.0 (2026-11-15)
+
+### Changed
+
+- Route adaptive operations by their work phase without changing the durable goal: accepted `reason` uses the same-tier `debug` preference; `produce` uses `code`. Accepted bounded `verify`/`execute` keeps the ops preference. Active modes, explicit user cells and existing switching gates still apply. An inherited weaker generic cell does not replace a stronger ops preference. A mixed medium DeepSeek ops route does not fall to a weaker generic GLM row for reasoning.
+- Do not introduce a new ops discount for reporting or weak/missing/unknown phase. Keep an eligible continuation; consider the existing generic baseline on fresh uncertainty.
+- Prefer Haiku 5.5 High in automatic quality selection, with one exception: medium bounded ops may use Xhigh. Deliberate higher settings, pins and other providers' supported efforts remain unchanged. The Xhigh empty-answer risk is provider-documented, not reproduced by the High-only pilot.
+- Compare capability and subagent move direction using declared `strength` ranks, not tariffs. Default Claude ranks are explicit; custom unknown ranks stay unordered. Prices still drive economics.
+
+### Added
+
+- `/router` distinguishes selected settings, last engine-delegated settings and response-reported model. API-transmitted/served effort stays unknown. Cost basis is configured API-rate estimates, not bills or measured quota savings. Existing event/coverage counters do not claim task acceptance.
+
+### Upgrade
+
+Restart Claude Code after updating. In custom mixed profiles, declare intended model `strength` ranks before relying on cross-model continuation or observed upgrades; unranked models are no longer ordered by price. No account, permission or provider configuration is changed automatically.
+
 ## 1.22.1 (2026-11-13)
 
 ### Changed

@@ -192,6 +192,9 @@ declare module 'claude-code' {
     nativeEffort?: string | number | null;
     activeTurnId?: string | null;
     selectedModel?: string | null;
+    // Last request handed to the engine, not verified API-transmitted settings.
+    delegatedModel?: string | null;
+    delegatedEffort?: string | number | null;
     actualModel?: string | null;
     tier?: RouterTier | null;
     effort?: string | number | null;

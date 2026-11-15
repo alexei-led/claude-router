@@ -87,7 +87,7 @@ The band steps aside while a survey needs the space.
 
 Inside a turn the router checks the route again as the work changes; see [Changes during a task](#changes-during-a-task). A subagent gets at most one model, when it starts, and keeps it for every step: For the Anthropic profile, these are Haiku for exploration, Opus for clearly hard tasks, and Sonnet for the rest. Other profiles have [their own defaults](providers.md#activity-overrides). An agent that pins a model in its definition keeps it, unless it sets `modelRouting: auto`. The Usage tab's **SUBAGENTS** section shows what each agent type ran on and cost, and the Now tab adds this session's agents to its total. See [Subagent routing](configuration.md#subagent-routing).
 
-In a subagent's transcript the band names the model the agent runs on and who picked it. `agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)` means the router chose a cheaper model than Claude Code would have; `↑` means a stronger one. A hollow `□` means the agent ran on Claude Code's pick, because the router agreed or did not route it, and says why: `agent □ Opus 5.5  = Claude Code’s pick: the workflow sets it`. A narrow band drops the comparison first. The band falls back to `agent · model chosen at spawn` when the router has no record of the agent, such as after a plugin reload, and to `agent · keeps its own model (subagent routing off)`.
+In a subagent's transcript the band names the model the agent runs on and who picked it. `agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)` means the router chose a cheaper model than Claude Code would have; `↑` means a higher declared strength rank. When ranks are unknown, a model change has no strength direction. A hollow `□` means the agent ran on Claude Code's pick, because the router agreed or did not route it, and says why: `agent □ Opus 5.5  = Claude Code’s pick: the workflow sets it`. A narrow band drops the comparison first. The band falls back to `agent · model chosen at spawn` when the router has no record of the agent, such as after a plugin reload, and to `agent · keeps its own model (subagent routing off)`.
 
 ## Open the router pane
 
@@ -239,7 +239,10 @@ A tier says how hard the work is. The goal says what the active task must delive
 | `ops`     | Executed commands: git, builds, test runs, CI, deploys          |
 | `docs`    | Prose for people: README, docs, comments, commit messages       |
 
-A mixed turn such as "fix it and commit" keeps goal `code`. Verification and delivery steps can retain that goal while changing phase. A positively supported verification-only or execution-only phase can use the `ops` cell; mixed checks and fixes cannot. The router then picks the route by tier and activity. With the default overrides, a `low` coding turn runs on Sonnet 5.5 at `high`, a `low` git turn stays on Haiku 5.5 at `high`, and a `medium` git turn moves from Opus 5.5 to Haiku 5.5 at `high`. [Activity routing](activity-routing.md) explains the default matrix, why each cell is there, and how to change it.
+A mixed turn such as "fix it and commit" keeps goal `code`. Verification and delivery steps can retain that goal while changing phase. A positively supported verification-only or execution-only phase can use the `ops` cell; mixed checks and fixes cannot. For goal `ops`, accepted `reason` uses the same-tier `debug` preference and `produce` uses `code`, without changing
+the durable goal. Report or unclear phase keeps an eligible continuation or uses the fresh generic baseline; it
+does not introduce a new ops discount. All preferences still pass the usual switching gates.
+The router then picks the route by tier and activity. With the default overrides, a `low` coding turn runs on Sonnet 5.5 at `high`, a `low` git turn stays on Haiku 5.5 at `high`, and a `medium` git turn moves from Opus 5.5 to Haiku 5.5 at `high`. [Activity routing](activity-routing.md) explains the default matrix, why each cell is there, and how to change it.
 
 The mode decides what happens with the label:
 
@@ -262,6 +265,20 @@ How the router moves inside a tier:
 - A fresh session starts with routing on when the session model is a tier's route. With activity routing `on`, a model that only an activity override uses also counts: Sonnet 5.5 on the defaults. In `off` it does not.
 
 The band names the accepted goal and phase when available, and distinguishes the effective route activity: `code / verify → ops`. These are classifier estimates, not observed proof of the work done. The two-row band and the **Replies** strip show the activities of recent replies.
+
+### Selection and request evidence
+
+With no UI surface, `/router` distinguishes the selected model/effort, the last request **delegated to the engine**,
+and the **response-reported model**. Delegation is not proof of API transmission or backend identity: Claude Code
+can change or ignore settings, and a proxy can echo a requested model. API-transmitted and served effort remain
+unknown; neither the band nor decision/usage records attest them. A record's effort is selected/delegated metadata,
+not a response-reported setting.
+
+Dollars use configured API-rate estimates (vendor list rates or custom profile rates), including tracked child
+estimates where available. They are not invoices, measured subscription-quota savings, or cost per accepted task.
+Missing pricing/comparison coverage stays visible in the existing Usage and classifier metrics. Decision `start`,
+`review`, `observed`, and `end` rows describe routing events and coverage: `end` records requests, priced requests
+and unpriced causes, not semantic success or task acceptance. A caller must evaluate task acceptance separately.
 
 ### Changes during a task
 
