@@ -591,7 +591,12 @@ const MEDIUM = { micro: 0, low: 0.05, medium: 0.95, high: 0, uncertain: 0 };
 test('with no router.json, a fresh session asks the activity and runs its default route', async () => {
   for (const [model, answer, activity, expected] of [
     ['claude-haiku-5-5', jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }), 'code', ['claude-sonnet-5-5', 'high']],
-    ['claude-opus-5-5', jevResponse('medium', MEDIUM, 0, { ops: 0.9, code: 0.1 }), 'ops', ['claude-haiku-5-5', 'high']],
+    [
+      'claude-opus-5-5',
+      jevResponse('medium', MEDIUM, 0, { ops: 0.9, code: 0.1 }, 'execute'),
+      'ops',
+      ['claude-haiku-5-5', 'high'],
+    ],
     ['claude-haiku-5-5', jevResponse('low', LOW, 0, { explore: 0.9 }), 'explore', ['claude-haiku-5-5', 'high']],
   ]) {
     const h = harness(JEV_KEY);
@@ -609,7 +614,7 @@ test('a turn routed as ops moves up once its own tool calls edit code, and stays
   const model = 'claude-sonnet-5-5';
   const h = harness(JEV_KEY);
   h.model(model);
-  answering(h, jevResponse('medium', MEDIUM, 0, { ops: 0.9, code: 0.1 }));
+  answering(h, jevResponse('medium', MEDIUM, 0, { ops: 0.9, code: 0.1 }, 'execute'));
   await start(h);
   await drain(h.step({ ...step, model }));
   h.messages(async () => [user('Run the worker brief.'), assistant('running', ['Bash']), toolResult('ok')]);
@@ -743,7 +748,7 @@ test('an accepted cheaper activity is not undone by edits the review already saw
   const model = 'claude-opus-5-5';
   const h = harness(JEV_KEY);
   h.model(model);
-  answering(h, jevResponse('medium', MEDIUM, 0, { ops: 0.97, code: 0.03 }));
+  answering(h, jevResponse('medium', MEDIUM, 0, { ops: 0.97, code: 0.03 }, 'execute'));
   h.messages(async () => [
     user('Run the brief.'),
     assistant('fixing', ['Edit']),
@@ -763,7 +768,7 @@ test('an edit made after a review was asked moves the route up again once the re
   const model = 'claude-opus-5-5';
   const h = harness(JEV_KEY);
   h.model(model);
-  answering(h, jevResponse('medium', MEDIUM, 0, { ops: 0.97, code: 0.03 }));
+  answering(h, jevResponse('medium', MEDIUM, 0, { ops: 0.97, code: 0.03 }, 'execute'));
   const before = [
     user('Run the brief.'),
     assistant('fixing', ['Edit']),
@@ -787,7 +792,7 @@ test('a transcript that cannot be read inside a turn keeps the running route', a
   h.model(model);
   answering(
     h,
-    jevResponse('medium', MEDIUM, 0, { ops: 0.9, code: 0.1 }),
+    jevResponse('medium', MEDIUM, 0, { ops: 0.9, code: 0.1 }, 'execute'),
     jevResponse('high', { high: 0.97, uncertain: 0.03 }),
   );
   h.messages(async () => [user('Run the brief.'), assistant('running', ['Bash']), toolResult('ok')]);
@@ -832,7 +837,7 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   answering(
     h,
     jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
-    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }, 'execute'),
   );
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
@@ -847,7 +852,7 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
   assert.equal(h.toasts.length, 1);
   assert.match(h.toasts[0], /^Model changed: Sonnet 5\.5 · high → Haiku 5\.5 · high · ↓ ops/);
   line = (await band(h)).line;
-  assert.match(line, /^▂▄▆█ Haiku 5\.5 · high {3}↓ ops /);
+  assert.match(line, /^▂▄▆█ Haiku 5\.5 · high {3}ops \/ execute {3}↓ ops /);
   const { at, ...moved } = h.view().lastSwitch;
   assert.ok(Number.isFinite(at));
   assert.deepEqual(moved, {
@@ -904,7 +909,7 @@ test('with activity routing on, an ops turn moves from Sonnet to Haiku inside it
 
   const reloaded = harness(JEV_KEY, h.preferences);
   reloaded.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
-  answering(reloaded, jevResponse('low', LOW, 0, { ops: 0.9 }));
+  answering(reloaded, jevResponse('low', LOW, 0, { ops: 0.9 }, 'execute'));
   await reloaded.event('session.start', { cwd: '/fixture' });
   await turn(reloaded, 't1', 'claude-haiku-5-5', ['Bash']);
   assert.deepEqual(Object.keys(reloaded.view().activityStats.byActivity), ['ops']);
@@ -922,7 +927,7 @@ test('a turn with activity routing off ends the watch after a cheaper activity m
   answering(
     h,
     jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
-    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }, 'execute'),
   );
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
@@ -959,7 +964,7 @@ test('turning routing off ends the watch after a cheaper activity move', async (
   answering(
     h,
     jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
-    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }, 'execute'),
   );
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
@@ -996,7 +1001,7 @@ test('a Manual turn ends the watch a cheaper move started while routing was turn
   answering(
     h,
     jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
-    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }, 'execute'),
   );
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
@@ -1036,7 +1041,7 @@ test('turning routing off mid-turn and straight back on does not keep the watch 
   answering(
     h,
     jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
-    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }, 'execute'),
   );
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
@@ -1075,7 +1080,7 @@ test('turning routing off and back on before the turn finishes does not keep the
   answering(
     h,
     jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
-    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }, 'execute'),
   );
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);
@@ -1114,7 +1119,7 @@ test('turning routing off and back on while the finished turn is recorded does n
   answering(
     h,
     jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }),
-    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }),
+    jevResponse('low', LOW, 0, { ops: 0.81, code: 0.19 }, 'execute'),
   );
   await h.event('session.start', { cwd: '/fixture' });
   await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);

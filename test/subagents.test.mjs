@@ -237,7 +237,7 @@ test('a reply without a price or with incomplete usage is counted as a request a
 const AT = (day, hour = 12) => new Date(2026, 9, day, hour).getTime();
 const whole = (store) => summarizeSubagents(readSubagentStore(store), { from: null, to: null });
 
-test('the router’s move is up or down by output price, plain when either has no price, none for the same model', () => {
+test('the router’s move is up or down by declared rank, plain when either rank is unknown, none for the same model', () => {
   const cases = [
     ['claude-opus-5-5', 'claude-sonnet-5-5', 'up'],
     ['claude-haiku-5-5', 'claude-opus-5-5', 'down'],

@@ -743,8 +743,11 @@ function detailText(config, view, usage) {
     ...(view.routingMode ? [`Mode: ${modeLabel(view.routingMode)}`] : []),
     ...(view.projectError ? [`Ignored: ${view.projectError}`] : []),
     `Native model: ${view.nativeModel}`,
-    `Selected: ${view.selectedModel ?? 'not selected'}`,
-    `Observed: ${view.actualModel ?? 'no response yet'}`,
+    `Selected: ${view.selectedModel ?? 'not selected'} · effort ${view.effort ?? 'session/default'}`,
+    `Last recorded completed engine request: ${view.delegatedModel ?? 'none'} · effort ${view.delegatedEffort ?? 'session/default'}`,
+    `Response-reported model: ${view.actualModel ?? 'no response yet'}`,
+    'API-transmitted and served effort: unknown (engine delegation is not wire evidence).',
+    'Cost basis: configured API-rate estimates (list/custom), not bills or measured quota savings.',
     `Reason: ${view.reason}`,
     ...activityDetailLines(config, view),
     storeAgreementLine(view),
@@ -803,7 +806,12 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, router)
     const compared = await compareYours($, router, loop, response, e.effort ?? null, nativeModel);
     if (compared) observed.yoursBy = compared.states;
     const written = await $.state.set(ref, observed, { ifVersion: version });
-    if (written.isSet) await updateView($, router, responseMetrics(router.view, response, null, Date.now()));
+    if (written.isSet)
+      await updateView($, router, {
+        ...responseMetrics(router.view, response, null, Date.now()),
+        delegatedModel: e.model,
+        delegatedEffort: e.effort ?? null,
+      });
   }
   return response;
 }
@@ -1164,10 +1172,14 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
 }
 
 // A routed reply's metrics in the view, with the tier that served it, and added to the turn's activity record with its list price (`routedUsd`, null when unpriced) and, when its tier served it, its route.
-async function publishReply($, router, turnId, response, tier, route, routedUsd, cause = null) {
+async function publishReply($, router, turnId, request, response, tier, route, routedUsd, cause = null) {
   const turn = router.turnActivities.get(turnId);
   const metrics = responseMetrics(router.view, response, tier, Date.now());
-  await updateView($, router, metrics);
+  await updateView($, router, {
+    ...metrics,
+    delegatedModel: request.model,
+    delegatedEffort: request.effort ?? null,
+  });
   if (turn)
     router.turnActivities.set(turnId, {
       ...turn,
@@ -1217,7 +1229,7 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
             yours: { model: nativeModel },
             ttl: compared.ttl,
           }) ?? 'error');
-  await publishReply($, router, turnId, response, tier, route, observedUsd, cause);
+  await publishReply($, router, turnId, request, response, tier, route, observedUsd, cause);
   // Kept by model id, under the model that served it: a substitute's cost is not the requested model's, and a models
   // key can name another model later.
   const idOf = (model) => modelSpec(cfg, model)?.id ?? model;

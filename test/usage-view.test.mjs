@@ -100,11 +100,11 @@ test('the answer leads, then a cost table whose cents add up: cost − no routin
     '−$4.70 (−52%) vs unrouted',
     '',
     '                              cost    vs unrouted    unrouted',
-    'main · 20 replies            $4.30         −$4.70       $9.00',
+    'main · 20 replies           ≈$4.30         −$4.70      ≈$9.00',
     '  cheaper models                           −$4.92',
     '  cache rebuilds                           +$0.22   4% of the saving',
     '─────────────────────────────────────────────────────────────',
-    'session · billed             $4.30         −$4.70       $9.00',
+    'session · API estimate      ≈$4.30         −$4.70      ≈$9.00',
     '',
     '  20 replies · 10 turns · input 22.0K · cache hit 73% · output 200',
     '',
@@ -112,7 +112,7 @@ test('the answer leads, then a cost table whose cents add up: cost − no routin
   ]);
 });
 
-test('on a Claude plan every amount in the cost table is API value with ≈, and only the differences go without', () => {
+test('on a Claude plan every amount in the cost table is API estimate with ≈, and only the differences go without', () => {
   const usage = { rateLimits: [{ kind: 'five_hour', percentUsed: 40 }], cost: { usd: 4.5 } };
   // Claude Code's own /cost is not shown: the router's total is the only one.
   const all = screen(renderPanel(ELEMENTS, DEFAULTS, view(), usage, recording().actions, { columns: 100, now: NOW }));
@@ -121,16 +121,17 @@ test('on a Claude plan every amount in the cost table is API value with ≈, and
     '  cheaper models                           −$4.92',
     '  cache rebuilds                           +$0.22   4% of the saving',
     '─────────────────────────────────────────────────────────────',
-    'session · ≈ API value       ≈$4.30         −$4.70      ≈$9.00',
+    'session · API estimate      ≈$4.30         −$4.70      ≈$9.00',
     '',
   ]);
 });
 
 test('the footer says what $ and ≈ mean and that answer quality is not measured', () => {
   const all = lines();
-  const at = all.indexOf('  $ = tokens × list prices · ≈ = API value of plan quota');
-  assert.deepEqual(all.slice(at, at + 2), [
-    '  $ = tokens × list prices · ≈ = API value of plan quota',
+  const at = all.indexOf('  ≈$ = tokens × configured API rates (list/custom)');
+  assert.deepEqual(all.slice(at, at + 3), [
+    '  ≈$ = tokens × configured API rates (list/custom)',
+    '  not invoices or measured quota savings',
     '  answer quality not measured',
   ]);
 });
@@ -158,14 +159,14 @@ test('every period counts the running turn’s replies in its answer, ledger and
 test('a period sums every session’s days in it, and All adds the undated totals with a note', () => {
   const week = lines({ usagePeriod: '7d' });
   assert.ok(week.includes('−$4.90 (−52%) vs unrouted'), week.join('\n'));
-  assert.ok(week.includes('7 days · billed              $4.60         −$4.90       $9.50'));
+  assert.ok(week.includes('7 days · API estimate       ≈$4.60         −$4.90      ≈$9.50'));
   const all = lines({ usagePeriod: 'all' });
   assert.deepEqual(after(all, '−$16.52 (−26%) vs unrouted', 10).slice(3), [
-    'main · 422 replies          $46.08        −$16.52      $62.60',
+    'main · 422 replies         ≈$46.08        −$16.52     ≈$62.60',
     '  cheaper models                          −$20.26',
     '  cache rebuilds                           +$3.74   18% of the saving',
     '─────────────────────────────────────────────────────────────',
-    'all · billed                $46.08        −$16.52      $62.60',
+    'all · API estimate         ≈$46.08        −$16.52     ≈$62.60',
     'includes $41.18 routed before dated records, kept without a breakdown',
     '',
   ]);
@@ -198,7 +199,7 @@ test('a session whose /model changed names every model its replies were priced a
   const changed = recordUsage(SESSION, [sonnet], { now: at(2026, 10, 13, 14) });
   const all = lines({ usageSession: changed });
   assert.equal(all[4], 'this session · each reply vs the model /model selected: Opus 5.5, Sonnet 5.5');
-  assert.ok(all.includes('session · billed             $4.35         −$5.05       $9.40'));
+  assert.ok(all.includes('session · API estimate      ≈$4.35         −$5.05      ≈$9.40'));
 });
 
 test('without routed replies the tab says why, and below ten replies the answer is marked early', () => {
@@ -238,11 +239,11 @@ test('the breakdown groups by activity, model or tier, g presses the next groupi
   const HEAD = '                         replies      cost    vs unrouted   mostly on';
   assert.deepEqual(after(screen(tree), HEAD, 6), [
     HEAD,
-    '  ▾ code                      10     $3.80         −$1.20   Sonnet 5.5 · high',
-    '      Opus 5.5 · xhigh         4     $2.00          $0.00',
-    '      Sonnet 5.5 · high        6     $1.80         −$1.20',
+    '  ▾ code                      10    ≈$3.80         −$1.20   Sonnet 5.5 · high',
+    '      Opus 5.5 · xhigh         4    ≈$2.00          $0.00',
+    '      Sonnet 5.5 · high        6    ≈$1.80         −$1.20',
     '      cheaper −$1.32 · stronger $0.00 · cache rebuilds +$0.12 · input 11.0K · output 100',
-    '  ▸ explore                   10     $0.50         −$3.50   Haiku 5.5 · high',
+    '  ▸ explore                   10    ≈$0.50         −$3.50   Haiku 5.5 · high',
   ]);
   controls(tree)
     .find((c) => c.key === 'row-activity:explore')
@@ -258,24 +259,24 @@ test('the breakdown groups by activity, model or tier, g presses the next groupi
   ]);
   const byModel = lines({ usageGroup: 'model' });
   assert.deepEqual(after(byModel, '                         replies      cost    vs unrouted   share', 4).slice(1), [
-    '  ▸ Opus 5.5                   4     $2.00          $0.00   47%',
-    '  ▸ Sonnet 5.5                 6     $1.80         −$1.20   42%',
-    '  ▸ Haiku 5.5                 10     $0.50         −$3.50   12%',
+    '  ▸ Opus 5.5                   4    ≈$2.00          $0.00   47%',
+    '  ▸ Sonnet 5.5                 6    ≈$1.80         −$1.20   42%',
+    '  ▸ Haiku 5.5                 10    ≈$0.50         −$3.50   12%',
   ]);
   // By tier the rows run low to high, each named by its meter.
   const narrow = lines({ usageGroup: 'tier' }, { columns: 72 });
   assert.deepEqual(after(narrow, '                         replies      cost    vs unrouted', 4), [
     '                         replies      cost    vs unrouted',
-    '  ▸ ▂▄                        10     $0.50         −$3.50',
-    '  ▸ ▂▄▆                        6     $1.80         −$1.20',
-    '  ▸ ▂▄▆█                       4     $2.00          $0.00',
+    '  ▸ ▂▄                        10    ≈$0.50         −$3.50',
+    '  ▸ ▂▄▆                        6    ≈$1.80         −$1.20',
+    '  ▸ ▂▄▆█                       4    ≈$2.00          $0.00',
   ]);
 });
 
 test('c switches the trend for What if: the same tokens on each model alone, against yours', () => {
   const { calls, actions } = recording();
   const trend = render({}, { actions });
-  assert.ok(screen(trend).includes('COST BY HOUR █▁▂█  peak $2.00   [ What if ]'), screen(trend).join('\n'));
+  assert.ok(screen(trend).includes('COST BY HOUR █▁▂█  peak ≈$2.00   [ What if ]'), screen(trend).join('\n'));
   const toggle = controls(trend).find((c) => c.key === 'usage-compare');
   assert.equal(toggle.hotkey, 'c');
   toggle.onPress();
@@ -283,10 +284,10 @@ test('c switches the trend for What if: the same tokens on each model alone, aga
   const shown = lines({ usageCompare: true });
   assert.deepEqual(after(shown, 'WHAT IF · the same tokens on one model   [ Trend ]', 6), [
     'WHAT IF · the same tokens on one model   [ Trend ]',
-    '  Haiku 5.5             ████                      $1.80     −$7.20',
-    '  Routed                ███████████               $4.30',
-    '  Sonnet 5.5            █████████████             $5.40     −$3.60',
-    '  Opus 5.5 · yours      ██████████████████████    $9.00          —',
+    '  Haiku 5.5             ████                     ≈$1.80     −$7.20',
+    '  Routed                ███████████              ≈$4.30',
+    '  Sonnet 5.5            █████████████            ≈$5.40     −$3.60',
+    '  Opus 5.5 · yours      ██████████████████████   ≈$9.00          —',
     '  same tokens and output on each model alone · answer quality not measured',
   ]);
   assert.ok(!shown.some((line) => line.startsWith('COST BY')));
@@ -385,9 +386,9 @@ test('the subagent block follows the period, with a strip by model, the verdict 
   assert.equal(today[2], '  4 agents · ■ 2 moved by the router · □ 2 on Claude Code’s pick');
   assert.equal(today[3], '  routing −$0.10 (−13%) vs Claude Code’s picks on 3 routed agents');
   const table = lines({ usagePeriod: 'today', subagentStore: AGENTS });
-  assert.ok(table.includes('  ▸ dev-flow:reviewer  □■            2    $0.60   +$0.30 ▲'), table.join('\n'));
-  assert.ok(table.includes('  ▸ Explore            ■             1    $0.10   −$0.40 ▼'));
-  assert.ok(table.includes('  ▸ workflow agent     □             1    $0.50  the workflow sets it'));
+  assert.ok(table.includes('  ▸ dev-flow:reviewer  □■            2   ≈$0.60   +$0.30 ▲'), table.join('\n'));
+  assert.ok(table.includes('  ▸ Explore            ■             1   ≈$0.10   −$0.40 ▼'));
+  assert.ok(table.includes('  ▸ workflow agent     □             1   ≈$0.50  the workflow sets it'));
   const week = agentLines('7d');
   assert.equal(week[0], 'SUBAGENTS · all projects · Oct 7 – Oct 13   subagent routing on');
   assert.equal(week[2], '  6 agents · ■ 4 moved by the router · □ 2 on Claude Code’s pick');
@@ -399,8 +400,8 @@ test('an open subagent row splits its agents and cost by model and lists its req
   const at_ = open.findIndex((line) => line.startsWith('  ▾ dev-flow:reviewer'));
   assert.ok(at_ >= 0, open.join('\n'));
   assert.deepEqual(open.slice(at_ + 1, at_ + 4), [
-    '      □ Sonnet 5.5     1 kept             $0.10        —',
-    '      ■ Opus 5.5       1 moved up         $0.50   +$0.30 ▲',
+    '      □ Sonnet 5.5     1 kept            ≈$0.10        —',
+    '      ■ Opus 5.5       1 moved up        ≈$0.50   +$0.30 ▲',
     '      2.0 requests per agent · none respawned within 10 min',
   ]);
 });
@@ -428,7 +429,7 @@ test('records from before 1.14.0 show under All and Session only, and an empty p
   ]);
   assert.deepEqual(agentLines('all', { subagentStore: store }).slice(1, 3), [
     '  No subagents yet.',
-    '  + 3 agents from before 1.14.0, not split by model · $2.00',
+    '  + 3 agents from before 1.14.0, not split by model · ≈$2.00',
   ]);
   const off = lines({ usagePeriod: 'today', subagentStore: null }, {});
   assert.ok(off.includes('  No subagents today.'));

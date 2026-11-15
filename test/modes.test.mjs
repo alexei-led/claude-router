@@ -16,7 +16,7 @@ test('the built-in routes in every mode, tier and activity', () => {
     ['medium', PLAIN, r('opus', 'medium'), r('haiku', 'high'), r('opus', 'high')],
     ['medium', ENGINEERING, r('opus', 'medium'), r('sonnet', 'high'), r('opus', 'high')],
     ['medium', ['ops'], r('haiku', 'high'), r('haiku', 'medium'), r('haiku', 'xhigh')],
-    ['low', [...PLAIN, 'ops'], r('haiku', 'high'), r('haiku', 'medium'), r('haiku', 'xhigh')],
+    ['low', [...PLAIN, 'ops'], r('haiku', 'high'), r('haiku', 'medium'), r('haiku', 'high')],
     ['low', ENGINEERING, r('sonnet', 'high'), r('haiku', 'high'), r('sonnet', 'xhigh')],
     ['micro', [...PLAIN, ...ENGINEERING, 'ops'], r('haiku', 'medium'), r('haiku', 'medium'), r('haiku', 'medium')],
   ];

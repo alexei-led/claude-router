@@ -31,6 +31,7 @@ function answer(tier, activity) {
     probabilities,
     continuation: 0,
     activity: { choice: activity, probabilities: shares },
+    ...(activity === 'ops' ? { phase: { choice: 'execute', probabilities: { execute: 1 } } } : {}),
   };
 }
 

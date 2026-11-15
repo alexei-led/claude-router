@@ -323,9 +323,9 @@ test('Usage and Now show the session’s agents by model, who picked it, and wha
   });
   const now = screen(await h.render()).join('\n');
   assert.match(now, /^SESSION {2}1 agent {2}● 1 running$/m);
-  assert.match(now, /^ {2}−\$0\.49 \(−86%\) vs unrouted \$0\.57$/m);
-  assert.match(now, /^ {2}main {4}\$0\.00 {2}░+$/m);
-  assert.match(now, /^ {2}agents {2}\$0\.08 {2}█+ {2}−\$0\.49 vs their picks$/m);
+  assert.match(now, /^ {2}−\$0\.49 \(−86%\) vs unrouted ≈\$0\.57$/m);
+  assert.match(now, /^ {2}main {3}≈\$0\.00 {2}░+$/m);
+  assert.match(now, /^ {2}agents ≈\$0\.08 {2}█+ {2}−\$0\.49 vs their picks$/m);
   await finish(h, 'w1', 'claude-opus-5-5');
   await press(h, 'tab-usage');
   const lines = screen(await h.render());
@@ -333,10 +333,10 @@ test('Usage and Now show the session’s agents by model, who picked it, and wha
     '−$0.49 (−86%) vs unrouted',
     '',
     '                              cost    vs unrouted    unrouted',
-    'main · 0 replies             $0.00          $0.00       $0.00',
-    'agents · 2                   $0.08         −$0.49       $0.57',
+    'main · 0 replies            ≈$0.00          $0.00      ≈$0.00',
+    'agents · 2                  ≈$0.08         −$0.49      ≈$0.57',
     '─────────────────────────────────────────────────────────────',
-    'session · billed             $0.08         −$0.49       $0.57',
+    'session · API estimate      ≈$0.08         −$0.49      ≈$0.57',
   ]);
   const at = lines.findIndex((line) => line.startsWith('SUBAGENTS · this session'));
   assert.ok(at >= 0, lines.join('\n'));
@@ -345,8 +345,8 @@ test('Usage and Now show the session’s agents by model, who picked it, and wha
   assert.match(block, /■□ {2}Haiku 5\.5 1 · Opus 5\.5 1/);
   assert.match(block, /2 agents · ■ 1 moved by the router · □ 1 on Claude Code’s pick/);
   assert.match(block, /routing −\$\d+\.\d\d \(−\d+%\) vs Claude Code’s picks on 1 routed agent/);
-  assert.match(block, /▸ Explore +■ +1 +\$\d+\.\d\d +−\$\d+\.\d\d ▼/);
-  assert.match(block, /▸ workflow agent +□ +1 +\$0\.00 {2}the workflow sets it/);
+  assert.match(block, /▸ Explore +■ +1 +≈\$\d+\.\d\d +−\$\d+\.\d\d ▼/);
+  assert.match(block, /▸ workflow agent +□ +1 +≈\$0\.00 {2}the workflow sets it/);
   await press(h, 'row-subagent:Explore');
   const open = screen(await h.render()).join('\n');
   assert.match(open, /▾ Explore/);

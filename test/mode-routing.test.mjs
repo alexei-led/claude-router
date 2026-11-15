@@ -201,7 +201,7 @@ test('repeated failures with no activity escalate to a stronger route after a mo
     { ...emptyLoop(quality, HAIKU), lastRoute: 'low' },
     { answer: advice('low', { low: 0.99 }) },
   );
-  assert.equal(ran_(loop), `${HAIKU}@xhigh`);
+  assert.equal(ran_(loop), `${HAIKU}@high`);
   loop = reply(loop, T0);
   const failure = (name) => `not ok 1 - ${name}\n  error: 'unauthorized'\n`;
   const failing = [
@@ -212,7 +212,7 @@ test('repeated failures with no activity escalate to a stronger route after a mo
     toolResult(failure('login at line 12'), { isError: true }),
     user('continue'),
   ];
-  // In cost the medium route is Haiku at high, weaker than the route in use; high runs Opus at high.
+  // In cost the medium route is also Haiku at high, not stronger; high runs Opus at high.
   const next = turn(inMode('cost'), loop, { messages: failing, answer: null, at: T0 + 10 });
   assert.deepEqual([next.decision.reason, next.decision.tier, next.decision.model], ['escalation', 'high', OPUS]);
 });

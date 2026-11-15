@@ -77,25 +77,55 @@ test('plan and credits models add up at API prices in one sum against no routing
     ['started on Opus: DeepSeek turns are cheaper', '−$45.90 (−66%)', 'Opus 5.5'],
     ['started on DeepSeek: Opus turns are stronger', '+$18.50 (×4.3)', 'DeepSeek Flash'],
   ]) {
-    assert.equal(band(STARTS[name]), `session $24.10 billed   ${diff} vs ${yours}   100 replies`, name);
+    assert.equal(band(STARTS[name]), `session ≈$24.10 API estimate   ${diff} vs ${yours}   100 replies`, name);
     assert.equal(
       band(STARTS[name], PLAN),
-      `plan 5h ▰▰▰▱▱▱▱▱ 37%   7d 81%   session ≈$24.10 API value   billed $4.10   ${diff} vs ${yours}   100 replies`,
+      `plan 5h ▰▰▰▱▱▱▱▱ 37%   7d 81%   session ≈$24.10 API estimate   credits ≈$4.10   ${diff} vs ${yours}   100 replies`,
       `${name} on a plan`,
     );
   }
 });
 
-test('on a plan /router says the API value with ≈ and the credits part as billed, as the band does', () => {
+test('on a plan /router labels the total and credits as API estimates, as the band does', () => {
   const props = STARTS['started on Opus: DeepSeek turns are cheaper'];
   assert.equal(
     savingsLine(PROXY, view(props), PLAN, NOW),
-    'Plan: 5h 37% · 7d 81%\nSession: ≈$24.10 API value · billed $4.10 · −$45.90 (−66%) vs Opus 5.5 ≈$70.00 · 100 replies',
+    'Plan: 5h 37% · 7d 81%\nSession: ≈$24.10 API estimate · credits ≈$4.10 · −$45.90 (−66%) vs Opus 5.5 ≈$70.00 · 100 replies',
   );
   assert.equal(
     savingsLine(PROXY, view(props), null, NOW),
-    'Session: $24.10 billed · −$45.90 (−66%) vs Opus 5.5 $70.00 · 100 replies',
+    'Session: ≈$24.10 API estimate · −$45.90 (−66%) vs Opus 5.5 ≈$70.00 · 100 replies',
   );
+});
+
+test('Now and Usage identify configured-rate estimates for every billing product, not invoice or quota evidence', () => {
+  for (const [config, usage, model, note] of [
+    [loadConfig(), PLAN, OPUS, 'API estimate · plan quota, not a charge'],
+    [loadConfig({ provider: 'deepseek' }), null, DEEPSEEK, 'API estimate · configured rates, not an invoice'],
+    [PROXY, PLAN, DEEPSEEK, 'API estimate · credits ≈$24.10'],
+  ]) {
+    const props = view({
+      nativeModel: model,
+      nativeEffort: 'high',
+      usageSession: record({ [`low|${model}@high`]: [10, 24.1, 30, -5.9, 0, 0] }, { [model]: 10 }),
+    });
+    const now = screen(
+      renderPanel(ELEMENTS, config, { ...props, tab: 'now' }, usage, actions, { columns: 140, now: NOW }),
+    );
+    assert.ok(now.includes(`  ≈$24.10  ${note}  [ Usage ]`), note);
+    const shown = screen(
+      renderPanel(ELEMENTS, config, { ...props, tab: 'usage', usagePeriod: 'session', help: true }, usage, actions, {
+        columns: 140,
+        now: NOW,
+      }),
+    );
+    assert.ok(shown.some((line) => line.startsWith('session · API estimate') && line.includes('≈$24.10')));
+    assert.ok(shown.includes('≈$ is tokens × configured API rates in router.json (list/custom).'));
+    assert.ok(shown.includes('These are estimates, not invoices or measured plan-quota savings.'));
+    assert.ok(
+      !shown.some((line) => /what was billed|what is billed|billed at list prices|billed as credits/.test(line)),
+    );
+  }
 });
 
 test('a plan window shows its reset only while it is ahead', () => {
@@ -119,15 +149,15 @@ test('after /model moved between plan and credits models, /router still compares
     null,
     NOW,
   );
-  assert.equal(line, 'Session: $24.10 billed · $0.00 vs unrouted $24.10 · 100 replies');
+  assert.equal(line, 'Session: ≈$24.10 API estimate · $0.00 vs unrouted ≈$24.10 · 100 replies');
 });
 
-test('the Usage tab on a plan with credits models shows the total as API value and its credits part as billed', () => {
+test('the Usage tab labels mixed totals and credits as API estimates', () => {
   const props = { ...STARTS['started on Opus: DeepSeek turns are cheaper'], tab: 'usage', usagePeriod: 'session' };
   const lines = screen(renderPanel(ELEMENTS, PROXY, view(props), PLAN, actions, { columns: 100, now: NOW }));
-  const at = lines.findIndex((line) => line.startsWith('session · ≈ API value'));
+  const at = lines.findIndex((line) => line.startsWith('session · API estimate'));
   assert.deepEqual(lines.slice(at, at + 2), [
-    'session · ≈ API value      ≈$24.10        −$45.90     ≈$70.00',
-    '  billed as credits          $4.10',
+    'session · API estimate     ≈$24.10        −$45.90     ≈$70.00',
+    '  credits estimate          ≈$4.10',
   ]);
 });

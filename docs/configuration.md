@@ -59,7 +59,7 @@ These are estimate inputs, not an invoice; z.ai plan quota uses its own multipli
 A weekly GitHub Actions job (`.github/workflows/prices.yml`) runs `npm run prices:check`. It reads the Anthropic, DeepSeek, Kimi, MiniMax and z.ai price pages, compares them with `lib/prices.mjs`, and opens a pull request when a price, a long-context tier or DeepSeek's peak hours change. A page it cannot read opens a "Price check failed" issue. The MiMo page needs a browser, so the job lists it for a person to check. The pull request needs the repository setting **Allow GitHub Actions to create and approve pull requests**, and CI starts on it once a maintainer closes and reopens it. Run the check yourself with `npm run prices:check`; add `-- --write` to rewrite `lib/prices.mjs`. Prices in `router.json` always override the built-in ones.
 All non-Anthropic built-in presets use `billing: "credits"`.
 For an included-plan model, set `billing: "plan"` to disable the cold-input cash cap.
-`billing` does not change a price: the pane prices plan and credits models alike, at list prices, and labels the plan part `≈ API value` and the credits part billed; see [how dollars are paid](user-guide.md#how-dollars-are-paid).
+`billing` does not change a price: the pane prices plan and credits models at configured API rates (list/custom), labels every total `API estimate` with `≈`, and identifies the mixed credits subtotal as an estimate, not an invoice; see [how dollars are paid](user-guide.md#how-dollars-are-paid).
 A provider name or URL does not establish its billing product.
 
 ### Provider cache behavior
@@ -151,9 +151,17 @@ Default model settings:
 
 Prices are configured list-price inputs for estimates. They are not a subscription bill or a claim of savings. Haiku 5.5 lists these prices for prompts up to 100,000 tokens and five times each of them, cache reads and writes included, above that. Its default `longContext` is `{ "above": 100000, "multiplier": 5 }`: a request whose prompt, counting input, cache reads and cache writes, is over `above` tokens is priced at `multiplier` times every rate. Every estimate prices through it. Set `"longContext": null` to remove it, for example when you point the `haiku` alias at another model with `id`. A model with `"efforts": []` receives no effort field. A route in `router.json` without an `effort` takes the effort of that tier's default route. To keep the session effort, clamped to what the model supports, set `"effort": null`, for example `"routes": { "high": { "model": "opus", "effort": null } }`. A 1.3 file whose `low` route had no `effort` kept the session effort; in 1.4 it runs at `high` until you add `"effort": null`.
 
+`models.<alias>.strength` declares an ordinal policy rank, not a measured quality score. Built-in Claude ranks are
+Haiku 1, Sonnet 2, Opus 3 and Fable 4. Cross-model capability comparisons require both ranks; equal ranks compare
+supported effort. Prices affect economics only, never establish strength. A custom model without a rank stays
+unordered, even when priced. Set explicit ranks in mixed profiles when strength-based continuation/observed upgrades
+should recognize their intended order. An accepted ops work phase may still nominate its explicit debug/code cell
+at unknown order, subject to the existing lateral gates; inherited generic cells get no such exception. Changing a preset alias to another model ID drops its inherited rank unless
+you explicitly provide `strength`; changing its tariff does not. Known `[1m]` context hints retain identity.
+
 ## Activity routing
 
-The classifier names the task goal separately from its current phase. The existing `activities` matrix still selects routes; a supported command-only phase can select `ops` without changing the goal. `activityRouting` decides what the router does with it. [Activity routing](activity-routing.md) explains the defaults for end users.
+The classifier names the task goal separately from its current phase. The existing `activities` matrix still selects routes; a supported command-only phase can select `ops` without changing the goal. For goal `ops`, accepted `reason` selects the same-tier `debug` preference, and `produce` selects `code`, after mode transformation. Unclear/report phase retains an eligible continuation or uses the fresh generic baseline, not a new ops discount. `activityRouting` decides what the router does with it. [Activity routing](activity-routing.md) explains the defaults for end users.
 
 | `activityRouting` | Behavior                                                                                   |
 | ----------------- | ------------------------------------------------------------------------------------------ |

@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 758 1123" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 758 1142" role="img" aria-labelledby="title desc">
   <title id="title">Router pane, Usage tab</title>
   <desc id="desc">The last 7 days across sessions: the period row, the difference against unrouted first, then a cost table whose rows add up (the main thread with its cheaper-model saving and cache rebuilds, the subagents, the total) with each row against unrouted, the replies and tokens, the cost by activity with code opened to its routes and cost parts, the cost by day, what is worth a look with a link to Routes, subagents, and Delete history.</desc>
   <style>
     text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; }
     .cap { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; fill: #9a988f; }
   </style>
-  <rect width="758" height="1123" rx="8" fill="#1c1c1c"/>
-<rect x="10" y="10" width="738" height="1103" rx="6" fill="none" stroke="#3f5f8f"/>
+  <rect width="758" height="1142" rx="8" fill="#1c1c1c"/>
+<rect x="10" y="10" width="738" height="1122" rx="6" fill="none" stroke="#3f5f8f"/>
 <text x="24.0" y="34" fill="#5fafd7" font-weight="700" xml:space="preserve">ROUTER</text>
 <rect x="86.4" y="20" width="62.4" height="18" rx="4" fill="#87afff"/>
 <text x="86.4" y="34" fill="#0d1016" font-weight="700" xml:space="preserve">[ ◉ on ]</text>
@@ -58,7 +58,7 @@
 <text x="289.2" y="262" fill="#6fcf97" xml:space="preserve">         −$0.51</text>
 <text x="406.2" y="262" fill="#7c7c7c" xml:space="preserve">      ≈$6.11</text>
 <text x="24.0" y="281" fill="#7c7c7c" xml:space="preserve">─────────────────────────────────────────────────────────────</text>
-<text x="24.0" y="300" fill="#d0d0d0" font-weight="700" xml:space="preserve">7 days · ≈ API value</text>
+<text x="24.0" y="300" fill="#d0d0d0" font-weight="700" xml:space="preserve">7 days · API estimate</text>
 <text x="226.8" y="300" fill="#d0d0d0" font-weight="700" xml:space="preserve"> ≈$20.93</text>
 <text x="289.2" y="300" fill="#6fcf97" font-weight="700" xml:space="preserve">        −$12.29</text>
 <text x="406.2" y="300" fill="#7c7c7c" xml:space="preserve">     ≈$33.22</text>
@@ -180,9 +180,10 @@
 <text x="320.4" y="946" fill="#d0d0d0" xml:space="preserve">   ≈$0.12</text>
 <text x="390.6" y="946" fill="#7c7c7c" xml:space="preserve">  its agent file sets it</text>
 <text x="24.0" y="984" fill="#7c7c7c" xml:space="preserve">  ■ moved by the router · □ Claude Code’s pick · color: the model</text>
-<text x="24.0" y="1003" fill="#7c7c7c" xml:space="preserve">  vs CC: the same tokens on Claude Code’s pick, at list prices</text>
-<text x="24.0" y="1041" fill="#7c7c7c" xml:space="preserve">  $ = tokens × list prices · ≈ = API value of plan quota</text>
-<text x="24.0" y="1060" fill="#7c7c7c" xml:space="preserve">  answer quality not measured</text>
-<rect x="24.0" y="1084" width="140.4" height="18" rx="4" fill="#2e3340"/>
-<text x="24.0" y="1098" fill="#7c7c7c" xml:space="preserve">[ Delete history ]</text>
+<text x="24.0" y="1003" fill="#7c7c7c" xml:space="preserve">  vs CC: the same tokens on Claude Code’s pick, at configured API rates</text>
+<text x="24.0" y="1041" fill="#7c7c7c" xml:space="preserve">  ≈$ = tokens × configured API rates (list/custom)</text>
+<text x="24.0" y="1060" fill="#7c7c7c" xml:space="preserve">  not invoices or measured quota savings</text>
+<text x="24.0" y="1079" fill="#7c7c7c" xml:space="preserve">  answer quality not measured</text>
+<rect x="24.0" y="1103" width="140.4" height="18" rx="4" fill="#2e3340"/>
+<text x="24.0" y="1117" fill="#7c7c7c" xml:space="preserve">[ Delete history ]</text>
 </svg>

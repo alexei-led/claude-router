@@ -192,6 +192,9 @@ declare module 'claude-code' {
     nativeEffort?: string | number | null;
     activeTurnId?: string | null;
     selectedModel?: string | null;
+    // Last recorded completed engine request, not verified API-transmitted settings.
+    delegatedModel?: string | null;
+    delegatedEffort?: string | number | null;
     actualModel?: string | null;
     tier?: RouterTier | null;
     effort?: string | number | null;
@@ -298,8 +301,9 @@ declare module 'claude-code' {
       effort: string | number | null;
       estimate?: RouterEstimate | null;
       comparison?: RouterComparison | null;
-      // The applied activity.
+      // The applied physical cell; a protected ops cell may retain a separate accepted work preference.
       activity?: RouterActivity | null;
+      floorActivity?: 'debug' | 'code' | null;
       lateral?: RouterLateral;
       // A failure asked for an escalation this turn, also one the cash gate held or context-fit replaced.
       escalated?: boolean;

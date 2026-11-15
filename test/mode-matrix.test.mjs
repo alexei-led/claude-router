@@ -25,7 +25,7 @@ const GOLDEN = {
       [ENGINEERING, ['haiku/high', 'sonnet/high', 'sonnet/xhigh']],
       [
         [...REST, 'ops'],
-        ['haiku/medium', 'haiku/high', 'haiku/xhigh'],
+        ['haiku/medium', 'haiku/high', 'haiku/high'],
       ],
     ],
     medium: [
@@ -45,7 +45,7 @@ const GOLDEN = {
       [ENGINEERING, ['haiku/high', 'sonnet/high', 'sonnet/xhigh']],
       [
         [...REST, 'ops'],
-        ['haiku/medium', 'haiku/high', 'haiku/xhigh'],
+        ['haiku/medium', 'haiku/high', 'haiku/high'],
       ],
     ],
   },
@@ -60,10 +60,10 @@ const GOLDEN = {
   },
 };
 // Cells (of 40) where each mode routes differently from balanced: every one but micro's 8.
-const DIFFERING = { defaults: { cost: 32, quality: 32 }, 'opus-high': { cost: 32, quality: 32 } };
+const DIFFERING = { defaults: { cost: 32, quality: 24 }, 'opus-high': { cost: 32, quality: 24 } };
 // A session already on a routed model: Opus runs medium in both profiles, and the cost table runs it only at high.
 const OPUS = 'claude-opus-5-5';
-const DIFFERING_ON_OPUS = { defaults: { cost: 32, quality: 32 }, 'opus-high': { cost: 32, quality: 32 } };
+const DIFFERING_ON_OPUS = { defaults: { cost: 32, quality: 28 }, 'opus-high': { cost: 32, quality: 28 } };
 
 const pairOf = (d) => `${d.route.model}/${d.route.effort}`;
 const goldenOf = (profile) => ({ ...GOLDEN.defaults, ...GOLDEN[profile] });

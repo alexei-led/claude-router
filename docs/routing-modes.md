@@ -3,11 +3,11 @@
 One setting trades cost against answer quality: `cost`, `balanced` (the default) or `quality`. The classifier and
 your routes stay as they are. The mode moves the route each tier runs by one fixed step.
 
-| Mode | What changes |
-| --- | --- |
-| `cost` | A cheaper route where the turn allows it: the tier below when that tier runs a model with a lower input price (at `low`, the `low` route without its activity override), else one effort level less on the same model. `high` keeps its model and drops one effort level. Never below `low`. |
-| `balanced` | Nothing: every tier runs its route as configured. |
-| `quality` | One effort level more on the same model, else the route of the tier above. |
+| Mode       | What changes                                                                                                                                                                                                                                                                                 |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cost`     | A cheaper route where the turn allows it: the tier below when that tier runs a model with a lower input price (at `low`, the `low` route without its activity override), else one effort level less on the same model. `high` keeps its model and drops one effort level. Never below `low`. |
+| `balanced` | Nothing: every tier runs its route as configured.                                                                                                                                                                                                                                            |
+| `quality`  | One effort level more on the same model, else the route of the tier above. Haiku 5.5 automatically prefers High, except medium bounded ops may use Xhigh. Explicit higher efforts stay supported.                                                                                            |
 
 In every mode:
 
@@ -73,7 +73,9 @@ keys are allowed, and the result must pass the same checks as `policy`.
 ## Every decision
 
 The route each mode gives a session's first turn, for each classifier answer, through the router's real decision
-path. Generated from the test data by `npm run docs:modes`; `test/mode-matrix.test.mjs` fails when it is stale.
+path. Here `ops` means an accepted bounded `execute` phase; `ops + reason` instead uses the same-tier `debug` row,
+and `ops + produce` uses `code`. Unclear/report phases do not introduce a new ops discount (see [Activity routing](activity-routing.md)).
+Generated from the test data by `npm run docs:modes`; `test/mode-matrix.test.mjs` fails when it is stale.
 
 <!-- mode-matrix:start -->
 **Built-in routes**
@@ -82,13 +84,13 @@ path. Generated from the test data by `npm run docs:modes`; `test/mode-matrix.te
 | --- | --- | --- | --- | --- |
 | micro | code, debug, explore, plan, review, ops, docs, uncertain | Haiku · medium | Haiku · medium | Haiku · medium |
 | low | code, debug, plan, review | Haiku · high | Sonnet · high | Sonnet · xhigh |
-| low | explore, ops, docs, uncertain | Haiku · medium | Haiku · high | Haiku · xhigh |
+| low | explore, ops, docs, uncertain | Haiku · medium | Haiku · high | Haiku · high |
 | medium | code, debug, plan, review | Sonnet · high | Opus · medium | Opus · high |
 | medium | explore, docs, uncertain | Haiku · high | Opus · medium | Opus · high |
 | medium | ops | Haiku · medium | Haiku · high | Haiku · xhigh |
 | high | code, debug, explore, plan, review, ops, docs, uncertain | Opus · high | Opus · xhigh | Opus · max |
 | uncertain | code, debug, plan, review | Haiku · high | Sonnet · high | Sonnet · xhigh |
-| uncertain | explore, ops, docs, uncertain | Haiku · medium | Haiku · high | Haiku · xhigh |
+| uncertain | explore, ops, docs, uncertain | Haiku · medium | Haiku · high | Haiku · high |
 
 **`routes.high` = Opus · high**
 
@@ -96,18 +98,18 @@ path. Generated from the test data by `npm run docs:modes`; `test/mode-matrix.te
 | --- | --- | --- | --- | --- |
 | micro | code, debug, explore, plan, review, ops, docs, uncertain | Haiku · medium | Haiku · medium | Haiku · medium |
 | low | code, debug, plan, review | Haiku · high | Sonnet · high | Sonnet · xhigh |
-| low | explore, ops, docs, uncertain | Haiku · medium | Haiku · high | Haiku · xhigh |
+| low | explore, ops, docs, uncertain | Haiku · medium | Haiku · high | Haiku · high |
 | medium | code, debug, plan, review | Sonnet · high | Opus · medium | Opus · high |
 | medium | explore, docs, uncertain | Haiku · high | Opus · medium | Opus · high |
 | medium | ops | Haiku · medium | Haiku · high | Haiku · xhigh |
 | high | code, debug, explore, plan, review, ops, docs, uncertain | Opus · medium | Opus · high | Opus · xhigh |
 | uncertain | code, debug, plan, review | Haiku · high | Sonnet · high | Sonnet · xhigh |
-| uncertain | explore, ops, docs, uncertain | Haiku · medium | Haiku · high | Haiku · xhigh |
+| uncertain | explore, ops, docs, uncertain | Haiku · medium | Haiku · high | Haiku · high |
 <!-- mode-matrix:end -->
 
 ## Known trade-offs
 
-The steps are fixed rules, with no per-activity exceptions. Before 1.21.1, `cost` ran `high` ops on Haiku 5.5 and `low`
+The steps are fixed rules, with the Haiku 5.5 quality preference and its one medium bounded-ops exception. Before 1.21.1, `cost` ran `high` ops on Haiku 5.5 and `low`
 code on Sonnet 5.5 at medium, which scored below Haiku 5.5 at high on FrontierCode and costs more per token. One cell
 still goes against this router's own model notes (`lib/config.mjs`):
 

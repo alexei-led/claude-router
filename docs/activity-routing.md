@@ -1,7 +1,8 @@
 # Activity routing
 
 The router uses **tier** for difficulty, **goal** for the task's final deliverable, and **phase** for the current step.
-The route uses the goal's activity unless a supported verification-only or execution-only phase qualifies for `ops`.
+The route uses the goal's activity and the current work preference: bounded commands can use `ops`, while adaptive
+operations use the profile's same-tier reasoning or code preference. The durable goal does not change.
 Activity routing is `on` by default. This page shows the default choices, why each one is there, and how to
 change them.
 
@@ -12,7 +13,7 @@ They do not measure this router's answer quality or your bill.
 
 For each new turn, Jev, Clef and OpenAI answer tier, continuation, goal and phase questions together. The existing
 `activity` field and route matrix name the goal; the phase can select the `ops` cell for bounded command-only work.
-Ollama asks tier and goal in two calls and does not provide a phase, so it uses the goal route. A route is a model and an effort.
+Ollama asks tier and goal in two calls and does not provide a phase, so it cannot introduce a bounded-ops discount. A route is a model and an effort.
 
 | Goal      | The task produces                                               |
 | --------- | --------------------------------------------------------------- |
@@ -30,7 +31,30 @@ Tests **and fixes** are not verification-only. A terminal command by itself does
 
 When both the goal and a `verify` or `execute` phase meet `policy.activityMass`, the router considers the
 `ops` cell. It uses the lower of their supports for the existing activity-switch gates; it does not multiply them
-or claim they are independently calibrated. A missing, malformed, uncertain or weak phase keeps the goal route.
+or claim they are independently calibrated. For goal `ops`, accepted `reason` uses the same-tier `debug` cell and
+accepted `produce` uses `code`, including the active routing mode and explicit user cells. It never substitutes a
+possibly weaker generic route for adaptive work: a mixed cost profile can keep DeepSeek at medium while its generic
+medium is GLM Flash. These are work preferences, not new activities or universal model-quality scores. Explicit debug/code cells,
+including an explicit use-tier cell, remain authoritative. If a missing cell merely inherits a generic route that
+is declared weaker than ops, the stronger ops preference is retained; unknown suitability is not inferred from price.
+An explicit debug/code floor may be nominated on a continuation even when model order is unknown, but confidence,
+cache, escalation-hold, cash and eligibility gates still decide. An inherited unknown generic cell gets no exception.
+
+When the bounded ops pair and its accepted reasoning/code preference are identical, the semantic preference still
+applies before tier policy: a later high-tier upgrade must use the work floor, not bounded ops. A protected physical
+ops cell keeps accepted work intent separately for later tool-context or modality refits. A nomination is not
+acceptance: confidence, hold, cash and eligibility refusals keep the incumbent's accepted intent (or none), including
+when its activity label matches the proposal. Refits use that accepted outcome, never a rejected role. If a
+smaller-window proposal is rejected because context/history is unmeasured, restored and fallback cells each resolve
+their own accepted floor; native/base alternatives retain their existing eligibility.
+A physical change derived from the current phase uses the lower of goal and phase support, even if the label is
+unchanged. Genuine mode/configuration changes to an already accepted preference retain their usual support rules. That transient intent
+clears with a history reset, superseding advice or observed upward move, pin/off mode, or native-unavailable fallback;
+it never creates a new goal or bypasses eligibility gates.
+
+For goal `ops`, `report` or a missing, malformed, uncertain or weak phase introduces no new ops discount: a continuation
+keeps its eligible incumbent, and a fresh task considers the existing generic tier route through the usual gates.
+Other goals keep their normal activity preference when phase is unclear.
 The usual cache, dwell, escalation, model availability, context and credits checks still apply. A background phase answer expires when newer messages have arrived since its snapshot; stale bounded-command evidence cannot justify a cheaper step. A successful
 classifier decision displays goal, phase and the route activity separately. Pins ignore activity routing.
 
@@ -90,9 +114,10 @@ show about that shared cache, and its limits.
 
 - It is weakest at code. Terminal-Bench 4.0: Haiku 39.2%, Sonnet 70.6%, Opus 66.4%. SWE-bench Pro: 64.8%, 81.3%,
   89.9%.
-- Its quality depends on effort more than the larger models do. The defaults use `medium` and `high`.
-- Avoid `xhigh` in multi-turn chats. Anthropic reports that Haiku then sometimes puts the whole answer in its thinking
-  and shows no reply.
+- Its quality depends on effort more than the larger models do. Automatic `quality` selection prefers `high`,
+  with one exception: bounded `ops` at `medium` may use `xhigh`. Explicit higher settings and pins remain supported.
+- Anthropic documents an `xhigh` risk in multi-turn chats: Haiku sometimes puts the whole answer in its thinking
+  and shows no reply. This was not reproduced by the High-only pilot; the preference is not a provider-wide effort cap.
 - Above 100,000 tokens of context, Anthropic charges 5 times Haiku's list price. Even then it costs at most a quarter
   of what Opus costs per token, and against Sonnet a quarter for input and output and half for cache reads.
 

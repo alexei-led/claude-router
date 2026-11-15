@@ -517,7 +517,9 @@ test('a turn moves up to the route its own tool calls show, never down, and not 
 });
 
 test('an observed move to a smaller window waits for a measured context, as a routed turn does', () => {
-  const config = loadConfig({ userFile: { models: { tiny }, activities: { code: { medium: { model: 'tiny' } } } } });
+  const config = loadConfig({
+    userFile: { models: { tiny: { ...tiny, strength: 2 } }, activities: { code: { medium: { model: 'tiny' } } } },
+  });
   const loop = {
     ...emptyLoop(config, model),
     lastRoute: 'medium',
