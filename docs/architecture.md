@@ -101,6 +101,8 @@ Equal physical pairs can adopt the semantic preference without a switch before t
 provenance through `chooseCell`/`decideCell`; lateral refusal restores the incumbent's accepted floor, not the proposed
 role. Same-label physical changes introduced by a new phase projection use min(goal, phase) support, not the support
 of 1 reserved for operator mode/config changes. Context/availability refits consume the post-gate accepted projection.
+Every configured alternative resolves its own floor provenance, including after an unmeasured-window restore or a
+last/native fallback. The existing rule for keeping the actual incumbent request remains separate and unchanged.
 `continueRoute` projects that accepted preference per tier when context/modality requires a new eligible route. The field belongs to the accepted
 turn decision: new advice recomputes it; history reset, observed upward supersession, pin/off and native-unavailable
 fallback clear it. Existing host session/generation/review fences still own when a decision can apply.

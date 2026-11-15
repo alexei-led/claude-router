@@ -361,6 +361,82 @@ test('a protected incumbent floor also owns mandatory refits in the request that
   }
 });
 
+test('unmeasured-window restoration resolves every fallback through its own floor, preserving native-base controls', () => {
+  for (const [oldPhase, oldActivity, newPhase, newActivity] of [
+    ['reason', 'debug', 'produce', 'code'],
+    ['produce', 'code', 'reason', 'debug'],
+  ])
+    for (const constraint of ['images', 'availability'])
+      for (const contextKnown of [false, true])
+        for (const nativeBase of [false, true]) {
+          const config = mixed();
+          config.models.luna = { ...model('luna-fixture', 0.05, 0.5), contextWindow: 2000 };
+          config.models.glm = { ...config.models.glm, contextWindow: 1_000_000, imageInput: true };
+          config.models.kimi = { ...config.models.kimi, contextWindow: 10_000, imageInput: true };
+          config.models.sonnet = { ...config.models.sonnet, contextWindow: 5000, imageInput: true };
+          config.models.opus = { ...config.models.opus, contextWindow: 1_000_000, imageInput: true };
+          config.routes = { micro: r('luna', 'low'), low: r('luna'), medium: r('glm'), high: r('opus', 'max') };
+          config.activities = {
+            [oldActivity]: { high: r('opus', 'max') },
+            [newActivity]: { medium: r('sonnet'), high: r('sonnet') },
+            ops: { medium: r('kimi'), high: r('sonnet') },
+          };
+          const nativeModel = config.models[nativeBase ? 'glm' : 'kimi'].id;
+          const running = select(config, 'medium', oldPhase, {
+            nativeModel,
+            loop: { ...emptyLoop(config, nativeModel), historyMeasured: true, lastRoute: 'medium' },
+          });
+          assert.deepEqual(running.decision.route, r('kimi'));
+          assert.equal(running.decision.activity, 'ops');
+          assert.equal(running.decision.floorActivity, oldActivity);
+          const from = contextKnown ? { ...running, historyMeasured: false } : running;
+          const restored = select(config, 'medium', newPhase, {
+            loop: from,
+            nativeModel,
+            continuation: 0.99,
+            contextKnown,
+          });
+          assert.equal(restored.decision.reason, 'context-unknown');
+          assert.deepEqual(restored.decision.route, r('kimi'));
+          assert.equal(restored.decision.floorActivity, oldActivity);
+          if (constraint === 'images') config.models.kimi.imageInput = false;
+          const availableModels =
+            constraint === 'availability' ? [config.models.glm.id, config.models.opus.id] : undefined;
+          const fitted = select(config, 'medium', newPhase, {
+            loop: from,
+            nativeModel,
+            continuation: 0.99,
+            contextKnown,
+            availableModels,
+            facts: { hasImages: constraint === 'images' },
+          });
+          const name = `${oldPhase} -> ${newPhase}, ${constraint}, contextKnown=${contextKnown}, nativeBase=${nativeBase}`;
+          assert.deepEqual(fitted.decision.route, nativeBase ? r('glm') : r('opus', 'max'), name);
+          assert.equal(fitted.decision.activity, nativeBase ? null : oldActivity, name);
+          assert.equal(fitted.decision.floorActivity, nativeBase ? null : oldActivity, name);
+          assert.equal(fitted.decision.goal, 'ops');
+          assert.equal(fitted.decision.reason, 'model-unavailable');
+        }
+});
+
+test('classifier failure still keeps the actual request when a floor expires and configuration changes', () => {
+  for (const [phase, activity] of [
+    ['reason', 'debug'],
+    ['produce', 'code'],
+  ]) {
+    const config = mixed();
+    delete config.activities[activity].medium;
+    const running = select(config, 'medium', phase);
+    const edited = {
+      ...config,
+      activities: { ...config.activities, ops: { ...config.activities.ops, medium: r('opus') } },
+    };
+    const kept = select(edited, 'medium', null, { loop: running, advice: null });
+    assert.equal(kept.decision.reason, 'no-advice');
+    assert.deepEqual(kept.decision.route, running.decision.route);
+  }
+});
+
 test('same-label phase-derived physical changes use min goal/phase support, not operator mass one', () => {
   for (const [name, activity] of [
     ['reason', 'debug'],

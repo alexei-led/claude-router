@@ -7,8 +7,8 @@
 - Route adaptive ops by phase without changing the durable goal: accepted `reason` uses the same-tier `debug` preference; `produce` uses `code`. Accepted bounded `verify`/`execute` keeps the ops preference. Active modes, explicit user cells and existing switching gates still apply. An inherited weaker generic cell does not replace a stronger ops preference.
 - Do not introduce a new ops discount for reporting or weak/missing/unknown phase. Keep an eligible continuation; consider the existing generic baseline on fresh uncertainty.
 - Prefer Haiku 5.5 High in automatic quality selection, with one exception: medium bounded ops may use Xhigh. Deliberate higher settings, pins and other providers' supported efforts remain unchanged. The Xhigh empty-answer risk is provider-documented, not reproduced by the High-only pilot.
-- Use declared `strength` ranks for capability and subagent direction, never tariffs. Custom unknown ranks stay unordered; prices remain economics inputs.
-- Keep accepted intent across equal pairs, upgrades and tool-context refits. Refusals retain incumbent intent; phase-derived switches require actual support, including unchanged labels.
+- Use declared `strength` ranks for capability and subagent direction, never tariffs. Unknown ranks stay unordered; prices remain economics inputs.
+- Preserve accepted intent across equal pairs, upgrades, window restoration and refits. Refusals retain incumbent intent; phase-derived switches require actual support with unchanged labels.
 - Label every cost readout as a configured-rate API estimate, including plan, credits and mixed profiles. `≈` marks estimates, not invoices or measured quota savings.
 
 ### Added
