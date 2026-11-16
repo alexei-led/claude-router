@@ -154,6 +154,17 @@ test('a decision row keeps labels, rounded shares and counts, never text', () =>
   assert.equal(bare.ctx, null);
 });
 
+test('table rows omit engine, while shadow and legacy table rows remain readable', () => {
+  const table = decisionRow({ at: T, kind: 'start', decision, engine: 'table' });
+  const shadow = decisionRow({ at: T, kind: 'start', decision, engine: 'shadow' });
+  assert.equal(Object.hasOwn(table, 'engine'), false);
+  assert.equal(shadow.engine, 'shadow');
+  const rows = readDecisions({ version: 1, since: T, rows: [table, { ...table, engine: 'table' }, shadow] }).rows;
+  assert.equal(Object.hasOwn(rows[0], 'engine'), false);
+  assert.equal(rows[1].engine, 'table');
+  assert.equal(rows[2].engine, 'shadow');
+});
+
 test('shadow proposals roundtrip only numeric facts and bounded identifiers, in live and stored lines', () => {
   const alt = {
     demand: 2.5,

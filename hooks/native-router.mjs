@@ -2680,7 +2680,19 @@ async function* stepMain($, router, e, next) {
       effort: e.effort,
     };
     loop = continueRoute(cfg, loop, traceInput);
-    if (cfg.routingEngine === 'shadow') traceOp(router, e, cfg, 'continue', traceInput, loop);
+    if (cfg.routingEngine === 'shadow') {
+      // Replay's incumbent may differ from the table's: retain unconditional modality and checkpoint evidence.
+      // Failure stays unknown, never a false assertion that the hypothetical route can accept this history.
+      let replayMessages = null;
+      let actualHasImages = null;
+      try {
+        replayMessages = await transcript($);
+        if (replayMessages) actualHasImages = hasImages(replayMessages);
+      } catch {
+        replayMessages = null;
+      }
+      traceOp(router, e, cfg, 'continue', { ...traceInput, actualHasImages }, loop, replayMessages);
+    }
     await updateView($, router, continuationView(cfg, loop.decision, context));
   }
   return yield* sendRouted($, router, e, next, { cfg, loop, loopVersion, sessionId, nativeModel, turn });

@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing';
 import { loadConfig } from '../lib/config.mjs';
-import { newTrace, traceBytes, usableTrace } from '../lib/replay-trace.mjs';
+import { newTrace, observedFromTrace, traceBytes, usableTrace } from '../lib/replay-trace.mjs';
 import { emptyLoop } from '../lib/route.mjs';
 import { jevResponse, user } from './helpers.mjs';
 
@@ -71,6 +71,15 @@ test('shadow recorder and explicit export execute through real Mod hooks with mo
   });
   let next = await stream.next();
   while (!next.done) next = await stream.next();
+  const continuation = $.turn.step({
+    turnId: 'native-turn',
+    index: 1,
+    model: 'claude-haiku-5-5',
+    effort: 'medium',
+    messageCount: 1,
+  });
+  let continued = await continuation.next();
+  while (!continued.done) continued = await continuation.next();
   await $.turn.complete({
     turnId: 'native-turn',
     answer: 'CANARY_REPLY',
@@ -81,6 +90,12 @@ test('shadow recorder and explicit export execute through real Mod hooks with mo
   expect(store.has('trace:v1:native-trace')).toBe(true);
   const recorded = store.get('trace:v1:native-trace');
   expect(usableTrace(recorded)).toBe(true);
+  const projected = JSON.parse(JSON.stringify(recorded));
+  const continuedOp = projected.events
+    .findLast((event: { type: string }) => event.type === 'request')
+    .operations.at(-1);
+  expect(continuedOp.actualHasImages).toBe(false);
+  expect(continuedOp.taskProgress.lastTool).toBe(-1);
   expect(JSON.stringify(recorded).includes('CANARY')).toBe(false);
   await $.command.run({ command: 'router', args: 'trace export' });
   expect(files.get('/fixture/team/router-traces.json')?.includes('native-trace')).toBe(true);
@@ -93,4 +108,5 @@ test('replay projection and UTF-8 byte accounting run inside the Mod sandbox', (
   expect(usableTrace(record)).toBe(true);
   expect(traceBytes('€')).toBe(5);
   expect(traceBytes(record) > 0).toBe(true);
+  expect(observedFromTrace({ nonDocEdit: 2, lastTool: 2 }, 0)).toBe('code');
 });

@@ -1,0 +1,2166 @@
+{
+  "version": 1,
+  "sessions": {
+    "trace:v1:synthetic": {
+      "version": 1,
+      "startedAt": 1794830400003,
+      "updatedAt": 1794830400093,
+      "active": true,
+      "incomplete": [],
+      "lostWrites": 0,
+      "capped": null,
+      "events": [
+        {
+          "type": "initial",
+          "at": 1794830400003,
+          "seq": 1,
+          "configured": {
+            "provider": "anthropic",
+            "routingEngine": "shadow",
+            "baselineTier": "low",
+            "routes": {
+              "micro": {
+                "model": "haiku",
+                "effort": "medium"
+              },
+              "low": {
+                "model": "haiku",
+                "effort": "high"
+              },
+              "medium": {
+                "model": "opus",
+                "effort": "medium"
+              },
+              "high": {
+                "model": "opus",
+                "effort": "xhigh"
+              }
+            },
+            "activities": {
+              "code": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "debug": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "plan": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "review": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "ops": {
+                "medium": {
+                  "model": "haiku",
+                  "effort": "high"
+                }
+              }
+            },
+            "configuredActivities": {
+              "code": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "debug": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "plan": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "review": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "ops": {
+                "medium": {
+                  "model": "haiku",
+                  "effort": "high"
+                }
+              }
+            },
+            "activityRouting": "on",
+            "mode": "balanced",
+            "modes": {
+              "cost": {
+                "policy": {
+                  "upgradeVotes": 2,
+                  "upgradeBase": 0.75,
+                  "jumpConfidence": 0.98,
+                  "downgradeVotes": 1,
+                  "downgradeMass": 0.65,
+                  "escalationHoldTurns": 1,
+                  "minDwellRequests": 4
+                }
+              },
+              "quality": {
+                "policy": {
+                  "upgradeVotes": 1,
+                  "upgradeBase": 0.6,
+                  "jumpConfidence": 0.9,
+                  "downgradeVotes": 3,
+                  "downgradeMass": 0.95,
+                  "escalationHoldTurns": 4,
+                  "minDwellRequests": 16
+                }
+              }
+            },
+            "policy": {
+              "upgradeVotes": 2,
+              "upgradeBase": 0.75,
+              "upgradeSlope": 0.15,
+              "upgradePivotUsd": 0.5,
+              "jumpConfidence": 0.95,
+              "downgradeVotes": 2,
+              "downgradeMass": 0.9,
+              "downgradeSlope": 0.08,
+              "downgradePivotUsd": 0.5,
+              "downgradeHorizonTurns": 5,
+              "continuationMass": 0.7,
+              "escalationHoldTurns": 2,
+              "reviewEveryRequests": 0,
+              "minDwellRequests": 8,
+              "cashCapUsd": 2,
+              "activityMass": 0.6
+            },
+            "models": {
+              "fable": {
+                "id": "claude-fable-5-2",
+                "strength": 4,
+                "contextWindow": 1000000,
+                "input": 8,
+                "cacheRead": 0.2,
+                "output": 40,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "opus": {
+                "id": "claude-opus-5-5",
+                "strength": 3,
+                "contextWindow": 1000000,
+                "input": 4,
+                "cacheRead": 0.2,
+                "output": 20,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "sonnet": {
+                "id": "claude-sonnet-5-5",
+                "strength": 2,
+                "contextWindow": 1000000,
+                "input": 2,
+                "cacheRead": 0.1,
+                "output": 10,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "haiku": {
+                "id": "claude-haiku-5-5",
+                "strength": 1,
+                "contextWindow": 1000000,
+                "input": 0.1,
+                "cacheRead": 0.01,
+                "output": 0.5,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {},
+                "longContext": {
+                  "above": 100000,
+                  "multiplier": 5
+                }
+              }
+            },
+            "effortSplitsCache": false,
+            "cache": {
+              "mode": "explicit",
+              "effortScope": "auto",
+              "writeMultiplier": {
+                "5m": 1.25,
+                "1h": 2
+              },
+              "ttlMs": {
+                "5m": 300000,
+                "1h": 3600000
+              },
+              "warmMarginMs": 30000
+            },
+            "context": {
+              "recentTurns": 6,
+              "maxTextChars": 1200
+            }
+          },
+          "config": {
+            "provider": "anthropic",
+            "routingEngine": "shadow",
+            "baselineTier": "low",
+            "routes": {
+              "micro": {
+                "model": "haiku",
+                "effort": "medium"
+              },
+              "low": {
+                "model": "haiku",
+                "effort": "high"
+              },
+              "medium": {
+                "model": "opus",
+                "effort": "medium"
+              },
+              "high": {
+                "model": "opus",
+                "effort": "xhigh"
+              }
+            },
+            "activities": {
+              "code": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "debug": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "plan": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "review": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "ops": {
+                "medium": {
+                  "model": "haiku",
+                  "effort": "high"
+                }
+              }
+            },
+            "configuredActivities": {
+              "code": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "debug": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "plan": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "review": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "ops": {
+                "medium": {
+                  "model": "haiku",
+                  "effort": "high"
+                }
+              }
+            },
+            "activityRouting": "on",
+            "mode": "balanced",
+            "routingMode": {
+              "mode": "balanced",
+              "source": "default"
+            },
+            "modes": {
+              "cost": {
+                "policy": {
+                  "upgradeVotes": 2,
+                  "upgradeBase": 0.75,
+                  "jumpConfidence": 0.98,
+                  "downgradeVotes": 1,
+                  "downgradeMass": 0.65,
+                  "escalationHoldTurns": 1,
+                  "minDwellRequests": 4
+                }
+              },
+              "quality": {
+                "policy": {
+                  "upgradeVotes": 1,
+                  "upgradeBase": 0.6,
+                  "jumpConfidence": 0.9,
+                  "downgradeVotes": 3,
+                  "downgradeMass": 0.95,
+                  "escalationHoldTurns": 4,
+                  "minDwellRequests": 16
+                }
+              }
+            },
+            "policy": {
+              "upgradeVotes": 2,
+              "upgradeBase": 0.75,
+              "upgradeSlope": 0.15,
+              "upgradePivotUsd": 0.5,
+              "jumpConfidence": 0.95,
+              "downgradeVotes": 2,
+              "downgradeMass": 0.9,
+              "downgradeSlope": 0.08,
+              "downgradePivotUsd": 0.5,
+              "downgradeHorizonTurns": 5,
+              "continuationMass": 0.7,
+              "escalationHoldTurns": 2,
+              "reviewEveryRequests": 0,
+              "minDwellRequests": 8,
+              "cashCapUsd": 2,
+              "activityMass": 0.6
+            },
+            "models": {
+              "fable": {
+                "id": "claude-fable-5-2",
+                "strength": 4,
+                "contextWindow": 1000000,
+                "input": 8,
+                "cacheRead": 0.2,
+                "output": 40,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "opus": {
+                "id": "claude-opus-5-5",
+                "strength": 3,
+                "contextWindow": 1000000,
+                "input": 4,
+                "cacheRead": 0.2,
+                "output": 20,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "sonnet": {
+                "id": "claude-sonnet-5-5",
+                "strength": 2,
+                "contextWindow": 1000000,
+                "input": 2,
+                "cacheRead": 0.1,
+                "output": 10,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "haiku": {
+                "id": "claude-haiku-5-5",
+                "strength": 1,
+                "contextWindow": 1000000,
+                "input": 0.1,
+                "cacheRead": 0.01,
+                "output": 0.5,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {},
+                "longContext": {
+                  "above": 100000,
+                  "multiplier": 5
+                }
+              }
+            },
+            "effortSplitsCache": false,
+            "cache": {
+              "mode": "explicit",
+              "effortScope": "auto",
+              "writeMultiplier": {
+                "5m": 1.25,
+                "1h": 2
+              },
+              "ttlMs": {
+                "5m": 300000,
+                "1h": 3600000
+              },
+              "warmMarginMs": 30000
+            },
+            "context": {
+              "recentTurns": 6,
+              "maxTextChars": 1200
+            }
+          },
+          "loop": {
+            "lastRoute": "low",
+            "lastActivity": null,
+            "route": null,
+            "state": {
+              "turn": 0,
+              "holdUntilTurn": 0,
+              "votes": [],
+              "escalatedSignature": null
+            },
+            "models": {},
+            "resolutions": {},
+            "lastRequest": null,
+            "historyMeasured": false,
+            "lastMessageCount": 1,
+            "generation": 0,
+            "requests": 0,
+            "reviewedAt": 0,
+            "observedFrom": 0,
+            "switchedAt": null,
+            "ineligible": [],
+            "suspended": false,
+            "engineModel": null,
+            "servedRoute": null,
+            "decision": null
+          }
+        },
+        {
+          "type": "request",
+          "at": 1794830400014,
+          "turn": 1,
+          "index": 0,
+          "messageCount": 1,
+          "model": "claude-sonnet-5-5",
+          "effort": "high",
+          "mode": "auto",
+          "engineModel": "claude-haiku-5-5",
+          "engineEffort": "medium",
+          "reviewedAt": 0,
+          "observedFrom": 0,
+          "operations": [
+            {
+              "kind": "choose",
+              "at": 1794830400011,
+              "taskProgress": {
+                "check": null,
+                "edit": null,
+                "run": null,
+                "delegate": -1,
+                "anyCheck": -1,
+                "nonDocEdit": -1,
+                "prompt": 0,
+                "result": null,
+                "lastTool": -1
+              },
+              "facts": {
+                "hasImages": false,
+                "continuation": false,
+                "downAllowed": false,
+                "progress": false,
+                "midTurn": false,
+                "effort": "medium",
+                "contextTokens": 9000,
+                "failure": null
+              },
+              "advice": {
+                "choice": "low",
+                "probabilities": {
+                  "micro": 0,
+                  "low": 1,
+                  "medium": 0,
+                  "high": 0,
+                  "uncertain": 0
+                },
+                "confidence": 0.9,
+                "continuation": 0,
+                "activity": {
+                  "choice": "code",
+                  "probabilities": {
+                    "code": 1,
+                    "debug": 0,
+                    "explore": 0,
+                    "plan": 0,
+                    "review": 0,
+                    "ops": 0,
+                    "docs": 0,
+                    "uncertain": 0
+                  }
+                },
+                "phase": {
+                  "choice": "produce",
+                  "probabilities": {
+                    "produce": 1,
+                    "reason": 0,
+                    "verify": 0,
+                    "execute": 0,
+                    "report": 0,
+                    "uncertain": 0
+                  }
+                }
+              },
+              "pin": null,
+              "nativeModel": "claude-haiku-5-5",
+              "contextKnown": true,
+              "contextTokens": null,
+              "hasImages": false,
+              "effort": null,
+              "observed": null,
+              "expected": {
+                "tier": "low",
+                "activity": "code",
+                "floorActivity": null,
+                "goal": "code",
+                "taskPhase": "produce",
+                "model": "claude-sonnet-5-5",
+                "effort": "high",
+                "route": {
+                  "model": "sonnet",
+                  "effort": "high"
+                },
+                "pinned": false,
+                "reason": "activity-up"
+              }
+            }
+          ],
+          "seq": 2
+        },
+        {
+          "type": "response",
+          "at": 1794830400015,
+          "turn": 1,
+          "index": 0,
+          "requestedModel": "claude-sonnet-5-5",
+          "effort": "high",
+          "servedModel": "claude-sonnet-5-5",
+          "usage": {
+            "input_tokens": 100,
+            "cache_read_input_tokens": 800,
+            "cache_creation_input_tokens": 200,
+            "output_tokens": 10
+          },
+          "stopReason": "end_turn",
+          "ttl": "5m",
+          "seq": 3,
+          "requestSeq": 2
+        },
+        {
+          "type": "request",
+          "at": 1794830400019,
+          "turn": 1,
+          "index": 1,
+          "messageCount": 1,
+          "model": "claude-sonnet-5-5",
+          "effort": "high",
+          "mode": "auto",
+          "engineModel": "claude-haiku-5-5",
+          "engineEffort": "medium",
+          "reviewedAt": 0,
+          "observedFrom": 0,
+          "operations": [
+            {
+              "kind": "continue",
+              "at": 1794830400018,
+              "taskProgress": {
+                "check": null,
+                "edit": null,
+                "run": null,
+                "delegate": -1,
+                "anyCheck": -1,
+                "nonDocEdit": -1,
+                "prompt": 0,
+                "result": null,
+                "lastTool": -1
+              },
+              "facts": null,
+              "pin": null,
+              "nativeModel": "claude-haiku-5-5",
+              "contextKnown": true,
+              "contextTokens": 9000,
+              "hasImages": false,
+              "actualHasImages": false,
+              "effort": "medium",
+              "observed": null,
+              "expected": {
+                "tier": "low",
+                "activity": "code",
+                "floorActivity": null,
+                "goal": "code",
+                "taskPhase": "produce",
+                "model": "claude-sonnet-5-5",
+                "effort": "high",
+                "route": {
+                  "model": "sonnet",
+                  "effort": "high"
+                },
+                "pinned": false,
+                "reason": "activity-up"
+              }
+            }
+          ],
+          "seq": 4
+        },
+        {
+          "type": "response",
+          "at": 1794830400020,
+          "turn": 1,
+          "index": 1,
+          "requestedModel": "claude-sonnet-5-5",
+          "effort": "high",
+          "servedModel": "claude-sonnet-5-5",
+          "usage": {
+            "input_tokens": 100,
+            "cache_read_input_tokens": 800,
+            "cache_creation_input_tokens": 200,
+            "output_tokens": 10
+          },
+          "stopReason": "end_turn",
+          "ttl": "5m",
+          "seq": 5,
+          "requestSeq": 4
+        },
+        {
+          "type": "end",
+          "at": 1794830400027,
+          "turn": 1,
+          "seq": 6
+        },
+        {
+          "type": "config",
+          "at": 1794830400036,
+          "turn": 2,
+          "index": 0,
+          "configured": {
+            "provider": "anthropic",
+            "routingEngine": "shadow",
+            "baselineTier": "low",
+            "routes": {
+              "micro": {
+                "model": "haiku",
+                "effort": "medium"
+              },
+              "low": {
+                "model": "haiku",
+                "effort": "high"
+              },
+              "medium": {
+                "model": "opus",
+                "effort": "medium"
+              },
+              "high": {
+                "model": "opus",
+                "effort": "xhigh"
+              }
+            },
+            "activities": {
+              "code": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "debug": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "plan": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "review": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "ops": {
+                "medium": {
+                  "model": "haiku",
+                  "effort": "high"
+                }
+              }
+            },
+            "configuredActivities": {
+              "code": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "debug": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "plan": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "review": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "ops": {
+                "medium": {
+                  "model": "haiku",
+                  "effort": "high"
+                }
+              }
+            },
+            "activityRouting": "on",
+            "mode": "balanced",
+            "modes": {
+              "cost": {
+                "policy": {
+                  "upgradeVotes": 2,
+                  "upgradeBase": 0.75,
+                  "jumpConfidence": 0.98,
+                  "downgradeVotes": 1,
+                  "downgradeMass": 0.65,
+                  "escalationHoldTurns": 1,
+                  "minDwellRequests": 4
+                }
+              },
+              "quality": {
+                "policy": {
+                  "upgradeVotes": 1,
+                  "upgradeBase": 0.6,
+                  "jumpConfidence": 0.9,
+                  "downgradeVotes": 3,
+                  "downgradeMass": 0.95,
+                  "escalationHoldTurns": 4,
+                  "minDwellRequests": 16
+                }
+              }
+            },
+            "policy": {
+              "upgradeVotes": 2,
+              "upgradeBase": 0.75,
+              "upgradeSlope": 0.15,
+              "upgradePivotUsd": 0.5,
+              "jumpConfidence": 0.95,
+              "downgradeVotes": 2,
+              "downgradeMass": 0.9,
+              "downgradeSlope": 0.08,
+              "downgradePivotUsd": 0.5,
+              "downgradeHorizonTurns": 5,
+              "continuationMass": 0.7,
+              "escalationHoldTurns": 2,
+              "reviewEveryRequests": 0,
+              "minDwellRequests": 8,
+              "cashCapUsd": 2,
+              "activityMass": 0.6
+            },
+            "models": {
+              "fable": {
+                "id": "claude-fable-5-2",
+                "strength": 4,
+                "contextWindow": 1000000,
+                "input": 8,
+                "cacheRead": 0.2,
+                "output": 40,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "opus": {
+                "id": "claude-opus-5-5",
+                "strength": 3,
+                "contextWindow": 1000000,
+                "input": 4,
+                "cacheRead": 0.2,
+                "output": 20,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "sonnet": {
+                "id": "claude-sonnet-5-5",
+                "strength": 2,
+                "contextWindow": 1000000,
+                "input": 2,
+                "cacheRead": 0.1,
+                "output": 10,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "haiku": {
+                "id": "claude-haiku-5-5",
+                "strength": 1,
+                "contextWindow": 1000000,
+                "input": 0.1,
+                "cacheRead": 0.01,
+                "output": 0.5,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {},
+                "longContext": {
+                  "above": 100000,
+                  "multiplier": 5
+                }
+              }
+            },
+            "effortSplitsCache": false,
+            "cache": {
+              "mode": "explicit",
+              "effortScope": "auto",
+              "writeMultiplier": {
+                "5m": 1.25,
+                "1h": 2
+              },
+              "ttlMs": {
+                "5m": 300000,
+                "1h": 3600000
+              },
+              "warmMarginMs": 30000
+            },
+            "context": {
+              "recentTurns": 6,
+              "maxTextChars": 1200
+            }
+          },
+          "config": {
+            "provider": "anthropic",
+            "routingEngine": "shadow",
+            "baselineTier": "low",
+            "routes": {
+              "micro": {
+                "model": "haiku",
+                "effort": "medium"
+              },
+              "low": {
+                "model": "haiku",
+                "effort": "high"
+              },
+              "medium": {
+                "model": "opus",
+                "effort": "medium"
+              },
+              "high": {
+                "model": "opus",
+                "effort": "xhigh"
+              }
+            },
+            "activities": {
+              "code": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "debug": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "plan": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "review": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "ops": {
+                "medium": {
+                  "model": "haiku",
+                  "effort": "high"
+                }
+              }
+            },
+            "configuredActivities": {
+              "code": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "debug": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "plan": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "review": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "ops": {
+                "medium": {
+                  "model": "haiku",
+                  "effort": "high"
+                }
+              }
+            },
+            "activityRouting": "on",
+            "mode": "balanced",
+            "routingMode": {
+              "mode": "quality",
+              "source": "session"
+            },
+            "modes": {
+              "cost": {
+                "policy": {
+                  "upgradeVotes": 2,
+                  "upgradeBase": 0.75,
+                  "jumpConfidence": 0.98,
+                  "downgradeVotes": 1,
+                  "downgradeMass": 0.65,
+                  "escalationHoldTurns": 1,
+                  "minDwellRequests": 4
+                }
+              },
+              "quality": {
+                "policy": {
+                  "upgradeVotes": 1,
+                  "upgradeBase": 0.6,
+                  "jumpConfidence": 0.9,
+                  "downgradeVotes": 3,
+                  "downgradeMass": 0.95,
+                  "escalationHoldTurns": 4,
+                  "minDwellRequests": 16
+                }
+              }
+            },
+            "policy": {
+              "upgradeVotes": 2,
+              "upgradeBase": 0.75,
+              "upgradeSlope": 0.15,
+              "upgradePivotUsd": 0.5,
+              "jumpConfidence": 0.95,
+              "downgradeVotes": 2,
+              "downgradeMass": 0.9,
+              "downgradeSlope": 0.08,
+              "downgradePivotUsd": 0.5,
+              "downgradeHorizonTurns": 5,
+              "continuationMass": 0.7,
+              "escalationHoldTurns": 2,
+              "reviewEveryRequests": 0,
+              "minDwellRequests": 8,
+              "cashCapUsd": 2,
+              "activityMass": 0.6
+            },
+            "models": {
+              "fable": {
+                "id": "claude-fable-5-2",
+                "strength": 4,
+                "contextWindow": 1000000,
+                "input": 8,
+                "cacheRead": 0.2,
+                "output": 40,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "opus": {
+                "id": "claude-opus-5-5",
+                "strength": 3,
+                "contextWindow": 1000000,
+                "input": 4,
+                "cacheRead": 0.2,
+                "output": 20,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "sonnet": {
+                "id": "claude-sonnet-5-5",
+                "strength": 2,
+                "contextWindow": 1000000,
+                "input": 2,
+                "cacheRead": 0.1,
+                "output": 10,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "haiku": {
+                "id": "claude-haiku-5-5",
+                "strength": 1,
+                "contextWindow": 1000000,
+                "input": 0.1,
+                "cacheRead": 0.01,
+                "output": 0.5,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {},
+                "longContext": {
+                  "above": 100000,
+                  "multiplier": 5
+                }
+              }
+            },
+            "effortSplitsCache": false,
+            "cache": {
+              "mode": "explicit",
+              "effortScope": "auto",
+              "writeMultiplier": {
+                "5m": 1.25,
+                "1h": 2
+              },
+              "ttlMs": {
+                "5m": 300000,
+                "1h": 3600000
+              },
+              "warmMarginMs": 30000
+            },
+            "context": {
+              "recentTurns": 6,
+              "maxTextChars": 1200
+            }
+          },
+          "seq": 7
+        },
+        {
+          "type": "control",
+          "at": 1794830400029,
+          "turn": 2,
+          "index": 0,
+          "mode": {
+            "mode": "quality",
+            "source": "session"
+          },
+          "pin": null,
+          "enabled": true,
+          "seq": 8
+        },
+        {
+          "type": "control",
+          "at": 1794830400030,
+          "turn": 2,
+          "index": 0,
+          "mode": {
+            "mode": "quality",
+            "source": "session"
+          },
+          "pin": "high",
+          "enabled": true,
+          "seq": 9
+        },
+        {
+          "type": "request",
+          "at": 1794830400037,
+          "turn": 2,
+          "index": 0,
+          "messageCount": 3,
+          "model": "claude-opus-5-5",
+          "effort": "xhigh",
+          "mode": "auto",
+          "engineModel": "claude-haiku-5-5",
+          "engineEffort": "medium",
+          "reviewedAt": 2,
+          "observedFrom": 0,
+          "operations": [
+            {
+              "kind": "choose",
+              "at": 1794830400033,
+              "taskProgress": {
+                "check": null,
+                "edit": null,
+                "run": null,
+                "delegate": -1,
+                "anyCheck": -1,
+                "nonDocEdit": -1,
+                "prompt": 2,
+                "result": null,
+                "lastTool": -1
+              },
+              "facts": {
+                "hasImages": false,
+                "continuation": false,
+                "downAllowed": false,
+                "progress": false,
+                "midTurn": false,
+                "effort": "medium",
+                "contextTokens": 9000,
+                "failure": null
+              },
+              "advice": null,
+              "pin": "high",
+              "nativeModel": "claude-haiku-5-5",
+              "contextKnown": true,
+              "contextTokens": null,
+              "hasImages": false,
+              "effort": null,
+              "observed": null,
+              "expected": {
+                "tier": "high",
+                "activity": null,
+                "floorActivity": null,
+                "goal": null,
+                "taskPhase": null,
+                "model": "claude-opus-5-5",
+                "effort": "xhigh",
+                "route": {
+                  "model": "opus",
+                  "effort": "xhigh"
+                },
+                "pinned": true,
+                "reason": "pinned"
+              }
+            }
+          ],
+          "seq": 10
+        },
+        {
+          "type": "response",
+          "at": 1794830400038,
+          "turn": 2,
+          "index": 0,
+          "requestedModel": "claude-opus-5-5",
+          "effort": "xhigh",
+          "servedModel": "claude-opus-5-5",
+          "usage": {
+            "input_tokens": 100,
+            "cache_read_input_tokens": 800,
+            "cache_creation_input_tokens": 200,
+            "output_tokens": 10
+          },
+          "stopReason": "end_turn",
+          "ttl": "5m",
+          "seq": 11,
+          "requestSeq": 10
+        },
+        {
+          "type": "request",
+          "at": 1794830400042,
+          "turn": 2,
+          "index": 1,
+          "messageCount": 3,
+          "model": "claude-opus-5-5",
+          "effort": "xhigh",
+          "mode": "auto",
+          "engineModel": "claude-haiku-5-5",
+          "engineEffort": "medium",
+          "reviewedAt": 2,
+          "observedFrom": 0,
+          "operations": [
+            {
+              "kind": "continue",
+              "at": 1794830400041,
+              "taskProgress": {
+                "check": null,
+                "edit": null,
+                "run": null,
+                "delegate": -1,
+                "anyCheck": -1,
+                "nonDocEdit": -1,
+                "prompt": 2,
+                "result": null,
+                "lastTool": -1
+              },
+              "facts": null,
+              "pin": null,
+              "nativeModel": "claude-haiku-5-5",
+              "contextKnown": true,
+              "contextTokens": 9000,
+              "hasImages": false,
+              "actualHasImages": false,
+              "effort": "medium",
+              "observed": null,
+              "expected": {
+                "tier": "high",
+                "activity": null,
+                "floorActivity": null,
+                "goal": null,
+                "taskPhase": null,
+                "model": "claude-opus-5-5",
+                "effort": "xhigh",
+                "route": {
+                  "model": "opus",
+                  "effort": "xhigh"
+                },
+                "pinned": true,
+                "reason": "pinned"
+              }
+            }
+          ],
+          "seq": 12
+        },
+        {
+          "type": "response",
+          "at": 1794830400043,
+          "turn": 2,
+          "index": 1,
+          "requestedModel": "claude-opus-5-5",
+          "effort": "xhigh",
+          "servedModel": "claude-opus-5-5",
+          "usage": {
+            "input_tokens": 100,
+            "cache_read_input_tokens": 800,
+            "cache_creation_input_tokens": 200,
+            "output_tokens": 10
+          },
+          "stopReason": "end_turn",
+          "ttl": "5m",
+          "seq": 13,
+          "requestSeq": 12
+        },
+        {
+          "type": "end",
+          "at": 1794830400050,
+          "turn": 2,
+          "seq": 14
+        },
+        {
+          "type": "config",
+          "at": 1794830400054,
+          "turn": 3,
+          "index": 0,
+          "configured": {
+            "provider": "anthropic",
+            "routingEngine": "shadow",
+            "baselineTier": "low",
+            "routes": {
+              "micro": {
+                "model": "haiku",
+                "effort": "medium"
+              },
+              "low": {
+                "model": "haiku",
+                "effort": "high"
+              },
+              "medium": {
+                "model": "opus",
+                "effort": "medium"
+              },
+              "high": {
+                "model": "opus",
+                "effort": "xhigh"
+              }
+            },
+            "activities": {
+              "code": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "debug": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "plan": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "review": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "ops": {
+                "medium": {
+                  "model": "haiku",
+                  "effort": "high"
+                }
+              }
+            },
+            "configuredActivities": {
+              "code": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "debug": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "plan": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "review": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "ops": {
+                "medium": {
+                  "model": "haiku",
+                  "effort": "high"
+                }
+              }
+            },
+            "activityRouting": "on",
+            "mode": "balanced",
+            "modes": {
+              "cost": {
+                "policy": {
+                  "upgradeVotes": 2,
+                  "upgradeBase": 0.75,
+                  "jumpConfidence": 0.98,
+                  "downgradeVotes": 1,
+                  "downgradeMass": 0.65,
+                  "escalationHoldTurns": 1,
+                  "minDwellRequests": 4
+                }
+              },
+              "quality": {
+                "policy": {
+                  "upgradeVotes": 1,
+                  "upgradeBase": 0.6,
+                  "jumpConfidence": 0.9,
+                  "downgradeVotes": 3,
+                  "downgradeMass": 0.95,
+                  "escalationHoldTurns": 4,
+                  "minDwellRequests": 16
+                }
+              }
+            },
+            "policy": {
+              "upgradeVotes": 2,
+              "upgradeBase": 0.75,
+              "upgradeSlope": 0.15,
+              "upgradePivotUsd": 0.5,
+              "jumpConfidence": 0.95,
+              "downgradeVotes": 2,
+              "downgradeMass": 0.9,
+              "downgradeSlope": 0.08,
+              "downgradePivotUsd": 0.5,
+              "downgradeHorizonTurns": 5,
+              "continuationMass": 0.7,
+              "escalationHoldTurns": 2,
+              "reviewEveryRequests": 0,
+              "minDwellRequests": 8,
+              "cashCapUsd": 2,
+              "activityMass": 0.6
+            },
+            "models": {
+              "fable": {
+                "id": "claude-fable-5-2",
+                "strength": 4,
+                "contextWindow": 1000000,
+                "input": 8,
+                "cacheRead": 0.2,
+                "output": 40,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "opus": {
+                "id": "claude-opus-5-5",
+                "strength": 3,
+                "contextWindow": 1000000,
+                "input": 4,
+                "cacheRead": 0.2,
+                "output": 20,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "sonnet": {
+                "id": "claude-sonnet-5-5",
+                "strength": 2,
+                "contextWindow": 1000000,
+                "input": 2,
+                "cacheRead": 0.1,
+                "output": 10,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "haiku": {
+                "id": "claude-haiku-5-5",
+                "strength": 1,
+                "contextWindow": 1000000,
+                "input": 0.1,
+                "cacheRead": 0.01,
+                "output": 0.5,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {},
+                "longContext": {
+                  "above": 100000,
+                  "multiplier": 5
+                }
+              }
+            },
+            "effortSplitsCache": false,
+            "cache": {
+              "mode": "explicit",
+              "effortScope": "auto",
+              "writeMultiplier": {
+                "5m": 1.25,
+                "1h": 2
+              },
+              "ttlMs": {
+                "5m": 300000,
+                "1h": 3600000
+              },
+              "warmMarginMs": 30000
+            },
+            "context": {
+              "recentTurns": 6,
+              "maxTextChars": 1200
+            }
+          },
+          "config": {
+            "provider": "anthropic",
+            "routingEngine": "shadow",
+            "baselineTier": "low",
+            "routes": {
+              "micro": {
+                "model": "haiku",
+                "effort": "medium"
+              },
+              "low": {
+                "model": "haiku",
+                "effort": "high"
+              },
+              "medium": {
+                "model": "opus",
+                "effort": "high"
+              },
+              "high": {
+                "model": "opus",
+                "effort": "max"
+              }
+            },
+            "activities": {
+              "code": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "xhigh"
+                }
+              },
+              "debug": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "xhigh"
+                }
+              },
+              "plan": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "xhigh"
+                }
+              },
+              "review": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "xhigh"
+                }
+              },
+              "ops": {
+                "medium": {
+                  "model": "haiku",
+                  "effort": "xhigh"
+                }
+              }
+            },
+            "configuredActivities": {
+              "code": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "debug": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "plan": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "review": {
+                "low": {
+                  "model": "sonnet",
+                  "effort": "high"
+                }
+              },
+              "ops": {
+                "medium": {
+                  "model": "haiku",
+                  "effort": "high"
+                }
+              }
+            },
+            "activityRouting": "on",
+            "mode": "balanced",
+            "routingMode": {
+              "mode": "quality",
+              "source": "session"
+            },
+            "modes": {
+              "cost": {
+                "policy": {
+                  "upgradeVotes": 2,
+                  "upgradeBase": 0.75,
+                  "jumpConfidence": 0.98,
+                  "downgradeVotes": 1,
+                  "downgradeMass": 0.65,
+                  "escalationHoldTurns": 1,
+                  "minDwellRequests": 4
+                }
+              },
+              "quality": {
+                "policy": {
+                  "upgradeVotes": 1,
+                  "upgradeBase": 0.6,
+                  "jumpConfidence": 0.9,
+                  "downgradeVotes": 3,
+                  "downgradeMass": 0.95,
+                  "escalationHoldTurns": 4,
+                  "minDwellRequests": 16
+                }
+              }
+            },
+            "policy": {
+              "upgradeVotes": 1,
+              "upgradeBase": 0.6,
+              "upgradeSlope": 0.15,
+              "upgradePivotUsd": 0.5,
+              "jumpConfidence": 0.9,
+              "downgradeVotes": 3,
+              "downgradeMass": 0.95,
+              "downgradeSlope": 0.08,
+              "downgradePivotUsd": 0.5,
+              "downgradeHorizonTurns": 5,
+              "continuationMass": 0.7,
+              "escalationHoldTurns": 4,
+              "reviewEveryRequests": 0,
+              "minDwellRequests": 16,
+              "cashCapUsd": 2,
+              "activityMass": 0.6
+            },
+            "models": {
+              "fable": {
+                "id": "claude-fable-5-2",
+                "strength": 4,
+                "contextWindow": 1000000,
+                "input": 8,
+                "cacheRead": 0.2,
+                "output": 40,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "opus": {
+                "id": "claude-opus-5-5",
+                "strength": 3,
+                "contextWindow": 1000000,
+                "input": 4,
+                "cacheRead": 0.2,
+                "output": 20,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "sonnet": {
+                "id": "claude-sonnet-5-5",
+                "strength": 2,
+                "contextWindow": 1000000,
+                "input": 2,
+                "cacheRead": 0.1,
+                "output": 10,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {}
+              },
+              "haiku": {
+                "id": "claude-haiku-5-5",
+                "strength": 1,
+                "contextWindow": 1000000,
+                "input": 0.1,
+                "cacheRead": 0.01,
+                "output": 0.5,
+                "billing": "plan",
+                "efforts": [
+                  "low",
+                  "medium",
+                  "high",
+                  "xhigh",
+                  "max"
+                ],
+                "capability": {},
+                "longContext": {
+                  "above": 100000,
+                  "multiplier": 5
+                }
+              }
+            },
+            "effortSplitsCache": false,
+            "cache": {
+              "mode": "explicit",
+              "effortScope": "auto",
+              "writeMultiplier": {
+                "5m": 1.25,
+                "1h": 2
+              },
+              "ttlMs": {
+                "5m": 300000,
+                "1h": 3600000
+              },
+              "warmMarginMs": 30000
+            },
+            "context": {
+              "recentTurns": 6,
+              "maxTextChars": 1200
+            }
+          },
+          "seq": 15
+        },
+        {
+          "type": "control",
+          "at": 1794830400052,
+          "turn": 3,
+          "index": 0,
+          "mode": {
+            "mode": "quality",
+            "source": "session"
+          },
+          "pin": null,
+          "enabled": false,
+          "seq": 16
+        },
+        {
+          "type": "request",
+          "at": 1794830400055,
+          "turn": 3,
+          "index": 0,
+          "messageCount": 3,
+          "model": "claude-haiku-5-5",
+          "effort": "medium",
+          "mode": "manual",
+          "engineModel": "claude-haiku-5-5",
+          "engineEffort": "medium",
+          "reviewedAt": 2,
+          "observedFrom": 0,
+          "operations": [],
+          "seq": 17
+        },
+        {
+          "type": "response",
+          "at": 1794830400056,
+          "turn": 3,
+          "index": 0,
+          "requestedModel": "claude-haiku-5-5",
+          "effort": "medium",
+          "servedModel": "claude-haiku-5-5",
+          "usage": {
+            "input_tokens": 100,
+            "cache_read_input_tokens": 800,
+            "cache_creation_input_tokens": 200,
+            "output_tokens": 10
+          },
+          "stopReason": "end_turn",
+          "ttl": "5m",
+          "seq": 18,
+          "requestSeq": 17
+        },
+        {
+          "type": "request",
+          "at": 1794830400059,
+          "turn": 3,
+          "index": 1,
+          "messageCount": 3,
+          "model": "claude-haiku-5-5",
+          "effort": "medium",
+          "mode": "manual",
+          "engineModel": "claude-haiku-5-5",
+          "engineEffort": "medium",
+          "reviewedAt": 2,
+          "observedFrom": 0,
+          "operations": [],
+          "seq": 19
+        },
+        {
+          "type": "response",
+          "at": 1794830400060,
+          "turn": 3,
+          "index": 1,
+          "requestedModel": "claude-haiku-5-5",
+          "effort": "medium",
+          "servedModel": "claude-haiku-5-5",
+          "usage": {
+            "input_tokens": 100,
+            "cache_read_input_tokens": 800,
+            "cache_creation_input_tokens": 200,
+            "output_tokens": 10
+          },
+          "stopReason": "end_turn",
+          "ttl": "5m",
+          "seq": 20,
+          "requestSeq": 19
+        },
+        {
+          "type": "end",
+          "at": 1794830400063,
+          "turn": 3,
+          "seq": 21
+        },
+        {
+          "type": "control",
+          "at": 1794830400065,
+          "turn": 4,
+          "index": 0,
+          "mode": {
+            "mode": "quality",
+            "source": "session"
+          },
+          "pin": null,
+          "enabled": true,
+          "seq": 22
+        },
+        {
+          "type": "reset",
+          "at": 1794830400066,
+          "turn": 4,
+          "index": 0,
+          "generation": 1,
+          "cause": "compact",
+          "loop": {
+            "lastRoute": "low",
+            "lastActivity": "code",
+            "route": {
+              "model": "sonnet",
+              "effort": "high"
+            },
+            "state": {
+              "turn": 2,
+              "holdUntilTurn": 0,
+              "votes": [],
+              "escalatedSignature": null
+            },
+            "models": {},
+            "resolutions": {},
+            "lastRequest": {
+              "model": "claude-haiku-5-5",
+              "tokens": 1100,
+              "outputTokens": 10,
+              "cacheReadTokens": 800,
+              "cacheWriteTokens": 200,
+              "at": 1794830400060
+            },
+            "historyMeasured": false,
+            "lastMessageCount": 3,
+            "generation": 1,
+            "requests": 6,
+            "reviewedAt": 2,
+            "observedFrom": 0,
+            "switchedAt": {
+              "requests": 5,
+              "messageCount": 3
+            },
+            "ineligible": [],
+            "suspended": false,
+            "engineModel": "claude-haiku-5-5",
+            "servedRoute": "claude-haiku-5-5@medium",
+            "decision": {
+              "tier": "high",
+              "activity": null,
+              "floorActivity": null,
+              "goal": null,
+              "taskPhase": null,
+              "model": "claude-opus-5-5",
+              "effort": "xhigh",
+              "route": {
+                "model": "opus",
+                "effort": "xhigh"
+              },
+              "pinned": true,
+              "reason": "pinned"
+            }
+          },
+          "seq": 23
+        },
+        {
+          "type": "request",
+          "at": 1794830400079,
+          "turn": 4,
+          "index": 0,
+          "messageCount": 3,
+          "model": "claude-sonnet-5-5",
+          "effort": "xhigh",
+          "mode": "auto",
+          "engineModel": "claude-haiku-5-5",
+          "engineEffort": "medium",
+          "reviewedAt": 6,
+          "observedFrom": 0,
+          "operations": [
+            {
+              "kind": "choose",
+              "at": 1794830400075,
+              "taskProgress": {
+                "check": null,
+                "edit": null,
+                "run": null,
+                "delegate": -1,
+                "anyCheck": -1,
+                "nonDocEdit": -1,
+                "prompt": 2,
+                "result": null,
+                "lastTool": -1
+              },
+              "facts": {
+                "hasImages": false,
+                "continuation": false,
+                "downAllowed": false,
+                "progress": false,
+                "midTurn": false,
+                "effort": "medium",
+                "contextTokens": 9000,
+                "failure": null
+              },
+              "advice": {
+                "choice": "low",
+                "probabilities": {
+                  "micro": 0,
+                  "low": 1,
+                  "medium": 0,
+                  "high": 0,
+                  "uncertain": 0
+                },
+                "confidence": 0.9,
+                "continuation": 0,
+                "activity": {
+                  "choice": "code",
+                  "probabilities": {
+                    "code": 1,
+                    "debug": 0,
+                    "explore": 0,
+                    "plan": 0,
+                    "review": 0,
+                    "ops": 0,
+                    "docs": 0,
+                    "uncertain": 0
+                  }
+                },
+                "phase": {
+                  "choice": "produce",
+                  "probabilities": {
+                    "produce": 1,
+                    "reason": 0,
+                    "verify": 0,
+                    "execute": 0,
+                    "report": 0,
+                    "uncertain": 0
+                  }
+                }
+              },
+              "pin": null,
+              "nativeModel": "claude-haiku-5-5",
+              "contextKnown": true,
+              "contextTokens": null,
+              "hasImages": false,
+              "effort": null,
+              "observed": null,
+              "expected": {
+                "tier": "low",
+                "activity": "code",
+                "floorActivity": null,
+                "goal": "code",
+                "taskPhase": "produce",
+                "model": "claude-sonnet-5-5",
+                "effort": "xhigh",
+                "route": {
+                  "model": "sonnet",
+                  "effort": "xhigh"
+                },
+                "pinned": false,
+                "reason": "activity-up"
+              }
+            }
+          ],
+          "seq": 24
+        },
+        {
+          "type": "response",
+          "at": 1794830400080,
+          "turn": 4,
+          "index": 0,
+          "requestedModel": "claude-sonnet-5-5",
+          "effort": "xhigh",
+          "servedModel": "claude-sonnet-5-5",
+          "usage": {
+            "input_tokens": 100,
+            "cache_read_input_tokens": 800,
+            "cache_creation_input_tokens": 200,
+            "output_tokens": 10
+          },
+          "stopReason": "end_turn",
+          "ttl": "5m",
+          "seq": 25,
+          "requestSeq": 24
+        },
+        {
+          "type": "request",
+          "at": 1794830400084,
+          "turn": 4,
+          "index": 1,
+          "messageCount": 3,
+          "model": "claude-sonnet-5-5",
+          "effort": "xhigh",
+          "mode": "auto",
+          "engineModel": "claude-haiku-5-5",
+          "engineEffort": "medium",
+          "reviewedAt": 6,
+          "observedFrom": 0,
+          "operations": [
+            {
+              "kind": "continue",
+              "at": 1794830400083,
+              "taskProgress": {
+                "check": null,
+                "edit": null,
+                "run": null,
+                "delegate": -1,
+                "anyCheck": -1,
+                "nonDocEdit": -1,
+                "prompt": 2,
+                "result": null,
+                "lastTool": -1
+              },
+              "facts": null,
+              "pin": null,
+              "nativeModel": "claude-haiku-5-5",
+              "contextKnown": true,
+              "contextTokens": 9000,
+              "hasImages": false,
+              "actualHasImages": false,
+              "effort": "medium",
+              "observed": null,
+              "expected": {
+                "tier": "low",
+                "activity": "code",
+                "floorActivity": null,
+                "goal": "code",
+                "taskPhase": "produce",
+                "model": "claude-sonnet-5-5",
+                "effort": "xhigh",
+                "route": {
+                  "model": "sonnet",
+                  "effort": "xhigh"
+                },
+                "pinned": false,
+                "reason": "activity-up"
+              }
+            }
+          ],
+          "seq": 26
+        },
+        {
+          "type": "response",
+          "at": 1794830400085,
+          "turn": 4,
+          "index": 1,
+          "requestedModel": "claude-sonnet-5-5",
+          "effort": "xhigh",
+          "servedModel": "claude-sonnet-5-5",
+          "usage": {
+            "input_tokens": 100,
+            "cache_read_input_tokens": 800,
+            "cache_creation_input_tokens": 200,
+            "output_tokens": 10
+          },
+          "stopReason": "end_turn",
+          "ttl": "5m",
+          "seq": 27,
+          "requestSeq": 26
+        },
+        {
+          "type": "end",
+          "at": 1794830400092,
+          "turn": 4,
+          "seq": 28
+        }
+      ]
+    }
+  }
+}
