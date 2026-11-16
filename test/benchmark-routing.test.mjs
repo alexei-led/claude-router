@@ -321,3 +321,47 @@ test('proposal split is hash-frozen before tuning; full live matrix refuses with
   assert.equal(child.exitCode, 1);
   assert.equal(child.stdout, '');
 });
+
+test('malformed usage and plugin metadata retain positive cost but fail closed', () => {
+  const good = { type: 'result', subtype: 'success', is_error: false, result: '[]', total_cost_usd: 0.25 };
+  const valid = { inputTokens: 1, outputTokens: 1, costUSD: 0.1 };
+  for (const modelUsage of [null, 3, 'wrong', [], [valid], { bad: null }, { bad: 'x' }, { good: valid, bad: [] }]) {
+    const parsed = parseResult(JSON.stringify({ ...good, modelUsage }), 0);
+    assert.equal(parsed.cost, 0.25);
+    assert.equal(parsed.priced, false);
+    assert.equal(parsed.ok, false);
+  }
+  for (const plugins of [null, {}, [null], ['router'], [{ name: 'router', path: '/valid' }, null]]) {
+    const init = JSON.stringify({ type: 'system', subtype: 'init', plugins });
+    const parsed = parseResult(`${init}\n${JSON.stringify({ ...good, modelUsage: { model: valid } })}`, 0);
+    assert.deepEqual(parsed.plugins, []);
+    assert.equal(parsed.cost, 0.25);
+  }
+});
+
+test('malformed usage retains partial cost in attempt report and stops further launches', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'routing-malformed-test-'));
+  try {
+    const stdout = JSON.stringify({
+      type: 'result',
+      subtype: 'success',
+      is_error: false,
+      result: '[1,2,3]',
+      total_cost_usd: 0.25,
+      modelUsage: { bad: null },
+    });
+    const actual = await executeCases(casesFor(manifest.tasks, { smoke: true }), {
+      root,
+      budgetUsd: 1.2,
+      reservationUsd: 0.4,
+      timeoutMs: 1000,
+      launcher: async () => ({ stdout, exitCode: 0, wallMs: 1 }),
+    });
+    assert.equal(actual.rows.length, 1);
+    assert.equal(actual.rows[0].passed, null);
+    assert.equal(actual.report.knownCostUsd, 0.25);
+    assert.equal(actual.report.reportedTotalCostUsd, null);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

@@ -71,6 +71,14 @@ export function checkAnswer(task, text) {
 }
 
 // This consumes CLI JSON only, not guessed model IDs or router configuration.
+const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
+function validPlugins(value) {
+  return (
+    Array.isArray(value) && value.every((p) => isRecord(p) && typeof p.name === 'string' && typeof p.path === 'string')
+  );
+}
+
 export function parseResult(stdout, exitCode) {
   const records = stdout.split('\n').flatMap((line) => {
     try {
@@ -82,7 +90,8 @@ export function parseResult(stdout, exitCode) {
   const results = records.filter((row) => row?.type === 'result');
   if (results.length !== 1) return { ok: false, error: 'invalid-json-result', cost: null };
   const data = results[0];
-  const usage = Object.entries(data.modelUsage ?? {}).map(([model, usage]) => ({
+  const usageShapeValid = isRecord(data.modelUsage) && Object.values(data.modelUsage).every(isRecord);
+  const usage = Object.entries(usageShapeValid ? data.modelUsage : {}).map(([model, usage]) => ({
     model,
     inputTokens: usage?.inputTokens,
     outputTokens: usage?.outputTokens,
@@ -91,6 +100,7 @@ export function parseResult(stdout, exitCode) {
     costUSD: usage?.costUSD,
   }));
   const priced =
+    usageShapeValid &&
     usage.length > 0 &&
     usage.every(
       (u) =>
@@ -116,7 +126,7 @@ export function parseResult(stdout, exitCode) {
     priced,
     answer: typeof data.result === 'string' ? data.result : null,
     modelUsage: usage,
-    plugins: Array.isArray(plugins) ? plugins.map((p) => ({ name: p?.name, path: p?.path })) : [],
+    plugins: validPlugins(plugins) ? plugins.map((p) => ({ name: p.name, path: p.path })) : [],
     error: ok ? null : 'failed-or-unpriced-result',
   };
 }
