@@ -154,6 +154,72 @@ test('a decision row keeps labels, rounded shares and counts, never text', () =>
   assert.equal(bare.ctx, null);
 });
 
+test('shadow proposals roundtrip only numeric facts and bounded identifiers, in live and stored lines', () => {
+  const alt = {
+    demand: 2.5,
+    reason: 'classifier',
+    headroom: false,
+    requirement: 3,
+    outcome: 'unknown-only',
+    route: 'sonnet@high',
+    capability: null,
+    minUsd: 0.04321,
+    maxUsd: 0.12345,
+    prompt: 'secret prompt',
+    tools: 'secret tools',
+    path: '/private/project',
+  };
+  const row = decisionRow({ at: T, kind: 'start', decision, engine: 'shadow', alt });
+  assert.equal(row.engine, 'shadow');
+  assert.deepEqual(row.alt, {
+    demand: 2.5,
+    reason: 'classifier',
+    headroom: false,
+    targetReason: null,
+    requirement: 3,
+    outcome: 'unknown-only',
+    route: 'sonnet@high',
+    capability: null,
+    minUsd: 0.04321,
+    maxUsd: 0.12345,
+  });
+  const stored = readDecisions({ version: 1, since: T, rows: [{ ...row, alt }] }).rows[0];
+  assert.deepEqual(stored, row);
+  for (const candidate of [row, stored]) {
+    const line = decisionLines([candidate])[0];
+    assert.match(line, /shadow demand 2.5.*target sonnet@high.*unknown.*next-turn estimate/);
+    assert.doesNotMatch(JSON.stringify(candidate), /secret|private/);
+  }
+});
+
+test('malformed shadow fields cannot retain arbitrary text on read or write', () => {
+  const alt = {
+    demand: 4,
+    requirement: NaN,
+    reason: 'secret prompt',
+    outcome: 'secret tools',
+    route: '/private/project@high',
+    capability: -1,
+    headroom: 'yes',
+    minUsd: -1,
+    maxUsd: Infinity,
+  };
+  const row = decisionRow({ at: T, kind: 'review', decision, engine: 'shadow', alt });
+  assert.deepEqual(row.alt, {
+    demand: null,
+    reason: null,
+    headroom: false,
+    targetReason: null,
+    requirement: null,
+    outcome: null,
+    route: null,
+    capability: null,
+    minUsd: null,
+    maxUsd: null,
+  });
+  assert.deepEqual(readDecisions({ version: 1, since: T, rows: [{ ...row, alt }] }).rows[0], row);
+});
+
 test('a row of a weighed move keeps the mass compared and the bar it had to clear', () => {
   const config = loadConfig({});
   const facts = (lastRoute) => ({ lastRoute, ...served('claude-sonnet-5-5', { at: T }) });

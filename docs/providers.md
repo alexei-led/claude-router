@@ -9,6 +9,31 @@ Custom profiles need their own model settings. They do not inherit Claude models
 
 This guide assumes Claude Code already works with your provider. Endpoint and credential setup are outside its scope.
 
+## Capability evidence
+
+Every built-in model has an empty capability map: all effort-specific adequacy levels are unknown, not zero.
+These sources document model controls or benchmark outcomes, but do not calibrate the classifier's task levels
+against every effort. No numeric rating is inferred from price, ordinal strength, benchmark rank, or an effort name.
+This metadata does not affect the current table router. See [configuration](configuration.md#model-capability-declarations)
+for declarations and overrides.
+
+The model-card IDs below identify the reviewed records, not verified served backends. The sources do not give
+numeric values on this router's demand scale.
+
+| Preset model / model-card ID | Evidence and gap |
+| --- | --- |
+| Fable 5.2 / `anthropic-claude-fable-5-2` | [Prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-fable-5-2): effort guidance, not demand-tier calibration. |
+| Opus 5.5 / `anthropic-claude-opus-5-5` | [Prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5-5): effort recommendations, not tier adequacy. |
+| Sonnet 5.5 / `anthropic-claude-sonnet-5-5` | [Prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5-5): well-specified agentic coding at medium does not establish all medium-tier work. |
+| Haiku 5.5 / `anthropic-claude-haiku-5-5` | [Prompting guide](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-haiku-5-5): simple work at low does not calibrate reliability to micro demand. |
+| DeepSeek Flash / `deepseek-deepseek-v4.1-flash-1017` | [Provider evaluation](evaluation.md#provider-profiles): earlier benchmark results do not establish the hosted snapshot's per-effort adequacy. |
+| GLM-5.3 / `zai-glm-5.3`; GLM-5.3-Flash / `zai-glm-5.3-flash` | [Provider evaluation](evaluation.md#provider-profiles): max-effort results do not establish low/high performance or tier adequacy. |
+| MiniMax M3.1 Flash / `minimax-minimax-m3.1-flash`; Kimi K3.1 Pro / `moonshot-kimi-k3.1-pro` | [Provider experiments](provider-experiments.md): small synthetic checks do not calibrate repository tasks per effort. |
+| MiMo V2.6 Flash and Pro / no model-card record | [Provider experiments](provider-experiments.md): no granular effort setting; small synthetic checks do not establish demand-tier adequacy. |
+
+The proposed auto engine would select the cheapest eligible unknown when no eligible declaration is known. With these
+presets alone that outcome cannot claim quality or escalation-headroom calibration; it is a release/cutover risk.
+
 ## Select a provider
 
 For DeepSeek, create `deepseek-router.json` in your Claude Code profile directory with this content:
