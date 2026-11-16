@@ -4,6 +4,13 @@ The native Mod has no measured savings result. The pane reports Claude's own usa
 
 This page separates an older gateway experiment from a shadow replay of native policy. Neither result measures answer quality or proves lower real spend. [Activity routing](#activity-routing) adds two checks of the activity label, with no savings result either.
 
+## Automatic-routing shadow proposals
+
+Opt-in `routingEngine: "shadow"` records a demand and target proposal against the real table incumbent for each
+applicable decision. It does not run the proposed route or maintain a simulated route history. These rows do not
+establish savings or answer quality; a next-turn cost estimate is not an observed cost or a counterfactual saving.
+The bounded decision records are not replay traces. See [Configuration](configuration.md#routing-engine).
+
 ## Provider profiles
 
 [Provider defaults](providers.md#built-in-defaults) are starting policies, not measured per-activity quality or savings results.

@@ -125,6 +125,17 @@ The router never substitutes zero savings or invents another route's cache hit r
 Models with `efforts: []`, including MiMo, ignore session effort in the comparison identity.
 Missing counters remain unknown. See [provider acceptance checks](evaluation.md#provider-profiles).
 
+## Routing engine
+
+Set `"routingEngine": "shadow"` in the selected profile file to record one-step automatic-routing proposals alongside
+the table's decisions. The default, `"table"`, does not run the automatic engine. Shadow uses the real incumbent and
+cache for each proposal; the table still chooses every request. The Now pane and `/router decisions` show demand,
+target, capability (or unknown), outcome and a next-turn cost estimate. Shadow requests no extra classifier advice.
+The proposal is not a prediction of a stateful automatic-routing session.
+
+`"auto"` is reserved and currently makes routing unavailable: Claude Code's native model runs unchanged. Use
+`"table"` or `"shadow"` to enable routing. The three values are case-sensitive.
+
 ## Built-in defaults
 
 The default baseline is tier `low`. Each route refers to an alias in `models`.
