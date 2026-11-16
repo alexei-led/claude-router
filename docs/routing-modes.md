@@ -19,6 +19,9 @@ In every mode:
   on a model listing only those three. A route with a `null` effort (the session's) or a model without efforts has no effort step.
 - [MiniMax, MiMo and Kimi tables](providers.md#new-provider-modes) show every new preset's mode/activity combination.
 
+Optional [automatic-routing shadow proposals](configuration.md#routing-engine) use the same mode as a demand margin;
+the table rules above still select the actual request.
+
 ## Choose a mode
 
 The mode comes from the first of these that sets one:

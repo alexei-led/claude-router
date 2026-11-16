@@ -31,6 +31,17 @@ test('defaults load without a user file, with Jev as the classifier', () => {
   assert.deepEqual(Object.keys(config.classifiers), ['jev', 'clef', 'clef-flash', 'clef-omni', 'openai', 'ollama']);
 });
 
+test('routingEngine defaults to table and accepts only the strict engine enum', () => {
+  assert.equal(loadConfig().routingEngine, 'table');
+  for (const routingEngine of ['table', 'shadow', 'auto'])
+    assert.equal(loadConfig({ userFile: { routingEngine } }).routingEngine, routingEngine);
+  for (const routingEngine of [null, '', 'TABLE', 'shadow ', 'automatic', 0, false, [], {}])
+    assert.throws(
+      () => loadConfig({ userFile: { routingEngine } }),
+      /routingEngine must be one of table, shadow, auto/,
+    );
+});
+
 test('user file overrides merge deeply and keep the rest', () => {
   const config = loadConfig({
     userFile: {

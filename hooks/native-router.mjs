@@ -1,3 +1,4 @@
+import { acceptActivity, acceptPhase } from '../lib/activity.mjs';
 import {
   ACTIVITY_CONTRACT,
   advanceDown,
@@ -20,6 +21,7 @@ import {
   storeAfterReset,
   turnActivity,
 } from '../lib/activity-stats.mjs';
+import { advanceDemand, assessCandidates, initialAutoState, selectTarget } from '../lib/auto-engine.mjs';
 import { renderBand, switchToast } from '../lib/band.mjs';
 import { ClassifierClient } from '../lib/classifier-client.mjs';
 import { resolveCredentials } from '../lib/classifier-contract.mjs';
@@ -97,6 +99,7 @@ import {
   cellForModel,
   chooseRoute,
   continueRoute,
+  economicConfig,
   emptyLoop,
   isModelAllowed,
   isNativeFallback,
@@ -172,6 +175,7 @@ const PANE = 'jev-router';
 const PANE_TITLE = 'Router';
 const BAND_DETAIL = 'band:detail';
 const MODE_PREFIX = 'mode:';
+const AUTO_UNAVAILABLE = 'auto routing is not available yet; use table or shadow';
 // The session's routing mode override (lib/modes.mjs), apart from its auto|manual MODE_PREFIX.
 const ROUTING_MODE_PREFIX = 'routing-mode:';
 const isSet = (value) => /^(1|true|yes|on)$/i.test(String(value ?? '').trim());
@@ -816,6 +820,83 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, router)
   return response;
 }
 
+// Shadow retains demand evidence only; target selection sees the actual incumbent and cache.
+function shadowProposal(
+  config,
+  loop,
+  selected,
+  { facts, advice, pin, nativeModel, contextKnown, availableModels, now, mode, offSwitches },
+) {
+  if (config.routingEngine !== 'shadow') {
+    delete selected.shadow;
+    return null;
+  }
+  try {
+    const projected = economicConfig(config, loop);
+    const beforePin = loop.decision?.pinned ? loop.route : null;
+    const model = loop.decision?.pinned && !beforePin ? nativeModel : (loop.decision?.model ?? nativeModel);
+    const alias = Object.keys(config.models).find(
+      (key) => isSameModel(config.models[key].id, model) || isSameModel(projected.models[key].id, model),
+    );
+    const incumbent = beforePin ?? {
+      model: alias ?? model,
+      effort: loop.decision?.pinned ? (facts.effort ?? null) : (loop.decision?.effort ?? facts.effort ?? null),
+    };
+    const initial = TIERS.indexOf(config.baselineTier);
+    const state =
+      loop.shadow?.generation === loop.generation && loop.shadow.offSwitches === offSwitches
+        ? loop.shadow.state
+        : initialAutoState({ demand: initial });
+    const demand = advanceDemand({
+      config,
+      state,
+      advice,
+      facts,
+      pin,
+      boundedExecute:
+        config.activityRouting === 'on' &&
+        acceptActivity(config, advice) !== null &&
+        acceptPhase(config, advice) === 'execute',
+    });
+    const candidates = assessCandidates({
+      config: projected,
+      facts: { ...facts, ineligible: loop.ineligible.map((id) => loop.resolutions[id] ?? id) },
+      now,
+      incumbent,
+      contextKnown,
+      availableModels,
+      nativeModel,
+    });
+    const target = selectTarget({
+      candidates,
+      demand: demand.level,
+      mode: pin ? 'balanced' : mode,
+      headroom: demand.headroom,
+      escalation: demand.escalated,
+    });
+    if (demand.escalated || demand.headroom) demand.state = { ...demand.state, headroom: target.headroom };
+    const { routedDemand: _routed, routeCause: _cause, ...demandState } = pin ? state : demand.state;
+    selected.shadow = { generation: loop.generation, offSwitches, state: demandState };
+    return {
+      demand: demand.level,
+      reason: demand.reason,
+      headroom: target.headroom,
+      targetReason: target.reason,
+      requirement: target.requirement,
+      outcome: target.outcome,
+      route: target.route
+        ? `${target.route.model}@${typeof target.route.effort === 'string' ? target.route.effort : 'session'}`
+        : null,
+      capability: target.capability,
+      minUsd: target.estimate?.minUsd,
+      maxUsd: target.estimate?.maxUsd,
+    };
+  } catch {
+    delete selected.shadow;
+    return { reason: 'error' };
+  }
+}
+
 // One turn's classification and route, written to the loop at `loopVersion`: the loop and its new version, or null
 // when the turn was aborted, left the session or Auto, or lost the write. `signal` is the step's: its abort cancels
 // the classifier call. The pin is the one in `view`, the view as the step read it; it is used up only once the route
@@ -895,6 +976,17 @@ async function decideTurn($, router, e, signal, step) {
       availableModels,
       now: Date.now(),
     });
+    const alt = shadowProposal(step.configured, loop, selected, {
+      facts,
+      advice: result.advice,
+      pin,
+      nativeModel,
+      contextKnown: context.known,
+      availableModels,
+      now: Date.now(),
+      mode: step.cfg.routingMode.mode,
+      offSwitches: router.offSwitches,
+    });
     selected.engineModel = e.model;
     const written = await $.state.set(ref, selected, { ifVersion: loopVersion });
     // The written route serves the turn's next steps, even if an abort lands now.
@@ -919,6 +1011,8 @@ async function decideTurn($, router, e, signal, step) {
         decision: selected.decision,
         facts,
         sameTask: sameTaskOf(cfg, result.advice, facts),
+        engine: cfg.routingEngine,
+        alt,
       }),
     );
     // One line per decision in Claude Code's debug log, so a later replay can compare modes. No prompt text.
@@ -1040,6 +1134,7 @@ async function moveOnObserved($, router, cfg, loop, e, context) {
     decisionRow({
       at: Date.now(),
       kind: 'observed',
+      engine: cfg.routingEngine,
       origin: router.turnOrigins.get(e.turnId) ?? 'unknown',
       mode: cfg.routingMode?.mode ?? null,
       decision: moved.decision,
@@ -1085,6 +1180,18 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       now: Date.now(),
     });
     const previous = loop.decision;
+    const configured = router.turnConfigs.get(e.turnId)?.configured ?? router.config;
+    const alt = shadowProposal(configured, loop, selected, {
+      facts,
+      advice,
+      pin: null,
+      nativeModel,
+      contextKnown: context.known,
+      availableModels,
+      now: Date.now(),
+      mode: cfg.routingMode?.mode ?? DEFAULTS.mode,
+      offSwitches: router.offSwitches,
+    });
     addDecision(
       router,
       e.turnId,
@@ -1097,6 +1204,8 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
         decision: selected.decision,
         facts,
         sameTask: sameTaskOf(cfg, advice, facts),
+        engine: configured.routingEngine,
+        alt,
       }),
     );
     if (previous && (previous.model !== selected.decision.model || previous.effort !== selected.decision.effort)) {
@@ -1506,6 +1615,17 @@ async function pruneDecisionRecords($) {
 }
 
 // `/router decisions [n]`: this session's newest routing decisions, the running turn's included.
+async function paneDecisionRows($, router) {
+  if (router.config.routingEngine !== 'shadow') return [];
+  const sessionId = await $.session.id();
+  const record =
+    router.decisionRecord?.sessionId === sessionId
+      ? router.decisionRecord.record
+      : readDecisions(await $.store.get(`${DECISIONS_PREFIX}${sessionId}`).catch(() => null));
+  const resetAt = await $.store.get(SAVINGS_RESET_KEY).catch(() => null);
+  return [...decisionsAfterReset(record, resetAt).rows, ...[...router.turnDecisions.values()].flat()];
+}
+
 async function decisionsText($, router, value) {
   const n = Math.min(MAX_ROWS, Math.max(1, Number.parseInt(value, 10) || 20));
   try {
@@ -1809,6 +1929,8 @@ function paneActions($, router, view) {
   const adopt = async (loaded) => {
     const switched = loaded.classifier !== router.config.classifier;
     router.config = loaded;
+    if (loaded.routingEngine === 'auto') await updateView($, router, { phase: 'unavailable', error: AUTO_UNAVAILABLE });
+    else if (router.view?.error === AUTO_UNAVAILABLE) await updateView($, router, { phase: 'ready', error: null });
     if (!switched) return {};
     clientOf(router, router.config.classifier).restore(null);
     const current = router.view ?? view;
@@ -2111,6 +2233,12 @@ async function imagesOf($, config, decision) {
   return messages === null || hasImages(messages);
 }
 
+function startError(supported, gateway, config) {
+  if (!supported) return 'requires Claude Code 2.1.289 or newer';
+  if (gateway) return GATEWAY_SETTINGS;
+  return config.routingEngine === 'auto' ? AUTO_UNAVAILABLE : null;
+}
+
 function configurationError(error) {
   if (error.message?.endsWith(MIGRATION_HINT))
     return 'router.json needs migration; run the plugin scripts/migrate-config.mjs with your router.json path';
@@ -2150,8 +2278,8 @@ export function register(on, options) {
           ? { activityContract: ACTIVITY_CONTRACT, activityStats: null }
           : {}),
         ...(await startView($, router, model)),
-        phase: gateway || !supported ? 'unavailable' : 'ready',
-        error: !supported ? 'requires Claude Code 2.1.289 or newer' : gateway ? GATEWAY_SETTINGS : null,
+        phase: gateway || !supported || router.config.routingEngine === 'auto' ? 'unavailable' : 'ready',
+        error: startError(supported, gateway, router.config),
         ...(sameClassifier ? {} : CLEARED_READINGS),
         credentials: await credentialsOf($, options, router.config),
         health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
@@ -2391,6 +2519,7 @@ export function register(on, options) {
         ],
       });
     }
+    view.decisionRows = await paneDecisionRows($, router);
     const settings = await $.settings.read().catch(() => ({}));
     const modelOptions = Object.keys(router.config.models).filter((alias) =>
       isModelAllowed(router.config.models[alias].id, settings.availableModels, view.nativeModel),
