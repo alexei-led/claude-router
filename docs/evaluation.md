@@ -36,8 +36,74 @@ the host filesystem API has no unlink operation.
 
 Recent active sessions have a one-hour last-write lease against budget eviction; stale activity cannot defeat
 30-day retention. Store scans, quota checks and deletion are best effort across processes, not atomic reservations.
-There is no replay tool, exposure result, routing-quality result or savings claim from this recorder yet.
-The small sequential table-chain regression checks recorder consistency, not the planned evaluation gates.
+There is no live exposure, routing-quality result or savings claim from this recorder yet.
+
+## Offline automatic-engine replay
+
+Run the tool from a checkout with **all** incremental exports (shell-expanded file arguments, no implicit profile
+access). It reads only those files and writes anonymous JSON to stdout; it never changes a router or provider profile.
+
+```sh
+node scripts/replay-traces.mjs /exports/router-traces.json /exports/router-traces-*.json > replay-report.json
+node scripts/replay-traces.mjs --reversal-window 3 test/fixtures/replay-traces.json
+node --test test/replay.test.mjs
+```
+
+Omit the dated-file argument when there are no rollover files. The second command uses only synthetic data.
+The implementation follows [design §5.1 and §6 step 5](plans/2026-11-16-auto-routing-design.md#51-replay-traces-and-offline-replay).
+
+1. Merge sessions with the recorder's `mergeTraceExport`: preserve lost-write taint, overlap conflicts and capped
+   counts. Keep usable capped contiguous prefixes; report their omitted turns/events separately.
+2. Replay the table chain from **only** its initial header, applying config, controls, history preparation/resets,
+   choose/observed/continue operations and responses. Compare every recorded decision and request model/effort.
+   An unexplained mismatch on any otherwise usable prefix returns `status: "blocked"`, exits 1 and prints **no**
+   auto/session totals. It remains in the fidelity denominator. Taint/gaps/incompleteness are explained exclusions.
+3. Only after fidelity passes, validate independent-replay evidence. Missing checkpoints, required boolean facts,
+   unconditional continuation modality or activity indexes produce `auto-input-incomplete` and exit 1, without
+   silently excluding a usable fidelity session. Earlier exports can lack these fields.
+4. Simulate auto with its own demand/votes, incumbent, cache, routed-demand/provenance and switch/dwell cursors.
+   Classifier decisions advance votes; continuations reevaluate constraints and pending moves without adding votes.
+   Checkpoints and observed activity are reconstructed from text-free indexes against its own cursor. Only an
+   accepted bounded execute phase discounts demand; observed edits can remove it. No activity route table is used.
+
+**Mode meaning:** fidelity and both comparisons follow the recorded mode-change history. Output is partitioned by
+the mode active on each request, not three artificial reruns. Table uses the recorded transformed config; auto
+uses the recorded base policy, with mode only as the capability margin. There is no forced-mode option.
+
+The report has `fidelity`, `coverage`, `exposureDiagnostic` and anonymous numbered `sessions[].modes`. Each mode
+contains both engines' conditional cost range, priced/unpriced request counts, effort mix, switches and disagreement
+counts grouped by effective demand/activity. Unknown catalog capabilities are counted explicitly; current preset
+declarations remain unknown, so their replay is not capability-calibration evidence.
+
+Switches are computed on the full session before mode partitioning and attributed to the **destination** mode.
+A reversal closes A→B→A within the explicit `--reversal-window N` main turns (default 3); `reversals` counts closing
+legs, `reversalMoves` counts participating legs, and `oneWay` counts unpaired moves. Rates are per 100 captured turns
+in that mode. Pins do not count as switches and restore the pre-pin route/demand/dwell baseline; every pinned
+continuation still checks eligibility. Manual intervals, history resets and external native interventions break the
+policy-switch chain, including reversal pairing.
+
+### Coverage and estimate limits
+
+- `coverage.exportCohort` ratios describe **only captured/exported sessions**, a lower-bound cohort. Exports do not
+  count evicted or untraced sessions; `coverage.allSessions` denominators and its 80% gate stay unavailable.
+  Sufficient future metadata would include capture-eligible session starts (including untraced/evicted sessions),
+  total main turns and per-mode eligible routed turns over the same capture window. This tool invents none of it.
+- Exposure thresholds (30 complete sessions, 1,000 main turns, 200 per evaluated mode) are diagnostics only.
+  Captured main turns are separate from eligible unpinned classifier-decision turns; manual-only sessions/turns
+  do not count as engine exposure. Freshness is unverified and the exposure gate remains `not-established`.
+- Cost freezes observed total prompt/output lengths, timestamps, failures and tool calls. Auto simulates its own
+  full-prefix cache scenario, never the table's cache-hit tokens. Explicit cache warmth uses the existing conservative
+  five-minute helper; automatic caches retain hit/miss bounds, with no invented TTL guarantee. Effort-specific,
+  disabled, long-context and off-peak pricing use the existing pure cost helpers. These are **conditional estimates**,
+  not counterfactual savings, actual bills or paired quality results.
+- Missing usage/prices and substituted replies make the affected total range `null`, not free. An explicitly named
+  `knownPricedRange` is only the priced subtotal. No transcript-length/quality change from a hypothetical request
+  is modeled.
+- Fidelity distinguishes table echoes from genuine third-model/native fallbacks. Auto freezes actual external
+  interventions, response substitutions and routed null-stop suspension, rather than misreading a table echo as
+  its own fallback. It cannot predict a provider's fallback for a different hypothetical auto request.
+- Default output includes no session IDs, prompts, tool text, model identifiers or paths. Input errors name the
+  numbered file/structural field, not its path. The CLI cannot discover omitted exports or verify their provenance.
 
 ## Paired benchmark proposal
 

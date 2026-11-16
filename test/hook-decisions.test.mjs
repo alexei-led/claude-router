@@ -62,7 +62,7 @@ test('shadow proposals leave real requests and cache observations identical to t
   assert.ok(
     decisions(table.h)
       .rows.filter((row) => row.kind !== 'end')
-      .every((row) => row.engine === 'table' && !row.alt),
+      .every((row) => !Object.hasOwn(row, 'engine') && !row.alt),
   );
   const listing = await shadow.h.event('command.run', { command: 'router', args: 'decisions' });
   assert.match(listing.text, /shadow demand .*target/);
