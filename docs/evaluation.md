@@ -60,7 +60,9 @@ work profile's catalog without changing it. Cold-write multipliers apply only to
 assumption is not a limit; live smoke sets `CLAUDE_CODE_MAX_OUTPUT_TOKENS=512`, one agentic turn and a $0.40
 CLI budget per call. These are not a proxy-price quotation or a bill. A run estimates before launching and reserves
 $1.20 for three calls. An exclusive reservation file under `.pi/` refuses automatic reruns; further spending needs
-review, not a hidden retry. The full 288-run matrix is not authorized or run.
+review, not a hidden retry. The 288 planned task runs are for the toy mechanics fixtures, not an engineering benchmark cost estimate.
+An engineering task run may use multiple inference calls, tools and retries; it needs new token, request, effort
+and provider budgets plus lead approval before any run. No full matrix is authorized or run.
 
 `--live --smoke` is limited to the three development tasks, `table`/`balanced`, one repeat, using the existing
 installed release through `zsh -ic` and `claude-mp-work -p`. It loads no checkout plugin. The selected profile must
