@@ -37,8 +37,9 @@ A discrete level `0..3` (micro, low, medium, high), kept per session:
 
 - Source: the classifier's tier label with the existing vote and hold machinery (upgrade votes, downgrade votes and
   mass, jump confidence, escalation hold). These rules move **demand**, not the route.
-- Failure escalation raises demand by one level and holds it. At the top it raises a "headroom" flag that the target
-  step reads as "strongest eligible candidate".
+- A new repeated-failure occurrence raises demand by one level and holds it. Occurrences are deduplicated by
+  signature and transcript index, not by physical moves. At the top demand stays 3; escalation still searches for a
+  strictly stronger eligible request. Exhausted escalation retains a headroom flag so that search can be retried.
 - Activity: only an accepted bounded `execute`/ops phase lowers demand by one half-step. Nothing else in v1.
 - No cache or price input here. Demand never depends on what is cheap right now.
 
@@ -88,7 +89,7 @@ half-steps allowed:
 
 The requirement is clamped to `0..3`, the range of declared levels. At `high`, `balanced` and `quality` both require 3
 and `cost` requires 2.5. So `quality` at `high` takes the cheapest level-3 candidate and does not fall through to
-unknowns. The escalation headroom flag (3.1) takes the highest declared capability available, regardless of price.
+unknowns. Escalation uses the stronger-only search below, even at maximum demand.
 
 **Choice among qualifying candidates, one order for every mode:**
 
@@ -100,6 +101,23 @@ unknowns. The escalation headroom flag (3.1) takes the highest declared capabili
 4. then the order of `models` in config (deterministic).
 
 The mode acts only through the requirement. It never overrides the incumbent preference.
+
+**Escalation target.** A failure must not select a cheaper, weaker request merely because it meets the raised
+requirement. After applying every candidate-local hard constraint, replace normal target selection with:
+
+1. With a declared incumbent capability, consider only requests with a strictly greater declared capability.
+   Among those meeting the raised mode-margin requirement, use the normal tie order. If none meet it, take the
+   highest strictly stronger declared capability, cheapest on ties.
+2. With an unknown incumbent capability, only a different physical request with declared capability at or above
+   the raised requirement counts as stronger. Use the normal tie order among them.
+3. If neither declared search succeeds, a different physical request with unknown capability is a last resort.
+   Pick by the normal cost/tie order and report `escalation-unknown` (unknown capability, not proven stronger).
+4. If nothing remains, keep the eligible incumbent, report `escalation-exhausted`, and retain headroom for a retry.
+   A successful escalation selection clears that pending headroom. An invalid incumbent instead uses normal
+   forced refit; if nothing is eligible the result remains explicit `no-route`.
+
+Physical identity is the canonical model ID and actual effort, not the config alias. No escalation fallback can
+restore a filtered candidate or nominate the same physical request as a supposedly stronger alternative.
 
 ### 3.3 Move (whether to switch now)
 
@@ -118,7 +136,7 @@ when demand returns to routed demand, or when a forced or escalation move replac
 | Why the target differs                                                       | Evidence and gate                                                                                                                                        |
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Incumbent fails a hard constraint (context, images, availability)            | Forced move now. No confidence needed; dwell does not apply.                                                                                             |
-| Failure escalation raised demand                                             | Move now; not held by dwell (today's escalation rule).                                                                                                   |
+| New failure escalation or pending headroom selected a different request      | Move now to the stronger-only target above; not held by dwell, confidence or switch tax. Exhaustion stays with its explicit reason.                      |
 | Demand above routed demand                                                   | Upgrade mass = current classifier probability above routed demand (`massAbove`), against the upgrade bar that rises with the route-to-route switch tax.  |
 | Demand below routed demand                                                   | Support = current probability at or below demand (`massAtOrBelow`), against the downgrade bar with downgrade tax; same-task hold (`downAllowed`); dwell. |
 | Demand equals routed demand, target stronger, after a mode or catalog change | Mass 1: an explicit user or config choice, as `lateralMove` treats the base route (`lib/activity.mjs:109`). Gated by switch tax and cash cap only.       |
@@ -129,7 +147,12 @@ Demand votes decide the demand change; they are not counted a second time in the
 
 ### 3.4 Pins and explanation
 
-- `/router pin <tier>` pins demand; the target step resolves it.
+- `/router pin <tier>` is a one-turn demand override. The target step uses that demand exactly, with no mode
+  margin, and keeps normal candidate eligibility (including the cash cap), outcome precedence and incumbent ties.
+  It bypasses the move step: no votes, confidence, dwell, checkpoint or switch-tax gate. A pin is not a move or a
+  switch; it changes no session demand state, votes, holds, failure marker, routed demand or cause. The following
+  unpinned turn resumes the pre-pin incumbent and demand. If nothing is eligible and the incumbent is invalid,
+  the result is explicit `no-route`; a pin never restores a filtered candidate.
 - An exact model+effort pin keeps today's meaning: that route runs.
 - Every decision row carries demand, target, move reason and the next-turn estimate, for example:
   `demand 2 (balanced) → target sonnet@high cap 2.5 ~$0.04; move held: dwell 2/6`.
@@ -279,3 +302,7 @@ Steps 1–4 change nothing for users on the default.
 - One tie-break order for all modes; the mode acts only through the requirement (round 3).
 - Moves compare against routed demand, so a blocked move stays pending with its original evidence (round 3).
 - Post-cutover thresholds combine relative margins, absolute allowances and a minimum event count (round 3).
+- Tier pins are one-turn demand overrides without a mode margin or move gate; eligibility remains mandatory and
+  the pre-pin incumbent and demand resume afterwards.
+- Escalation searches strictly stronger declared requests before unknown alternatives; exhaustion retains pending
+  headroom. Failure occurrence deduplication uses signature and index, independent of physical moves.
