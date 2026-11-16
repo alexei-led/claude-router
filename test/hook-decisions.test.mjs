@@ -101,6 +101,12 @@ test('a shadow tier pin is one turn only and preserves unpinned demand evidence'
   );
   assert.deepEqual(h.loop().shadow.state, before);
   await turn(h, 't3', 'Next task.', 'composer');
+  assert.match(
+    decisions(h)
+      .rows.filter((r) => r.kind === 'start')
+      .at(-1).alt.route,
+    /^haiku@/,
+  );
   assert.equal(
     decisions(h)
       .rows.filter((r) => r.kind === 'start')
