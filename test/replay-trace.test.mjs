@@ -7,6 +7,7 @@ import {
   mergeTraceExport,
   newTrace,
   readTrace,
+  TRACE_ACTIVE_MS,
   TRACE_BUDGET_BYTES,
   TRACE_PREFIX,
   TRACE_RETAIN_MS,
@@ -162,6 +163,22 @@ test('contiguous open prefixes are usable, including over 60 events; a seq gap i
   assert.deepEqual(traceProblems({ ...record, events: record.events.filter((e) => e.seq !== 7) }), ['gap']);
 });
 
+test('response references its preceding request sequence and matching turn/index', () => {
+  const request = { type: 'request', at: NOW, turn: 1, index: 0, operations: [] };
+  const response = {
+    ...traceResponse(NOW + 1, { model: 'claude-haiku-5-5' }, { stopReason: 'end_turn' }, '5m'),
+    turn: 1,
+    index: 0,
+  };
+  const record = appendTrace(initial(), [request, response], NOW + 1);
+  assert.equal(record.events[2].requestSeq, record.events[1].seq);
+  assert.equal(usableTrace(record), true);
+  assert.equal(usableTrace(appendTrace(initial(), [response], NOW + 1)), false);
+  const corrupted = structuredClone(record);
+  corrupted.events[2].requestSeq = 1;
+  assert.deepEqual(traceProblems(corrupted), ['gap']);
+});
+
 test('lost write and mid-session/resume/reload remain incomplete on subsequent success', () => {
   for (const reason of ['mid-session', 'resume', 'reload', 'mode-gap', 'conflict']) {
     const record = appendTrace(newTrace(NOW, { configured, config, loop }, [reason]), [event()], NOW + 1);
@@ -192,7 +209,10 @@ test('retention is 30 days, not number of rows or sessions; active records are n
   assert.deepEqual(traceVictims(fresh, NOW, key('own'), initial()), []);
   const expired = { ...initial(), active: false, updatedAt: NOW - TRACE_RETAIN_MS - 1 };
   assert.deepEqual(traceVictims([[key('old'), expired], ...fresh], NOW, key('own'), initial()), [key('old')]);
-  assert.deepEqual(traceVictims([[key('old'), expired]], NOW, key('own'), initial(), new Set([key('old')])), []);
+  assert.deepEqual(
+    traceVictims([[key('old'), { ...expired, active: true }]], NOW, key('own'), initial(), new Set([key('old')])),
+    [key('old')],
+  );
 });
 
 test('byte budget evicts oldest whole records, not event tails', () => {
@@ -232,6 +252,26 @@ test('incremental export merges longer/newer sessions and reprojects untrusted e
     usableTrace(readTrace({ ...second, events: second.events.map((e) => ({ ...e, seq: e.seq + 1 })) })),
     false,
   );
+});
+
+test('export never erases known taint/cap counts and marks divergent prefixes', () => {
+  const cleanLong = appendTrace(initial(), [event()], NOW + 1);
+  const taintedShort = appendTrace(initial(), [], NOW + 10, { lostWrites: 2 });
+  taintedShort.capped = { at: NOW + 2, turns: 3, events: 6 };
+  const merged = mergeTraceExport(mergeTraceExport(null, [[key('one'), taintedShort]]), [[key('one'), cleanLong]]);
+  assert.equal(usableTrace(merged.sessions[key('one')]), false);
+  assert.equal(merged.sessions[key('one')].lostWrites, 2);
+  assert.deepEqual(merged.sessions[key('one')].capped, taintedShort.capped);
+  const divergent = structuredClone(cleanLong);
+  divergent.events[0].loop.requests = 42;
+  const conflict = mergeTraceExport(merged, [[key('one'), divergent]]).sessions[key('one')];
+  assert.ok(conflict.incomplete.includes('conflict'));
+  assert.ok(conflict.incomplete.includes('lost-write'));
+});
+
+test('stale active lease cannot hold the global byte budget forever', () => {
+  const stale = { ...initial(), updatedAt: NOW - TRACE_ACTIVE_MS - 1, padding: 'x'.repeat(TRACE_BUDGET_BYTES) };
+  assert.deepEqual(traceVictims([[key('stale'), stale]], NOW, key('own'), initial()), [key('stale')]);
 });
 
 test('3MiB admission stops traces without evicting non-trace usage or active sessions', () => {

@@ -173,6 +173,7 @@ successful write persists its lost-write count and reason. The host cannot guara
 when storage itself is unavailable.
 
 An explicit export merges retained sessions into one export file (newer/longer record wins), then overwrites it.
+Known taint and capped counters merge monotonically; differing initial snapshots or overlapping events add conflict taint.
 At about 3 MiB the export rolls over to a new dated file; offline replay reads all export files. No prompt,
 tool-result, filesystem-path text or classifier endpoints/credentials are included. Every snapshot projects only
 routing fields, including configured and mode-transformed routes, model prices, provider cache semantics, native
@@ -181,8 +182,13 @@ move inputs. The recorder uses the existing hook/turn path and does not run in `
 
 Store writes lock and merge one key in the verified host implementation, but the API provides no multi-call quota
 reservation, compare-and-set or conditional delete. Cross-process quota checks and same-session writers can race;
-this is best-effort collection, not an audit log. Active records are protected from eviction; if all space is
-active, the writer refuses and taints instead of truncating an event tail.
+this is best-effort collection, not an audit log. Active records have a one-hour last-write lease against budget eviction; day-expired records always leave,
+and stale active flags do not make killed sessions immortal. If all space has recent active leases, the writer
+refuses and taints instead of truncating an event tail.
+
+Replay state starts only from the initial header, then evolves by applying the recorded requests, responses,
+controls, resets and config changes in order. Per-operation `before` state is diagnostic comparison evidence;
+replay must not reseed its state from it. Every response names its request sequence and turn/index.
 
 Replay contract, in order:
 
