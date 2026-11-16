@@ -159,14 +159,38 @@ generic event store. No prompt text, only:
 - per reply: model, effort, input, cache read, cache write and output tokens;
 - the initial policy and cache state, and a snapshot of config, provider and prices at session start.
 
-Retention follows usage records (days, not rows). A trace that started mid-session or lost events is marked
-**incomplete** and is excluded from totals.
+Storage is bounded by the Mod host's shared 4 MiB plugin store. In `shadow`, one `trace:v1:<session id>`
+record keeps a logically append-only sequence. Retention is 30 days, with no decision-row or session-count limit;
+a 1 MiB trace budget evicts oldest whole inactive sessions. Each session keeps at most 128 KiB. The writer checks
+the whole store on each write and stops tracing if its measured or projected size exceeds 3 MiB. This leaves at
+least 1 MiB headroom at that measurement, not a reservation against concurrent writes or growing usage ledgers.
+
+The per-session cap stops at a whole-turn boundary. Its contiguous prefix remains usable; excluded turns and
+events are counted separately as capped coverage. A usable prefix starts at sequence 1 with the initial
+config/provider/prices and policy/cache state; it needs no clean-close event. A late start, resume, reload,
+sequence gap, or lost write makes a trace **incomplete**. A failed write poisons the in-memory recorder; the next
+successful write persists its lost-write count and reason. The host cannot guarantee a durable failure marker
+when storage itself is unavailable.
+
+An explicit export merges retained sessions into one export file (newer/longer record wins), then overwrites it.
+At about 3 MiB the export rolls over to a new dated file; offline replay reads all export files. No prompt,
+tool-result, filesystem-path text or classifier endpoints/credentials are included. Every snapshot projects only
+routing fields, including configured and mode-transformed routes, model prices, provider cache semantics, native
+availability, context/dwell/task-progress facts, failure signatures/occurrence indexes, and continuation/observed
+move inputs. The recorder uses the existing hook/turn path and does not run in `table`.
+
+Store writes lock and merge one key in the verified host implementation, but the API provides no multi-call quota
+reservation, compare-and-set or conditional delete. Cross-process quota checks and same-session writers can race;
+this is best-effort collection, not an audit log. Active records are protected from eviction; if all space is
+active, the writer refuses and taints instead of truncating an event tail.
 
 Replay contract, in order:
 
 1. **Fidelity check.** Replay with the `table` engine must reproduce the recorded routes on each complete trace.
    An unexplained mismatch on a complete trace **blocks** the evaluation until it is fixed in the recorder or the
-   replay. It is not dropped from the denominator. Only traces marked incomplete at record time are excluded.
+   replay. It is not dropped from the denominator. Recorded taint or a sequence gap explains lost-write
+   incompleteness; those traces are excluded, not unexplained fidelity failures. Capped prefixes remain usable and
+   their excluded-turn counts are reported separately.
 2. **Engine replay.** The same traces with the `auto` engine, each session stateful (own demand, cache and switch
    history).
 3. **Report:** usable coverage (complete traces / all sessions, and turns), then per mode: conditional cost estimate
@@ -274,8 +298,12 @@ Steps 1–4 change nothing for users on the default.
 - Demand, target and move are separate steps with separate state (Pi, round 1).
 - Capability is declared per model and effort on the demand scale, with sources; unknown is explicit (rounds 1–2).
 - Shadow is a one-step proposal against the real incumbent; stateful simulation is offline replay only (round 1).
-- Fidelity mismatches block evaluation; coverage is reported (round 2).
+- Unexplained fidelity mismatches block evaluation; incomplete and capped coverage are reported separately (round 2, bounded-storage amendment).
 - The benchmark is a smoke gate, not proof of non-inferiority (rounds 1–2).
 - One tie-break order for all modes; the mode acts only through the requirement (round 3).
 - Moves compare against routed demand, so a blocked move stays pending with its original evidence (round 3).
+- Bounded replay storage uses the host store rather than an unbounded event file or runtime subprocess:
+  30-day retention, 128 KiB per session, 1 MiB total trace budget and a measured 3 MiB store guard.
+  Contiguous open prefixes are usable; capped turns remain separate; failed writes taint on next success;
+  exports merge incrementally. The shared-store headroom and same-session concurrency limits remain explicit.
 - Post-cutover thresholds combine relative margins, absolute allowances and a minimum event count (round 3).

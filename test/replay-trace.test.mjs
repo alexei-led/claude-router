@@ -1,0 +1,249 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { DEFAULTS, loadConfig } from '../lib/config.mjs';
+import { applyMode } from '../lib/modes.mjs';
+import {
+  appendTrace,
+  mergeTraceExport,
+  newTrace,
+  readTrace,
+  TRACE_BUDGET_BYTES,
+  TRACE_PREFIX,
+  TRACE_RETAIN_MS,
+  traceAdmission,
+  traceBytes,
+  traceConfig,
+  traceFacts,
+  traceOperation,
+  traceProblems,
+  traceResponse,
+  traceVictims,
+  usableTrace,
+} from '../lib/replay-trace.mjs';
+import { chooseRoute, emptyLoop, nativeFacts } from '../lib/route.mjs';
+
+const NOW = Date.UTC(2026, 10, 16, 12);
+const configured = loadConfig();
+const config = applyMode(configured, { mode: 'balanced', source: 'default' });
+const loop = emptyLoop(configured, configured.models.haiku.id);
+const initial = () => newTrace(NOW, { configured, config, loop });
+const event = (at = NOW) => ({ type: 'end', at });
+const key = (id) => TRACE_PREFIX + id;
+
+test('snapshot freezes execution policy/cache/provider/prices without classifier endpoints or text', () => {
+  const canary = 'CANARY_PRIVATE_PROMPT_TOOL_PATH_KEY';
+  const polluted = {
+    ...config,
+    prompt: canary,
+    nativePath: `/private/${canary}`,
+    classifier: canary,
+    classifiers: { jev: { endpoint: `https://${canary}`, apiKey: canary } },
+    models: { ...config.models, opus: { ...config.models.opus, source: canary, endpoint: canary } },
+  };
+  const snapshot = traceConfig(polluted);
+  assert.equal(JSON.stringify(snapshot).includes(canary), false);
+  assert.equal(snapshot.models.opus.input, config.models.opus.input);
+  assert.deepEqual(snapshot.policy, config.policy);
+  assert.deepEqual(snapshot.cache, config.cache);
+  assert.deepEqual(snapshot.routes, config.routes);
+  assert.deepEqual(snapshot.configuredActivities, config.configuredActivities ?? config.activities);
+  polluted.models.opus.input = 987;
+  assert.equal(snapshot.models.opus.input, config.models.opus.input);
+});
+
+test('partial activity overrides stay partial for route inheritance', () => {
+  const projected = traceConfig({ ...config, activities: { code: { low: { effort: 'max' } } } });
+  assert.deepEqual(projected.activities.code.low, { effort: 'max' });
+});
+
+test('missing initial state cannot be falsely usable', () => {
+  assert.equal(usableTrace(newTrace(NOW, {})), false);
+  const bad = initial();
+  delete bad.events[0].configured;
+  assert.equal(usableTrace(readTrace(bad)), false);
+});
+
+test('projected advice/facts/loop suffice to call the real table decision without transcript text', () => {
+  const facts = nativeFacts(config, loop, {
+    messages: [{ role: 'user', content: 'CANARY_PROMPT' }],
+    effort: 'high',
+    turnId: 'turn1',
+    contextTokens: 8000,
+  });
+  const advice = {
+    choice: 'high',
+    probabilities: { high: 1, micro: 0, low: 0, medium: 0, uncertain: 0 },
+    activity: { choice: 'code', probabilities: { code: 1 } },
+    phase: { choice: 'produce', probabilities: { produce: 1 } },
+    continuation: 0,
+  };
+  const input = { facts, advice, pin: null, nativeModel: configured.models.haiku.id, contextKnown: true, now: NOW };
+  const selected = chooseRoute(config, loop, input);
+  const op = traceOperation('choose', NOW, loop, input, selected);
+  assert.equal(JSON.stringify(op).includes('CANARY'), false);
+  const replay = chooseRoute(
+    traceConfig(config),
+    { ...op.before, turnId: null },
+    {
+      ...op,
+      facts: { ...op.facts, turnKey: 'turn1' },
+      availableModels: undefined,
+      now: op.at,
+    },
+  );
+  assert.equal(replay.decision.model, selected.decision.model);
+  assert.equal(replay.decision.effort, selected.decision.effort);
+  assert.equal(replay.decision.reason, selected.decision.reason);
+  assert.deepEqual(replay.state, selected.state);
+});
+
+test('facts keep occurrence signature/index and derived context/task/dwell but reject diagnostic text', () => {
+  const facts = traceFacts({
+    prompt: 'CANARY',
+    turns: [{ text: 'CANARY' }],
+    path: 'CANARY',
+    failure: { signature: 'ab12', index: 42, text: 'CANARY' },
+    downAllowed: true,
+    contextTokens: 123,
+    hasImages: true,
+    progress: true,
+  });
+  assert.deepEqual(facts.failure, { signature: 'ab12', index: 42 });
+  assert.equal(facts.downAllowed, true);
+  assert.equal(facts.contextTokens, 123);
+  assert.equal(facts.hasImages, true);
+  assert.equal(facts.progress, true);
+  assert.equal(JSON.stringify(facts).includes('CANARY'), false);
+  assert.equal(traceFacts({ failure: { signature: 'CANARY /private/path', index: 1 } }).failure.signature, null);
+});
+
+test('response includes served model, effective effort and all four token counters only', () => {
+  const response = traceResponse(
+    NOW,
+    { model: 'claude-haiku-5-5', effort: 123 },
+    {
+      usage: {
+        model: 'claude-sonnet-5-5',
+        input_tokens: 1,
+        cache_read_input_tokens: 2,
+        cache_creation_input_tokens: 3,
+        output_tokens: 4,
+        secret: 'CANARY',
+      },
+      stopReason: 'CANARY',
+      text: 'CANARY',
+      content: 'CANARY',
+    },
+    '1h',
+  );
+  assert.equal(response.servedModel, 'claude-sonnet-5-5');
+  assert.equal(response.effort, 123);
+  assert.deepEqual(response.usage, {
+    input_tokens: 1,
+    cache_read_input_tokens: 2,
+    cache_creation_input_tokens: 3,
+    output_tokens: 4,
+  });
+  assert.equal(response.ttl, '1h');
+  assert.equal(response.stopReason, 'other');
+  assert.equal(traceResponse(NOW, {}, { stopReason: null }, null).stopReason, null);
+  assert.equal(JSON.stringify(response).includes('CANARY'), false);
+});
+
+test('contiguous open prefixes are usable, including over 60 events; a seq gap is incomplete', () => {
+  let record = initial();
+  for (let i = 0; i < 90; i++) record = appendTrace(record, [event(NOW + i)], NOW + i);
+  assert.equal(record.events.length, 91);
+  assert.equal(usableTrace(record), true);
+  assert.deepEqual(
+    record.events.map((e) => e.seq),
+    Array.from({ length: 91 }, (_, i) => i + 1),
+  );
+  assert.deepEqual(traceProblems({ ...record, events: record.events.filter((e) => e.seq !== 7) }), ['gap']);
+});
+
+test('lost write and mid-session/resume/reload remain incomplete on subsequent success', () => {
+  for (const reason of ['mid-session', 'resume', 'reload', 'mode-gap', 'conflict']) {
+    const record = appendTrace(newTrace(NOW, { configured, config, loop }, [reason]), [event()], NOW + 1);
+    assert.equal(usableTrace(record), false);
+    assert.deepEqual(record.incomplete, [reason]);
+  }
+  const record = appendTrace(initial(), [event()], NOW + 1, { lostWrites: 2 });
+  assert.equal(record.lostWrites, 2);
+  assert.deepEqual(record.incomplete, ['lost-write']);
+  assert.equal(usableTrace(appendTrace(record, [event()], NOW + 2)), false);
+});
+
+test('intentional cap retains a usable whole-turn prefix and counts excluded turns/events', () => {
+  const record = initial();
+  const capped = appendTrace(record, [event(), event()], NOW + 1, { maxBytes: traceBytes(record) + 1 });
+  assert.deepEqual(capped.events, record.events);
+  assert.equal(capped.capped.turns, 1);
+  assert.equal(capped.capped.events, 2);
+  assert.equal(capped.lostWrites, 0);
+  assert.equal(usableTrace(capped), true);
+  const next = appendTrace(capped, [event()], NOW + 2);
+  assert.equal(next.capped.turns, 2);
+  assert.equal(next.events.length, 1);
+});
+
+test('retention is 30 days, not number of rows or sessions; active records are never victims', () => {
+  const fresh = Array.from({ length: 100 }, (_, i) => [key(i), initial()]);
+  assert.deepEqual(traceVictims(fresh, NOW, key('own'), initial()), []);
+  const expired = { ...initial(), active: false, updatedAt: NOW - TRACE_RETAIN_MS - 1 };
+  assert.deepEqual(traceVictims([[key('old'), expired], ...fresh], NOW, key('own'), initial()), [key('old')]);
+  assert.deepEqual(traceVictims([[key('old'), expired]], NOW, key('own'), initial(), new Set([key('old')])), []);
+});
+
+test('byte budget evicts oldest whole records, not event tails', () => {
+  const rows = Array.from({ length: 12 }, (_, i) => [
+    key(i),
+    { ...initial(), active: false, updatedAt: NOW + i, padding: 'x'.repeat(100_000) },
+  ]);
+  const victims = traceVictims(rows, NOW + 20, key('own'), initial());
+  assert.ok(victims.length > 0);
+  assert.deepEqual(
+    victims,
+    rows.slice(0, victims.length).map(([k]) => k),
+  );
+  const remaining = rows.filter(([k]) => !victims.includes(k));
+  assert.ok(
+    traceBytes(initial()) + remaining.reduce((n, [k, v]) => n + traceBytes(k) + traceBytes(v) + 2, 0) <=
+      TRACE_BUDGET_BYTES,
+  );
+});
+
+test('incremental export merges longer/newer sessions and reprojects untrusted existing fields', () => {
+  const first = initial();
+  const second = appendTrace(first, [event()], NOW + 1);
+  const prior = mergeTraceExport(null, [[key('one'), { ...first, prompt: 'CANARY' }]]);
+  prior.sessions[key('one')].events[0].config.classifiers = { secret: 'CANARY' };
+  const merged = mergeTraceExport(prior, [
+    [key('one'), second],
+    [key('two'), first],
+  ]);
+  assert.equal(merged.sessions[key('one')].events.length, 2);
+  assert.equal(Object.keys(merged.sessions).length, 2);
+  assert.equal(JSON.stringify(merged).includes('CANARY'), false);
+  assert.throws(() => mergeTraceExport({ version: 2 }, []), /invalid trace export/);
+  assert.throws(() => mergeTraceExport(null, [['not-a-trace', first]]), /invalid trace key/);
+  assert.equal(readTrace({ version: 99 }), null);
+  assert.equal(
+    usableTrace(readTrace({ ...second, events: second.events.map((e) => ({ ...e, seq: e.seq + 1 })) })),
+    false,
+  );
+});
+
+test('3MiB admission stops traces without evicting non-trace usage or active sessions', () => {
+  assert.equal(traceAdmission([['usage:v1:large', 'x'.repeat(3 * 1024 * 1024)]], key('own'), initial()), false);
+  assert.equal(traceAdmission([['usage:v1:large', 'x'.repeat(3 * 1024 * 1024 - 100)]], key('own'), initial()), false);
+  assert.equal(traceAdmission([], key('own'), initial()), true);
+  const active = { ...initial(), padding: 'x'.repeat(TRACE_BUDGET_BYTES) };
+  assert.deepEqual(traceVictims([[key('active'), active]], NOW, key('own'), initial()), []);
+  assert.equal(traceAdmission([[key('active'), active]], key('own'), initial()), false);
+});
+
+test('byte counting includes UTF-8 overhead', () => {
+  assert.equal(traceBytes('€'), 5);
+  assert.equal(DEFAULTS.models.opus.id, configured.models.opus.id);
+});
