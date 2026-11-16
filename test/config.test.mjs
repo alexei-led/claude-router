@@ -690,3 +690,67 @@ test('supportedVersion accepts Claude Code 2.1.289 and newer, with or without a 
   ])
     assert.equal(supportedVersion(version), supported, String(version));
 });
+
+test('capabilities validate values, effort keys and no-effort defaults', () => {
+  for (const value of [0, 0.5, 1, 1.5, 2, 2.5, 3])
+    assert.equal(
+      loadConfig({ userFile: { models: { sonnet: { capability: { high: value } } } } }).models.sonnet.capability.high,
+      value,
+    );
+  for (const value of [-0.5, 3.5, 1.1, null, '2', NaN, Infinity])
+    assert.throws(
+      () => loadConfig({ userFile: { models: { sonnet: { capability: { high: value } } } } }),
+      /capability/,
+    );
+  for (const capability of [null, [], 1, { default: 1 }, { invalid: 1 }])
+    assert.throws(() => loadConfig({ userFile: { models: { sonnet: { capability } } } }), /capability/);
+  assert.equal(
+    loadConfig({ provider: 'mimo', userFile: { models: { flash: { capability: { default: 2 } } } } }).models.flash
+      .capability.default,
+    2,
+  );
+  assert.throws(
+    () => loadConfig({ provider: 'mimo', userFile: { models: { flash: { capability: { high: 2 } } } } }),
+    /capability/,
+  );
+});
+
+test('capability overrides replace maps and changed model IDs do not inherit them', () => {
+  const capability = { high: 2, medium: 1.5 };
+  const override = (model) => loadConfig({ userFile: { models: { sonnet: model } } }).models.sonnet;
+  assert.deepEqual(override({ capability }).capability, capability);
+  assert.deepEqual(override({ capability: {} }).capability, {});
+  assert.deepEqual(override({ id: 'another-model', capability: { low: 1 } }).capability, { low: 1 });
+  assert.equal(override({ id: 'another-model' }).capability, undefined);
+  assert.deepEqual(override({ id: 'claude-sonnet-5-5[1m]' }).capability, DEFAULTS.models.sonnet.capability);
+  assert.throws(() => override({ efforts: ['low'], capability: { high: 1 } }), /capability/);
+  const inherited = override({ efforts: ['low'] }).capability;
+  assert.deepEqual(
+    inherited,
+    Object.fromEntries(Object.entries(DEFAULTS.models.sonnet.capability).filter(([key]) => key === 'low')),
+  );
+});
+
+test('inherited capability is pruned on effort edits and never copied to a new model', () => {
+  const previous = DEFAULTS.models.sonnet.capability;
+  DEFAULTS.models.sonnet.capability = { low: 1, high: 2 };
+  try {
+    const model = (patch) => loadConfig({ userFile: { models: { sonnet: patch } } }).models.sonnet;
+    assert.deepEqual(model({ efforts: ['low'] }).capability, { low: 1 });
+    assert.deepEqual(model({ efforts: [] }).capability, {});
+    assert.deepEqual(model({ capability: { medium: 1.5 } }).capability, { medium: 1.5 });
+    assert.deepEqual(model({ id: 'other', capability: { medium: 1.5 } }).capability, { medium: 1.5 });
+    assert.equal(model({ id: 'other' }).capability, undefined);
+    assert.deepEqual(model({ id: 'claude-sonnet-5-5[1m]' }).capability, { low: 1, high: 2 });
+  } finally {
+    DEFAULTS.models.sonnet.capability = previous;
+  }
+});
+
+test('absent effort and model declarations remain unknown and zero remains declared', () => {
+  const { models } = loadConfig({ userFile: { models: { sonnet: { capability: { low: 0, high: 2.5 } } } } });
+  assert.equal(models.sonnet.capability.low, 0);
+  assert.equal(models.sonnet.capability.medium, undefined);
+  assert.equal(models.opus.capability.high, undefined);
+  assert.equal(models.missing?.capability, undefined);
+});
