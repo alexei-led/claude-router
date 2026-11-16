@@ -41,6 +41,7 @@ const facts = (extra = {}) => ({
   models: {},
   effort: null,
   downAllowed: true,
+  dwellAllowed: true,
   lastRequest: { tokens: 1000, outputTokens: 0 },
   ...extra,
 });
@@ -843,4 +844,48 @@ test('native numeric effort remains valid and unknown for models without configu
   const incumbent = result.candidates.find((candidate) => candidate.incumbent);
   assert.equal(incumbent.eligible, true);
   assert.equal(incumbent.capability, null);
+  const generated = result.candidates.find((candidate) => candidate.selectable);
+  assert.equal(incumbent.requestKey, generated.requestKey);
+  assert.equal(result.move.reason, 'same-route');
+  assert.equal(result.move.move, false);
+});
+
+test('unresolved native incumbent wins unknown-only equal estimates in every mode', () => {
+  for (const effort of [null, 1024]) {
+    const cfg = config({ a: model(null, 1, { efforts: ['low', 'high'] }) });
+    for (const mode of ['cost', 'balanced', 'quality']) {
+      const result = run({ config: cfg, mode, incumbent: route('a', effort), facts: facts({ effort }) });
+      assert.deepEqual(result.target.route, route('a', effort), `${mode} ${effort}`);
+      assert.equal(result.target.outcome, 'unknown-only');
+      assert.equal(result.move.move, false);
+      const declared = config({ a: cfg.models.a, b: model(0, 100) });
+      const below = run({ config: declared, mode, incumbent: route('a', effort), facts: facts({ effort }) });
+      assert.deepEqual(below.target.route, route('b'));
+      assert.equal(below.target.outcome, 'declared-below-demand');
+    }
+  }
+});
+
+test('demand downgrades and cheaper lateral moves need dwell even off the same task', () => {
+  for (const path of [
+    { raw: 1, routed: 3, current: 'c', target: 'a', a: advice('low', { low: 1 }) },
+    { raw: 2, routed: 2, current: 'b', target: 'a', a: null },
+  ]) {
+    for (const dwellAllowed of [false, undefined, true]) {
+      const result = moveFor({ ...path, f: facts({ dwellAllowed, downAllowed: false }) });
+      assert.equal(result.move, dwellAllowed === true);
+      assert.equal(result.reason, dwellAllowed === true ? (path.routed === 3 ? 'downgrade' : 'cheaper') : 'dwell-held');
+    }
+    const fresh = moveFor({ ...path, f: facts({ historyMeasured: false, dwellAllowed: true, downAllowed: false }) });
+    assert.equal(fresh.move, true);
+  }
+  for (const input of [
+    {},
+    { raw: 1, routed: 1, changeCause: 'mode', a: null },
+    { escalated: true, a: null },
+    { f: facts({ ineligible: ['a'], dwellAllowed: false }), a: null },
+  ]) {
+    const result = moveFor({ f: facts({ dwellAllowed: false, downAllowed: false }), ...input });
+    assert.equal(result.move, true);
+  }
 });

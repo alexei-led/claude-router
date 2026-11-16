@@ -22,7 +22,12 @@ The facts object uses the existing controller shapes:
 - `models`: cache key → `{ prefixTokens, lastAt, ... }`;
 - `effort`: native session effort, and `lastRequest: { tokens, outputTokens, ... }`;
 - `ineligible`: model IDs excluded for this history;
-- `downAllowed`: the existing combined dwell/checkpoint fact, and `midTurn`, `progress` for same-task holds;
+- `dwellAllowed`: a separate boolean for physical downgrades, required even on a new task. Set it to
+  `requests - switchedAt.requests >= config.policy.minDwellRequests`, using the actual route's last switch and
+  request counter. At session start, before any request/switch exists, set it to true. Missing means false.
+- `downAllowed`: the existing combined dwell/checkpoint fact, required in addition to `dwellAllowed` only on the
+  same task; `midTurn`, `progress` and advice continuation identify that task. Off the same task no checkpoint
+  is required. Upgrades, forced refits, escalation and explicit stronger mode/catalog moves bypass dwell.
 - `failure: { signature, index }` or null. The same signature at a new index is a new occurrence.
   Re-reading the same occurrence does not escalate again. History reset must reset engine state.
 
@@ -52,7 +57,9 @@ for a goal label alone or verify/report phases. An escalation hold protects the 
 
 Each candidate has `route`, `requestKey` (canonical physical identity), `capability` (number or null), `eligible`, `reasons`, `incumbent`, `selectable`,
 `cache`, `coldWriteUsd` and `estimate`. The incumbent is assessed even if it left the catalog.
-A native unresolved effort can be retained but is not a generated candidate.
+A native unresolved effort is included in normal target comparison so it wins equal estimates, but cannot be
+nominated as a new non-incumbent route. Declared-below-demand candidates still precede an unknown incumbent.
+On a no-effort model, numeric native effort and the generated null-effort candidate have the same request key.
 
 All availability, context, image, effort and cold-write cash constraints run before fallback.
 An invalid incumbent and no eligible candidate produce explicit `no-route`, never an invented native route.
