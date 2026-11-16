@@ -181,3 +181,11 @@ test('provider pane reset uses provider defaults and identifies its selected fil
   await press(h, 'undo');
   assert.equal(JSON.parse(h.files.get('/fixture/team/zai-router.json')).routes.low.model, 'glm');
 });
+
+test('every built-in preset explicitly leaves uncalibrated capabilities unknown', () => {
+  for (const provider of ['anthropic', 'deepseek', 'zai', 'minimax', 'mimo', 'kimi']) {
+    for (const model of Object.values(loadConfig({ provider }).models)) {
+      assert.deepEqual(model.capability, {}, `${provider}: ${model.id}`);
+    }
+  }
+});
