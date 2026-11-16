@@ -1,3 +1,4 @@
+import { acceptActivity, acceptPhase } from '../lib/activity.mjs';
 import {
   ACTIVITY_CONTRACT,
   advanceDown,
@@ -852,7 +853,10 @@ function shadowProposal(
       advice,
       facts,
       pin,
-      boundedExecute: selected.decision.activity === 'ops' && selected.decision.taskPhase === 'execute',
+      boundedExecute:
+        config.activityRouting === 'on' &&
+        acceptActivity(config, advice) !== null &&
+        acceptPhase(config, advice) === 'execute',
     });
     const candidates = assessCandidates({
       config: projected,

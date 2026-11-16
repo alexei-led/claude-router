@@ -84,6 +84,65 @@ test('shadow uses the base demand policy in every mode and changes only the requ
   assert.equal(results[1].requirement - results[0].requirement, 1);
 });
 
+test('bounded execute demand does not depend on table pricing, cache or a held activity cell', async () => {
+  const results = [];
+  for (const input of [1, 1000]) {
+    const h = harness(JEV_KEY);
+    h.files.set(
+      CONFIG,
+      JSON.stringify({ routingEngine: 'shadow', models: { haiku: { input, cacheRead: input / 10 } } }),
+    );
+    h.model('claude-opus-5-5');
+    answering(
+      h,
+      jevResponse('medium', { medium: 1 }, 0, { code: 1 }, 'produce'),
+      jevResponse('medium', { medium: 1 }, 0, { code: 1 }, 'execute'),
+    );
+    await h.event('session.start', { cwd: '/fixture' });
+    await turn(h, 't1', 'Implement it.', 'composer');
+    if (input === 1)
+      h.state.get('loops:main').value.models['claude-haiku-5-5'] = {
+        prefixTokens: 9000,
+        lastAt: Date.now(),
+        ttl: '5m',
+      };
+    await turn(h, 't2', 'Run the check.', 'composer');
+    const row = decisions(h)
+      .rows.filter((r) => r.kind === 'start')
+      .at(-1);
+    results.push({ activity: row.activity, raw: h.loop().shadow.state.demand, demand: row.alt.demand });
+  }
+  assert.notEqual(results[0].activity, results[1].activity, 'the table accepts one ops cell and holds the other');
+  assert.deepEqual(
+    results.map(({ raw, demand }) => [raw, demand]),
+    [
+      [2, 1.5],
+      [2, 1.5],
+    ],
+  );
+});
+
+test('bounded execute confidence uses base policy, not mode activityMass patches', async () => {
+  const results = [];
+  for (const mode of ['cost', 'quality']) {
+    const h = harness(JEV_KEY);
+    h.files.set(
+      CONFIG,
+      JSON.stringify({
+        routingEngine: 'shadow',
+        mode,
+        policy: { activityMass: 0.6 },
+        modes: { cost: { policy: { activityMass: 0.99 } }, quality: { policy: { activityMass: 0.2 } } },
+      }),
+    );
+    answering(h, jevResponse('medium', { medium: 1 }, 0, { code: 0.8, uncertain: 0.2 }, 'execute'));
+    await h.event('session.start', { cwd: '/fixture' });
+    await turn(h, 't1', 'Run the check.', 'composer');
+    results.push(decisions(h).rows[0].alt.demand);
+  }
+  assert.deepEqual(results, [1.5, 1.5]);
+});
+
 test('a shadow tier pin is one turn only and preserves unpinned demand evidence', async () => {
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow' }));
