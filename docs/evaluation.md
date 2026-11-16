@@ -17,7 +17,9 @@ In `routingEngine: "shadow"`, the main-turn hooks also keep text-free replay inp
 the initial configured and mode-transformed routing policy, provider/cache semantics and model prices; classifier
 tier/activity/phase vectors; failure fingerprints and occurrence indexes; pins, modes, resets, context/availability
 facts and observed moves; and correlated request/reply model, effort and token counters. Checkpoint evidence uses
-message indexes and success flags, not commands, tool results or paths, so a later replay can use its own switch cursor.
+message indexes and success flags, not commands, tool results or filesystem-path fields, so a later replay can use
+its own switch cursor. Validated routing aliases and model IDs are preserved exactly, including path-shaped IDs;
+classifier endpoints, credentials and the config file's nativePath are not copied.
 
 Records use `trace:v1:<session id>`: 30-day retention, 128 KiB per session, 1 MiB total trace budget and a measured
 3 MiB guard on the shared plugin store. Pending turns are bounded too. A cap discards the entire pending turn,

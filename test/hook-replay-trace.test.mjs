@@ -524,6 +524,33 @@ test('aborted manual replies and unfinished streamed requests persist explicit i
   assert.ok(record(h).incomplete.includes('gap'));
 });
 
+test('real hook snapshots retain unused odd catalog aliases and custom cache economics', async () => {
+  const alias = 'unused modèle 模型';
+  const h = setup({
+    models: {
+      [alias]: {
+        id: 'provider/模型 v1',
+        input: 1,
+        output: 2,
+        cacheRead: 0.1,
+        contextWindow: 200000,
+        billing: 'credits',
+        efforts: [],
+        capability: {},
+      },
+    },
+    cache: { writeMultiplier: { '2h': 10 }, ttlMs: { '2h': 7200000 } },
+  });
+  await begin(h);
+  await turn(h);
+  const config = record(h).events[0].config;
+  assert.equal(config.models[alias].id, 'provider/模型 v1');
+  assert.deepEqual(config.models[alias].capability, {});
+  assert.equal(config.cache.writeMultiplier['2h'], 10);
+  assert.equal(config.cache.ttlMs['2h'], 7200000);
+  assert.equal(usableTrace(record(h)), true);
+});
+
 test('pins/mode/off-on/config changes and compaction carry explicit replay boundaries', async () => {
   const h = setup();
   await begin(h);

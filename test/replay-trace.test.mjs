@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
+import { coldWriteUsd } from '../lib/cost.mjs';
 import { completedSince, progressEvidence } from '../lib/facts.mjs';
 import { applyMode } from '../lib/modes.mjs';
 import {
@@ -54,6 +55,27 @@ test('snapshot freezes execution policy/cache/provider/prices without classifier
   assert.deepEqual(snapshot.configuredActivities, config.configuredActivities ?? config.activities);
   polluted.models.opus.input = 987;
   assert.equal(snapshot.models.opus.input, config.models.opus.input);
+});
+
+test('every accepted catalog identifier and custom cache rate survives the frozen projection', () => {
+  const alias = 'extra résumé 模型';
+  const unusual = loadConfig({
+    userFile: {
+      models: { [alias]: { ...DEFAULTS.models.opus, id: 'provider/模型 v1', capability: {} } },
+      cache: { writeMultiplier: { '2h': 10, 'cache spécial': 3 }, ttlMs: { '2h': 7200000 } },
+    },
+  });
+  const projected = traceConfig(unusual);
+  assert.deepEqual(Object.keys(projected.models), Object.keys(unusual.models));
+  assert.deepEqual(
+    projected.models[alias],
+    traceConfig({ ...unusual, models: { [alias]: unusual.models[alias] } }).models[alias],
+  );
+  assert.equal(projected.models[alias].id, 'provider/模型 v1');
+  assert.deepEqual(projected.cache.writeMultiplier, unusual.cache.writeMultiplier);
+  assert.deepEqual(projected.cache.ttlMs, unusual.cache.ttlMs);
+  assert.equal(coldWriteUsd(projected, 'opus', 1000, NOW), coldWriteUsd(unusual, 'opus', 1000, NOW));
+  assert.equal(coldWriteUsd(projected, 'opus', 1000, NOW), 0.04);
 });
 
 test('partial activity overrides stay partial for route inheritance', () => {
