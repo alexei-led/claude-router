@@ -37,6 +37,25 @@ See [Providers](providers.md) for selection examples, built-in defaults and comp
 The same schema applies to every router file. This reference uses `router.json` as shorthand for the selected file.
 A non-Anthropic file must exist and validate. It never falls back to `router.json` or inherits settings from it.
 
+### Model capability declarations
+
+`models.<alias>.capability` is an optional map of supported efforts to adequacy levels: 0 (micro),
+1 (low), 2 (medium), or 3 (high), with half-steps allowed. For example:
+
+```json
+{ "models": { "sonnet": { "capability": { "medium": 1.5, "high": 2 } } } }
+```
+
+These example values illustrate the shape, not measured model performance. Missing maps and missing entries are
+unknown, not 0. For a model with `efforts: []`, use only `"default"` for its no-effort candidate. Other keys,
+unsupported efforts, non-numbers and values outside 0–3 or between half-steps are invalid.
+
+A user-supplied map replaces the preset map in full; `{}` clears it. Replacing a model ID clears inherited
+capability, even if the same alias is kept; the `[1m]` context hint alone does not change identity. Changing
+`efforts` prunes unsupported inherited entries; unsupported explicitly supplied entries are rejected. Capability
+is separate from `strength`, which still controls the current table routing. Capability declarations do not change
+routing in this version. Built-in declarations and their evidence limits are listed in [Providers](providers.md#capability-evidence).
+
 ### Provider prices
 
 All non-Anthropic built-in model windows are at least 1M tokens.
@@ -351,7 +370,7 @@ The Mod validates the whole file. Unknown keys and invalid values make routing u
 | `mode`                         | `cost`, `balanced`, `quality` ([Routing modes](routing-modes.md))                    | `balanced`                                               |
 | `modes.<cost\|quality>.policy` | any `policy` field, used while that mode is active                                   | [Routing modes](routing-modes.md#policy-per-mode); not tuned |
 | `activities.<activity>.<tier>` | optional `model` and `effort`, as in `routes`                                        | The overrides in [Activity routing](#activity-routing)   |
-| `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, optional `longContext` (`above`, `multiplier`, or `null`), optional `offPeak` (`multiplier`, `peakDays` as UTC weekdays 0–6 from Sunday, `peakHoursUtc` as `[from, to)` hour ranges, or `null`), `contextWindow`, `billing`, `efforts`, optional `strength`, `imageInput` | Three defaults above                                     |
+| `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, optional `longContext` (`above`, `multiplier`, or `null`), optional `offPeak` (`multiplier`, `peakDays` as UTC weekdays 0–6 from Sunday, `peakHoursUtc` as `[from, to)` hour ranges, or `null`), `contextWindow`, `billing`, `efforts`, optional `strength`, optional `capability`, `imageInput` | Three defaults above                                     |
 | `cache`                        | `mode`, `effortScope`, `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms |
 | `policy`                       | Fields below                                                                         | Values below                                             |
 | `classifier`                   | An id in `classifiers`                                                               | `jev`                                                    |
