@@ -551,6 +551,118 @@ test('real hook snapshots retain unused odd catalog aliases and custom cache eco
   assert.equal(usableTrace(record(h)), true);
 });
 
+test('pre-request recorder failure cannot change the shadow request or response', async (t) => {
+  const baseline = setup({ routingEngine: 'table' });
+  await begin(baseline);
+  await baseline.event('turn.start', { turnId: 't1', text: 'Synthetic task.' });
+  const expected = await drain(baseline.step(step));
+  const h = setup();
+  await begin(h);
+  await h.event('turn.start', { turnId: 't1', text: 'Synthetic task.' });
+  const encode = TextEncoder.prototype.encode;
+  let fail = true;
+  t.mock.method(TextEncoder.prototype, 'encode', function (value) {
+    if (fail) throw new Error('CANARY_RECORDER_FAILURE');
+    return encode.call(this, value);
+  });
+  const actual = await drain(h.step(step));
+  assert.deepEqual(h.requests, baseline.requests);
+  assert.deepEqual(actual, expected);
+  fail = false;
+  await h.event('turn.complete', { turnId: 't1' });
+  await turn(h, 'recovered');
+  assert.equal(usableTrace(record(h)), false);
+  assert.ok(record(h).lostWrites > 0);
+  assert.equal(JSON.stringify(record(h)).includes('CANARY'), false);
+});
+
+test('post-response recorder failure cannot discard the native response or priced usage', async (t) => {
+  const baseline = setup({ routingEngine: 'table' });
+  await begin(baseline);
+  await baseline.event('turn.start', { turnId: 't1', text: 'Synthetic task.' });
+  const expected = await drain(baseline.step(step));
+  const h = setup();
+  await begin(h);
+  await h.event('turn.start', { turnId: 't1', text: 'Synthetic task.' });
+  const encode = TextEncoder.prototype.encode;
+  let fail = false;
+  t.mock.method(TextEncoder.prototype, 'encode', function (value) {
+    if (fail) throw new Error('CANARY_RECORDER_FAILURE');
+    return encode.call(this, value);
+  });
+  const set = h.$.state.set;
+  h.$.state.set = async (ref, value, options) => {
+    const result = await set(ref, value, options);
+    if (ref.key === 'loops' && value.requests > 0) fail = true;
+    return result;
+  };
+  const actual = await drain(h.step(step));
+  assert.deepEqual(h.requests, baseline.requests);
+  assert.deepEqual(actual, expected);
+  assert.equal(h.view().inputTokens, baseline.view().inputTokens);
+  fail = false;
+  h.$.state.set = set;
+  await h.event('turn.complete', { turnId: 't1' });
+  await turn(h, 'recovered');
+  assert.equal(usableTrace(record(h)), false);
+  assert.ok(record(h).lostWrites > 0);
+});
+
+test('recorder failures during controls, compaction and turn completion do not escape lifecycle hooks', async (t) => {
+  const h = setup();
+  await begin(h);
+  await turn(h, 'first');
+  await h.event('turn.start', { turnId: 'second', text: 'Synthetic task.' });
+  await drain(h.step({ ...step, turnId: 'second' }));
+  const encode = TextEncoder.prototype.encode;
+  let fail = true;
+  t.mock.method(TextEncoder.prototype, 'encode', function (value) {
+    if (fail) throw new Error('CANARY_LIFECYCLE_FAILURE');
+    return encode.call(this, value);
+  });
+  assert.match((await h.event('command.run', { command: 'router', args: 'off' })).text, /Routing off/);
+  const generation = h.loop().generation;
+  await h.event('session.compact', { trigger: 'auto' });
+  assert.equal(h.loop().generation, generation + 1);
+  await h.event('turn.complete', { turnId: 'second' });
+  fail = false;
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  await turn(h, 'recovered');
+  assert.equal(usableTrace(record(h)), false);
+  assert.ok(record(h).lostWrites > 0);
+  assert.ok(record(h).incomplete.includes('recorder-error'));
+  assert.equal(JSON.stringify(record(h)).includes('CANARY'), false);
+});
+
+test('failed session-end tracing does not prevent session lifecycle and resume stays incomplete', async (t) => {
+  const h = setup();
+  await begin(h);
+  await turn(h);
+  const encode = TextEncoder.prototype.encode;
+  let fail = true;
+  t.mock.method(TextEncoder.prototype, 'encode', function (value) {
+    if (fail) throw new Error('recorder failed');
+    return encode.call(this, value);
+  });
+  await h.event('session.end', { reason: 'exit' });
+  fail = false;
+  const resumed = setup({}, h.preferences);
+  await begin(resumed);
+  await turn(resumed);
+  assert.equal(usableTrace(record(resumed)), false);
+  assert.ok(record(resumed).incomplete.includes('resume'));
+});
+
+test('recorder isolation does not swallow routing failures', async () => {
+  const h = setup();
+  await begin(h);
+  await h.event('turn.start', { turnId: 't1', text: 'Synthetic task.' });
+  h.$.settings.read = async () => {
+    throw new Error('routing settings failure');
+  };
+  await assert.rejects(drain(h.step(step)), /routing settings failure/);
+});
+
 test('pins/mode/off-on/config changes and compaction carry explicit replay boundaries', async () => {
   const h = setup();
   await begin(h);
