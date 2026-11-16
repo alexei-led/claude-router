@@ -39,6 +39,116 @@ Recent active sessions have a one-hour last-write lease against budget eviction;
 There is no replay tool, exposure result, routing-quality result or savings claim from this recorder yet.
 The small sequential table-chain regression checks recorder consistency, not the planned evaluation gates.
 
+## Paired benchmark proposal
+
+The [automatic-routing design §5.3](plans/2026-11-16-auto-routing-design.md#53-paired-benchmark-smoke-gate-for-quality)
+requires paired `table`/`auto` runs, three modes and two repeats, with per-task checks and discordances. The
+24 synthetic expected-output cases in `test/fixtures/benchmark-routing.json` are harness fixtures, not calibrated
+engineering tasks or a quality result. Their activity labels are fixture metadata, not reference classifications.
+Eight are marked held out in the fixture split. The separate engineering proposal below needs fixtures and review
+before any evaluation; shadow-disagreement sources are pending.
+
+```sh
+node scripts/benchmark-routing.mjs --dry-run
+node scripts/benchmark-routing.mjs --dry-run --smoke
+node --test test/benchmark-routing.test.mjs
+```
+
+The dry run prints a SHA-256, run counts, serialized token/rate assumptions and a configured-price scenario.
+Dry-run planning uses the built-in catalog maximum prices through `ratesAt`; a live smoke preflight reads the selected
+work profile's catalog without changing it. Cold-write multipliers apply only to explicit caches. The 10,000-input
+assumption is not a limit; live smoke sets `CLAUDE_CODE_MAX_OUTPUT_TOKENS=512`, one agentic turn and a $0.40
+CLI budget per call. These are not a proxy-price quotation or a bill. A run estimates before launching and reserves
+$1.20 for three calls. An exclusive reservation file under `.pi/` refuses automatic reruns; further spending needs
+review, not a hidden retry. The full 288-run matrix is not authorized or run.
+
+`--live --smoke` is limited to the three development tasks, `table`/`balanced`, one repeat, using the existing
+installed release through `zsh -ic` and `claude-mp-work -p`. It loads no checkout plugin. The selected profile must
+still be `table`; `--setting-sources user`, strict empty MCP and no tools limit the surface. Init metadata must
+identify exactly one router at the installed user path. Profile contents are hashed before/after each call. The
+wrapper's normal MCP housekeeping is permitted; the original active-environment bytes/existence are restored and
+verified after success, failure, timeout or handled interrupt. SIGKILL, power loss and independently detached
+processes are not covered. Process-group cleanup is best effort; Windows cannot kill a descendant tree via Node
+alone. The smoke establishes harness mechanics only, not evaluation of this checkout or either engine.
+
+Offline system-boundary tests exercise independent directories, output checks, deadlines, output limits, budgets,
+unknown costs and paired discordance reporting. The harness checks its own and the manifest's hashes around child
+execution; this detects persistent changes, not transient same-user writes or an OS sandbox. The checks run in the
+parent outside the child's working directory. Unknown/zero total or per-model CLI prices stop further calls rather
+than implying free usage. Reports sum every supplied attempt, including failures, and leave missing/unpriced
+totals unknown. Duplicate attempts within a paired cell are reported as ambiguous, never silently replaced by a
+passing rerun.
+CLI-reported USD can use rates different from the selected catalog and may omit proxy retries, classifier spend or
+upstream failed calls: actual billing remains unknown.
+No comparison of quality, savings or measured routing performance follows from these checks.
+
+The checked-in [installed-release smoke record](../experiments/mod-router/results/benchmark-harness-smoke.json)
+contains three passing external checks, 19,298 ms summed subprocess wall time and $0.0098816 CLI-reported price
+estimates. It records the manifest/config hashes and successful restoration/provenance checks without prompts,
+profile paths or credentials. CLI usage metadata names DeepSeek Flash for two calls and GLM Flash for one; backend
+identity is not independently verified.
+These are harness-validation observations on installed Router 1.23.1, not a paired result for this checkout.
+
+### Engineering task set: draft only
+
+The following 24 synthetic engineering tasks are a proposed **separate** evaluation set, not implemented fixtures.
+Difficulty and activity are author hypotheses, not classifier references. Each row needs a self-contained repository
+fixture and an independently held-out automatic oracle outside model control. Freeze the fixture/manifest hash and
+split before capability or margin tuning; do not run or inspect held-out outcomes during tuning. All rows are authored
+examples: shadow-disagreement sourcing is **pending** and must be added or documented before the set is finalized.
+
+| ID | Split | Activity / demand hypothesis | Task | Independent automatic oracle |
+| --- | --- | --- | --- | --- |
+| E01 | dev | code / low | Add integer clamping to a small library | Boundary and type tests |
+| E02 | dev | debug / medium | Repair a parser that mishandles escaped delimiters | Existing tests plus hidden escaped and empty cases |
+| E03 | dev | code / medium | Add pagination to a small service across handler and storage modules | Fixture API and deterministic pagination tests |
+| E04 | heldout | code / medium | Implement stable deduplication across a CLI and helper | Output and duplicate-order tests |
+| E05 | dev | security / high | Reject traversal and symlink escapes in an archive extractor | Traversal, symlink and valid-path tests |
+| E06 | dev | debug / high | Fix a cross-module stale cache invalidation defect | Concurrent update and expiry regression tests |
+| E07 | heldout | debug / medium | Fix time boundary logic for expiry at exact deadline | Fake-clock boundary tests |
+| E08 | dev | ops / medium | Repair CI script so test and lint failures reach the exit status | Controlled subprocess exit-code matrix |
+| E09 | dev | review / medium | Identify seeded unsafe defaults in a short configuration | Exact structured findings against injected defects |
+| E10 | heldout | debug / high | Repair nondeterministic retry handling after partial network failures | Deterministic mocked-service request and retry tests |
+| E11 | dev | code / high | Add idempotent transaction handling across API and persistence | Duplicate/concurrent request and rollback tests |
+| E12 | dev | debug / medium | Diagnose and fix an off-by-one token budget after a tool continuation | Transcript fixture and boundary tests |
+| E13 | heldout | code / low | Add case-insensitive header lookup preserving original values | Mixed-case and missing-header tests |
+| E14 | dev | code / medium | Migrate a versioned configuration while preserving unknown fields | Old/new config round-trip and rejection tests |
+| E15 | dev | debug / high | Fix matching failure signatures after an edit and repeated tool failure | Scripted transcript with two failures and edit tests |
+| E16 | heldout | security / high | Correct authorization checks across two endpoints sharing a store | Cross-user read/write and allowed-access tests |
+| E17 | dev | refactor / medium | Replace duplicate parsing in two modules without changing behavior | Characterization and randomized input tests |
+| E18 | dev | ops / low | Correct shell quoting for filenames containing spaces | Subprocess tests on spaces and metacharacters |
+| E19 | heldout | code / high | Implement bounded parallel workers with cancellation and cleanup | Deterministic concurrency and child-cleanup tests |
+| E20 | dev | debug / medium | Fix a multi-file regression after two failed test attempts and an edit | Scripted tool history plus external final tests |
+| E21 | dev | docs / low | Correct a documented CLI example for a real edge-case flag | Execute example against fixture CLI |
+| E22 | heldout | ops / medium | Repair a build pipeline that masks errors in a chained command | Failure-injection exit-code tests |
+| E23 | dev | review / high | Find seeded race and missing transaction rollback | Machine-readable findings with location and defect checks |
+| E24 | heldout | debug / medium | Fix Unicode normalization inconsistency across reader and index | Composed/decomposed matching and preservation tests |
+
+These are not yet the §5.3 benchmark: the tasks, initial repositories, test oracles, tool-history presentation,
+permissions and expected output need independent implementation and review. No engineering benchmark or held-out
+outcome has been collected. Difficulty does not establish a capability value.
+
+### Full paired-run isolation: proposal only
+
+Live `auto` is unavailable until design step 7; a full live matrix always refuses. A native pass-through or table
+run is never relabeled `auto`. The current hook reads `routingEngine` only from the selected profile file; there is
+**no** run-scoped environment/settings override. Project `.claude/router.json` can set mode only.
+
+Before the real paired evaluation, choose and implement one code-provenance path:
+
+- Add an explicit supplied-router option to `ce`'s model-proxy path, matching its normal launch behavior. This can
+  preserve existing implicit authentication but needs wrapper maintenance and must disable the marketplace copy.
+- Launch `claude-proxy` directly with per-run settings that disable the marketplace router and a checkout
+  `--plugin-dir`. This gives precise code provenance but must reuse an approved authentication interface, never
+  copy credentials or silently bypass account policy.
+- Run after a release that includes the evaluated implementation. This avoids two plugin copies but does not
+  itself isolate the engine selection or establish checkout provenance.
+
+Every path **also** needs a separately approved run-scoped engine override or safely isolated profile configuration
+that keeps existing implicit authentication without copying secrets. Only then can each child select its own
+`table` or `auto` without editing the user's real router file. No wrapper modification, new engine override,
+authentication mechanism, live auto wiring or cutover is implemented here.
+
 ## Provider profiles
 
 [Provider defaults](providers.md#built-in-defaults) are starting policies, not measured per-activity quality or savings results.

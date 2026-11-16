@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "kind": "installed-release table-only harness validation; not a paired engine evaluation",
+  "installedRouterVersion": "1.23.1",
+  "manifestSha256": "2efac9527b671d5240441bae0430d89e35829356cde9abb1dfc54f5d5efcb97c",
+  "configSha256": "8fd793bab74c4647ad475914c4f909743877e5e417839a6dfa5098328d50fd47",
+  "scope": {
+    "engine": "table",
+    "mode": "balanced",
+    "repeats": 1,
+    "taskCount": 3
+  },
+  "cliExitCode": 0,
+  "cliReportedTotalCostUsd": 0.0098816,
+  "runWallMs": 19298,
+  "actualBillUsd": null,
+  "limitations": [
+    "CLI configured/API price estimates are not verified proxy billing.",
+    "Classifier spend, upstream failed calls and proxy retries may be absent.",
+    "No auto run, capability calibration, quality or savings comparison.",
+    "CLI-reported rates differ from the selected catalog; backend identity is not independently verified."
+  ],
+  "safety": {
+    "oneInstalledRouterValidatedPerCall": true,
+    "profileHashUnchanged": true,
+    "activeEnvBytesAndExistenceRestoredAndVerified": true
+  },
+  "runs": [
+    {
+      "taskId": "json-sort",
+      "passed": true,
+      "cliReportedCostUsd": 0.0042959999999999995,
+      "wallMs": 6538,
+      "modelUsage": [
+        {
+          "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017[1m]",
+          "inputTokens": 2093,
+          "outputTokens": 11,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "costUSD": 0.0042959999999999995
+        }
+      ]
+    },
+    {
+      "taskId": "empty-sum",
+      "passed": true,
+      "cliReportedCostUsd": 0.0013496,
+      "wallMs": 5964,
+      "modelUsage": [
+        {
+          "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017[1m]",
+          "inputTokens": 558,
+          "outputTokens": 8,
+          "cacheReadInputTokens": 1536,
+          "cacheCreationInputTokens": 0,
+          "costUSD": 0.0013496
+        }
+      ]
+    },
+    {
+      "taskId": "dedupe",
+      "passed": true,
+      "cliReportedCostUsd": 0.004236,
+      "wallMs": 6796,
+      "modelUsage": [
+        {
+          "model": "zai-org/GLM-5.3-Flash[1m]",
+          "inputTokens": 2048,
+          "outputTokens": 14,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "costUSD": 0.004236
+        }
+      ]
+    }
+  ]
+}
