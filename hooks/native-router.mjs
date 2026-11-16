@@ -86,6 +86,7 @@ import {
   hasImages,
   historySignature,
   observedActivity,
+  progressEvidence,
   promptIndex,
   routingBucket,
   stripReminders,
@@ -94,6 +95,24 @@ import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../li
 import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
 import { providerFile, providerName } from '../lib/providers.mjs';
+import {
+  appendTrace,
+  bufferTrace,
+  mergeTraceExport,
+  newTrace,
+  readTrace,
+  TRACE_ACTIVE_MS,
+  TRACE_EXPORT_BYTES,
+  TRACE_PREFIX,
+  TRACE_SESSION_BYTES,
+  TRACE_STORE_BYTES,
+  traceAdmission,
+  traceBytes,
+  traceConfig,
+  traceOperation,
+  traceResponse,
+  traceVictims,
+} from '../lib/replay-trace.mjs';
 import {
   canMoveUp,
   cellForModel,
@@ -263,6 +282,9 @@ function createRouter(options) {
     // `{ sessionId, record }` once read (`decisionRecord`).
     turnDecisions: new Map(),
     decisionRecord: null,
+    trace: null,
+    traceStarted: false,
+    traceOperations: new Map(),
     controllers: new Set(),
     turnControllers: new Map(),
     view: null,
@@ -303,6 +325,231 @@ function createRouter(options) {
     // Each agent type's definition frontmatter by provider and type, read once per session (agentDefinition).
     definitions: new Map(),
   };
+}
+
+// These writes share the main-turn lifecycle with decision rows. There is no background writer.
+// Quota scans fail closed; the host has no transaction spanning scans, deletes and a set.
+async function ensureTrace($, router, e, turn, loop, loaded) {
+  if (turn.config.routingEngine !== 'shadow' || router.config.routingEngine !== 'shadow') {
+    if (router.trace) router.trace.reasons.add('mode-gap');
+    return;
+  }
+  const sessionId = await $.session.id();
+  if (router.trace?.sessionId === sessionId) return;
+  const at = Date.now();
+  const held = {
+    sessionId,
+    record: null,
+    persisted: null,
+    lostWrites: 0,
+    reasons: new Set(),
+    turns: new Map(),
+    nextTurn: 1,
+    config: null,
+    controls: null,
+  };
+  router.trace = held;
+  try {
+    const raw = await $.store.get(`${TRACE_PREFIX}${sessionId}`);
+    held.record = readTrace(raw);
+    held.persisted = raw;
+    if (raw !== undefined) held.reasons.add(loaded ? 'reload' : 'resume');
+  } catch {
+    held.lostWrites++;
+    held.reasons.add('lost-write');
+  }
+  if (!router.traceStarted || e.index !== 0 || e.messageCount > 1 || loaded) held.reasons.add('mid-session');
+  held.record ??= newTrace(at, { configured: turn.configured, config: turn.config, loop }, [...held.reasons]);
+  if (traceBytes(held.record) > TRACE_SESSION_BYTES - 1024) {
+    held.record = {
+      version: 1,
+      startedAt: at,
+      updatedAt: at,
+      active: true,
+      incomplete: ['mid-session', 'store-guard'],
+      lostWrites: 0,
+      capped: { at, turns: 0, events: 0 },
+      events: [],
+    };
+    held.reasons.add('store-guard');
+  }
+  held.config = JSON.stringify({ configured: traceConfig(turn.configured), config: traceConfig(turn.config) });
+}
+
+function traceTurn(router, e) {
+  const held = router.trace;
+  if (!held) return null;
+  if (!held.turns.has(e.turnId)) held.turns.set(e.turnId, { number: held.nextTurn++, buffer: null });
+  return held.turns.get(e.turnId);
+}
+
+function addTrace(router, e, event) {
+  const held = router.trace;
+  if (!held || router.config.routingEngine !== 'shadow') return;
+  const turn = traceTurn(router, e);
+  if (held.record.capped || turn.buffer?.excludedEvents) {
+    turn.buffer = { events: [], bytes: 2, excludedEvents: (turn.buffer?.excludedEvents ?? 0) + 1 };
+    return;
+  }
+  const remaining = Math.max(0, TRACE_SESSION_BYTES - traceBytes(held.record) - 1024);
+  turn.buffer = bufferTrace(turn.buffer, { ...event, turn: turn.number, index: e.index }, remaining);
+}
+
+function traceOp(router, e, cfg, kind, input, selected) {
+  if (cfg.routingEngine !== 'shadow' || !router.trace || router.config.routingEngine !== 'shadow') return;
+  if (router.trace.record.capped || traceTurn(router, e).buffer?.excludedEvents) return;
+  const operations = router.traceOperations.get(e.turnId) ?? [];
+  operations.push(traceOperation(kind, input.now ?? Date.now(), input, selected));
+  router.traceOperations.set(e.turnId, operations);
+}
+
+function traceRequest(router, e, turn, request, mode, loop) {
+  if (turn.config.routingEngine !== 'shadow' || router.config.routingEngine !== 'shadow' || !router.trace) return;
+  const cfg = { configured: traceConfig(turn.configured), config: traceConfig(turn.config) };
+  const fingerprint = JSON.stringify(cfg);
+  if (router.trace.config !== fingerprint) {
+    addTrace(router, e, { type: 'config', at: Date.now(), ...cfg });
+    router.trace.config = fingerprint;
+  }
+  if (router.trace.controls) {
+    const controls = router.trace.controls;
+    router.trace.controls = null;
+    if (controls.excludedEvents) {
+      const active = traceTurn(router, e);
+      active.buffer = {
+        events: [],
+        bytes: 2,
+        excludedEvents: controls.excludedEvents + (active.buffer?.events.length ?? 0),
+      };
+    } else for (const event of controls.events) addTrace(router, e, event);
+  }
+  addTrace(router, e, {
+    type: 'request',
+    at: Date.now(),
+    model: request.model,
+    effort: request.effort,
+    engineModel: e.model,
+    engineEffort: e.effort,
+    mode,
+    messageCount: e.messageCount,
+    reviewedAt: loop.reviewedAt,
+    observedFrom: loop.observedFrom,
+    operations: router.traceOperations.get(e.turnId) ?? [],
+  });
+  router.traceOperations.delete(e.turnId);
+}
+
+function traceControl(router) {
+  if (router.config.routingEngine !== 'shadow' || !router.trace) return;
+  const view = router.view;
+  const event = {
+    type: 'control',
+    at: Date.now(),
+    mode: view?.routingMode,
+    pin: view?.pendingPin,
+    enabled: view?.mode !== 'manual',
+  };
+  router.trace.controls = bufferTrace(router.trace.controls, event, 4096);
+}
+
+async function flushTrace($, router, turnId = null, ending = false) {
+  const held = router.trace;
+  if (!held || router.config.routingEngine !== 'shadow') return;
+  const turn = held.turns.get(turnId);
+  held.turns.delete(turnId);
+  try {
+    const at = Date.now();
+    const keys = await $.store.keys();
+    let entries = await Promise.all(keys.map(async (key) => [key, await $.store.get(key)]));
+    if (entries.some(([, value]) => value === undefined)) throw new Error('store-guard');
+    if (traceBytes(Object.fromEntries(entries)) > TRACE_STORE_BYTES) throw new Error('store-guard');
+    const resetAt = entries.find(([name]) => name === SAVINGS_RESET_KEY)?.[1];
+    if (Number.isFinite(resetAt) && held.record.startedAt < resetAt) {
+      held.record = {
+        version: 1,
+        startedAt: at,
+        updatedAt: at,
+        active: true,
+        incomplete: ['reset', 'mid-session'],
+        lostWrites: 0,
+        capped: null,
+        events: [],
+      };
+      held.persisted = undefined;
+      held.reasons.add('reset');
+    }
+    const key = `${TRACE_PREFIX}${held.sessionId}`;
+    const raw = entries.find(([name]) => name === key)?.[1];
+    if (raw !== undefined && !readTrace(raw)) throw new Error('conflict');
+    if (JSON.stringify(raw) !== JSON.stringify(held.persisted)) {
+      held.reasons.add('conflict');
+      if (raw)
+        held.record = mergeTraceExport(null, [
+          [key, held.record],
+          [key, raw],
+        ]).sessions[key];
+    }
+    if (held.record.events.length === 1 && traceBytes(held.record) > TRACE_SESSION_BYTES - 1024)
+      throw new Error('store-guard');
+    const events = turn?.buffer?.events ?? [];
+    if (ending && held.controls && !held.controls.excludedEvents) events.push(...held.controls.events);
+    const candidate = appendTrace(held.record, events, at, {
+      lostWrites: held.lostWrites,
+      reasons: [...held.reasons],
+      excludedEvents: turn?.buffer?.excludedEvents ?? held.controls?.excludedEvents ?? 0,
+    });
+    candidate.active = !ending;
+    const traces = entries.filter(([name]) => name.startsWith(TRACE_PREFIX));
+    for (const victim of traceVictims(traces, at, key, candidate)) {
+      const previous = entries.find(([name]) => name === victim)?.[1];
+      const current = await $.store.get(victim);
+      if (
+        readTrace(current) &&
+        JSON.stringify(current) === JSON.stringify(previous) &&
+        !(current.active && at - current.updatedAt <= TRACE_ACTIVE_MS)
+      )
+        await $.store.delete(victim);
+    }
+    // Scan again after eviction: missing/unreadable values never become a quota undercount.
+    const after = await $.store.keys();
+    entries = await Promise.all(after.map(async (name) => [name, await $.store.get(name)]));
+    if (entries.some(([, value]) => value === undefined) || !traceAdmission(entries, key, candidate))
+      throw new Error('store-guard');
+    await $.store.set(key, candidate);
+    held.record = candidate;
+    held.persisted = candidate;
+    held.lostWrites = 0;
+    held.reasons.clear();
+    if (ending) held.controls = null;
+  } catch (error) {
+    held.lostWrites++;
+    held.reasons.add(
+      error.message === 'conflict' ? 'conflict' : error.message === 'store-guard' ? 'store-guard' : 'lost-write',
+    );
+  }
+}
+
+async function exportTraces($, router) {
+  try {
+    const keys = (await $.store.keys()).filter((key) => key.startsWith(TRACE_PREFIX));
+    const entries = await Promise.all(keys.map(async (key) => [key, await $.store.get(key)]));
+    const root = router.config.nativePath.slice(0, router.config.nativePath.lastIndexOf('/'));
+    let path = `${root}/router-traces.json`;
+    if ((await $.fs.exists(path)) && (await $.fs.stat(path)).isLink) throw new Error('linked export');
+    const previous = (await $.fs.exists(path)) ? JSON.parse(await $.fs.read(path)) : null;
+    let merged = mergeTraceExport(previous, entries);
+    if (traceBytes(merged) > TRACE_EXPORT_BYTES) {
+      path = `${root}/router-traces-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      if ((await $.fs.exists(path)) && (await $.fs.stat(path)).isLink) throw new Error('linked export');
+      const prior = (await $.fs.exists(path)) ? JSON.parse(await $.fs.read(path)) : null;
+      merged = mergeTraceExport(prior, entries);
+    }
+    if (traceBytes(merged) > TRACE_EXPORT_BYTES) return 'Trace export exceeds the file budget; no file changed.';
+    await $.fs.write(path, JSON.stringify(merged));
+    return `Exported ${Object.keys(merged.sessions).length} retained trace sessions to ${path}.`;
+  } catch {
+    return 'Trace export failed; retained traces and existing exports were not intentionally removed.';
+  }
 }
 
 function clientOf(router, id) {
@@ -414,6 +661,7 @@ async function setRoutingMode($, router, value) {
   router.routingModes.set(sessionId, value === 'default' ? null : value);
   const routingMode = await routingModeOf($, router);
   await updateView($, router, { routingMode });
+  if (router.config.routingEngine === 'shadow') traceControl(router);
   const unsaved =
     value === 'default'
       ? 'A resume of this session may bring the cleared mode back: the store could not be written.'
@@ -577,6 +825,7 @@ async function changeMode($, router, mode) {
     reason: mode === 'manual' ? 'routing off' : 'ready',
     ...(!saved ? { notice: 'Mode changed for this session. Resume preference could not be saved.' } : {}),
   });
+  if (router.config.routingEngine === 'shadow') traceControl(router);
 }
 
 async function setPin($, router, tier) {
@@ -586,6 +835,7 @@ async function setPin($, router, tier) {
   if (mode === 'manual') return 'Routing is off. Turn routing on before pinning a turn.';
   router.pinPresses += 1;
   await updateView($, router, { pendingPin: tier });
+  if (router.config.routingEngine === 'shadow') traceControl(router);
   return `${tier} pinned for the next turn and its tool continuations.`;
 }
 
@@ -599,6 +849,7 @@ async function routerCommand($, router, args) {
     await changeMode($, router, action === 'auto' ? 'auto' : 'manual');
     return { text: action === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
   }
+  if (action === 'trace' && value === 'export') return { text: await exportTraces($, router) };
   if (action === 'decisions') return { text: await decisionsText($, router, value) };
   if (action === 'pin')
     return { text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.` };
@@ -794,14 +1045,18 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, router)
     contextKnown: context.known,
   });
   const sessionId = await $.session.id();
+  const turn = router.turnConfigs.get(e.turnId) ?? { config: router.config, configured: router.config };
+  if (turn.config.routingEngine === 'shadow')
+    traceRequest(router, e, turn, e, reason === 'manual' ? 'manual' : 'auto', loop);
   const response = yield* next(e);
   if (!next.signal.aborted && (await $.session.id()) === sessionId) {
+    const at = Date.now();
     const observed = observeResponse(router.config, loop, {
       usage: response.usage,
       requestedModel: e.model,
       effort: e.effort ?? null,
       stopReason: response.stopReason,
-      now: Date.now(),
+      now: at,
     });
     // Before routing has chosen a route, the one in use is the model serving now: /model can change it with routing
     // off. Once a decision exists, the last routed route is kept, as for every model.
@@ -810,13 +1065,17 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, router)
     const compared = await compareYours($, router, loop, response, e.effort ?? null, nativeModel);
     if (compared) observed.yoursBy = compared.states;
     const written = await $.state.set(ref, observed, { ifVersion: version });
+    if (turn.config.routingEngine === 'shadow') {
+      if (written.isSet) addTrace(router, e, traceResponse(at, e, response, compared?.ttl));
+      else router.trace?.reasons.add('gap');
+    }
     if (written.isSet)
       await updateView($, router, {
         ...responseMetrics(router.view, response, null, Date.now()),
         delegatedModel: e.model,
         delegatedEffort: e.effort ?? null,
       });
-  }
+  } else if (turn.config.routingEngine === 'shadow') router.trace?.reasons.add('aborted');
   return response;
 }
 
@@ -967,7 +1226,7 @@ async function decideTurn($, router, e, signal, step) {
     const previous = loop.decision;
     if (pin)
       router.turnConfigs.set(e.turnId, { config: { ...cfg, routingMode: step.cfg.routingMode }, configured: cfg });
-    const selected = chooseRoute(cfg, loop, {
+    const traceInput = {
       facts,
       advice: result.advice,
       pin,
@@ -975,7 +1234,8 @@ async function decideTurn($, router, e, signal, step) {
       contextKnown: context.known,
       availableModels,
       now: Date.now(),
-    });
+    };
+    const selected = chooseRoute(cfg, loop, traceInput);
     const alt = shadowProposal(step.configured, loop, selected, {
       facts,
       advice: result.advice,
@@ -993,6 +1253,8 @@ async function decideTurn($, router, e, signal, step) {
     if (written.isSet && pin) router.turnPins.set(e.turnId, pinPresses);
     // Manual, /clear and turn completion abort the controller; one may land during the write.
     if (!written.isSet || controller.signal.aborted) return null;
+    if (cfg.routingEngine === 'shadow')
+      traceOp(router, e, cfg, 'choose', { ...traceInput, taskProgress: progressEvidence(messages) }, selected);
     rememberGoal(router, e.turnId, result.advice, cfg.policy.continuationMass, messages);
     if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
       $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
@@ -1126,7 +1388,10 @@ async function moveOnObserved($, router, cfg, loop, e, context) {
   const observed = routingBucket(
     observedActivity(messages, Math.max(promptIndex(messages), (loop.observedFrom ?? 0) - 1)),
   );
-  const moved = observedMove(cfg, loop, { observed, facts, contextKnown: context.known, now: Date.now() });
+  const traceInput = { observed, facts, contextKnown: context.known, now: Date.now() };
+  const moved = observedMove(cfg, loop, traceInput);
+  if (cfg.routingEngine === 'shadow')
+    traceOp(router, e, cfg, 'observed', { ...traceInput, taskProgress: progressEvidence(messages) }, moved);
   if (moved === loop) return loop;
   addDecision(
     router,
@@ -1170,7 +1435,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
     const advice =
       messages.length === review.observedUpTo ? review.answer.advice : { ...review.answer.advice, phase: null };
     const facts = { ...stepFacts(cfg, router, loop, e, messages, context), midTurn: true };
-    const selected = chooseRoute(cfg, loop, {
+    const traceInput = {
       facts,
       advice,
       pin: null,
@@ -1178,7 +1443,10 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       contextKnown: context.known,
       availableModels,
       now: Date.now(),
-    });
+    };
+    const selected = chooseRoute(cfg, loop, traceInput);
+    if (cfg.routingEngine === 'shadow')
+      traceOp(router, e, cfg, 'choose', { ...traceInput, taskProgress: progressEvidence(messages) }, selected);
     const previous = loop.decision;
     const configured = router.turnConfigs.get(e.turnId)?.configured ?? router.config;
     const alt = shadowProposal(configured, loop, selected, {
@@ -1318,7 +1586,11 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   const compared = await compareYours($, router, loop, response, request.effort ?? null, nativeModel, cfg);
   if (compared) observed.yoursBy = compared.states;
   const written = await $.state.set({ ...LOOP, id: 'main' }, observed, { ifVersion: loopVersion });
-  if (!written.isSet) return;
+  if (!written.isSet) {
+    if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('gap');
+    return;
+  }
+  if (cfg.routingEngine === 'shadow') addTrace(router, request, traceResponse(at, request, response, compared?.ttl));
   // A substituted reply is not the tier's: the strip and trend must not count it as one.
   const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
   const route = `${request.model}@${request.effort ?? 'session'}`;
@@ -1900,6 +2172,14 @@ async function flushSubagents($, router, agents) {
   } catch {}
 }
 
+function traceConfigAdopted(router, loaded) {
+  if (router.config.routingEngine !== 'shadow' || loaded.routingEngine === 'shadow' || !router.trace) return;
+  router.trace.reasons.add('mode-gap');
+  router.trace.turns.clear();
+  router.traceOperations.clear();
+  router.trace.controls = null;
+}
+
 // The pane's handlers. `view` is the view the pane was drawn from; a handler reads `router.view` first, which holds
 // any press since.
 function paneActions($, router, view) {
@@ -1928,6 +2208,7 @@ function paneActions($, router, view) {
   // an unavailable reason stays.
   const adopt = async (loaded) => {
     const switched = loaded.classifier !== router.config.classifier;
+    traceConfigAdopted(router, loaded);
     router.config = loaded;
     if (loaded.routingEngine === 'auto') await updateView($, router, { phase: 'unavailable', error: AUTO_UNAVAILABLE });
     else if (router.view?.error === AUTO_UNAVAILABLE) await updateView($, router, { phase: 'ready', error: null });
@@ -2096,6 +2377,7 @@ function paneActions($, router, view) {
         const keys = (await $.store.keys()).filter(
           (key) =>
             key.startsWith(DECISIONS_PREFIX) ||
+            key.startsWith(TRACE_PREFIX) ||
             key === LEGACY_STORE_PREFIX ||
             key.startsWith(`${LEGACY_STORE_PREFIX}:`) ||
             Object.values(LEDGERS).some(({ prefix, legacy }) => key.startsWith(prefix) || key === legacy),
@@ -2106,6 +2388,9 @@ function paneActions($, router, view) {
         return true;
       };
       const cleared = await clearRecords().catch(() => false);
+      router.trace = null;
+      router.traceStarted = false;
+      router.traceOperations.clear();
       // The store kept the history: this session's records start over, and its next write replaces the stored one.
       if (!cleared)
         for (const kind of LEDGER_KINDS) {
@@ -2245,16 +2530,118 @@ function configurationError(error) {
   return error.message === 'selected provider router file is missing' ? error.message : 'invalid router configuration';
 }
 
+async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, sessionId, nativeModel, turn }) {
+  const pinPresses = router.turnPins.get(e.turnId);
+  if (pinPresses !== undefined) {
+    router.turnPins.delete(e.turnId);
+    if (pinPresses === router.pinPresses) await updateView($, router, { pendingPin: null });
+  }
+  const request = { ...e, model: loop.decision.model };
+  if (loop.decision.effort === null) delete request.effort;
+  else request.effort = loop.decision.effort;
+  if (cfg.routingEngine === 'shadow' && !next.signal.aborted && (await $.session.id()) === sessionId)
+    traceRequest(router, e, router.turnConfigs.get(e.turnId) ?? turn, request, 'auto', loop);
+  const response = yield* next(request);
+  if (!next.signal.aborted && (await $.session.id()) === sessionId)
+    await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
+  else if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('aborted');
+  return response;
+}
+
+async function* stepMain($, router, e, next) {
+  if (e.agentId) return yield* stepAgent($, router, e, next);
+  const turn = router.turnConfigs.get(e.turnId) ?? (await turnConfigOf($, router));
+  const cfg = turn.config;
+  const [sessionId, nativeModel, view] = await Promise.all([$.session.id(), $.session.model(), readView($, router)]);
+  const mode = await modeOf($, router, view.mode);
+  if (e.index === 0) {
+    const saved = await rememberMode($, mode);
+    await updateView($, router, {
+      mode,
+      nativeEffort: e.effort ?? null,
+      ...(!saved ? { notice: 'Resume preference could not be saved. Current mode remains active.' } : {}),
+    });
+  }
+  const ref = { ...LOOP, id: 'main' };
+  const loaded = await $.state.get(ref);
+  let loopVersion = loaded.version;
+  // The session's model names its tier in the configured routes: a mode's table can run it at another tier.
+  let loop = prepareLoop(loaded.value ?? emptyLoop(turn.configured, e.model), e.messageCount);
+  if (loaded.value && loop.generation !== loaded.value.generation) clearGoal(router);
+  if (cfg.routingEngine === 'shadow' && router.config.routingEngine === 'shadow') {
+    await ensureTrace($, router, e, turn, loop, Boolean(loaded.value));
+    router.traceOperations.delete(e.turnId);
+    if (loaded.value && loop.generation !== loaded.value.generation)
+      addTrace(router, e, { type: 'reset', at: Date.now(), cause: 'history', loop, generation: loop.generation });
+  } else if (router.trace) router.trace.reasons.add('mode-gap');
+  if (view.phase === 'unavailable' || mode === 'manual') {
+    return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'manual', router);
+  }
+  if (loop.turnId === e.turnId && isNativeFallback(loop, e.model)) {
+    return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'native-fallback', router);
+  }
+  const [context, settings] = await Promise.all([contextOf($, loop), $.settings.read()]);
+  const availableModels = settings.availableModels;
+  const key = `${sessionId}:${e.turnId}:${loop.generation}`;
+  if (loop.turnId !== e.turnId) {
+    let job = router.decisions.get(key);
+    if (!job) {
+      job = decideTurn($, router, e, next.signal, {
+        sessionId,
+        view,
+        cfg,
+        configured: turn.configured,
+        loop,
+        loopVersion,
+        context,
+        nativeModel,
+        availableModels,
+      });
+      router.decisions.set(key, job);
+    }
+    const selected = await job;
+    if (!selected) {
+      if (!next.signal.aborted && (await $.session.id()) === sessionId && router.view?.activeTurnId === e.turnId) {
+        const reserved = await $.state.set(ref, loop, { ifVersion: loopVersion });
+        if (reserved.isSet) return yield* passMain($, e, next, loop, reserved.version, nativeModel, 'manual', router);
+      }
+      return yield* next(e);
+    }
+    loop = selected.loop;
+    loopVersion = selected.version;
+  } else {
+    // A review answer applies first, so tool calls made after its snapshot can still move the route up.
+    loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
+    loop = await moveOnObserved($, router, cfg, loop, e, context);
+    const traceInput = {
+      hasImages: await imagesOf($, cfg, loop.decision),
+      nativeModel,
+      contextTokens: context.tokens,
+      contextKnown: context.known,
+      availableModels,
+      effort: e.effort,
+    };
+    loop = continueRoute(cfg, loop, traceInput);
+    if (cfg.routingEngine === 'shadow') traceOp(router, e, cfg, 'continue', traceInput, loop);
+    await updateView($, router, continuationView(cfg, loop.decision, context));
+  }
+  return yield* sendRouted($, router, e, next, { cfg, loop, loopVersion, sessionId, nativeModel, turn });
+}
+
 export function register(on, options) {
   const router = createRouter(options);
 
   on('session.start', async ($, e, next) => {
+    router.trace = null;
+    router.traceStarted = true;
+    router.traceOperations.clear();
     router.definitions.clear();
     await $.command.register({
       name: 'router',
       description:
         'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>; decisions [n] lists the last routing decisions.',
-      argumentHint: '[auto|off|pin <tier>|activities off|on|mode cost|balanced|quality|default|decisions [n]]',
+      argumentHint:
+        '[auto|off|pin <tier>|activities off|on|mode cost|balanced|quality|default|decisions [n]|trace export]',
       immediate: true,
     });
     const model = await $.session.model();
@@ -2338,86 +2725,7 @@ export function register(on, options) {
   } catch {}
 
   on('turn.step', async function* ($, e, next) {
-    if (e.agentId) return yield* stepAgent($, router, e, next);
-    const turn = router.turnConfigs.get(e.turnId) ?? (await turnConfigOf($, router));
-    const cfg = turn.config;
-    const [sessionId, nativeModel, view] = await Promise.all([$.session.id(), $.session.model(), readView($, router)]);
-    const mode = await modeOf($, router, view.mode);
-    if (e.index === 0) {
-      const saved = await rememberMode($, mode);
-      await updateView($, router, {
-        mode,
-        nativeEffort: e.effort ?? null,
-        ...(!saved ? { notice: 'Resume preference could not be saved. Current mode remains active.' } : {}),
-      });
-    }
-    const ref = { ...LOOP, id: 'main' };
-    const loaded = await $.state.get(ref);
-    let loopVersion = loaded.version;
-    // The session's model names its tier in the configured routes: a mode's table can run it at another tier.
-    let loop = prepareLoop(loaded.value ?? emptyLoop(turn.configured, e.model), e.messageCount);
-    if (loaded.value && loop.generation !== loaded.value.generation) clearGoal(router);
-    if (view.phase === 'unavailable' || mode === 'manual') {
-      return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'manual', router);
-    }
-    if (loop.turnId === e.turnId && isNativeFallback(loop, e.model)) {
-      return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'native-fallback', router);
-    }
-    const [context, settings] = await Promise.all([contextOf($, loop), $.settings.read()]);
-    const availableModels = settings.availableModels;
-    const key = `${sessionId}:${e.turnId}:${loop.generation}`;
-    if (loop.turnId !== e.turnId) {
-      let job = router.decisions.get(key);
-      if (!job) {
-        job = decideTurn($, router, e, next.signal, {
-          sessionId,
-          view,
-          cfg,
-          configured: turn.configured,
-          loop,
-          loopVersion,
-          context,
-          nativeModel,
-          availableModels,
-        });
-        router.decisions.set(key, job);
-      }
-      const selected = await job;
-      if (!selected) {
-        if (!next.signal.aborted && (await $.session.id()) === sessionId && router.view?.activeTurnId === e.turnId) {
-          const reserved = await $.state.set(ref, loop, { ifVersion: loopVersion });
-          if (reserved.isSet) return yield* passMain($, e, next, loop, reserved.version, nativeModel, 'manual', router);
-        }
-        return yield* next(e);
-      }
-      loop = selected.loop;
-      loopVersion = selected.version;
-    } else {
-      // A review answer applies first, so tool calls made after its snapshot can still move the route up.
-      loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
-      loop = await moveOnObserved($, router, cfg, loop, e, context);
-      loop = continueRoute(cfg, loop, {
-        hasImages: await imagesOf($, cfg, loop.decision),
-        nativeModel,
-        contextTokens: context.tokens,
-        contextKnown: context.known,
-        availableModels,
-        effort: e.effort,
-      });
-      await updateView($, router, continuationView(cfg, loop.decision, context));
-    }
-    const pinPresses = router.turnPins.get(e.turnId);
-    if (pinPresses !== undefined) {
-      router.turnPins.delete(e.turnId);
-      if (pinPresses === router.pinPresses) await updateView($, router, { pendingPin: null });
-    }
-    const request = { ...e, model: loop.decision.model };
-    if (loop.decision.effort === null) delete request.effort;
-    else request.effort = loop.decision.effort;
-    const response = yield* next(request);
-    if (!next.signal.aborted && (await $.session.id()) === sessionId)
-      await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
-    return response;
+    return yield* stepMain($, router, e, next);
   });
 
   on('turn.complete', async ($, e, next) => {
@@ -2446,6 +2754,11 @@ export function register(on, options) {
     } else if (turn) await recordActivity($, router, turn);
     if (router.turnUsage.has(e.turnId)) await flushUsage($, router, e.turnId, turn?.switched ?? null);
     await flushDecisions($, router, e.turnId, turn);
+    if (router.config.routingEngine === 'shadow' && router.trace?.turns.has(e.turnId)) {
+      addTrace(router, e, { type: 'end', at: Date.now() });
+      await flushTrace($, router, e.turnId);
+    }
+    router.traceOperations.delete(e.turnId);
     return next(e);
   });
 
@@ -2455,7 +2768,14 @@ export function register(on, options) {
     if (!result.skip && e.trigger !== 'precompute' && !e.agentId) {
       const ref = { ...LOOP, id: 'main' };
       const loop = (await $.state.get(ref)).value;
-      if (loop) await $.state.set(ref, resetHistory(loop));
+      if (loop) {
+        const reset = resetHistory(loop);
+        await $.state.set(ref, reset);
+        if (router.config.routingEngine === 'shadow' && router.trace) {
+          const event = { type: 'reset', at: Date.now(), cause: 'compact', loop: reset, generation: reset.generation };
+          router.trace.controls = bufferTrace(router.trace.controls, event, 4096);
+        }
+      }
       clearGoal(router);
       for (const controller of router.controllers) controller.abort();
     }
@@ -2463,6 +2783,13 @@ export function register(on, options) {
   });
 
   on('session.end', async ($, e, next) => {
+    if (router.config.routingEngine === 'shadow') {
+      if (router.trace?.turns.size) router.trace.reasons.add('aborted');
+      await flushTrace($, router, null, true);
+    }
+    router.trace = null;
+    router.traceOperations.clear();
+    router.traceStarted = false;
     await endSession($, router);
     return next(e);
   });

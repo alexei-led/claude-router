@@ -11,6 +11,32 @@ applicable decision. It does not run the proposed route or maintain a simulated 
 establish savings or answer quality; a next-turn cost estimate is not an observed cost or a counterfactual saving.
 The bounded decision records are not replay traces. See [Configuration](configuration.md#routing-engine).
 
+## Replay trace recorder
+
+In `routingEngine: "shadow"`, the main-turn hooks also keep text-free replay inputs separately from decision rows:
+the initial configured and mode-transformed routing policy, provider/cache semantics and model prices; classifier
+tier/activity/phase vectors; failure fingerprints and occurrence indexes; pins, modes, resets, context/availability
+facts and observed moves; and correlated request/reply model, effort and token counters. Checkpoint evidence uses
+message indexes and success flags, not commands, tool results or paths, so a later replay can use its own switch cursor.
+
+Records use `trace:v1:<session id>`: 30-day retention, 128 KiB per session, 1 MiB total trace budget and a measured
+3 MiB guard on the shared plugin store. Pending turns are bounded too. A cap discards the entire pending turn,
+keeps the earlier contiguous prefix usable and counts excluded turns/events. Late starts, resume/reload, gaps,
+conflicts and lost writes are incomplete. A failed write taints memory and persists that taint on the next success;
+an unavailable store cannot guarantee a durable failure marker. A clean session close is not required.
+
+Run `/router trace export` to merge retained traces into `router-traces.json` beside the selected profile's
+router config. The command also works after switching back to `table`; ordinary table turns do no trace I/O.
+Exports overwrite their previous JSON after merging; near 3 MiB, a new dated `router-traces-*.json` file receives
+the retained snapshot instead. Keep all export files for offline replay. Known taint is never erased by a longer
+or newer clean prefix. **Delete history** clears stored traces in any mode, but exported files remain user-owned:
+the host filesystem API has no unlink operation.
+
+Recent active sessions have a one-hour last-write lease against budget eviction; stale activity cannot defeat
+30-day retention. Store scans, quota checks and deletion are best effort across processes, not atomic reservations.
+There is no replay tool, exposure result, routing-quality result or savings claim from this recorder yet.
+The small sequential table-chain regression checks recorder consistency, not the planned evaluation gates.
+
 ## Provider profiles
 
 [Provider defaults](providers.md#built-in-defaults) are starting policies, not measured per-activity quality or savings results.

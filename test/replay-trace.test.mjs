@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
+import { completedSince, progressEvidence } from '../lib/facts.mjs';
 import { applyMode } from '../lib/modes.mjs';
 import {
   appendTrace,
   bufferTrace,
+  completedFromTrace,
   mergeTraceExport,
   newTrace,
   readTrace,
@@ -16,6 +18,7 @@ import {
   traceBytes,
   traceConfig,
   traceFacts,
+  traceLoop,
   traceOperation,
   traceProblems,
   traceResponse,
@@ -81,14 +84,21 @@ test('projected advice/facts/loop suffice to call the real table decision withou
   };
   const input = { facts, advice, pin: null, nativeModel: configured.models.haiku.id, contextKnown: true, now: NOW };
   const selected = chooseRoute(config, loop, input);
-  const op = traceOperation('choose', NOW, loop, input, selected);
+  const op = traceOperation('choose', NOW, input, selected);
   assert.equal(JSON.stringify(op).includes('CANARY'), false);
   const replay = chooseRoute(
     traceConfig(config),
-    { ...op.before, turnId: null },
+    { ...traceLoop(loop), turnId: null },
     {
       ...op,
-      facts: { ...op.facts, turnKey: 'turn1' },
+      facts: {
+        ...op.facts,
+        turnKey: 'turn1',
+        lastRoute: loop.lastRoute,
+        lastRequest: loop.lastRequest,
+        models: loop.models,
+        historyMeasured: loop.historyMeasured,
+      },
       availableModels: undefined,
       now: op.at,
     },
@@ -302,6 +312,42 @@ test('3MiB admission stops traces without evicting non-trace usage or active ses
   const active = { ...initial(), padding: 'x'.repeat(TRACE_BUDGET_BYTES) };
   assert.deepEqual(traceVictims([[key('active'), active]], NOW, key('own'), initial()), []);
   assert.equal(traceAdmission([[key('active'), active]], key('own'), initial()), false);
+});
+
+test('text-free checkpoint indexes reproduce activity completion for any replay switch cursor', () => {
+  const call = (id, name, input) => ({ role: 'assistant', content: [{ type: 'tool_use', id, name, input }] });
+  const result = (id, error = false, text = 'CANARY result') => ({
+    role: 'user',
+    content: [{ type: 'tool_result', tool_use_id: id, is_error: error, content: text }],
+  });
+  const cases = [
+    [call('a', 'Bash', { command: 'npm test' }), result('a')],
+    [call('a', 'Bash', { command: 'npm test | tail' }), result('a')],
+    [call('a', 'Bash', { command: 'npm test' }), result('a', true)],
+    [call('a', 'Bash', { command: 'npm test', run_in_background: true }), result('a')],
+    [call('a', 'Bash', { command: 'git status' }), result('a')],
+    [call('a', 'Bash', { command: 'git commit -m CANARY' }), result('a')],
+    [
+      call('a', 'Edit', { file_path: '/CANARY/a.mjs' }),
+      result('a'),
+      call('b', 'Edit', { file_path: '/CANARY/docs/a.md' }),
+      result('b'),
+    ],
+    [call('a', 'Task', { prompt: 'CANARY' }), result('a')],
+    [call('a', 'Read', { file_path: '/CANARY' }), result('a', true)],
+  ];
+  for (const middle of cases) {
+    const messages = [{ role: 'user', content: 'CANARY' }, ...middle, { role: 'user', content: 'CANARY next' }];
+    const evidence = progressEvidence(messages);
+    assert.equal(JSON.stringify(evidence).includes('CANARY'), false);
+    for (let from = -1; from <= messages.length + 1; from++)
+      for (const activity of [null, 'code', 'debug', 'ops', 'docs', 'explore', 'plan', 'review'])
+        assert.equal(
+          completedFromTrace(evidence, from, activity),
+          completedSince(messages, from, activity),
+          JSON.stringify({ evidence, from, activity }),
+        );
+  }
 });
 
 test('byte counting includes UTF-8 overhead', () => {

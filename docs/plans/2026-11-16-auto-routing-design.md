@@ -210,8 +210,8 @@ and stale active flags do not make killed sessions immortal. If all space has re
 refuses and taints instead of truncating an event tail.
 
 Replay state starts only from the initial header, then evolves by applying the recorded requests, responses,
-controls, resets and config changes in order. Per-operation `before` state is diagnostic comparison evidence;
-replay must not reseed its state from it. Every response names its request sequence and turn/index.
+controls, resets and config changes in order. Cache, policy and route state evolve independently; per-operation state is not a replay seed.
+Reset snapshots are diagnostic comparison evidence; replay must apply the reset to its own state. Every response names its request sequence and turn/index.
 
 Replay contract, in order:
 
