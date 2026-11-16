@@ -1,0 +1,354 @@
+{
+  "version": 1,
+  "status": "proposal",
+  "splitPolicy": "Fixed in this revision before tuning. Smoke and tuning use development only; heldout tasks are reserved for evaluation. Synthetic tasks, not yet sourced from shadow disagreements.",
+  "tasks": [
+    {
+      "id": "json-sort",
+      "split": "development",
+      "smoke": true,
+      "activity": "ops",
+      "prompt": "Return only a JSON array containing the numbers 3, 1, 2 in ascending order.",
+      "check": {
+        "kind": "json-equal",
+        "expected": [
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "id": "empty-sum",
+      "split": "development",
+      "smoke": true,
+      "activity": "code",
+      "prompt": "Return only JSON with key sum: the sum of an empty list, using the additive identity.",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "sum": 0
+        }
+      }
+    },
+    {
+      "id": "dedupe",
+      "split": "development",
+      "smoke": true,
+      "activity": "code",
+      "prompt": "Return only a JSON array after removing duplicates from [\"a\",\"b\",\"a\",\"c\",\"b\"], preserving first appearance.",
+      "check": {
+        "kind": "json-equal",
+        "expected": [
+          "a",
+          "b",
+          "c"
+        ]
+      }
+    },
+    {
+      "id": "stable-record-sort",
+      "split": "development",
+      "smoke": false,
+      "activity": "code",
+      "prompt": "Return only JSON: sort [{\"k\":2,\"id\":\"a\"},{\"k\":1,\"id\":\"b\"},{\"k\":2,\"id\":\"c\"}] by k ascending, preserving ties.",
+      "check": {
+        "kind": "json-equal",
+        "expected": [
+          {
+            "k": 1,
+            "id": "b"
+          },
+          {
+            "k": 2,
+            "id": "a"
+          },
+          {
+            "k": 2,
+            "id": "c"
+          }
+        ]
+      }
+    },
+    {
+      "id": "interval-boundary",
+      "split": "heldout",
+      "smoke": false,
+      "activity": "code",
+      "prompt": "Return only a JSON array of integers in [0,1,2,3,4] inside the half-open interval [1,4).",
+      "check": {
+        "kind": "json-equal",
+        "expected": [
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "id": "utf8-size",
+      "split": "development",
+      "smoke": false,
+      "activity": "code",
+      "prompt": "Return only JSON {\"bytes\":n}: byte length of the string Aé🙂 encoded in UTF-8, without quotes or newline.",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "bytes": 7
+        }
+      }
+    },
+    {
+      "id": "negative-modulo",
+      "split": "development",
+      "smoke": false,
+      "activity": "debug",
+      "prompt": "Return only JSON {\"value\":n}: normalize -7 modulo 5 to the range 0 through 4.",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "value": 3
+        }
+      }
+    },
+    {
+      "id": "null-filter",
+      "split": "heldout",
+      "smoke": false,
+      "activity": "debug",
+      "prompt": "Return only a JSON array removing only null from [0,false,\"\",null,2].",
+      "check": {
+        "kind": "json-equal",
+        "expected": [
+          0,
+          false,
+          "",
+          2
+        ]
+      }
+    },
+    {
+      "id": "merge-precedence",
+      "split": "development",
+      "smoke": false,
+      "activity": "code",
+      "prompt": "Return only JSON: shallow-merge {\"a\":1,\"b\":2} and {\"b\":0,\"c\":null}, with the second object's own properties taking precedence.",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "a": 1,
+          "b": 0,
+          "c": null
+        }
+      }
+    },
+    {
+      "id": "retry-boundary",
+      "split": "development",
+      "smoke": false,
+      "activity": "ops",
+      "prompt": "Return only JSON {\"attempts\":n}: one initial attempt plus at most two retries, all attempts fail.",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "attempts": 3
+        }
+      }
+    },
+    {
+      "id": "duration-units",
+      "split": "heldout",
+      "smoke": false,
+      "activity": "ops",
+      "prompt": "Return only JSON {\"milliseconds\":n}: convert 1 minute and 250 milliseconds to milliseconds.",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "milliseconds": 60250
+        }
+      }
+    },
+    {
+      "id": "csv-quotes",
+      "split": "development",
+      "smoke": false,
+      "activity": "code",
+      "prompt": "Return only a JSON array of fields parsed from this single CSV record: a,\"b,c\",\"d\"\"e\".",
+      "check": {
+        "kind": "json-equal",
+        "expected": [
+          "a",
+          "b,c",
+          "d\"e"
+        ]
+      }
+    },
+    {
+      "id": "semver-numeric",
+      "split": "development",
+      "smoke": false,
+      "activity": "code",
+      "prompt": "Return only a JSON array sorting these release versions numerically by major/minor/patch: [\"1.10.0\",\"1.2.9\",\"2.0.0\",\"1.2.10\"].",
+      "check": {
+        "kind": "json-equal",
+        "expected": [
+          "1.2.9",
+          "1.2.10",
+          "1.10.0",
+          "2.0.0"
+        ]
+      }
+    },
+    {
+      "id": "path-traversal",
+      "split": "heldout",
+      "smoke": false,
+      "activity": "review",
+      "prompt": "Return only a JSON array of safe relative POSIX paths, rejecting absolute paths and any '..' segment: [\"a/b\",\"../x\",\"/tmp/a\",\"a/../b\",\"a..b\"].",
+      "check": {
+        "kind": "json-equal",
+        "expected": [
+          "a/b",
+          "a..b"
+        ]
+      }
+    },
+    {
+      "id": "json-false",
+      "split": "development",
+      "smoke": false,
+      "activity": "debug",
+      "prompt": "Return only JSON {\"enabled\":b}: config enabled=false, fallback=true; use fallback only when the value is absent, not when false.",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "enabled": false
+        }
+      }
+    },
+    {
+      "id": "money-cents",
+      "split": "development",
+      "smoke": false,
+      "activity": "code",
+      "prompt": "Return only JSON {\"cents\":n}: three items cost 199 cents each; subtract a 100-cent coupon, then add a 50-cent shipping fee. Use integer cents.",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "cents": 547
+        }
+      }
+    },
+    {
+      "id": "topological-order",
+      "split": "heldout",
+      "smoke": false,
+      "activity": "plan",
+      "prompt": "Return only a JSON array of build order with prerequisites before dependents: a depends on b, b depends on c, c has no dependencies.",
+      "check": {
+        "kind": "json-equal",
+        "expected": [
+          "c",
+          "b",
+          "a"
+        ]
+      }
+    },
+    {
+      "id": "cycle-detection",
+      "split": "development",
+      "smoke": false,
+      "activity": "review",
+      "prompt": "Return only JSON {\"cycle\":b}: directed edges a->b, b->c, c->a.",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "cycle": true
+        }
+      }
+    },
+    {
+      "id": "unicode-normalization",
+      "split": "development",
+      "smoke": false,
+      "activity": "code",
+      "prompt": "Return only JSON {\"equal\":b}: are U+00E9 and U+0065 U+0301 equal after NFC normalization?",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "equal": true
+        }
+      }
+    },
+    {
+      "id": "cache-boundary",
+      "split": "heldout",
+      "smoke": false,
+      "activity": "debug",
+      "prompt": "Return only JSON {\"warm\":b}: cache validity is now < writtenAt + ttl; writtenAt=100, ttl=50, now=150.",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "warm": false
+        }
+      }
+    },
+    {
+      "id": "median-even",
+      "split": "development",
+      "smoke": false,
+      "activity": "code",
+      "prompt": "Return only JSON {\"median\":n}: median of [9,1,4,2], averaging the middle pair for an even count.",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "median": 3
+        }
+      }
+    },
+    {
+      "id": "lint-diagnosis",
+      "split": "development",
+      "smoke": false,
+      "activity": "review",
+      "prompt": "Return only JSON {\"unused\":[names]}: in `const x=1; const y=2; console.log(x);`, which declared variables are unused? Preserve declaration order.",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "unused": [
+            "y"
+          ]
+        }
+      }
+    },
+    {
+      "id": "newline-normalization",
+      "split": "heldout",
+      "smoke": false,
+      "activity": "docs",
+      "prompt": "Return only JSON {\"text\":s}: normalize CRLF and lone CR to LF in the sequence a\\r\\nb\\rc\\n (backslash escapes describe characters).",
+      "check": {
+        "kind": "json-equal",
+        "expected": {
+          "text": "a\nb\nc\n"
+        }
+      }
+    },
+    {
+      "id": "bounded-backoff",
+      "split": "heldout",
+      "smoke": false,
+      "activity": "ops",
+      "prompt": "Return only a JSON array of delays for attempts 0,1,2,3, with delay=min(100*2^attempt,250) milliseconds.",
+      "check": {
+        "kind": "json-equal",
+        "expected": [
+          100,
+          200,
+          250,
+          250
+        ]
+      }
+    }
+  ]
+}
