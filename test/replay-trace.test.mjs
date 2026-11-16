@@ -4,6 +4,7 @@ import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { applyMode } from '../lib/modes.mjs';
 import {
   appendTrace,
+  bufferTrace,
   mergeTraceExport,
   newTrace,
   readTrace,
@@ -202,6 +203,26 @@ test('intentional cap retains a usable whole-turn prefix and counts excluded tur
   const next = appendTrace(capped, [event()], NOW + 2);
   assert.equal(next.capped.turns, 2);
   assert.equal(next.events.length, 1);
+});
+
+test('a long single turn discards its entire bounded buffer and counts subsequent payload-free events', () => {
+  let buffer;
+  for (let i = 0; i < 10_000; i++) {
+    buffer = bufferTrace(
+      buffer,
+      buffer?.excludedEvents ? null : { type: 'request', at: NOW, turn: 1, index: i, operations: [] },
+      1000,
+    );
+    assert.ok(traceBytes(buffer.events) <= 1000);
+  }
+  assert.deepEqual(buffer.events, []);
+  assert.equal(buffer.excludedEvents, 10_000);
+  assert.ok(traceBytes(buffer) < 100);
+  const record = appendTrace(initial(), [], NOW + 1, { excludedEvents: buffer.excludedEvents });
+  assert.equal(record.events.length, 1);
+  assert.equal(record.capped.turns, 1);
+  assert.equal(record.capped.events, 10_000);
+  assert.equal(usableTrace(record), true);
 });
 
 test('retention is 30 days, not number of rows or sessions; active records are never victims', () => {
