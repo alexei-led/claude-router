@@ -203,7 +203,7 @@ export function harness(options = {}, preferences = new Map()) {
       snapshot = new Map();
       return handler('ui.render', { component })($, { component, requestId: component, props }, async (input) => input);
     },
-    step: (input, response = {}) => {
+    step: (input, response = {}, signal = new AbortController().signal) => {
       snapshot = new Map();
       const send = async function* (request) {
         requests.push(request);
@@ -224,7 +224,7 @@ export function harness(options = {}, preferences = new Map()) {
           ...response,
         };
       };
-      send.signal = new AbortController().signal;
+      send.signal = signal;
       return handler('turn.step', input)($, input, send);
     },
     // An agent.spawn dispatch: `result` (or `result(sent)`) is what core answers. Returns the hook's answer and the
