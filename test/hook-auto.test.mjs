@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { autoCatalogKey } from '../lib/auto-route.mjs';
+import { loadConfig } from '../lib/config.mjs';
 import { readDecisions } from '../lib/decisions.mjs';
 import { answering, CONFIG, drain, harness, JEV_KEY, start, step } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
@@ -173,6 +175,59 @@ test('mode changes only auto requirement, never table routes or policy patches',
   assert.equal(h.loop().auto.state.demand, demand);
   assert.equal(h.loop().decision.reason, 'explicit-up');
   assert.equal(h.loop().auto.state.routeCause, 'mode');
+});
+
+test('catalog identity reflects actual allowed native defaults but not allowlist spelling or order', () => {
+  const config = loadConfig({ routingEngine: 'auto' });
+  const nativeModel = config.models.haiku.id;
+  const first = autoCatalogKey(config, { availableModels: ['haiku', 'opus'], nativeModel });
+  assert.equal(autoCatalogKey(config, { availableModels: ['opus', 'haiku', 'haiku', 'unlisted'], nativeModel }), first);
+  assert.notEqual(autoCatalogKey(config, { availableModels: ['haiku'], nativeModel }), first);
+  assert.notEqual(
+    autoCatalogKey(config, { availableModels: ['default'], nativeModel }),
+    autoCatalogKey(config, { availableModels: ['default'], nativeModel: config.models.opus.id }),
+  );
+  const resolved = { ...config.models, haiku: { ...config.models.haiku, id: `${nativeModel}-20260101` } };
+  assert.equal(autoCatalogKey(config, { availableModels: ['haiku', 'opus'], nativeModel, models: resolved }), first);
+});
+
+test('an explicit allowlist expansion supplies catalog evidence at unchanged routed demand', async () => {
+  const h = setup();
+  h.settings({ availableModels: ['haiku'] });
+  await start(h);
+  await drain(h.step(step));
+  assert.equal(h.loop().decision.auto.outcome, 'declared-below-demand');
+  assert.equal(h.loop().auto.state.demand, 3);
+  assert.equal(h.loop().auto.state.routedDemand, 3);
+  const previous = structuredClone(h.loop().auto.state);
+  h.settings({ availableModels: ['haiku', 'opus'] });
+  await nextTurn(h, 'expanded');
+  assert.equal(h.loop().decision.reason, 'explicit-up');
+  assert.equal(h.requests.at(-1).model, 'claude-opus-5-5');
+  assert.equal(h.loop().auto.state.routeCause, 'catalog');
+  assert.equal(h.loop().auto.state.demand, previous.demand);
+  assert.equal(h.loop().auto.state.routedDemand, previous.routedDemand);
+  assert.deepEqual(h.loop().auto.state.votes, [3, 3]);
+  assert.equal(h.loop().auto.state.holdUntilTurn, previous.holdUntilTurn);
+});
+
+test('allowlist expansion cannot relabel a pending classifier upgrade as catalog evidence', async () => {
+  const h = setup();
+  h.settings({ availableModels: ['haiku', 'opus'] });
+  h.usage({ context: { tokens: 600_000, breakdown: { totalTokens: 600_000 } }, rateLimits: [] });
+  answering(h, jevResponse('high', { high: 0.8, uncertain: 0.2 }, 0, { code: 1 }, 'produce'));
+  await start(h);
+  await drain(h.step(step));
+  assert.equal(h.loop().decision.reason, 'upgrade-pending');
+  const routed = h.loop().auto.state.routedDemand;
+  assert.equal(h.loop().auto.state.demand, 3);
+  assert.ok(routed < 3);
+  h.settings({ availableModels: ['haiku', 'opus', 'fable'] });
+  await nextTurn(h, 'expanded-but-held');
+  assert.equal(h.loop().decision.reason, 'upgrade-pending');
+  assert.equal(h.loop().auto.state.routedDemand, routed);
+  assert.equal(h.loop().auto.state.routeCause, 'classifier');
+  assert.equal(h.requests.at(-1).model, step.model);
 });
 
 test('each tier pin is exact demand without quality margin and restores the normal route/state/switch', async () => {

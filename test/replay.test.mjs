@@ -127,6 +127,50 @@ test('live/replay no-route suspension and next-turn reentry agree, including pin
   }
 });
 
+test('live auto and replay both treat an allowlist expansion as catalog evidence', async () => {
+  const runs = [];
+  for (const routingEngine of ['shadow', 'auto']) {
+    const h = harness(JEV_KEY);
+    h.files.set(
+      CONFIG,
+      JSON.stringify({
+        routingEngine,
+        policy: { reviewEveryRequests: 0 },
+        models: { haiku: { capability: { medium: 1, xhigh: 2 } }, opus: { capability: { xhigh: 3 } } },
+      }),
+    );
+    answering(h, jevResponse('high', { high: 1 }, 0, { code: 1 }, 'produce'));
+    await h.event('session.start', { cwd: '/fixture' });
+    for (const [turnId, availableModels] of [
+      ['limited', ['haiku']],
+      ['expanded', ['haiku', 'opus']],
+    ]) {
+      h.settings({ availableModels });
+      await h.event('turn.start', { turnId, text: 'Synthetic task' });
+      h.messages(async () => [user('Synthetic task')]);
+      await drain(h.step({ ...step, turnId }));
+      await h.event('turn.complete', { turnId });
+    }
+    runs.push(h);
+  }
+  const record = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+  const table = replayTable(record);
+  assert.deepEqual(table.mismatches, []);
+  const auto = replayAuto(record, table.rows);
+  assert.deepEqual(
+    auto.map((row) => row.pair),
+    runs[1].requests.map(({ model, effort }) => ({ model, effort })),
+  );
+  assert.deepEqual(
+    auto.map((row) => row.reason),
+    ['upgrade', 'explicit-up'],
+  );
+  assert.deepEqual(
+    auto.map((row) => row.demand),
+    [3, 3],
+  );
+});
+
 test('fidelity evolves real captured multi-turn, pin, mode, manual, reset and continuation operations', async () => {
   const record = await capture({ controls: true, continuations: true });
   const result = evaluateReplay([exportOf(record)]);

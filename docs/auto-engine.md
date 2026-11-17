@@ -90,6 +90,8 @@ Update routed demand and cause only when the proposed physical move actually exe
 prospective state in `result.state` and `result.move.state`. Its pre-move demand state remains in
 `result.demand.state`. A held proposal leaves routed demand and cause unchanged, so it remains pending.
 `changeCause` is null, `mode` or `catalog`; it cannot relabel a demand change as an explicit configuration move.
+The live adapter and replay fingerprint the actual allowed configured aliases, including native `default` resolution.
+An allowlist expansion is catalog evidence; reordering it, cache warmth and routine response-ID resolution are not.
 
 Tier pins accept a tier string or integer 0..3. They are one-turn overrides: no mode margin and no move gates,
 but normal candidate constraints, outcome precedence and incumbent ties. The facade returns the pinned route
