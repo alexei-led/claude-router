@@ -47,7 +47,7 @@ before assessing cache state, as the table controller's economic config does.
 | `advanceDemand`         | `{ config, state, advice = null, facts, pin = null, boundedExecute = false }`                                          | `{ raw, level, reason, headroom, escalated, state }`                      |
 | `assessCandidates`      | `{ config, facts, now, incumbent, contextKnown = Number.isFinite(facts.contextTokens), availableModels, nativeModel }` | Candidate facts array                                                     |
 | `selectTarget`          | `{ candidates, demand, mode = 'balanced', headroom = false, escalation = false }`                                      | `{ outcome, route, capability, requirement, estimate, reason, headroom }` |
-| `decideMove`            | `{ config, state, demandResult, target, candidates, advice = null, facts, now, changeCause = null }`                   | `{ move, route, reason, evidence, estimate, state }`                      |
+| `decideMove`            | `{ config, state, demandResult, target, candidates, advice = null, facts, now, changeCause = null, startup = false }`  | `{ move, route, reason, evidence, estimate, state }`                      |
 | `proposeAutoRoute`      | Combined inputs above, using `incumbent` and optional `state`                                                          | `{ demand, candidates, target, move, state }`                             |
 
 The facade initializes missing state with `initialIncumbentState`. Raw demand starts at `config.baselineTier`;
@@ -99,6 +99,25 @@ The facade returns accepted state in `result.state` and `result.move.state`; its
 `result.demand.state`. A held proposal leaves routed demand and cause unchanged, so it remains pending.
 Runtime and offline replay use the same `decideMove` transition.
 `changeCause` is null, `mode` or `catalog`; it cannot relabel a demand change as an explicit configuration move.
+The separate `startup` input defaults to false and must come from genuine per-history routing evidence,
+never `state.turn === 0` or the physical request count. A first tier pin consumes eligibility even though its
+demand state remains unchanged. Manual/off native requests do not consume it; their cache and dwell observations
+still count normally. The loop persists `hasRoutedDecision` with the same state write as the routed decision,
+including table decisions and pins. Reload, off/on, engine changes and compaction preserve it; a new session or
+`/clear` new history starts false. Legacy unmarked histories with request, decision or auto-state evidence
+conservatively count as consumed. This adds no configuration flag or state version.
+Startup qualification uses the selector's existing `target.requirement`: effective demand after any accepted
+bounded-execute discount plus the mode margin. It does not cancel that discount or invent an undiscounted floor.
+Only a declared known incumbent below that requirement and a declared target meeting it can qualify; unknown
+capability never grants startup evidence. After unchanged demand voting, qualifying startup movement takes
+priority over classifier upgrade/downgrade movement and uses mass 1 through the same base-policy explicit-up
+switch-tax gate. All candidate hard constraints and the cash cap still apply; this is not a forced move.
+A blocked first decision consumes the chance, so there is no second-turn startup retry. For example, native
+capability 0, baseline 1 and first low probability 0.57 can move with startup mass 1; the same probability on an
+ordinary later demand upgrade still needs the unchanged classifier mass gate. Fresh micro advice that reduces
+effective demand to 0 does not authorize startup when capability 0 already meets the resulting requirement.
+Startup move reason and route cause are `startup`, not `mode`. Replay compares accepted automatic mode/catalog
+evidence rather than treating table-only pin config snapshots as catalog edits; genuine edits survive pins.
 The live adapter and replay fingerprint the actual allowed configured aliases, including native `default` resolution.
 An allowlist expansion is catalog evidence; reordering it, cache warmth and routine response-ID resolution are not.
 

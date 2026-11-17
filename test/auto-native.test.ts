@@ -182,7 +182,7 @@ test('DeepSeek first-turn native capability and same-turn auto reload use the au
   await request('first');
   expect(fetches).toBe(1);
   expect(state.get('view:')?.value).toMatchObject({ error: null });
-  expect(state.get('loops:main')?.value).toMatchObject({ decision: { reason: 'upgrade' } });
+  expect(state.get('loops:main')?.value).toMatchObject({ decision: { reason: 'startup' } });
   expect(sent.at(-1)).toEqual({ model: 'deepseek-flash[1m]', effort: 'high' });
   await $.turn.complete({ turnId: 'first', answer: 'ok', durationMs: 1, isAborted: false, reason: 'answer' });
   config.routingEngine = 'table';

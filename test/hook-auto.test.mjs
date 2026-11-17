@@ -50,7 +50,7 @@ test('lazy turn.start loads validated profile and project mode before freezing a
   assert.equal(h.loop().decision.auto.demand, 2);
 });
 
-test('native custom catalog alias uses actual capability and still requires the unchanged base mass', async () => {
+test('native custom catalog alias below requirement uses first-routed startup evidence', async () => {
   for (const strong of [true, false]) {
     const h = setup({
       models: {
@@ -74,11 +74,11 @@ test('native custom catalog alias uses actual capability and still requires the 
     );
     await start(h);
     await drain(h.step({ ...step, model: 'org/custom-model', effort: 'low' }));
-    assert.equal(h.requests[0].effort, strong ? 'high' : 'low');
+    assert.equal(h.requests[0].effort, 'high');
     assert.equal(h.loop().auto.incumbent.model, 'modèle / local');
     assert.equal(h.loop().auto.state.demand, 1);
-    assert.equal(h.loop().auto.state.routedDemand, strong ? 1 : 0);
-    assert.equal(h.loop().decision.reason, strong ? 'upgrade' : 'upgrade-pending');
+    assert.equal(h.loop().auto.state.routedDemand, 1);
+    assert.equal(h.loop().decision.reason, 'startup');
   }
 });
 
@@ -381,7 +381,10 @@ test('allowlist expansion cannot relabel a pending classifier upgrade as catalog
   h.usage({ context: { tokens: 600_000, breakdown: { totalTokens: 600_000 } }, rateLimits: [] });
   answering(h, jevResponse('high', { high: 0.8, uncertain: 0.2 }, 0, { code: 1 }, 'produce'));
   await start(h);
+  await h.event('command.run', { command: 'router', args: 'pin low' });
   await drain(h.step(step));
+  await nextTurn(h, 'vote');
+  await nextTurn(h, 'first-unpinned');
   assert.equal(h.loop().decision.reason, 'upgrade-pending');
   const routed = h.loop().auto.state.routedDemand;
   assert.equal(h.loop().auto.state.demand, 3);

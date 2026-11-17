@@ -128,15 +128,15 @@ the incumbent. Each case has a defined evidence input. The threshold formulas ar
 named here.
 
 **Routed demand.** The session keeps the effective demand level accepted by the incumbent route, and the
-cause of the last physical change (`classifier`, `escalation`, `mode`, `catalog`, `forced`, `reentry`).
+cause of the last physical change (`classifier`, `escalation`, `startup`, `mode`, `catalog`, `forced`, `reentry`).
 At session start, raw demand is the configured baseline, while routed demand is the actual incumbent's declared
 capability at its supported/resolved native effort. Unknown or unsupported native capability conservatively uses
 the baseline; no effort, mode offset or capability is invented. Runtime and replay share this initialization.
 Routed demand is then set when a move executes and when the selected target is the same physical
 request (`same-route`). Same-route acceptance adopts the current effective demand, including zero, without a
 switch: `move: false`, hold, votes, failure markers and route cause remain unchanged. Pins, no-route,
-exhausted escalation and blocked moves do not adopt demand. Every case below compares the current demand with
-**routed demand**, not with the previous turn's demand. So a blocked move stays pending without extra state.
+exhausted escalation and blocked moves do not adopt demand. Classifier move cases below compare current demand
+with **routed demand**, not with the previous turn's demand. So a blocked move stays pending without extra state.
 For example, demand rises to 3 while routed demand is 2 and the switch-tax bar blocks the upgrade. On the next turns the case is still "demand rose",
 and the mass is recomputed from the current advice against routed demand 2. The pending move ends when it executes,
 when demand returns to routed demand, or when a forced or escalation move replaces it.
@@ -146,6 +146,7 @@ when demand returns to routed demand, or when a forced or escalation move replac
 | Incumbent origin is `external-fallback`, on the next main turn               | Re-entry to a different eligible target bypasses mass, dwell and payback. Hard constraints and cash cap still apply. An equal physical target accepts current effective demand and clears origin without a switch or cause change; no eligible target continues native fallback. Re-entry sets routed demand and cause `reentry`, preserving escalation hold. |
 | Incumbent fails a hard constraint (context, images, availability)            | Forced move now. No confidence needed; dwell does not apply.                                                                                                                                                                                                                                                                                                  |
 | New failure escalation or pending headroom selected a different request      | Move now to the stronger-only target above; not held by dwell, confidence or switch tax. Exhaustion stays with its explicit reason.                                                                                                                                                                                                                           |
+| First routed decision: known incumbent below requirement                     | Declared target meets the requirement. Startup mass 1 through existing explicit-up switch-tax/cash gates and hard constraints, before classifier move branches. Reason/cause `startup`, not `mode`. The first routed decision consumes privilege even if blocked; no retry.                                                                                   |
 | Demand above routed demand                                                   | Upgrade mass = current classifier probability above routed demand (`massAbove`), against the upgrade bar that rises with the route-to-route switch tax.                                                                                                                                                                                                       |
 | Demand below routed demand                                                   | Support = current probability at or below demand (`massAtOrBelow`), against the downgrade bar with downgrade tax; same-task hold (`downAllowed`); dwell.                                                                                                                                                                                                      |
 | Demand equals routed demand, target stronger, after a mode or catalog change | Mass 1: an explicit user or config choice, as `lateralMove` treats the base route (`lib/activity.mjs:109`). Gated by switch tax and cash cap only.                                                                                                                                                                                                            |
@@ -153,6 +154,18 @@ when demand returns to routed demand, or when a forced or escalation move replac
 | Demand equals routed demand, target cheaper                                  | Economics, as `lateralMove`'s down path: must pay back its cache write within `downgradeHorizonTurns`; same-task hold; dwell.                                                                                                                                                                                                                                 |
 
 Demand votes decide the demand change; they are not counted a second time in the move.
+Startup uses the selector's existing requirement: effective demand after any accepted bounded-execute discount
+plus the mode margin. It does not raise demand or cancel that discount. For example, native capability 0 with
+baseline demand 1 and first low probability 0.57 can move to a declared qualifying target using startup mass 1,
+even though classifier mass above 0 is below the ordinary 0.75 base. A fresh micro vote that lowers effective demand
+to 0 leaves that native capability sufficient in balanced/cost mode and grants no startup move.
+After the first decision, ordinary pending demand moves retain their classifier evidence and branch priority.
+
+Firstness belongs to the genuine session or `/clear` new history, not the engine's turn counter or request count.
+Every committed routed decision consumes it, including tier pins and earlier table routing. Manual/off native
+requests do not, but still update cache and dwell observations. Reload, off/on, engine changes and compaction
+cannot recreate eligibility. Persisted unmarked histories with request, decision or automatic-state evidence
+conservatively count as consumed; a fresh explicit history marker is saved atomically with each routed decision.
 
 ### 3.4 Pins and explanation
 
@@ -353,6 +366,13 @@ Steps 1–4 change nothing for users on the default.
 - A same-physical selected target accepts current effective demand without a switch, including a next-turn equal
   external-fallback target. Route cause, holds and votes remain unchanged; pins and non-accepting stays do not
   adopt demand. Runtime and offline replay share this transition.
+- Startup is a distinct first-routed move cause, not a mode change. After unchanged demand voting, a known native
+  incumbent below the effective requirement can move to a declared qualifying target with mass 1 through the
+  existing explicit-up switch-tax/cash gates, before classifier move branches. A blocked first decision consumes
+  the chance. Unknown capability grants no privilege. Manual prefixes preserve eligibility; pins and prior table
+  decisions consume it. Only a new session or `/clear` new history resets it, not compaction or engine lifecycle.
+- Replay infers catalog evidence from the automatic catalog fingerprint, not table-only config snapshots.
+  Pins retain the last accepted automatic mode/catalog so genuine edits remain explicit choices after unpinning.
 - Bounded replay storage uses the host store rather than an unbounded event file or runtime subprocess:
   30-day retention, 128 KiB per session, 1 MiB total trace budget and a measured 3 MiB store guard.
   Contiguous open prefixes are usable; capped turns remain separate; failed writes taint on next success;
