@@ -492,6 +492,43 @@ test('failure occurrences escalate strictly stronger and do not repeat for the s
   assert.equal(h.loop().auto.state.headroom, true);
 });
 
+test('exhausted headroom counts only a fresh failure or a later actual escalation', async () => {
+  const h = setup({ baselineTier: 'high' });
+  patch(h, (c) => {
+    c.models.opus.capability.xhigh = 2.5;
+    c.models.opus.capability.max = 2.5;
+  });
+  h.model('claude-opus-5-5');
+  h.settings({ availableModels: ['opus'] });
+  await start(h);
+  await drain(h.step({ ...step, model: 'claude-opus-5-5', effort: 'xhigh' }));
+  const failure = [
+    user('fix'),
+    assistant('running', ['Bash']),
+    toolResult('error: test_login failed', { isError: true }),
+    assistant('editing', ['Edit']),
+    toolResult('error: test_login failed', { isError: true }),
+  ];
+  await nextTurn(h, 'first-failure', failure);
+  assert.equal(h.loop().decision.reason, 'escalation-exhausted');
+  assert.equal(h.loop().decision.escalated, true);
+  const index = h.loop().auto.state.escalatedIndex;
+  for (const turnId of ['same-failure-1', 'same-failure-2']) {
+    await nextTurn(h, turnId, failure);
+    assert.equal(h.loop().auto.state.escalatedIndex, index);
+    assert.equal(h.loop().auto.state.headroom, true);
+    assert.equal(h.loop().decision.reason, 'escalation-exhausted');
+    assert.equal(h.loop().decision.escalated, false);
+  }
+  h.settings({ availableModels: ['opus', 'fable'] });
+  await nextTurn(h, 'delayed-escalation', failure);
+  assert.equal(h.loop().auto.state.escalatedIndex, index);
+  assert.equal(h.loop().decision.reason, 'escalation');
+  assert.equal(h.loop().decision.escalated, true);
+  assert.equal(h.loop().auto.state.headroom, false);
+  assert.equal(h.requests.at(-1).model, 'claude-fable-5-2');
+});
+
 test('auto → table → auto discards incompatible decisions/votes but retains real cache observations', async () => {
   const h = setup();
   await start(h);
