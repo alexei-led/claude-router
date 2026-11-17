@@ -77,13 +77,38 @@ Representative assumptions, fixed before the selections:
 
 **Result: 11 matches, 1 mismatch.** The mismatch is router.json at demand 2: Opus high, not its medium base effort, wins the equal-price higher-capability tie with the fixed Haiku incumbent. This alone disproves guaranteed equality with base routing. With Opus medium already incumbent, incumbent preference can instead retain medium at that tie. All 12 outcomes here are meets-demand: none is unknown-only or declared-below-demand. Those are still real risks if hard constraints remove the qualifying declared candidates. When declared candidates remain but none qualifies, declared-below-demand takes precedence over unknown; unknown-only applies only when no eligible declaration remains. Unknowns are not evidence of adequacy. A candidate marked unknown does not beat a qualifying declared candidate solely by being cheaper.
 
-Targets are not executed moves. Different context, cache observations, price/time, incumbent, availability, images, cash cap, session effort, pins or headroom can change the result. Cost/quality demand margins and policy gates differ from this balanced-only comparison. No routing equality, task-quality, evaluation or savings claim follows.
+Targets are not executed moves. Different context, cache observations, price/time, incumbent, availability, images, cash cap, session effort, pins or headroom can change the result. In auto, cost/quality modes change only the required capability through their demand margins. Physical moves use the same base gates across auto modes; this target-only comparison applies no move gates. No routing equality, task-quality, evaluation or savings claim follows.
 
 ## Informational activity routes — not seed evidence
 
 The configured activity preferences remain relevant to understanding what auto v1 will **not reproduce as activity-specific preferences**. V1 has no per-activity capability bonuses or independent activity preference map; its bounded execute/ops demand discount is separate. Some activity cells can nevertheless select the same physical pair by coincidence, so not every override is asserted to differ.
 
-Examples, for context only: router.json inherits low code/debug/plan/review → Sonnet high and medium ops → Haiku high; proxy uses medium ops → Sonnet medium and low/medium exploration/docs → GLM Flash high; valar also uses GLM Flash high for low/medium exploration/docs. **None contributes a capability value.** Sonnet and GLM remain entirely unknown in the independent base-derived maps. No simulation of these activity cells is claimed.
+Complete effective configured override list, checked 2026-11-17: **45 cells = 5 + 20 + 20**. Grouping is by profile/tier/target; braces enumerate every activity in the group. Pairs are resolved through the real `loadConfig`/`resolveRoute`, without mode transformation. “Same/differs” compares only to that profile's configured base pair, **not a simulated auto result**.
+
+- **router.json: 5 cells.**
+  - low/{code, debug, plan, review} → `sonnet@high` (4 cells, inherited builtin); base `haiku@high` — differs from base.
+  - medium/{ops} → `haiku@high` (1 cells, inherited builtin); base `opus@medium` — differs from base.
+- **model-proxy-router.json: 20 cells.**
+  - low/{code, debug} → `deepseek@max` (2 cells, explicit profile override); base `deepseek@high` — differs from base.
+  - low/{plan, review} → `deepseek@high` (2 cells, explicit profile override); base `deepseek@high` — same pair as base.
+  - low/{explore, ops, docs} → `glm-flash@high` (3 cells, explicit profile override); base `deepseek@high` — differs from base.
+  - medium/{code, debug, plan, review} → `kimi@high` (4 cells, explicit profile override); base `deepseek@high` — differs from base.
+  - medium/{explore, docs} → `glm-flash@high` (2 cells, explicit profile override); base `deepseek@high` — differs from base.
+  - medium/{ops} → `sonnet@medium` (1 cells, explicit profile override); base `deepseek@high` — differs from base.
+  - high/{debug, plan, review} → `opus@high` (3 cells, explicit profile override); base `kimi@max` — differs from base.
+  - high/{explore, docs} → `deepseek@max` (2 cells, explicit profile override); base `kimi@max` — differs from base.
+  - high/{ops} → `sonnet@high` (1 cells, explicit profile override); base `kimi@max` — differs from base.
+- **valar-router.json: 20 cells.**
+  - low/{code, debug} → `deepseek@max` (2 cells, explicit profile override); base `deepseek@high` — differs from base.
+  - low/{plan, review} → `deepseek@high` (2 cells, explicit profile override); base `deepseek@high` — same pair as base.
+  - low/{explore, ops, docs} → `glm-flash@high` (3 cells, explicit profile override); base `deepseek@high` — differs from base.
+  - medium/{code, debug, plan, review} → `kimi@high` (4 cells, explicit profile override); base `deepseek@high` — differs from base.
+  - medium/{explore, docs} → `glm-flash@high` (2 cells, explicit profile override); base `deepseek@high` — differs from base.
+  - medium/{ops} → `deepseek@max` (1 cells, explicit profile override); base `deepseek@high` — differs from base.
+  - high/{debug, plan, review} → `kimi@max` (3 cells, explicit profile override); base `kimi@max` — same pair as base.
+  - high/{explore, ops, docs} → `kimi@high` (3 cells, explicit profile override); base `kimi@max` — differs from base.
+
+No micro override cell is configured. Unlisted tier/activity cells inherit their base route. **None of these 45 cells contributes a capability value.** Sonnet and GLM remain entirely unknown in the independent base-derived maps. The preferences are not represented by auto v1, but matching physical choices can still occur; this list does not claim every override always differs. No activity-conditioned auto simulation is claimed.
 
 ## Secondary evidence, gaps and review decisions
 
