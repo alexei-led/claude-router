@@ -121,6 +121,7 @@ import {
   continueRoute,
   economicConfig,
   emptyLoop,
+  hasRoutedDecision,
   isModelAllowed,
   isNativeFallback,
   isSameModel,
@@ -258,6 +259,8 @@ const LEDGER_KINDS = Object.keys(LEDGERS);
 function createRouter(options) {
   return {
     options,
+    initialized: false,
+    initializing: null,
     config: loadConfig(),
     // Each turn's config, fixed at turn.start, so a pane save mid-turn does not change the turn.
     turnConfigs: new Map(),
@@ -284,7 +287,7 @@ function createRouter(options) {
     decisionRecord: null,
     trace: null,
     traceFreshSession: null,
-    traceLifecycleSession: null,
+    traceClearSession: null,
     traceStartedSession: null,
     traceFailures: 0,
     traceOperations: new Map(),
@@ -371,7 +374,22 @@ async function ensureTrace($, router, e, turn, loop, loaded, fresh) {
       held.lostWrites++;
       held.reasons.add('lost-write');
     }
-    if (!fresh || e.index !== 0 || loaded) held.reasons.add('mid-session');
+    let freshHistory = false;
+    if (fresh && e.index === 0 && !loaded && held.persisted === undefined) {
+      // API history is normalized for this request; startup reminders are user rows, not prior assistant work.
+      const messages = await transcript($);
+      freshHistory =
+        Array.isArray(messages) &&
+        messages.length > 0 &&
+        messages.every(
+          (message) =>
+            message?.role === 'user' &&
+            Array.isArray(message.content) &&
+            message.content.length > 0 &&
+            message.content.every((block) => block && typeof block.type === 'string' && block.type.length > 0),
+        );
+    }
+    if (!freshHistory) held.reasons.add('mid-session');
     held.record ??= newTrace(at, { configured: turn.configured, config: turn.config, loop }, [...held.reasons]);
     if (traceBytes(held.record) > TRACE_SESSION_BYTES - 1024) {
       held.record = {
@@ -899,6 +917,7 @@ async function changeMode($, router, mode) {
           ref,
           {
             ...loaded.value,
+            hasRoutedDecision: hasRoutedDecision(loaded.value),
             auto: null,
             turnId: null,
             decision: null,
@@ -1840,6 +1859,7 @@ async function flushUsage($, router, turnId, switched) {
 // its report as dialogue (progressInput); without a goal from this session it reads as before. A goal origin's prompt
 // becomes the goal.
 async function startTurn($, router, e) {
+  if (!(await ensureInitialized($, router))) return;
   const epoch = ++router.goalEpoch;
   router.goalTurnId = e.turnId;
   await fixTurnConfig($, router, e.turnId);
@@ -2192,6 +2212,7 @@ async function decideSpawn($, router, cfg, e, definition, signal) {
 // Claude Code uses in place of the Agent call's `model` and the agent's frontmatter. Routing off or unavailable keeps
 // every model Claude Code chooses, and records nothing.
 async function spawnAgent($, router, e, next) {
+  if (!(await ensureInitialized($, router))) return next(e);
   const cfg = router.config;
   if (cfg.subagentRouting === 'off') return next(e);
   const view = router.view ?? (await readView($, router));
@@ -2514,6 +2535,7 @@ function paneActions($, router, view) {
       const cleared = await clearRecords().catch(() => false);
       router.trace = null;
       router.traceFreshSession = null;
+      router.traceClearSession = null;
       router.traceOperations.clear();
       // The store kept the history: this session's records start over, and its next write replaces the stored one.
       if (!cleared)
@@ -2747,13 +2769,17 @@ async function traceContinuation($, router, cfg, loop, e, traceInput) {
 }
 
 async function* stepMain($, router, e, next) {
+  if (!(await ensureInitialized($, router))) return yield* next(e);
   if (e.agentId) return yield* stepAgent($, router, e, next);
   const turn = router.turnConfigs.get(e.turnId) ?? (await turnConfigOf($, router));
   const cfg = turn.config;
   const [sessionId, nativeModel, view] = await Promise.all([$.session.id(), $.session.model(), readView($, router)]);
   const mode = await modeOf($, router, view.mode);
-  const freshTrace = router.traceFreshSession === sessionId;
+  const freshTrace =
+    router.traceFreshSession === sessionId ||
+    (router.traceClearSession !== null && router.traceClearSession !== sessionId);
   router.traceFreshSession = null;
+  router.traceClearSession = null;
   if (e.index === 0) {
     const saved = await rememberMode($, mode);
     await updateView($, router, {
@@ -2837,85 +2863,91 @@ async function* stepMain($, router, e, next) {
   return yield* sendRouted($, router, e, next, { cfg, loop, loopVersion, sessionId, nativeModel, turn });
 }
 
+async function initializeSession($, router) {
+  router.definitions.clear();
+  await $.command.register({
+    name: 'router',
+    description:
+      'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>; decisions [n] lists the last routing decisions.',
+    argumentHint:
+      '[auto|off|pin <tier>|activities off|on|mode cost|balanced|quality|default|decisions [n]|trace export]',
+    immediate: true,
+  });
+  const model = await $.session.model();
+  try {
+    router.config = await loadNativeConfig($);
+    // A successful reload adopts this config even for the current turn; stale jobs must not route with the old engine.
+    for (const controller of router.controllers) controller.abort();
+    router.decisions.clear();
+    router.turnConfigs.clear();
+    for (const review of router.reviews.values()) review.controller.abort();
+    router.reviews.clear();
+    router.project = await readProject($, router.config.nativePath);
+    const existing = await readView($, router);
+    router.view = existing;
+    const sameClassifier = existing.health?.classifier === router.config.classifier;
+    clientOf(router, router.config.classifier).restore(sameClassifier ? existing.health : null);
+    const base = await $.env.get('ANTHROPIC_BASE_URL');
+    const version = await $.session.version().catch(() => null);
+    const supported = supportedVersion(version?.version);
+    const gateway =
+      ['jev-router', 'jev-router[1m]'].includes(model) ||
+      model === 'router' ||
+      Boolean(base?.includes('127.0.0.1:43170') || base?.includes('localhost:43170'));
+    await updateView($, router, {
+      nativeModel: model,
+      ...(existing.activityContract !== ACTIVITY_CONTRACT
+        ? { activityContract: ACTIVITY_CONTRACT, activityStats: null }
+        : {}),
+      ...(await startView($, router, model)),
+      phase: gateway || !supported ? 'unavailable' : 'ready',
+      error: startError(supported, gateway),
+      ...(sameClassifier ? {} : CLEARED_READINGS),
+      credentials: await credentialsOf($, router.options, router.config),
+      health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
+      configPath: router.config.nativePath,
+      routingMode: await routingModeOf($, router),
+      projectError: router.project.error,
+      tuning: null,
+      tuningBase: null,
+      routeDraft: null,
+      lastWrite: null,
+      bandDetail: (await $.store.get(BAND_DETAIL).catch(() => false)) === true,
+      usagePeriod: await periodOf($),
+      ...(await storeView($, router)),
+    });
+    await pruneDecisionRecords($);
+    router.initialized = true;
+    return true;
+  } catch (error) {
+    await updateView($, router, {
+      phase: 'unavailable',
+      error: configurationError(error),
+    });
+    return false;
+  }
+}
+
+async function ensureInitialized($, router) {
+  if (router.initialized) return true;
+  router.initializing ??= initializeSession($, router).finally(() => {
+    router.initializing = null;
+  });
+  return router.initializing;
+}
+
 export function register(on, options) {
   const router = createRouter(options);
 
-  // The Mod session.start has no source; the classic event supplies it, including /clear.
-  on('classic.SessionStart', (_$, e, next) => {
-    try {
-      router.traceFreshSession =
-        ['startup', 'clear'].includes(e.source) && e.session_id && router.traceLifecycleSession !== e.session_id
-          ? e.session_id
-          : null;
-      router.traceLifecycleSession = e.session_id;
-    } catch {
-      router.traceFreshSession = null;
-      traceFailed(router);
-    }
-    return next(e);
-  });
-
   on('session.start', async ($, e, next) => {
     const sessionId = await $.session.id();
-    // Either startup hook may arrive first; a duplicate Mod start is not new history.
-    if (router.traceStartedSession === sessionId || router.traceFreshSession !== sessionId)
-      router.traceFreshSession = null;
+    // Lazy profile loading is not a lifecycle signal; only a real Mod start can establish freshness.
+    router.traceFreshSession = router.traceStartedSession !== sessionId ? sessionId : null;
     router.traceStartedSession = sessionId;
     router.trace = null;
     router.traceOperations.clear();
-    router.definitions.clear();
-    await $.command.register({
-      name: 'router',
-      description:
-        'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>; decisions [n] lists the last routing decisions.',
-      argumentHint:
-        '[auto|off|pin <tier>|activities off|on|mode cost|balanced|quality|default|decisions [n]|trace export]',
-      immediate: true,
-    });
-    const model = await $.session.model();
-    try {
-      router.config = await loadNativeConfig($);
-      router.project = await readProject($, router.config.nativePath);
-      const existing = await readView($, router);
-      router.view = existing;
-      const sameClassifier = existing.health?.classifier === router.config.classifier;
-      clientOf(router, router.config.classifier).restore(sameClassifier ? existing.health : null);
-      const base = await $.env.get('ANTHROPIC_BASE_URL');
-      const version = await $.session.version().catch(() => null);
-      const supported = supportedVersion(version?.version);
-      const gateway =
-        ['jev-router', 'jev-router[1m]'].includes(model) ||
-        model === 'router' ||
-        Boolean(base?.includes('127.0.0.1:43170') || base?.includes('localhost:43170'));
-      await updateView($, router, {
-        nativeModel: model,
-        ...(existing.activityContract !== ACTIVITY_CONTRACT
-          ? { activityContract: ACTIVITY_CONTRACT, activityStats: null }
-          : {}),
-        ...(await startView($, router, model)),
-        phase: gateway || !supported ? 'unavailable' : 'ready',
-        error: startError(supported, gateway),
-        ...(sameClassifier ? {} : CLEARED_READINGS),
-        credentials: await credentialsOf($, options, router.config),
-        health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
-        configPath: router.config.nativePath,
-        routingMode: await routingModeOf($, router),
-        projectError: router.project.error,
-        tuning: null,
-        tuningBase: null,
-        routeDraft: null,
-        lastWrite: null,
-        bandDetail: (await $.store.get(BAND_DETAIL).catch(() => false)) === true,
-        usagePeriod: await periodOf($),
-        ...(await storeView($, router)),
-      });
-      await pruneDecisionRecords($);
-    } catch (error) {
-      await updateView($, router, {
-        phase: 'unavailable',
-        error: configurationError(error),
-      });
-    }
+    router.initialized = false;
+    await ensureInitialized($, router);
     return next(e);
   });
 
@@ -2994,7 +3026,10 @@ export function register(on, options) {
     const result = await next(e);
     // Only the main conversation is routed, so an agent compaction changes nothing here.
     if (!result.skip && e.trigger !== 'precompute' && !e.agentId) {
-      if (!router.trace) router.traceFreshSession = null;
+      if (!router.trace) {
+        router.traceFreshSession = null;
+        router.traceClearSession = null;
+      }
       const ref = { ...LOOP, id: 'main' };
       const loop = (await $.state.get(ref)).value;
       if (loop) {
@@ -3024,6 +3059,7 @@ export function register(on, options) {
     router.trace = null;
     router.traceOperations.clear();
     router.traceFreshSession = null;
+    router.traceClearSession = e.reason === 'clear' && typeof e.sessionId === 'string' ? e.sessionId : null;
     await endSession($, router);
     return next(e);
   });

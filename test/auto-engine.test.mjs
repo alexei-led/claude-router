@@ -89,6 +89,200 @@ function moveFor({
   });
 }
 
+test('first routed quality decision fits a known incumbent through the startup explicit-up gate', () => {
+  for (const raw of [0, 1]) {
+    const cfg = config({ a: model(raw), b: model(2, 2) }, { baselineTier: TIERS[raw] });
+    const result = run({
+      config: cfg,
+      state: undefined,
+      startup: true,
+      mode: 'quality',
+      advice: advice(TIERS[raw], { [TIERS[raw]]: 1 }),
+    });
+    assert.equal(result.target.requirement, raw + 0.5);
+    assert.equal(result.demand.raw, raw);
+    assert.equal(result.move.reason, 'startup');
+    assert.equal(result.move.move, true);
+    assert.equal(result.move.evidence.mass, 1);
+    assert.equal(result.state.routeCause, 'startup');
+    assert.equal(result.state.routedDemand, raw);
+  }
+});
+
+test('startup requires explicit history eligibility, known incumbent and a declared qualifying target', () => {
+  for (const [models, startup] of [
+    [{ a: model(1), b: model(2, 2) }, false],
+    [{ a: model(1), b: model(2, 2) }, undefined],
+    [{ a: model(null), b: model(2, 2) }, true],
+    [{ a: model(1), b: model(1, 2) }, true],
+    [{ a: model(1), b: model(null, 2) }, true],
+  ]) {
+    const result = run({
+      config: config(models, { baselineTier: 'low' }),
+      state: undefined,
+      startup,
+      mode: 'quality',
+      advice: advice('low', { low: 1 }),
+    });
+    assert.equal(result.move.move, false);
+    assert.notEqual(result.state.routeCause, 'startup');
+  }
+});
+
+test('startup precedes classifier move mass, while later moves retain the unchanged base gate', () => {
+  const cfg = config({ a: model(0), b: model(2, 2) }, { baselineTier: 'low' });
+  for (const [startup, probabilities, reason, mass] of [
+    [true, { micro: 0.2, low: 0.57, medium: 0.13, high: 0.1 }, 'startup', 1],
+    [true, { micro: 0.43, low: 0.57 }, 'startup', 1],
+    [false, { micro: 0.2, low: 0.57, medium: 0.13, high: 0.1 }, 'upgrade', 0.8],
+    [false, { micro: 0.43, low: 0.57 }, 'upgrade-pending', 0.57],
+  ]) {
+    const result = run({
+      config: cfg,
+      state: undefined,
+      startup,
+      advice: advice('low', probabilities),
+    });
+    assert.equal(result.move.reason, reason);
+    assert.ok(Math.abs(result.move.evidence.mass - mass) < 1e-10);
+    assert.ok(result.move.evidence.threshold >= cfg.policy.upgradeBase);
+    assert.ok(result.move.evidence.threshold < 0.8);
+    assert.equal(cfg.policy.upgradeBase, 0.75);
+  }
+  const down = run({
+    config: config({ a: model(1), b: model(2, 2) }, { baselineTier: 'low' }),
+    state: { ...initialAutoState({ demand: 1, routedDemand: 2 }), turn: 5 },
+    startup: false,
+    mode: 'quality',
+    advice: advice('low', { micro: 0.43, low: 0.57 }),
+    facts: facts({ dwellAllowed: false }),
+  });
+  assert.equal(down.move.reason, 'dwell-held');
+  assert.equal(down.move.evidence.mass, 1);
+  const taxed = config(
+    { a: model(1), b: model(2, 2) },
+    {
+      baselineTier: 'low',
+      cache: { ...cfg.cache, mode: 'explicit', effortScope: 'separate' },
+      policy: { ...cfg.policy, upgradeBase: 1 },
+    },
+  );
+  const blocked = run({
+    config: taxed,
+    state: undefined,
+    startup: true,
+    mode: 'quality',
+    advice: advice('low', { low: 1 }),
+  });
+  assert.equal(blocked.move.move, false);
+  assert.equal(blocked.move.reason, 'upgrade-pending');
+  assert.equal(blocked.move.evidence.mass, 1);
+  assert.ok(blocked.move.evidence.threshold > 1);
+});
+
+test('startup uses the existing effective requirement without cancelling the accepted execute discount', () => {
+  const result = run({
+    config: config({ a: model(1), b: model(2, 2) }, { baselineTier: 'low' }),
+    state: undefined,
+    startup: true,
+    mode: 'quality',
+    boundedExecute: true,
+    advice: advice('low', { low: 1 }),
+  });
+  assert.equal(result.demand.raw, 1);
+  assert.equal(result.demand.level, 0.5);
+  assert.equal(result.target.requirement, 1);
+  assert.equal(result.move.reason, 'same-route');
+  assert.equal(result.move.move, false);
+  assert.equal(result.state.routeCause, 'classifier');
+  assert.equal(result.state.routedDemand, 0.5);
+});
+
+test('startup never restores a target rejected by hard constraints or cash cap', () => {
+  for (const overrides of [
+    { availableModels: ['a'] },
+    { facts: facts({ hasImages: true }), target: { imageInput: false } },
+    { facts: facts({ contextTokens: 95000 }), target: { contextWindow: 100000 } },
+    { facts: facts({ historyMeasured: false }), target: { contextWindow: 50000 } },
+    { target: { billing: 'credits', input: 100000 }, policy: { cashCapUsd: 0 } },
+  ]) {
+    const cfg = config(
+      { a: model(1, 1, { contextWindow: 200000 }), b: model(2, 2, overrides.target) },
+      { baselineTier: 'low' },
+    );
+    if (overrides.policy) cfg.policy = { ...cfg.policy, ...overrides.policy };
+    const result = run({
+      config: cfg,
+      state: undefined,
+      startup: true,
+      mode: 'quality',
+      advice: advice('low', { low: 1 }),
+      facts: overrides.facts ?? facts(),
+      availableModels: overrides.availableModels,
+    });
+    assert.equal(result.move.move, false);
+    assert.notEqual(result.move.reason, 'startup');
+    assert.equal(result.candidates.find((c) => c.route.model === 'b').eligible, false);
+  }
+});
+
+test('first proposal seeds accepted demand from the actual supported incumbent capability, not baseline', () => {
+  const cfg = config(
+    {
+      a: model(0, 1, { efforts: ['low', 'high'], capability: { low: 0, high: 2 } }),
+    },
+    { baselineTier: 'low' },
+  );
+  const result = run({
+    config: cfg,
+    state: undefined,
+    incumbent: route('a', 'low'),
+    advice: advice('low', { micro: 0.2, low: 0.57, medium: 0.13, high: 0.1 }),
+  });
+  assert.equal(result.demand.raw, 1);
+  assert.equal(result.demand.state.routedDemand, 0);
+  assert.equal(result.move.reason, 'upgrade');
+  assert.deepEqual(result.move.route, route('a', 'high'));
+  assert.ok(Math.abs(result.move.evidence.mass - 0.8) < Number.EPSILON);
+  assert.equal(result.state.routedDemand, 1);
+
+  const weak = run({
+    config: cfg,
+    state: undefined,
+    incumbent: route('a', 'low'),
+    advice: advice('low', { micro: 0.43, low: 0.57 }),
+  });
+  assert.equal(weak.move.reason, 'upgrade-pending');
+  assert.equal(weak.state.routedDemand, 0);
+  assert.equal(weak.move.evidence.threshold, cfg.policy.upgradeBase);
+});
+
+test('startup uses known half-step capability and never guesses unresolved or unsupported native effort', () => {
+  const cfg = config(
+    {
+      a: model(0, 1, { efforts: ['low', 'high'], capability: { low: 0, high: 2.5 } }),
+      b: model(null, 2),
+    },
+    { baselineTier: 'low' },
+  );
+  for (const [incumbent, effort, expected] of [
+    [route('a', 'high'), null, 2.5],
+    [route('a'), 'low', 0],
+    [route('a'), null, 1],
+    [route('a', 17), 17, 1],
+    [route('a', 'max'), null, 1],
+    [route('b'), null, 1],
+    [route('unlisted'), null, 1],
+  ]) {
+    const result = run({ config: cfg, state: undefined, incumbent, facts: facts({ effort }), pin: 'low' });
+    assert.equal(result.state.demand, 1);
+    assert.equal(result.state.routedDemand, expected);
+    assert.equal(result.state.turn, 0);
+    assert.deepEqual(result.state.votes, []);
+    assert.equal(result.state.holdUntilTurn, 0);
+  }
+});
+
 test('external reentry bypasses evidence and dwell but preserves hold and every eligibility filter', () => {
   for (const availableModels of [undefined, [], ['a'], ['b']]) {
     const state = { ...initialAutoState({ demand: 2, routedDemand: 2 }), holdUntilTurn: 9 };

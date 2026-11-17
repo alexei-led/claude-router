@@ -40,16 +40,21 @@ before assessing cache state, as the table controller's economic config does.
 
 ## Demand, target and move
 
-| Export             | Input                                                                                                                  | Output                                                                    |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `initialAutoState` | `{ demand = 2, routedDemand = demand, cause = 'classifier' }`                                                          | Initial state                                                             |
-| `advanceDemand`    | `{ config, state, advice = null, facts, pin = null, boundedExecute = false }`                                          | `{ raw, level, reason, headroom, escalated, state }`                      |
-| `assessCandidates` | `{ config, facts, now, incumbent, contextKnown = Number.isFinite(facts.contextTokens), availableModels, nativeModel }` | Candidate facts array                                                     |
-| `selectTarget`     | `{ candidates, demand, mode = 'balanced', headroom = false, escalation = false }`                                      | `{ outcome, route, capability, requirement, estimate, reason, headroom }` |
-| `decideMove`       | `{ config, state, demandResult, target, candidates, advice = null, facts, now, changeCause = null }`                   | `{ move, route, reason, evidence, estimate, state }`                      |
-| `proposeAutoRoute` | Combined inputs above, using `incumbent` and optional `state`                                                          | `{ demand, candidates, target, move, state }`                             |
+| Export                  | Input                                                                                                                  | Output                                                                    |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `initialAutoState`      | `{ demand = 2, routedDemand = demand, cause = 'classifier' }`                                                          | Initial state                                                             |
+| `initialIncumbentState` | `{ config, incumbent, facts }`                                                                                         | Baseline demand with actual known incumbent capability as routed demand   |
+| `advanceDemand`         | `{ config, state, advice = null, facts, pin = null, boundedExecute = false }`                                          | `{ raw, level, reason, headroom, escalated, state }`                      |
+| `assessCandidates`      | `{ config, facts, now, incumbent, contextKnown = Number.isFinite(facts.contextTokens), availableModels, nativeModel }` | Candidate facts array                                                     |
+| `selectTarget`          | `{ candidates, demand, mode = 'balanced', headroom = false, escalation = false }`                                      | `{ outcome, route, capability, requirement, estimate, reason, headroom }` |
+| `decideMove`            | `{ config, state, demandResult, target, candidates, advice = null, facts, now, changeCause = null, startup = false }`  | `{ move, route, reason, evidence, estimate, state }`                      |
+| `proposeAutoRoute`      | Combined inputs above, using `incumbent` and optional `state`                                                          | `{ demand, candidates, target, move, state }`                             |
 
-The facade initializes missing state from `config.baselineTier`. The lower-level helpers require explicit state.
+The facade initializes missing state with `initialIncumbentState`. Raw demand starts at `config.baselineTier`;
+routed demand starts at the actual incumbent's declared capability for its supported/resolved native effort.
+Unknown capability, an unlisted model, or unresolved/unsupported effort conservatively keeps baseline routed
+demand; it is never inferred from a route table, mode offset or a guessed effort. Runtime and replay use the
+same initializer. `initialAutoState` remains available for callers supplying explicit state.
 State includes integer `demand`, `turn`, `votes`, `holdUntilTurn`, `escalatedSignature`, `escalatedIndex`,
 `headroom`, `demandCause`, `routedDemand` and `routeCause`.
 `raw` is integer demand; `level` is effective demand after the noncumulative half-step bounded-execute discount.
@@ -94,6 +99,25 @@ The facade returns accepted state in `result.state` and `result.move.state`; its
 `result.demand.state`. A held proposal leaves routed demand and cause unchanged, so it remains pending.
 Runtime and offline replay use the same `decideMove` transition.
 `changeCause` is null, `mode` or `catalog`; it cannot relabel a demand change as an explicit configuration move.
+The separate `startup` input defaults to false and must come from genuine per-history routing evidence,
+never `state.turn === 0` or the physical request count. A first tier pin consumes eligibility even though its
+demand state remains unchanged. Manual/off native requests do not consume it; their cache and dwell observations
+still count normally. The loop persists `hasRoutedDecision` with the same state write as the routed decision,
+including table decisions and pins. Reload, off/on, engine changes and compaction preserve it; a new session or
+`/clear` new history starts false. Legacy unmarked histories with request, decision or auto-state evidence
+conservatively count as consumed. This adds no configuration flag or state version.
+Startup qualification uses the selector's existing `target.requirement`: effective demand after any accepted
+bounded-execute discount plus the mode margin. It does not cancel that discount or invent an undiscounted floor.
+Only a declared known incumbent below that requirement and a declared target meeting it can qualify; unknown
+capability never grants startup evidence. After unchanged demand voting, qualifying startup movement takes
+priority over classifier upgrade/downgrade movement and uses mass 1 through the same base-policy explicit-up
+switch-tax gate. All candidate hard constraints and the cash cap still apply; this is not a forced move.
+A blocked first decision consumes the chance, so there is no second-turn startup retry. For example, native
+capability 0, baseline 1 and first low probability 0.57 can move with startup mass 1; the same probability on an
+ordinary later demand upgrade still needs the unchanged classifier mass gate. Fresh micro advice that reduces
+effective demand to 0 does not authorize startup when capability 0 already meets the resulting requirement.
+Startup move reason and route cause are `startup`, not `mode`. Replay compares accepted automatic mode/catalog
+evidence rather than treating table-only pin config snapshots as catalog edits; genuine edits survive pins.
 The live adapter and replay fingerprint the actual allowed configured aliases, including native `default` resolution.
 An allowlist expansion is catalog evidence; reordering it, cache warmth and routine response-ID resolution are not.
 
@@ -110,6 +134,15 @@ mass, dwell or payback gates. Hard constraints and the cash cap still apply. Re-
 `reentry`, retaining the escalation hold; an equal physical target accepts current effective demand and clears
 origin without changing route cause or counting a switch. Pinned fallbacks retain normal state and
 apply the physical fallback provenance after restoring the pin. Replay counts external requests separately.
+
+## Reloads
+
+Before routing after a Mod reload without `session.start`, the hook lazily loads and validates the selected
+provider profile and project mode. Constructor defaults never choose a main-turn route. A failed load marks
+routing unavailable and passes the native request unchanged, without resetting persisted auto state to table.
+A real repeated `session.start` invalidates old turn-config and classifier/review jobs before using the reloaded
+profile. Compatible persisted automatic state survives; an actual engine change resets incompatible engine state.
+Lazy profile loading is not a fresh-session signal: shadow recording remains explicitly incomplete mid-session.
 
 ## Checks
 

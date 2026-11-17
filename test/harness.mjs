@@ -10,9 +10,8 @@ export const ELEMENTS = {
   Select: element('Select'),
 };
 
-export function harness(options = {}, preferences = new Map()) {
+export function harness(options = {}, preferences = new Map(), state = new Map()) {
   const hooks = [];
-  const state = new Map();
   const env = new Map([
     ['HOME', '/fixture'],
     ['CLAUDE_CONFIG_DIR', '/fixture/team'],
@@ -31,7 +30,7 @@ export function harness(options = {}, preferences = new Map()) {
   let settings = {};
   let sessionId = 's1';
   let snapshot = new Map();
-  let messages = async () => [{ role: 'user', content: 'One edit.' }];
+  let messages = async () => [{ role: 'user', content: [{ type: 'text', text: 'One edit.' }] }];
   let http = async () => {
     throw new Error('unexpected HTTP');
   };
