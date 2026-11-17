@@ -23,6 +23,18 @@ function setup(config = {}) {
   return h;
 }
 
+test('fresh auto sessions start on for catalog-only models and off for models outside the catalog', async () => {
+  for (const [model, expected] of [
+    ['claude-fable-5-2', 'auto'],
+    ['claude-unknown-99', 'manual'],
+  ]) {
+    const h = setup();
+    h.model(model);
+    await start(h);
+    assert.equal(h.view().mode, expected);
+  }
+});
+
 test('auto opt-in sends the catalog target model and effort, not the high route table', async () => {
   const h = setup({ routes: { high: { model: 'haiku', effort: 'low' } } });
   await start(h);

@@ -634,8 +634,8 @@ async function modeOf($, router, fallback = 'auto') {
   }
 }
 
-// A saved preference wins; a fresh session starts with routing on for a model some route runs (a tier's, or in `on` an
-// activity override's), and off for any other.
+// A saved preference wins. A fresh auto-engine session starts on for any catalog model; table/shadow require a tier
+// route or, with activity routing on, an activity override. Other models start with routing off.
 async function startMode($, router, model) {
   const listed =
     router.config.routingEngine === 'auto'
