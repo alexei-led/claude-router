@@ -1,7 +1,6 @@
 # Routing modes
 
-One setting trades cost against answer quality: `cost`, `balanced` (the default) or `quality`. The classifier and
-your routes stay as they are. With the default `table` engine, the mode moves the route each tier runs by one fixed step.
+One routing mode trades cost against answer quality: `cost`, `balanced` (the default) or `quality`. With `table`, the mode moves each tier route by one fixed step. `shadow` keeps those table routes for requests; its automatic proposal uses the mode only as a capability margin. `auto` also uses only the capability margin. Neither automatic engine applies `modes.*.policy` patches.
 
 | Mode       | What changes                                                                                                                                                                                                                                                                                 |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -9,9 +8,9 @@ your routes stay as they are. With the default `table` engine, the mode moves th
 | `balanced` | Nothing: every tier runs its route as configured.                                                                                                                                                                                                                                            |
 | `quality`  | One effort level more on the same model, else the route of the tier above. Haiku 5.5 automatically prefers High, except medium bounded ops may use Xhigh. Explicit higher efforts stay supported.                                                                                            |
 
-In every mode:
+For requests selected by `table` and `shadow`, these route-table rules apply:
 
-- `micro` turns keep the `micro` route. Only the classifier makes a turn `micro`; `cost` never does.
+- `micro` turns keep the configured `micro` route. Only the classifier makes a turn `micro`; `cost` never does.
 - A pin (`/router pin <tier>`) runs that tier's configured route. With routing off (`/router off`, `/model`),
   Claude's model runs, as before.
 - A route never loses its effort: an effort level moves only within what the model lists in `models.<alias>.efforts`,
@@ -19,10 +18,13 @@ In every mode:
   on a model listing only those three. A route with a `null` effort (the session's) or a model without efforts has no effort step.
 - [MiniMax, MiMo and Kimi tables](providers.md#new-provider-modes) show every new preset's mode/activity combination.
 
-Optional [automatic routing](configuration.md#routing-engine) uses the mode only as a capability margin: `cost`
-subtracts 0.5 from demand, `balanced` adds nothing and `quality` adds 0.5, clamped to 0–3. It uses base policy,
-not mode policy patches. Tier pins use exact demand without a margin; candidates still must fit. Shadow records a
-proposal while the table routes. Auto is opt-in; quality evaluation and cutover are pending.
+For `auto`, `micro` is classifier demand 0, not a pinned table row. A tier pin sets exact demand for one turn,
+without a mode margin; eligible model-effort candidates still obey hard constraints.
+
+[Routing engines](configuration.md#routing-engine) are selected separately in the profile file. `auto` is opt-in;
+`shadow` records proposals while `table` routes. Auto uses the mode only as a capability margin: `cost` subtracts 0.5
+from demand, `balanced` adds nothing and `quality` adds 0.5, clamped to 0–3. Tier pins use exact demand without a
+margin. Evaluation and default cutover are pending.
 
 ## Choose a mode
 

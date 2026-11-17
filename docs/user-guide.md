@@ -27,7 +27,7 @@ In Claude Code:
    - **OpenAI**: an OpenAI API key. The prompt text goes to OpenAI.
    - **Ollama**: no credential. Run `ollama serve` and pull the model; the prompt text stays on this machine.
 3. To use another classifier, open the pane's **Classifier** tab and select its row. See [Choose the classifier](#choose-the-classifier).
-4. Check the band above the prompt: `Routing on · ready`. On a model that no tier routes to, and that no activity override uses with activity routing `on`, the session starts with routing off and the band says why; run `/router auto` to route. That model then keeps running until a decision moves it: a stronger tier the classifier supports (two votes, or one very sure answer) moves at once; a cheaper route goes at once on a new task when it pays back its cache write, and waits for the dwell and a passed check on a task in progress.
+4. Check the band above the prompt: `Routing on · ready`. With `table` or `shadow`, a model not used by any tier or enabled activity override starts with routing off; the band says why. With `auto`, any model in the selected profile's catalog can start with routing on. `/router auto` turns routing on for the current engine if it is off. In `table`, classifier votes and cache economics gate tier changes; in `auto`, the capability target, routed demand and move gates govern changes. See [routing engine settings](configuration.md#routing-engine).
 
 Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers settings and migrations.
 
@@ -328,7 +328,7 @@ On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the
 | Command or action                        | Result                                                                                                    |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `/router`                                | Open the pane.                                                                                            |
-| `/router auto`                           | Resume automatic routing.                                                                                 |
+| `/router auto`                           | Turn routing on for this session using the engine selected in the profile. It does not change the engine.  |
 | `/router off`                            | Turn routing off and keep Claude's selected model.                                                        |
 | `/router pin <micro\|low\|medium\|high>` | Pin the next turn and its tool continuations. Routing on must already be enabled.                         |
 | `/router activities <off\|on>`           | Set the [activity routing](#route-by-activity) mode. Saved to `router.json` at once; **Undo** reverts it. |

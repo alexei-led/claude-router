@@ -81,7 +81,7 @@ sequenceDiagram
   Mod-->>Dev: Status band and router pane
 ```
 
-The active classifier labels each new logical turn, and the router checks the route again while the task runs: a turn labelled `ops` that edits code moves up to the `code` route at once, and a background classifier review every 4 requests can move the tier or the activity either way. A cheaper route on the same task waits for a dwell and a checkpoint its work can show: a passed test, build or lint run, or for commands, docs and read-only work the success the router can see. A notification is treated as progress, but cannot justify a downgrade because it may belong to an older task. `/router decisions` lists why each turn ran where it did. See [Changes during a task](docs/user-guide.md#changes-during-a-task). A local policy applies vote, context, failure, and cache-cost rules before the Mod changes the next step. Claude Code owns request construction, model credentials, tools, streaming, and the API cost ledger.
+The active classifier labels each new logical turn. With `table` or `shadow`, the router checks tier and activity routes as the task runs: a turn labelled `ops` that edits code can move up to the `code` route, and a background classifier review can move the tier or activity. With `auto`, it keeps its own demand and route state instead of using activity route-table moves. A cheaper route on the same task waits for a dwell and a checkpoint its work can show: a passed test, build or lint run, or for commands, docs and read-only work the success the router can see. A notification is treated as progress, but cannot justify a downgrade because it may belong to an older task. `/router decisions` lists why each turn ran where it did. See [Changes during a task](docs/user-guide.md#changes-during-a-task). A local policy applies vote, context, failure, and cache-cost rules before the Mod changes the next step. Claude Code owns request construction, model credentials, tools, streaming, and the API cost ledger.
 
 With the Anthropic profile, the base routes are:
 
@@ -107,7 +107,15 @@ The Anthropic profile uses these activity defaults. Other profiles have [their o
 
 `/router activities off` stops asking and keeps the base routes. [Activity routing](docs/activity-routing.md) explains each cell and how to change it. The label is optional: on `uncertain` or a weak label the base route is used if the move passes the cache check, when the activity answer fails the running activity stays and the tier answer still applies, and when the classifier fails the running route stays. See [Route by activity](docs/user-guide.md#route-by-activity), and [Evaluation](docs/evaluation.md#activity-routing) for how it is checked. Its default overrides rest on published vendor results and a list-price replay of one developer's sessions, not measured savings.
 
-A [routing mode](docs/routing-modes.md) trades cost against answer quality without new routes: `cost` takes a cheaper model or one effort level less where a turn allows it, `quality` one effort level more or the tier above, and `balanced`, the default, runs the routes as configured. Set it per session with `/router mode cost`, per project in `.claude/router.json`, or for the profile with `"mode"` in `router.json`.
+## Choose a routing engine
+
+Set `routingEngine` in the selected profile file: `table` (default), `shadow` or `auto`. For example, use `{"routingEngine":"shadow"}` or `{"routingEngine":"auto"}`; omit it for `table`. `/router auto` turns routing on for the session; it does not select the engine. `/router off` turns it off, while `/router mode cost|balanced|quality` selects the routing mode.
+
+- **`table` (default):** uses deterministic tier-by-activity routes. The routing mode transforms those routes before the table policy.
+- **`shadow`:** table requests remain unchanged. `/router decisions` shows one-step `alt` proposals. `/router trace export` writes bounded replay inputs; for the work profile (`CLAUDE_CONFIG_DIR=~/.claude-team`), from a source checkout, replay `~/.claude-team/router-traces.json` and any dated rollover files with `node scripts/replay-traces.mjs`.
+- **`auto`:** selects a model and effort from declared per-effort capabilities, classifier demand, mode margins and hard/cache constraints. Configure a classifier credential when its provider requires a key; Ollama needs none. Without classifier advice, demand cannot be updated, but a qualifying startup move may still occur. Capability declarations determine whether candidate adequacy is known. Evaluation and cutover remain pending.
+
+See [routing engines](docs/configuration.md#routing-engine) for startup, fallback and pin behavior, and [routing modes](docs/routing-modes.md) for mode effects.
 
 For mixed Anthropic and DeepSeek sessions, use the explicit [model-proxy profile](docs/providers.md#mix-anthropic-and-deepseek-with-model-proxy) with a separately started local proxy. No built-in mixed-provider defaults are installed.
 
@@ -120,7 +128,7 @@ claude plugin marketplace add alexei-led/claude-router
 claude plugin install router@alexei-led-claude-router
 ```
 
-For the default Anthropic profile, start on the full baseline model, for example `claude --model claude-haiku-5-5`. For other providers, [select a provider profile](docs/providers.md#select-a-provider). Run `/plugin configure router` and save the key. For any other classifier, save its credentials, or run `ollama serve` with a pulled model, then pick the classifier on the pane's Classifier tab. A new session on a model that a tier routes to, or with activity routing `on` a model an activity override uses (Sonnet 5.5 on the defaults), starts with routing on; on any other model it starts with routing off and says why, and `/router auto` turns routing on.
+For the default Anthropic profile, start on a catalog model such as `claude --model claude-haiku-5-5`. For other providers, [select a provider profile](docs/providers.md#select-a-provider). Run `/plugin configure router` and save credentials for the active classifier, or run `ollama serve` with a pulled local model and select Ollama. With `table` or `shadow`, a new session starts with routing on only when its model is used by a tier or enabled activity override. With `auto`, any model in the selected catalog starts with routing on. `/router auto` turns routing on for the selected engine; see [engine selection](docs/configuration.md#routing-engine).
 
 Claude Code updates the plugin at startup when auto-update is on for this marketplace. Otherwise run `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`.
 
@@ -136,7 +144,7 @@ claude --plugin-dir "$PWD" --model claude-haiku-5-5
 
 In Claude Code, run `/plugin configure router` and save your classifier key in the sensitive plugin option. The Mod adds its status band and `/router` pane. No status-line setup or gateway environment variables are needed.
 
-Run `/router` to open the pane: route status, per-tier controls, tuning, and usage, including routing vs no routing. Run `/model` to select a model and turn routing off, and `/router auto` to turn it back on. For controls, metrics, tuning, and troubleshooting, see the [user guide](docs/user-guide.md).
+Run `/router` to open the pane. `/router auto` turns routing on for the session; `/router off` turns it off, and `/router mode cost|balanced|quality` selects the routing mode. None changes `routingEngine`, which stays in the selected profile file. Run `/model` to select a model (which turns routing off). See the [user guide](docs/user-guide.md).
 
 Before a push, run the same checks as CI. `npm run setup` installs Biome and TypeScript into `tools/`; the plugin root keeps no lockfile, so Claude Code installs nothing with the plugin. `npm run validate` and `npm run test:plugin` need the `claude` CLI: they load the Mod in the Claude Code engine, which refuses some faults that lint and unit tests miss.
 
@@ -154,5 +162,5 @@ npm run check && npm run typecheck && npm test && npm run validate && npm run te
 - [Activity routing](docs/activity-routing.md): the default matrix by activity, why each cell, and how to change or turn it off.
 - [Routing modes](docs/routing-modes.md): `cost`, `balanced` and `quality`, where the mode comes from, and every decision per mode.
 - [Native router details](docs/native-router.md): panel semantics, tuning, and accepted limits.
-- [Evaluation](docs/evaluation.md): historical gateway results and the native shadow replay.
+- [Evaluation](docs/evaluation.md): limits, text-free trace export and replay, and the paired benchmark proposal.
 - [Changelog](CHANGELOG.md): user-visible changes by version.
