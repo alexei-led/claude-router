@@ -2841,15 +2841,12 @@ export function register(on, options) {
   const router = createRouter(options);
 
   // The Mod session.start has no source; the classic event supplies it, including /clear.
-  on('classic.SessionStart', async ($, e, next) => {
-    const sessionId = await $.session.id();
+  on('classic.SessionStart', (_$, e, next) => {
     router.traceFreshSession =
-      ['startup', 'clear'].includes(e.source) &&
-      e.session_id === sessionId &&
-      router.traceLifecycleSession !== sessionId
-        ? sessionId
+      ['startup', 'clear'].includes(e.source) && e.session_id && router.traceLifecycleSession !== e.session_id
+        ? e.session_id
         : null;
-    router.traceLifecycleSession = sessionId;
+    router.traceLifecycleSession = e.session_id;
     return next(e);
   });
 

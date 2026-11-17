@@ -74,6 +74,23 @@ test('classic startup before Mod session.start still records a usable first requ
   assert.equal(usableTrace(record(h)), true);
 });
 
+test('classic observer needs no session API and table startup remains unaffected', async () => {
+  const h = setup({ routingEngine: 'table' });
+  const id = h.$.session.id;
+  h.$.session.id = async () => {
+    throw new Error('session not bound');
+  };
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 'other' });
+  h.$.session.id = id;
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(h);
+  assert.equal(record(h), undefined);
+  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', activityRouting: 'off' }));
+  await h.event('command.run', { command: 'router', args: 'activities off' });
+  await turn(h, 'late');
+  assert.equal(usableTrace(record(h)), false);
+});
+
 test('resume and unknown lifecycle are incomplete even without persisted records', async () => {
   for (const source of ['resume', 'fork', 'compact', 'unknown', null]) {
     const h = setup();
