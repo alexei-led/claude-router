@@ -37,6 +37,47 @@ async function capture({ controls = false, continuations = false } = {}) {
   return h.preferences.get(`${TRACE_PREFIX}s1`);
 }
 
+test('first low advice routes from actual DeepSeek low capability without a preceding micro turn', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
+  const runs = [];
+  for (const routingEngine of ['shadow', 'auto']) {
+    const h = harness(JEV_KEY);
+    h.env.set('CLAUDE_ROUTER_PROVIDER', 'deepseek');
+    h.files.set(
+      '/fixture/team/deepseek-router.json',
+      JSON.stringify({
+        routingEngine,
+        baselineTier: 'low',
+        models: { flash: { capability: { low: 0, high: 2, max: 3 } } },
+        policy: { reviewEveryRequests: 0 },
+      }),
+    );
+    h.model('deepseek-flash[1m]');
+    answering(h, jevResponse('low', { micro: 0.2, low: 0.57, medium: 0.13, high: 0.1 }, 0, { code: 1 }, 'produce'));
+    await h.event('session.start', { cwd: '/fixture' });
+    await h.event('turn.start', { turnId: 'first', text: 'Synthetic task' });
+    await drain(h.step({ ...step, turnId: 'first', model: 'deepseek-flash[1m]', effort: 'low' }));
+    await h.event('turn.complete', { turnId: 'first' });
+    runs.push(h);
+  }
+  assert.deepEqual(
+    runs[1].requests.map(({ model, effort }) => ({ model, effort })),
+    [{ model: 'deepseek-flash[1m]', effort: 'high' }],
+  );
+  assert.equal(runs[1].loop().auto.state.demand, 1);
+  assert.equal(runs[1].loop().auto.state.routedDemand, 1);
+  assert.equal(runs[1].loop().decision.reason, 'upgrade');
+  const record = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+  const table = replayTable(record);
+  assert.deepEqual(table.mismatches, []);
+  const replayed = replayAuto(record, table.rows);
+  assert.deepEqual(
+    replayed.map((row) => row.pair),
+    [{ model: 'deepseek-flash[1m]', effort: 'high' }],
+  );
+  assert.equal(replayed[0].reason, 'upgrade');
+});
+
 test('same-route micro adoption lets low votes and mid-turn review upgrade the real DeepSeek request', async (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
   const runs = [];
@@ -569,7 +610,13 @@ test('rewind and mid-turn classifier reviews preserve sequential table fidelity'
 
 test('a pinned continuation enforces context and resumes the pre-pin route next turn', async () => {
   const h = harness(JEV_KEY);
-  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', models: { haiku: { contextWindow: 200000 } } }));
+  h.files.set(
+    CONFIG,
+    JSON.stringify({
+      routingEngine: 'shadow',
+      models: { haiku: { contextWindow: 200000, capability: { medium: 1 } } },
+    }),
+  );
   answering(h, jevResponse('low', { low: 1 }));
   await h.event('session.start', { cwd: '/fixture' });
   await h.event('command.run', { command: 'router', args: 'pin low' });

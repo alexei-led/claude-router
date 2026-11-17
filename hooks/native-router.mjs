@@ -258,6 +258,8 @@ const LEDGER_KINDS = Object.keys(LEDGERS);
 function createRouter(options) {
   return {
     options,
+    initialized: false,
+    initializing: null,
     config: loadConfig(),
     // Each turn's config, fixed at turn.start, so a pane save mid-turn does not change the turn.
     turnConfigs: new Map(),
@@ -1855,6 +1857,7 @@ async function flushUsage($, router, turnId, switched) {
 // its report as dialogue (progressInput); without a goal from this session it reads as before. A goal origin's prompt
 // becomes the goal.
 async function startTurn($, router, e) {
+  if (!(await ensureInitialized($, router))) return;
   const epoch = ++router.goalEpoch;
   router.goalTurnId = e.turnId;
   await fixTurnConfig($, router, e.turnId);
@@ -2207,6 +2210,7 @@ async function decideSpawn($, router, cfg, e, definition, signal) {
 // Claude Code uses in place of the Agent call's `model` and the agent's frontmatter. Routing off or unavailable keeps
 // every model Claude Code chooses, and records nothing.
 async function spawnAgent($, router, e, next) {
+  if (!(await ensureInitialized($, router))) return next(e);
   const cfg = router.config;
   if (cfg.subagentRouting === 'off') return next(e);
   const view = router.view ?? (await readView($, router));
@@ -2763,6 +2767,7 @@ async function traceContinuation($, router, cfg, loop, e, traceInput) {
 }
 
 async function* stepMain($, router, e, next) {
+  if (!(await ensureInitialized($, router))) return yield* next(e);
   if (e.agentId) return yield* stepAgent($, router, e, next);
   const turn = router.turnConfigs.get(e.turnId) ?? (await turnConfigOf($, router));
   const cfg = turn.config;
@@ -2856,68 +2861,91 @@ async function* stepMain($, router, e, next) {
   return yield* sendRouted($, router, e, next, { cfg, loop, loopVersion, sessionId, nativeModel, turn });
 }
 
+async function initializeSession($, router) {
+  router.definitions.clear();
+  await $.command.register({
+    name: 'router',
+    description:
+      'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>; decisions [n] lists the last routing decisions.',
+    argumentHint:
+      '[auto|off|pin <tier>|activities off|on|mode cost|balanced|quality|default|decisions [n]|trace export]',
+    immediate: true,
+  });
+  const model = await $.session.model();
+  try {
+    router.config = await loadNativeConfig($);
+    // A successful reload adopts this config even for the current turn; stale jobs must not route with the old engine.
+    for (const controller of router.controllers) controller.abort();
+    router.decisions.clear();
+    router.turnConfigs.clear();
+    for (const review of router.reviews.values()) review.controller.abort();
+    router.reviews.clear();
+    router.project = await readProject($, router.config.nativePath);
+    const existing = await readView($, router);
+    router.view = existing;
+    const sameClassifier = existing.health?.classifier === router.config.classifier;
+    clientOf(router, router.config.classifier).restore(sameClassifier ? existing.health : null);
+    const base = await $.env.get('ANTHROPIC_BASE_URL');
+    const version = await $.session.version().catch(() => null);
+    const supported = supportedVersion(version?.version);
+    const gateway =
+      ['jev-router', 'jev-router[1m]'].includes(model) ||
+      model === 'router' ||
+      Boolean(base?.includes('127.0.0.1:43170') || base?.includes('localhost:43170'));
+    await updateView($, router, {
+      nativeModel: model,
+      ...(existing.activityContract !== ACTIVITY_CONTRACT
+        ? { activityContract: ACTIVITY_CONTRACT, activityStats: null }
+        : {}),
+      ...(await startView($, router, model)),
+      phase: gateway || !supported ? 'unavailable' : 'ready',
+      error: startError(supported, gateway),
+      ...(sameClassifier ? {} : CLEARED_READINGS),
+      credentials: await credentialsOf($, router.options, router.config),
+      health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
+      configPath: router.config.nativePath,
+      routingMode: await routingModeOf($, router),
+      projectError: router.project.error,
+      tuning: null,
+      tuningBase: null,
+      routeDraft: null,
+      lastWrite: null,
+      bandDetail: (await $.store.get(BAND_DETAIL).catch(() => false)) === true,
+      usagePeriod: await periodOf($),
+      ...(await storeView($, router)),
+    });
+    await pruneDecisionRecords($);
+    router.initialized = true;
+    return true;
+  } catch (error) {
+    await updateView($, router, {
+      phase: 'unavailable',
+      error: configurationError(error),
+    });
+    return false;
+  }
+}
+
+async function ensureInitialized($, router) {
+  if (router.initialized) return true;
+  router.initializing ??= initializeSession($, router).finally(() => {
+    router.initializing = null;
+  });
+  return router.initializing;
+}
+
 export function register(on, options) {
   const router = createRouter(options);
 
   on('session.start', async ($, e, next) => {
     const sessionId = await $.session.id();
+    // Lazy profile loading is not a lifecycle signal; only a real Mod start can establish freshness.
     router.traceFreshSession = router.traceStartedSession !== sessionId ? sessionId : null;
     router.traceStartedSession = sessionId;
     router.trace = null;
     router.traceOperations.clear();
-    router.definitions.clear();
-    await $.command.register({
-      name: 'router',
-      description:
-        'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>; decisions [n] lists the last routing decisions.',
-      argumentHint:
-        '[auto|off|pin <tier>|activities off|on|mode cost|balanced|quality|default|decisions [n]|trace export]',
-      immediate: true,
-    });
-    const model = await $.session.model();
-    try {
-      router.config = await loadNativeConfig($);
-      router.project = await readProject($, router.config.nativePath);
-      const existing = await readView($, router);
-      router.view = existing;
-      const sameClassifier = existing.health?.classifier === router.config.classifier;
-      clientOf(router, router.config.classifier).restore(sameClassifier ? existing.health : null);
-      const base = await $.env.get('ANTHROPIC_BASE_URL');
-      const version = await $.session.version().catch(() => null);
-      const supported = supportedVersion(version?.version);
-      const gateway =
-        ['jev-router', 'jev-router[1m]'].includes(model) ||
-        model === 'router' ||
-        Boolean(base?.includes('127.0.0.1:43170') || base?.includes('localhost:43170'));
-      await updateView($, router, {
-        nativeModel: model,
-        ...(existing.activityContract !== ACTIVITY_CONTRACT
-          ? { activityContract: ACTIVITY_CONTRACT, activityStats: null }
-          : {}),
-        ...(await startView($, router, model)),
-        phase: gateway || !supported ? 'unavailable' : 'ready',
-        error: startError(supported, gateway),
-        ...(sameClassifier ? {} : CLEARED_READINGS),
-        credentials: await credentialsOf($, options, router.config),
-        health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
-        configPath: router.config.nativePath,
-        routingMode: await routingModeOf($, router),
-        projectError: router.project.error,
-        tuning: null,
-        tuningBase: null,
-        routeDraft: null,
-        lastWrite: null,
-        bandDetail: (await $.store.get(BAND_DETAIL).catch(() => false)) === true,
-        usagePeriod: await periodOf($),
-        ...(await storeView($, router)),
-      });
-      await pruneDecisionRecords($);
-    } catch (error) {
-      await updateView($, router, {
-        phase: 'unavailable',
-        error: configurationError(error),
-      });
-    }
+    router.initialized = false;
+    await ensureInitialized($, router);
     return next(e);
   });
 

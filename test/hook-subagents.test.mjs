@@ -40,6 +40,19 @@ const routedOf = (h, type) => {
   return { ...counts, ...modelTotals(counts), agents: counts.agents };
 };
 
+test('new Mod instance loads provider profile before first spawn without session.start', async () => {
+  for (const invalid of [false, true]) {
+    const h = harness(JEV_KEY);
+    h.env.set('CLAUDE_ROUTER_PROVIDER', 'deepseek');
+    h.model('unlisted-parent');
+    h.files.set('/fixture/team/deepseek-router.json', invalid ? '{' : JSON.stringify({ subagentRouting: 'off' }));
+    const input = spawnInput({ parentModel: 'unlisted-parent' });
+    const { sent } = await h.spawn(input);
+    assert.deepEqual(sent, input);
+    if (invalid) assert.equal(h.view().phase, 'unavailable');
+  }
+});
+
 test('on, the default, spawns a listed type on its model, by full id', async () => {
   const h = await started();
   const { answer, sent } = await h.spawn(spawnInput());

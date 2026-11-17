@@ -10,9 +10,8 @@ export const ELEMENTS = {
   Select: element('Select'),
 };
 
-export function harness(options = {}, preferences = new Map()) {
+export function harness(options = {}, preferences = new Map(), state = new Map()) {
   const hooks = [];
-  const state = new Map();
   const env = new Map([
     ['HOME', '/fixture'],
     ['CLAUDE_CONFIG_DIR', '/fixture/team'],
