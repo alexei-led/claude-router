@@ -8,6 +8,10 @@ export const ELEMENTS = {
   Text: element('Text'),
   Button: element('Button'),
   Select: element('Select'),
+  Svg: element('Svg'),
+  Progress: element('Progress'),
+  Input: element('Input'),
+  Link: element('Link'),
 };
 
 export function harness(options = {}, preferences = new Map(), state = new Map()) {
@@ -328,6 +332,41 @@ export function screen(tree) {
     return props.width ? lines.map((line) => line.padEnd(props.width)) : lines;
   }
   return lay(tree).map((line) => line.trimEnd());
+}
+
+// The element tree as plain JSON for golden files: function props (handlers) dropped, every other prop kept, children
+// serialized in place. Two trees that draw and answer alike serialize alike; a changed key, label, variant, hotkey or
+// style shows as a diff.
+export function serialize(tree) {
+  if (Array.isArray(tree)) return tree.map(serialize);
+  if (tree === null || typeof tree !== 'object') return tree;
+  const entries = Object.entries(tree).filter(([, value]) => typeof value !== 'function' && value !== undefined);
+  const isElement = typeof tree.type === 'string' && tree.props && typeof tree.props === 'object';
+  if (!isElement) return Object.fromEntries(entries.map(([key, value]) => [key, serialize(value)]));
+  return { type: tree.type, props: serialize(tree.props) };
+}
+
+// The tree as indented lines for golden files, far smaller than its JSON: `Type key=value ...` with props sorted by
+// name and function props dropped, a string child as its own JSON-quoted line, `children` never a prop.
+export function goldenText(tree) {
+  const lines = [];
+  const value = (v) => JSON.stringify(v);
+  (function walk(node, depth) {
+    const pad = '  '.repeat(depth);
+    if (node === null || node === undefined || node === false) return;
+    if (Array.isArray(node)) {
+      for (const child of node) walk(child, depth);
+      return;
+    }
+    if (typeof node !== 'object') return void lines.push(`${pad}${JSON.stringify(node)}`);
+    const { children, ...props } = node.props;
+    const shown = Object.entries(serialize(props))
+      .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
+      .map(([key, v]) => `${key}=${value(v)}`);
+    lines.push([`${pad}${node.type}`, ...shown].join(' '));
+    walk(children, depth + 1);
+  })(tree, 0);
+  return `${lines.join('\n')}\n`;
 }
 
 export function controls(tree) {

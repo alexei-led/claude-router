@@ -3097,6 +3097,7 @@ export function register(on, options) {
             usage,
             {
               columns: e.props.bodyColumns,
+              surface: e.surface,
               agentId: e.props.view?.agentId,
               agent: router.agents.get(e.props.view?.agentId) ?? null,
             },
@@ -3124,6 +3125,7 @@ export function register(on, options) {
     return renderPanel(elements, router.config, view, usage, paneActions($, router, view), {
       modelOptions,
       columns: e.props.bodyColumns,
+      surface: e.surface,
     });
   });
 }

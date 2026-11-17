@@ -1,0 +1,172 @@
+Box flexDirection="column"
+  Box
+    Text bold=true color="cyan"
+      "ROUTER"
+    Text
+      "  "
+    Button hotkey="o" key="auto" label="◉ on" variant="primary"
+    Text
+      " "
+    Button hotkey="f" key="manual" label="○ off" variant="secondary"
+    Text
+      "  "
+    Text color="green"
+      "Jev ready · 347 ms"
+  Box
+    Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
+    Text
+      " "
+    Button hotkey="2" key="tab-routes" label="2 Routes ●" variant="secondary"
+    Text
+      " "
+    Button hotkey="3" key="tab-policy" label="3 Policy ●" variant="primary"
+    Text
+      " "
+    Button hotkey="4" key="tab-classifier" label="4 Classifier" variant="secondary"
+    Text
+      " "
+    Button hotkey="5" key="tab-usage" label="5 Usage" variant="secondary"
+    Text
+      " "
+    Button key="help" label="?" variant="secondary"
+  Text
+    " "
+  Box
+    Text bold=true color="cyan"
+      "POLICY"
+    Text dimColor=true
+      " · how readily the router changes models · edit, then Save"
+  Text
+    " "
+  Box
+    Box flexShrink=0 width=13
+      Text bold=true
+        "Mode"
+    Text
+      "balanced"
+    Text dimColor=true
+      "  saved at once"
+  Text dimColor=true
+    "             each tier runs its route as configured"
+  Box
+    Box flexShrink=0 width=13
+      Text bold=true
+        "Start"
+    Text
+      "at "
+    Text
+      "micro"
+    Text
+      " "
+    Box flexShrink=0 width=2
+      Text color="yellow"
+        "●"
+    Text dimColor=true
+      "default low"
+  Text dimColor=true
+    "             when the session’s model is no tier’s model"
+  Box
+    Box flexShrink=0 width=13
+      Text bold=true
+        "Going down"
+    Text
+      "after "
+    Text
+      "2"
+    Text
+      " agreeing turns "
+    Box flexShrink=0 width=2
+      Text
+        ""
+  Box
+    Text
+      "             "
+    Text
+      "if a cache write pays back within "
+    Text
+      "5 turns"
+    Text
+      " "
+    Box flexShrink=0 width=2
+      Text
+        ""
+  Box
+    Box flexShrink=0 width=13
+      Text bold=true
+        "Going up"
+    Text dimColor=true
+      "needs Jev support of 75%, up to 90% as the switch costs more"
+  Box
+    Box flexShrink=0 width=13
+      Text bold=true
+        "Activities"
+    Text
+      "apply at "
+    Text
+      "60%"
+    Text
+      " certainty or more "
+    Box flexShrink=0 width=2
+      Text
+        ""
+  Text dimColor=true
+    "             else a new task runs its tier’s model; a continuation keeps it"
+  Box
+    Box flexShrink=0 width=13
+      Text bold=true
+        "Credits"
+    Text
+      "cap one cold cache write at "
+    Text
+      "$2.00"
+    Text
+      " "
+    Box flexShrink=0 width=2
+      Text
+        ""
+  Text dimColor=true
+    "             no model in router.json bills credits, so this has no effect"
+  Text
+    " "
+  Button key="reset-policy" label="Reset policy to defaults"
+  Text
+    " "
+  Box
+    Text bold=true color="cyan"
+      "FILE"
+    Text
+      "  /fixture/team/router.json  "
+    Button key="copy-path" label="copy"
+  Text dimColor=true
+    "Subagents: on. Agents that pin no model get one at spawn, kept for every step."
+  Text
+    " "
+  Text dimColor=true
+    "router.json changes:"
+  Text color="red"
+    "- routes.micro                   Haiku 5.5 · medium"
+  Text color="green"
+    "+ routes.micro                   Sonnet 5.5 · high"
+  Text color="red"
+    "- baselineTier                   low"
+  Text color="green"
+    "+ baselineTier                   micro"
+  Text color="red"
+    "- activities.code.low            Sonnet 5.5 · high"
+  Text color="green"
+    "+ activities.code.low            no override"
+  Text color="red"
+    "- activities.code.high           no override"
+  Text color="green"
+    "+ activities.code.high           Opus 5.5 · max"
+  Text color="red"
+    "- activityRouting                on"
+  Text color="green"
+    "+ activityRouting                off"
+  Box
+    Text color="yellow"
+      "● 5 unsaved routing changes  "
+    Button hotkey="s" key="save-routing" label="Save" variant="primary"
+    Text
+      " "
+    Button hotkey="d" key="discard-routing" label="Discard"

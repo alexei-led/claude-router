@@ -1,0 +1,226 @@
+Box flexDirection="column"
+  Box
+    Text bold=true color="cyan"
+      "ROUTER"
+    Text
+      "  "
+    Button hotkey="o" key="auto" label="◉ on" variant="primary"
+    Text
+      " "
+    Button hotkey="f" key="manual" label="○ off" variant="secondary"
+    Text
+      "  "
+    Text color="green"
+      "Jev ready · 347 ms"
+  Box
+    Button hotkey="1" key="tab-now" label="1 Now" variant="primary"
+    Text
+      " "
+    Button hotkey="2" key="tab-routes" label="2 Routes" variant="secondary"
+    Text
+      " "
+    Button hotkey="3" key="tab-policy" label="3 Policy" variant="secondary"
+    Text
+      " "
+    Button hotkey="4" key="tab-classifier" label="4 Classifier" variant="secondary"
+    Text
+      " "
+    Button hotkey="5" key="tab-usage" label="5 Usage" variant="secondary"
+    Text
+      " "
+    Button key="help" label="?" variant="secondary"
+  Text
+    " "
+  Text dimColor=true
+    "profile mimo · /fixture/team/router.json"
+  Text bold=true color="cyan"
+    "NEXT TURN"
+  Box
+    Text
+      "  "
+    Text color="#e0708a"
+      "▂▄▆█"
+    Text
+      "  "
+    Text bold=true
+      "Opus 5.5 · xhigh"
+    Box
+      Text
+        "   "
+      Text color="#d7875f" italic=true
+        "code"
+  Box
+    Text dimColor=true
+      "  why   "
+    Text
+      "↑ clearly stronger"
+    Text dimColor=true
+      "   Jev 88% ≥ 82% · switch ≈ $0.48"
+  Box
+    Text dimColor=true
+      "  pin   "
+    Button key="pin-micro" label="▂ MiMo Flash —" variant="secondary"
+    Text
+      " "
+    Button key="pin-low" label="▂▄ MiMo Flash 3%" variant="secondary"
+    Text
+      " "
+  Box
+    Text
+      "        "
+    Button key="pin-medium" label="▂▄▆ MiMo Pro 7%" variant="secondary"
+    Text
+      " "
+    Button key="pin-high" label="▶ ▂▄▆█ MiMo Pro 88%" variant="secondary"
+    Text
+      " "
+  Text
+    " "
+  Text bold=true color="cyan"
+    "RECENT DECISIONS"
+  Text
+    "15:50:00  start     composer  asked code 91% code 80%  new task  -> medium code claude-sonnet-5-5@high  (jump)"
+  Text
+    "15:55:00  start     composer  asked timeout  -> medium claude-sonnet-5-5@high  (no-advice)"
+  Text
+    " "
+  Box
+    Text bold=true color="cyan"
+      "PLAN"
+    Text dimColor=true
+      "  Claude plan usage"
+  Box
+    Text
+      "  5h    "
+    Text color="green"
+      "▰▰▰▰▰▰▰"
+    Text dimColor=true
+      "▱▱▱▱▱▱▱▱▱▱▱▱▱"
+    Text color="green"
+      "  37%"
+    Text dimColor=true
+      "   resets 17:00"
+  Box
+    Text
+      "  7d    "
+    Text color="#f0b429"
+      "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰"
+    Text dimColor=true
+      "▱▱▱▱"
+    Text color="#f0b429"
+      "  81%"
+  Text
+    " "
+  Box
+    Text bold=true color="cyan"
+      "SESSION"
+    Text dimColor=true
+      "  since 09:00 · 20 replies · 7 agents · 4 switches"
+  Box
+    Text
+      "  "
+    Text bold=true
+      "≈$5.80"
+    Text dimColor=true
+      "  API estimate · configured rates, not an invoice  "
+    Button key="usage-session" label="Usage"
+  Box
+    Text
+      "  "
+    Text bold=true color="#6fcf97"
+      "−$5.70 (−50%)"
+    Text
+      " vs unrouted"
+    Text dimColor=true
+      " ≈$11.50"
+  Box
+    Text
+      "  main  "
+    Text
+      " ≈$4.30"
+    Text
+      "  "
+    Text color="cyan"
+      "████████████████"
+    Text dimColor=true
+      ""
+    Box
+      Text
+        "  "
+      Text color="#6fcf97"
+        "−$4.70"
+      Text dimColor=true
+        " vs Opus 5.5"
+  Box
+    Text
+      "  agents"
+    Text
+      " ≈$1.50"
+    Text
+      "  "
+    Text color="cyan"
+      "██████"
+    Text dimColor=true
+      "░░░░░░░░░░"
+    Box
+      Text
+        "  "
+      Text color="#6fcf97"
+        "−$1.00"
+      Text dimColor=true
+        " vs their picks"
+  Box
+    Text dimColor=true
+      "  tiers "
+    Text bold=true color="#5f9fe0"
+      "█"
+    Text bold=true color="#d7af5f"
+      "█"
+    Text bold=true color="#e0708a"
+      "█"
+    Text dimColor=true
+      "·"
+  Box
+    Text
+      "        "
+    Text color="#5f9fe0"
+      "▂▄"
+    Text dimColor=true
+      " 3   "
+    Text color="#d7af5f"
+      "▂▄▆"
+    Text dimColor=true
+      " 1   "
+    Text color="#e0708a"
+      "▂▄▆█"
+    Text dimColor=true
+      " 1   "
+    Text dimColor=true
+      "· not routed 1"
+  Text
+    " "
+  Text bold=true color="cyan"
+    "CONTEXT"
+  Box
+    Text
+      "  ctx    "
+    Text dimColor=true
+      "no reading yet"
+  Box
+    Text
+      "  cache  "
+    Box
+      Text color="green"
+        "90%"
+      Text dimColor=true
+        " last reply"
+    Box
+      Text dimColor=true
+        " · "
+      Text
+        "73%"
+      Text dimColor=true
+        " session"
+    Text
+      "   "
+    Button key="usage-detail" label="details" variant="secondary"

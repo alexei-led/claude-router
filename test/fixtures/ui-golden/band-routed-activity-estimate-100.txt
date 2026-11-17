@@ -1,0 +1,68 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="#d7af5f"
+      "▂"
+    Text color="#d7af5f"
+      "▄"
+    Text color="#d7af5f"
+      "▆"
+    Text dimColor=true
+      "█"
+    Text
+      " "
+    Text bold=true
+      "Sonnet 5.5"
+    Text
+      " · high"
+    Text
+      "   "
+    Text color="#d77757" italic=true
+      "code"
+    Text
+      "   "
+    Text dimColor=true
+      "↑ needs stronger"
+    Text
+      "   "
+    Text backgroundColor="#2a3040" color="#8b93a7"
+      " cost "
+    Text
+      "     "
+    Text dimColor=true
+      "ctx "
+    Text color="green"
+      "▰"
+    Text dimColor=true
+      "▱▱▱▱"
+    Text color="green"
+      " 12%"
+    Text
+      "   "
+    Text dimColor=true
+      "cache "
+    Text color="green"
+      "90%"
+    Text dimColor=true
+      " last"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+  Box display="none" hover={"display":"flex"}
+    Text dimColor=true
+      "pin "
+    Button key="band-pin-micro" label="▂"
+    Text
+      " "
+    Button key="band-pin-low" label="▂▄"
+    Text
+      " "
+    Button key="band-pin-medium" label="▂▄▆"
+    Text
+      " "
+    Button key="band-pin-high" label="▂▄▆█"
+    Text
+      "  "
+    Button key="band-manual" label="Turn off"
+    Text
+      "  "
+    Button key="band-detail" label="2 rows"

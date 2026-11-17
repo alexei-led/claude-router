@@ -1,0 +1,21 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="#7c9cff"
+      "▂"
+    Text color="#7c9cff"
+      "▄"
+    Text color="#7c9cff"
+      "▆"
+    Text color="#7c9cff"
+      "█"
+    Text dimColor=true
+      " choosing…"
+    Text
+      "   "
+    Text dimColor=true
+      "Jev ≤ 1.5 s"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+  Box display="none" hover={"display":"flex"}
+    Button key="band-manual" label="Turn off"

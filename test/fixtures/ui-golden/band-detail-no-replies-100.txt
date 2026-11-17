@@ -1,0 +1,73 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="#e0708a"
+      "▂"
+    Text color="#e0708a"
+      "▄"
+    Text color="#e0708a"
+      "▆"
+    Text color="#e0708a"
+      "█"
+    Text
+      " "
+    Text bold=true
+      "Opus 5.5"
+    Text
+      " · xhigh"
+    Text
+      "   "
+    Text dimColor=true
+      "↑ clearly stronger"
+    Text
+      "                                     "
+    Text dimColor=true
+      "ctx "
+    Text color="green"
+      "▰"
+    Text dimColor=true
+      "▱▱▱▱"
+    Text color="green"
+      " 12%"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+  Box
+    Text dimColor=true
+      "plan 5h "
+    Text color="green"
+      "▰▰▰"
+    Text dimColor=true
+      "▱▱▱▱▱"
+    Text color="green"
+      " 37%"
+    Text dimColor=true
+      " ↻17:00"
+    Text
+      "   "
+    Text dimColor=true
+      "7d "
+    Text color="#f0b429"
+      "81%"
+    Text
+      "   "
+    Text dimColor=true
+      "session · no replies yet"
+  Box display="none" hover={"display":"flex"}
+    Text dimColor=true
+      "pin "
+    Button key="band-pin-micro" label="▂"
+    Text
+      " "
+    Button key="band-pin-low" label="▂▄"
+    Text
+      " "
+    Button key="band-pin-medium" label="▂▄▆"
+    Text
+      " "
+    Button key="band-pin-high" label="▂▄▆█"
+    Text
+      "  "
+    Button key="band-manual" label="Turn off"
+    Text
+      "  "
+    Button key="band-detail" label="1 row"

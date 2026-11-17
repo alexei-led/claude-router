@@ -1,0 +1,415 @@
+Box flexDirection="column"
+  Box
+    Text bold=true color="cyan"
+      "ROUTER"
+    Text
+      "  "
+    Button hotkey="o" key="auto" label="◉ on" variant="primary"
+    Text
+      " "
+    Button hotkey="f" key="manual" label="○ off" variant="secondary"
+    Text
+      "  "
+    Text color="green"
+      "Jev ready · 347 ms"
+  Box
+    Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
+    Text
+      " "
+    Button hotkey="2" key="tab-routes" label="2 Routes" variant="secondary"
+    Text
+      " "
+    Button hotkey="3" key="tab-policy" label="3 Policy" variant="secondary"
+    Text
+      " "
+    Button hotkey="4" key="tab-classifier" label="4 Classifier" variant="secondary"
+    Text
+      " "
+    Button hotkey="5" key="tab-usage" label="5 Usage" variant="primary"
+    Text
+      " "
+    Button key="help" label="?" variant="secondary"
+  Text
+    " "
+  Box
+    Button hotkey="p" key="period-session" label="Session" variant="secondary"
+    Text
+      " "
+    Button key="period-today" label="Today" variant="secondary"
+    Text
+      " "
+    Button key="period-7d" label="7d" variant="secondary"
+    Text
+      " "
+    Button key="period-30d" label="30d" variant="secondary"
+    Text
+      " "
+    Button key="period-month" label="Month" variant="secondary"
+    Text
+      " "
+    Button key="period-all" label="All" variant="primary"
+    Text
+      " "
+    Text dimColor=true
+      "  p next"
+  Text dimColor=true
+    "all projects · since Oct 1 · each session vs its own model"
+  Text
+    " "
+  Box
+    Text bold=true color="#6fcf97"
+      "−$17.52 (−27%)"
+    Text
+      " vs unrouted"
+  Text
+    " "
+  Box
+    Box flexShrink=0 width=26
+      Text
+        ""
+    Text dimColor=true
+      "    cost"
+    Text dimColor=true
+      "    vs unrouted"
+    Text dimColor=true
+      "    unrouted"
+  Box
+    Box flexShrink=0 width=26
+      Text
+        "main · 422 replies"
+    Text
+      " ≈$46.08"
+    Text color="#6fcf97"
+      "        −$16.52"
+    Text dimColor=true
+      "     ≈$62.60"
+  Box
+    Box flexShrink=0 width=26
+      Text dimColor=true
+        "  cheaper models"
+    Text
+      "        "
+    Text color="#6fcf97"
+      "        −$20.26"
+  Box
+    Box flexShrink=0 width=26
+      Text dimColor=true
+        "  cache rebuilds"
+    Text
+      "        "
+    Text color="#f0b429"
+      "         +$3.74"
+    Text dimColor=true
+      "   18% of the saving"
+  Box
+    Box flexShrink=0 width=26
+      Text
+        "agents · 7"
+    Text
+      "  ≈$1.50"
+    Text color="#6fcf97"
+      "         −$1.00"
+    Text dimColor=true
+      "      ≈$2.50"
+  Text dimColor=true
+    "─────────────────────────────────────────────────────────────"
+  Box
+    Box flexShrink=0 width=26
+      Text bold=true
+        "all · API estimate"
+    Text bold=true
+      " ≈$47.58"
+    Text bold=true color="#6fcf97"
+      "        −$17.52"
+    Text dimColor=true
+      "     ≈$65.10"
+  Text dimColor=true
+    "includes $41.18 routed before dated records, kept without a"
+  Text dimColor=true
+    "breakdown"
+  Text
+    " "
+  Text dimColor=true
+    "  22 replies · 12 turns · input 24.2K · cache hit 73% · output 220"
+  Text
+    " "
+  Box
+    Text bold=true color="cyan"
+      "BY  "
+    Button key="group-activity" label="Activity" variant="primary"
+    Text
+      " "
+    Button hotkey="g" key="group-model" label="Model" variant="secondary"
+    Text
+      " "
+    Button key="group-tier" label="Tier" variant="secondary"
+    Text
+      " "
+    Text dimColor=true
+      "  g next"
+  Text dimColor=true
+    "                         replies      cost    vs unrouted"
+  Box
+    Text
+      "  "
+    Button key="row-activity:code" label="▸" plain=true
+    Text
+      " "
+    Box flexShrink=0 width=20
+      Text color="#d7875f" italic=true
+        "code"
+    Text
+      "      12    ≈$4.40"
+    Text color="#6fcf97"
+      "         −$1.60"
+  Box
+    Text
+      "  "
+    Button key="row-activity:explore" label="▸" plain=true
+    Text
+      " "
+    Box flexShrink=0 width=20
+      Text color="#d7875f" italic=true
+        "explore"
+    Text
+      "      10    ≈$0.50"
+    Text color="#6fcf97"
+      "         −$3.50"
+  Text
+    " "
+  Box
+    Text bold=true color="cyan"
+      "WHAT IF"
+    Text dimColor=true
+      " · the same tokens on one model   "
+    Button hotkey="c" key="usage-compare" label="Trend"
+  Box
+    Text
+      "  "
+    Box flexShrink=0 width=22
+      Text
+        "Haiku 5.5"
+    Text color="gray"
+      "████"
+    Text
+      "                  "
+    Text
+      "   ≈$2.00"
+    Text color="#6fcf97"
+      "     −$8.00"
+  Box
+    Text
+      "  "
+    Box flexShrink=0 width=22
+      Text bold=true
+        "Routed"
+    Text color="cyan"
+      "███████████"
+    Text
+      "           "
+    Text
+      "   ≈$4.90"
+  Box
+    Text
+      "  "
+    Box flexShrink=0 width=22
+      Text
+        "Sonnet 5.5"
+    Text color="gray"
+      "█████████████"
+    Text
+      "         "
+    Text
+      "   ≈$6.00"
+    Text color="#6fcf97"
+      "     −$4.00"
+  Box
+    Text
+      "  "
+    Box flexShrink=0 width=22
+      Text
+        "Opus 5.5 · yours"
+    Text color="gray"
+      "██████████████████████"
+    Text
+      "  ≈$10.00"
+    Text dimColor=true
+      "          —"
+  Text dimColor=true
+    "  same tokens and output on each model alone · answer quality not measured"
+  Text
+    " "
+  Box
+    Text bold=true color="cyan"
+      "WORTH A LOOK"
+    Text dimColor=true
+      " · from the numbers; answer quality is not measured"
+  Box
+    Text
+      "  "
+    Text color="#d7875f" italic=true
+      "code"
+    Text dimColor=true
+      " · "
+    Text color="#d7af5f"
+      "▂▄▆"
+    Text
+      " carried 49% of the cost"
+    Text
+      "  "
+    Button key="insight-cost" label="Routes"
+  Text
+    " "
+  Box
+    Text bold=true color="cyan"
+      "SUBAGENTS"
+    Text dimColor=true
+      " · all projects · since Oct 9   subagent routing on"
+  Box
+    Text
+      "  "
+    Text color="#c3e88d"
+      "■■■■"
+    Text color="#f78c6c"
+      "□"
+    Text color="#c792ea"
+      "■"
+    Text color="#c792ea"
+      "□"
+    Text
+      "  "
+    Text color="#c3e88d"
+      "Haiku 5.5 4"
+    Text dimColor=true
+      " · "
+    Text color="#f78c6c"
+      "Sonnet 5.5 1"
+    Text dimColor=true
+      " · "
+    Text color="#c792ea"
+      "Opus 5.5 2"
+  Box
+    Text
+      "  7 agents"
+    Text dimColor=true
+      " · "
+    Text
+      "■ 5 moved by the router"
+    Text dimColor=true
+      " · "
+    Text
+      "□ 2 on Claude Code’s pick"
+  Box
+    Text
+      "  "
+    Text bold=true color="#6fcf97"
+      "routing −$1.00 (−50%)"
+    Text
+      " vs Claude Code’s picks"
+    Text dimColor=true
+      " on 6 routed agents"
+  Box
+    Text
+      "  per day "
+    Text bold=true
+      "▂▁▂▁█"
+    Text dimColor=true
+      "  peak 5 on Oct 13"
+  Text
+    " "
+  Box
+    Text bold=true
+      "  ROUTED"
+    Text dimColor=true
+      " · the router picked the model at spawn"
+  Text dimColor=true
+    "    type               agents              cost    vs CC"
+  Box
+    Text
+      "  "
+    Button key="row-subagent:Explore" label="▸" plain=true
+    Text
+      " "
+    Box flexShrink=0 width=19
+      Text
+        "Explore"
+    Box flexShrink=0 width=12
+      Box
+        Text color="#c3e88d"
+          "■■■"
+    Text
+      "  3"
+    Text
+      "   ≈$0.30"
+    Text color="#6fcf97"
+      "   −$1.20 ▼"
+  Box
+    Text
+      "  "
+    Button key="row-subagent:dev-flow:reviewer" label="▸" plain=true
+    Text
+      " "
+    Box flexShrink=0 width=19
+      Text
+        "dev-flow:reviewer"
+    Box flexShrink=0 width=12
+      Box
+        Text color="#c3e88d"
+          "■"
+        Text color="#f78c6c"
+          "□"
+        Text color="#c792ea"
+          "■"
+    Text
+      "  3"
+    Text
+      "   ≈$0.70"
+    Text color="#f0b429"
+      "   +$0.20 ▲"
+  Text
+    " "
+  Box
+    Text bold=true
+      "  NOT ROUTED"
+    Text dimColor=true
+      " · Claude Code picked the model"
+  Box
+    Text
+      "  "
+    Button key="row-subagent-pass:workflow" label="▸" plain=true
+    Text
+      " "
+    Box flexShrink=0 width=19
+      Text
+        "workflow agent"
+    Box flexShrink=0 width=12
+      Box
+        Text color="#c792ea"
+          "□"
+    Text
+      "  1"
+    Text
+      "   ≈$0.50"
+    Text dimColor=true
+      "  the workflow sets it"
+  Text
+    " "
+  Text dimColor=true
+    "  ■ moved by the router · □ Claude Code’s pick · color: the"
+  Text dimColor=true
+    "  model"
+  Text dimColor=true
+    "  vs CC: the same tokens on Claude Code’s pick, at"
+  Text dimColor=true
+    "  configured API rates"
+  Text
+    " "
+  Text dimColor=true
+    "  ≈$ = tokens × configured API rates (list/custom)"
+  Text dimColor=true
+    "  not invoices or measured quota savings"
+  Text dimColor=true
+    "  answer quality not measured"
+  Text
+    " "
+  Button dimColor=true key="delete-history" label="Delete history"

@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { renderBand } from '../lib/band.mjs';
+import { DEFAULTS } from '../lib/config.mjs';
+import { TIER_COLOR } from '../lib/display.mjs';
+import { paintersOf } from '../lib/ui/painter.mjs';
+import { GRAPHICAL_TONE, isGraphical, toneColor } from '../lib/ui/tokens.mjs';
+import { ELEMENTS, goldenText } from './harness.mjs';
+
+// WCAG 2.x relative luminance and contrast ratio.
+const luminance = (hex) => {
+  const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16) / 255);
+  const lin = (v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+};
+const contrast = (a, b) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+test('a terminal tier tone is the tier colour the band draws today', () => {
+  for (const tier of Object.keys(TIER_COLOR)) assert.equal(toneColor(`tier:${tier}`, 'terminal'), TIER_COLOR[tier]);
+});
+
+test('a graphical tier tone reads at 3:1 on a white and a dark ground', () => {
+  for (const tier of Object.keys(TIER_COLOR)) {
+    const color = toneColor(`tier:${tier}`, 'graphical');
+    assert.ok(contrast(color, '#ffffff') >= 3, `${tier} ${color} on white`);
+    assert.ok(contrast(color, '#1f1f1f') >= 3, `${tier} ${color} on dark`);
+  }
+});
+
+test('the activity tone reads at 3:1 on both grounds, and every graphical tone is a colour', () => {
+  assert.ok(contrast(GRAPHICAL_TONE.activity, '#ffffff') >= 3);
+  assert.ok(contrast(GRAPHICAL_TONE.activity, '#1f1f1f') >= 3);
+  for (const tone of Object.keys(GRAPHICAL_TONE)) assert.ok(toneColor(tone, 'desktop'));
+  for (const tone of Object.keys(GRAPHICAL_TONE)) assert.ok(toneColor(tone, 'terminal'));
+});
+
+test('only a surface that is not the terminal is graphical', () => {
+  for (const surface of ['desktop', 'mobile', 'vscode']) assert.equal(isGraphical(surface), true);
+  assert.equal(isGraphical('terminal'), false);
+  assert.equal(isGraphical(), false);
+});
+
+test('the band draws the same for the terminal surface as with none named', () => {
+  const view = { mode: 'manual', phase: 'manual', nativeModel: 'claude-sonnet-5-5' };
+  const draw = (options) => goldenText(renderBand(ELEMENTS, DEFAULTS, view, null, { columns: 100, ...options }, {}));
+  assert.equal(draw({ surface: 'terminal' }), draw({}));
+});
+
+test('the terminal tones are what the pane writes today', () => {
+  const ui = paintersOf(ELEMENTS, 'terminal');
+  assert.equal(toneColor('warning', 'terminal'), 'yellow');
+  assert.equal(toneColor('success', 'terminal'), 'green');
+  assert.equal(toneColor('danger', 'terminal'), 'red');
+  assert.equal(toneColor('activity', 'terminal'), ui.activity('x').props.color);
+});

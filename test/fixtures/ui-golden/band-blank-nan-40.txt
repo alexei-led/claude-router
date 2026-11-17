@@ -1,0 +1,23 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="#5f9fe0"
+      "▂"
+    Text color="#5f9fe0"
+      "▄"
+    Text dimColor=true
+      "▆"
+    Text dimColor=true
+      "█"
+    Text
+      " "
+    Text bold=true
+      "no response yet"
+    Text
+      "   "
+    Text dimColor=true
+      ""
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+  Box display="none" hover={"display":"flex"}
+    Button key="band-manual" label="Turn off"

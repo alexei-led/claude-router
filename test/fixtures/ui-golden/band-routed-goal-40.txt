@@ -1,0 +1,25 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="#e0708a"
+      "▂"
+    Text color="#e0708a"
+      "▄"
+    Text color="#e0708a"
+      "▆"
+    Text color="#e0708a"
+      "█"
+    Text
+      " "
+    Text bold=true
+      "Opus 5.5"
+    Text
+      " · xhigh"
+    Text
+      "   "
+    Text dimColor=true
+      "= fits"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+  Box display="none" hover={"display":"flex"}
+    Button key="band-manual" label="Turn off"

@@ -1,0 +1,3 @@
+Box
+  Text dimColor=true
+    "agent · keeps its own model (subagent routing off)"

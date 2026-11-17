@@ -1,0 +1,182 @@
+Box flexDirection="column"
+  Box
+    Text bold=true color="cyan"
+      "ROUTER"
+    Text
+      "  "
+    Button hotkey="o" key="auto" label="◉ on" variant="primary"
+    Text
+      " "
+    Button hotkey="f" key="manual" label="○ off" variant="secondary"
+    Text
+      "  "
+    Text color="green"
+      "Jev ready · 347 ms"
+  Box
+    Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
+    Text
+      " "
+    Button hotkey="2" key="tab-routes" label="2 Routes" variant="secondary"
+    Text
+      " "
+    Button hotkey="3" key="tab-policy" label="3 Policy" variant="secondary"
+    Text
+      " "
+    Button hotkey="4" key="tab-classifier" label="4 Classifier" variant="secondary"
+    Text
+      " "
+    Button hotkey="5" key="tab-usage" label="5 Usage" variant="primary"
+    Text
+      " "
+    Button key="help" label="?" variant="secondary"
+  Text
+    " "
+  Box
+    Button key="period-session" label="Session" variant="secondary"
+    Text
+      " "
+    Button key="period-today" label="Today" variant="secondary"
+    Text
+      " "
+    Button key="period-7d" label="7d" variant="primary"
+    Text
+      " "
+    Button hotkey="p" key="period-30d" label="30d" variant="secondary"
+    Text
+      " "
+    Button key="period-month" label="Month" variant="secondary"
+    Text
+      " "
+    Button key="period-all" label="All" variant="secondary"
+    Text
+      " "
+    Text dimColor=true
+      "  p next"
+  Text dimColor=true
+    "all projects · Oct 7 – Oct 13 · each session vs its own model"
+  Text
+    " "
+  Box
+    Text bold=true color="#6fcf97"
+      "−$0.20 (−40%)"
+    Text
+      " vs unrouted"
+    Text color="yellow"
+      "   1 reply so far: one model switch can still move this a lot"
+  Text
+    " "
+  Box
+    Box flexShrink=0 width=26
+      Text
+        ""
+    Text dimColor=true
+      "    cost"
+    Text dimColor=true
+      "    vs unrouted"
+    Text dimColor=true
+      "    unrouted"
+  Box
+    Box flexShrink=0 width=26
+      Text
+        "main · 1 reply"
+    Text
+      "  ≈$0.30"
+    Text color="#6fcf97"
+      "         −$0.20"
+    Text dimColor=true
+      "      ≈$0.50"
+  Box
+    Box flexShrink=0 width=26
+      Text dimColor=true
+        "  cheaper models"
+    Text
+      "        "
+    Text color="#6fcf97"
+      "         −$0.22"
+  Box
+    Box flexShrink=0 width=26
+      Text dimColor=true
+        "  cache rebuilds"
+    Text
+      "        "
+    Text color="#f0b429"
+      "         +$0.02"
+    Text dimColor=true
+      "   9% of the saving"
+  Text dimColor=true
+    "─────────────────────────────────────────────────────────────"
+  Box
+    Box flexShrink=0 width=26
+      Text bold=true
+        "7 days · API estimate"
+    Text bold=true
+      "  ≈$0.30"
+    Text bold=true color="#6fcf97"
+      "         −$0.20"
+    Text dimColor=true
+      "      ≈$0.50"
+  Text
+    " "
+  Text dimColor=true
+    "  1 reply · 1 turn · input 1.1K · cache hit 73% · output 10"
+  Text
+    " "
+  Box
+    Text bold=true color="cyan"
+      "BY  "
+    Button key="group-activity" label="Activity" variant="primary"
+    Text
+      " "
+    Button hotkey="g" key="group-model" label="Model" variant="secondary"
+    Text
+      " "
+    Button key="group-tier" label="Tier" variant="secondary"
+    Text
+      " "
+    Text dimColor=true
+      "  g next"
+  Text dimColor=true
+    "                         replies      cost    vs unrouted"
+  Box
+    Text
+      "  "
+    Button key="row-activity:code" label="▸" plain=true
+    Text
+      " "
+    Box flexShrink=0 width=20
+      Text color="#d7875f" italic=true
+        "code"
+    Text
+      "       1    ≈$0.30"
+    Text color="#6fcf97"
+      "         −$0.20"
+  Text
+    " "
+  Box
+    Text bold=true color="cyan"
+      "COST BY DAY "
+    Text color="cyan"
+      "·····█·"
+    Text dimColor=true
+      "  peak ≈$0.30   "
+    Button hotkey="c" key="usage-compare" label="What if"
+  Text
+    " "
+  Box
+    Text bold=true color="cyan"
+      "SUBAGENTS"
+    Text dimColor=true
+      " · all projects · Oct 7 – Oct 13   subagent routing on"
+  Text dimColor=true
+    "  No subagents in the last 7 days."
+  Text
+    " "
+  Text dimColor=true
+    "  ≈$ = tokens × configured API rates (list/custom)"
+  Text dimColor=true
+    "  not invoices or measured quota savings"
+  Text dimColor=true
+    "  answer quality not measured"
+  Text
+    " "
+  Button dimColor=true key="delete-history" label="Delete history"

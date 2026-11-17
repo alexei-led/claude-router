@@ -1,0 +1,16 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="red"
+      "✕ "
+    Text bold=true
+      "Opus 5.5"
+    Text
+      " · xhigh"
+    Text
+      " "
+    Button key="band-fix" label="Fix"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+  Box display="none" hover={"display":"flex"}
+    Button key="band-detail" label="2 rows"
