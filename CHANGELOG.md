@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Changed: terminal
+
+- The warnings for an ignored project config, a native fallback and missing classifier credentials moved out of the Now tab's NEXT TURN block into one slot directly under the tab row, shown on every tab.
+- A pending pin is shown on its pin button, and the separate `⏵ next turn … [unpin]` row is gone. Pressing the pinned button again unpins. The terminal band is unchanged.
+
+### Changed: desktop app, VS Code and mobile
+
+- The band above the prompt and all five pane tabs (Now, Routes, Policy, Classifier, Usage) are drawn natively.
+- The band is one fixed row, and nothing is revealed on hover. A tier meter icon, the route, activity and reason are on the left; readings, a **Pin next turn** dropdown and **Router** are on the right. Each state has one control: **Turn on** when routing is off, **Set up** for missing classifier credentials, **Fix** when routing is unavailable. A hairline separates the router's row from another mod's row above it.
+- The second "session" row is now the **Show session row in band** setting on the Now tab, not a band button.
+- The pane has a header (`Router`, classifier status, **On** / **Off**), tabs without digits in their labels (hotkeys 1 to 5 still work), one warnings slot and the save bar last. Now has the cards Next turn, Plan usage, Context and This session. Routes is a tier by activity grid with an edit card under it. Policy has grouped form cards and a Settings file card. Classifier has a full card for the active classifier and compact rows under **Other classifiers**. Usage has period buttons, Summary, Trend, Breakdown, Insights, Subagents, About these numbers and **Delete history**.
+
+### Notes
+
+- Not yet checked by a person on screen: light mode, VS Code, mobile, and the Usage tab's data views (trend line, breakdown bars, subagent squares). Desktop screenshots are not yet in the docs.
+- The Classifier pane picture was regenerated to match earlier wording changes.
+
 ## 1.24.0 (2026-11-17)
 
 ### Added

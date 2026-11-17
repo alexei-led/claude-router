@@ -54,29 +54,40 @@ const cards = (tree) => find(body(tree), isCard);
 const card = (tree, title) => cards(tree).find((n) => titleOf(n) === title);
 const body = (tree) => byKey(tree, 'body');
 const IDS = Object.keys(DEFAULTS.classifiers);
-const LABELS = IDS.map((id) => DEFAULTS.classifiers[id].label);
 // A card's header row holds the Active mark or the Use Button.
 const isActive = (n) => texts(kids(n)[0]).includes('Active');
+// An inactive classifier's compact row.
+const rowOf = (tree, id) => byKey(tree, `row-classifier-${id}`);
 
 for (const surface of SURFACES) {
-  test(`${surface}: one card per classifier, titled by its label, then Across sessions`, () => {
+  test(`${surface}: the active classifier's full card, one Other classifiers card, then Across sessions`, () => {
     const tree = draw({}, { surface });
-    assert.deepEqual(cards(tree).map(titleOf), [...LABELS, 'Across sessions']);
+    assert.deepEqual(cards(tree).map(titleOf), ['Jev', 'Other classifiers', 'Across sessions']);
+    const others = card(tree, 'Other classifiers');
+    assert.equal(kids(others).length - 1, IDS.length - 1);
+    assert.equal(others.props.gap, 'sm');
+    assert.deepEqual(
+      kids(others)
+        .slice(1)
+        .map((row) => row.props.key),
+      IDS.filter((id) => id !== 'jev').map((id) => `row-classifier-${id}`),
+    );
   });
 
   for (const active of ['jev', 'ollama'])
-    test(`${surface}: with ${active} active, exactly one card is marked active, the others offer Use`, () => {
+    test(`${surface}: with ${active} active, exactly one full card, marked active; the others are rows with Use`, () => {
       const tree = draw({}, { surface, config: { ...DEFAULTS, classifier: active } });
       const marked = cards(tree).filter(isActive);
       assert.equal(marked.length, 1);
       assert.equal(titleOf(marked[0]), DEFAULTS.classifiers[active].label);
+      assert.equal(cards(tree).length, 3);
       const mark = find(kids(marked[0])[0], (n) => n.type === 'Text' && n.props.children === '●');
       assert.equal(mark.length, 1);
       assert.equal(mark[0].props.color, toneColor('accent', 'graphical'));
-      // The active mark keeps the classifier's key; every other card's Use Button has its own.
+      // The active mark keeps the classifier's key; every other row's Use Button has its own.
       assert.equal(find(body(tree), (n) => n.props.key === `classifier-${active}`).length, 1);
       for (const id of IDS.filter((one) => one !== active)) {
-        const use = byKey(card(tree, DEFAULTS.classifiers[id].label), `classifier-${id}`);
+        const use = byKey(rowOf(tree, id), `classifier-${id}`);
         assert.equal(use.type, 'Button', id);
         assert.equal(use.props.label, 'Use', id);
       }
@@ -88,41 +99,46 @@ for (const surface of SURFACES) {
   test(`${surface}: pressing Use calls the same action as the terminal's row`, () => {
     const run = (tree) => {
       calls.length = 0;
-      byKey(tree, 'classifier-ollama').props.onPress();
+      for (const id of IDS.filter((one) => one !== 'jev')) byKey(tree, `classifier-${id}`).props.onPress();
       byKey(tree, 'key-clef').props.onPress();
       byKey(tree, 'timeoutMs').props.onSelect('3000');
       byKey(tree, 'timeoutMs').props.onSelect('7');
       return [...calls];
     };
     const graphical = run(draw({}, { surface }));
-    assert.deepEqual(graphical, [['classifier', 'ollama'], ['key'], ['classifierTimeout', 3000]]);
+    assert.deepEqual(graphical, [
+      ...IDS.filter((one) => one !== 'jev').map((id) => ['classifier', id]),
+      ['key'],
+      ['classifierTimeout', 3000],
+    ]);
     assert.deepEqual(graphical, run(renderPanel(ELEMENTS, DEFAULTS, VIEW, null, actions, { columns: 100 })));
   });
 
-  test(`${surface}: each card's status line names its state in its tone`, () => {
-    const status = (tree, label) => kids(card(tree, label))[1];
+  test(`${surface}: the full card's and each row's status names its state in its tone`, () => {
+    const status = (tree) => kids(card(tree, 'Jev'))[1];
+    const rowStatus = (tree, id) => find(rowOf(tree, id), (n) => n.type === 'Text')[1];
     const tree = draw({}, { surface });
+    assert.equal(status(tree).props.children, 'Ready');
+    assert.equal(status(tree).props.color, toneColor('success', 'graphical'));
     const expect = {
-      Jev: ['Ready', 'success'],
-      Clef: ['No API token', 'warning'],
-      'Clef Flash': ['No account ID', 'warning'],
-      Ollama: ['Ready', 'success'],
+      clef: ['No API token', 'warning'],
+      'clef-flash': ['No account ID', 'warning'],
+      ollama: ['Ready', 'success'],
     };
-    for (const [label, [words, tone]] of Object.entries(expect)) {
-      const line = status(tree, label);
-      assert.equal(line.type, 'Text', label);
-      assert.equal(line.props.children, words, label);
-      assert.equal(line.props.color, toneColor(tone, 'graphical'), label);
+    for (const [id, [words, tone]] of Object.entries(expect)) {
+      const line = rowStatus(tree, id);
+      assert.equal(line.props.children, words, id);
+      assert.equal(line.props.color, toneColor(tone, 'graphical'), id);
     }
     const paused = draw({ health: { failures: 3, pausedUntil: Date.now() + 60e3 } }, { surface });
-    assert.match(status(paused, 'Jev').props.children, /^Paused until \d/);
-    assert.equal(status(paused, 'Jev').props.color, toneColor('warning', 'graphical'));
+    assert.match(status(paused).props.children, /^Paused until \d/);
+    assert.equal(status(paused).props.color, toneColor('warning', 'graphical'));
     const failed = draw({ error: 'timeout' }, { surface });
-    assert.equal(status(failed, 'Jev').props.children, 'Last error: Jev timed out');
-    assert.equal(status(failed, 'Ollama').props.children, 'Ready');
+    assert.equal(status(failed).props.children, 'Last error: Jev timed out');
+    assert.equal(rowStatus(failed, 'ollama').props.children, 'Ready');
     // While routing is unavailable the error is the router's own reason, not the classifier's.
     const unavailable = draw({ phase: 'unavailable', error: 'bad router.json' }, { surface });
-    assert.equal(status(unavailable, 'Jev').props.children, 'Ready');
+    assert.equal(status(unavailable).props.children, 'Ready');
   });
 
   test(`${surface}: latency and agreement are label and value rows; the credentials Buttons keep their keys`, () => {
@@ -136,12 +152,42 @@ for (const surface of SURFACES) {
     assert.ok(words.includes('Not paused · 1 recent failure · last 347 ms'));
     assert.equal(byKey(jev, 'key').props.label, 'Edit credentials');
     assert.equal(byKey(jev, 'key').props.hotkey, 'k');
-    assert.ok(texts(card(tree, 'Ollama')).includes('This machine'));
-    assert.ok(texts(card(tree, 'Clef Flash')).includes('69 of 70 right · p95 874 ms'));
-    // One credentials Button per card: Set up where something is missing.
-    assert.equal(byKey(card(tree, 'Clef'), 'key-clef').props.label, 'Set up');
-    assert.ok(byKey(card(tree, 'Clef Flash'), 'key-clef-flash'));
-    assert.equal(controls(card(tree, 'OpenAI')).filter((c) => /^key/.test(c.key)).length, 0);
+    // A row's detail: where its prompt goes, then its probe result where it has one.
+    assert.ok(texts(rowOf(tree, 'clef-flash')).includes('api.cloudflare.com · 69 of 70 right · p95 874 ms'));
+    assert.ok(texts(rowOf(tree, 'ollama')).some((one) => /^This machine · \d+ of 70 right · p95 \d+ ms$/.test(one)));
+    assert.ok(texts(rowOf(tree, 'clef-omni')).includes('api.cloudflare.com'));
+    // Set up where something is missing, on the row itself.
+    assert.equal(byKey(rowOf(tree, 'clef'), 'key-clef').props.label, 'Set up');
+    assert.ok(byKey(rowOf(tree, 'clef-flash'), 'key-clef-flash'));
+    assert.equal(controls(rowOf(tree, 'openai')).filter((c) => /^key/.test(c.key)).length, 0);
+  });
+
+  for (const columns of [100, 60, null])
+    test(`${surface}: at ${columns ?? 'no'} columns a row is ${columns === 100 ? 'one line' : 'two lines'}, its Buttons never shrinking`, () => {
+      const tree = renderPanel(ELEMENTS, DEFAULTS, VIEW, null, actions, { columns, surface });
+      const row = rowOf(tree, 'clef');
+      const lines = columns === 100 ? [row] : kids(row);
+      assert.equal(row.props.flexDirection, columns === 100 ? 'row' : 'column');
+      assert.equal(lines.length, columns === 100 ? 1 : 2);
+      for (const line of lines) {
+        assert.equal(line.props.flexWrap, 'nowrap');
+        assert.equal(line.props.alignItems, 'center');
+      }
+      const buttons = find(row, (n) => n.type === 'Box' && byKey(n, 'classifier-clef') && byKey(n, 'key-clef')).at(-1);
+      assert.equal(buttons.props.flexShrink, 0);
+      assert.deepEqual(
+        controls(buttons).map((c) => c.key),
+        ['key-clef', 'classifier-clef'],
+      );
+      // The buttons are last on their line.
+      assert.equal(kids(lines.at(-1)).at(-1), buttons);
+    });
+
+  test(`${surface}: with one classifier configured there is no Other classifiers card`, () => {
+    const config = { ...DEFAULTS, classifiers: { jev: DEFAULTS.classifiers.jev } };
+    const tree = draw({}, { surface, config });
+    assert.equal(card(tree, 'Other classifiers'), undefined);
+    assert.ok(card(tree, 'Jev'));
   });
 
   test(`${surface}: the active classifier lacking its key has one Set up Button and every key is unique`, () => {
@@ -149,7 +195,7 @@ for (const surface of SURFACES) {
     const jev = card(tree, 'Jev');
     assert.equal(byKey(jev, 'key-jev').props.label, 'Set up');
     assert.equal(byKey(jev, 'key-jev').props.hotkey, 'k');
-    assert.equal(byKey(card(tree, 'Clef'), 'key-clef').props.hotkey, undefined);
+    assert.equal(byKey(rowOf(tree, 'clef'), 'key-clef').props.hotkey, undefined);
     assert.equal(byKey(jev, 'key'), undefined);
     const keys = controls(tree).map((c) => c.key);
     assert.deepEqual(

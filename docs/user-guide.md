@@ -36,7 +36,23 @@ The pane shows its provider and file path.
 
 ## Read the status band
 
-Router draws one line above the prompt. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures and the switch cost, then context and cache, then the activity, then the reason. The meter and the model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
+### In the desktop app, VS Code and mobile
+
+<!-- TODO: desktop screenshots (band, Now, Routes, Policy, Classifier, Usage) -->
+
+The band above the prompt is drawn natively as one fixed row. Nothing appears on hover: every control is on the row itself.
+
+- **Left**: a small tier meter icon, then the route (the model and effort for this turn), the activity and the reason, in the words of the [terminal band](#in-the-terminal).
+- **Right**: the readings (classifier support, switch cost, context and cache), a **Pin next turn** dropdown and the **Router** button, which opens the pane. The dropdown lists one entry per tier, each named by what it runs; a pin forces that tier for the next turn only.
+- **One control per state**: **Turn on** when routing is off, **Set up** when the active classifier lacks credentials, **Fix** when routing is unavailable. While routing is on, turn it off from the pane's header (**On** / **Off**) or with `/router off`.
+- **Session row**: the second row (plan windows and the session's cost against no routing) is no longer a band button. Turn it on with **Show session row in band** on the pane's Now tab; Router remembers the choice across sessions.
+- When another mod's row sits above the router's, a hairline separates the two.
+
+In a subagent's transcript the band names the agent's model and who picked it, as described under the terminal band.
+
+### In the terminal
+
+The terminal band is one line above the prompt. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures and the switch cost, then context and cache, then the activity, then the reason. The meter and the model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
 
 ![Eight band states: routed to high, two rows on a Claude plan with the hover row, two rows on an API key, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode](router-band.svg)
 
@@ -64,7 +80,7 @@ Read the first line from left to right:
 
 **Turn on** and **Fix** sit next to the model and stay at any width.
 
-### The hover row and two rows
+#### The hover row and two rows
 
 While routing is on, hover over the band for a second row: a pin per tier, low to high, each named by what it runs (`▂▄ Haiku·high`); **Turn off**; and **2 rows** or **1 row**. A pin forces that tier for the next turn only. On a narrow band the pins lose their model names first; **Turn off** and the row choice stay. The hover row needs a pointer: from the keyboard, run `/router off`, or open the pane and press `f`.
 
@@ -91,7 +107,31 @@ In a subagent's transcript the band names the model the agent runs on and who pi
 
 ## Open the router pane
 
-Run `/router` or select **Router** above the prompt. Without a UI surface, as in `claude -p`, `/router` prints a short status instead. The pane has five tabs. Select a tab or press its digit while the pane has focus.
+Run `/router` or select **Router** above the prompt. Without a UI surface, as in `claude -p`, `/router` prints a short status instead. The pane has five tabs. Select a tab or press its digit (1 to 5) while the pane has focus.
+
+### In the desktop app, VS Code and mobile
+
+<!-- TODO: desktop screenshots (band, Now, Routes, Policy, Classifier, Usage) -->
+
+The pane is drawn natively. From the top it has:
+
+- a **header**: `Router`, the classifier's status, and an **On** / **Off** switch for routing;
+- the **tabs**: Now, Routes, Policy, Classifier and Usage, without digits in their labels (the hotkeys 1 to 5 still work);
+- one **warnings** slot under the tabs, shown on every tab: an ignored project config, a native fallback, or missing classifier credentials;
+- the tab's content, then the **save bar** last.
+
+What each tab shows:
+
+- **Now**: cards for Next turn (the route, the reason, a pin button per tier), Plan usage, Context and This session. The Next turn and This session cards carry the same facts as the terminal blocks below. The tab also holds the **Show session row in band** setting.
+- **Routes**: a grid of tiers by activities, with an edit card under it for the selected cell.
+- **Policy**: form cards for Routing mode, Switching down, Switching up, Activities and Credits, and a Settings file card with the `router.json` path.
+- **Classifier**: a full card for the active classifier (deadline, wait, health, credentials) and compact rows for the others under **Other classifiers**, then **Across sessions**.
+- **Usage**: period buttons, then Summary, Trend, Breakdown, Insights, Subagents, About these numbers and **Delete history**.
+
+Saving, undoing and the numbers behind each card follow the terminal descriptions below.
+
+### In the terminal
+
 
 | Tab          | What it answers                                                                                                                                             |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -100,6 +140,8 @@ Run `/router` or select **Router** above the prompt. Without a UI surface, as in
 | 3 Policy     | How readily the router changes models: the start tier, going down, going up, the activity threshold, the credits cap; the `router.json` path.               |
 | 4 Classifier | Which classifier to ask: one row per classifier to compare, the active one's deadline, wait, health and credentials, and the counts kept across sessions.   |
 | 5 Usage      | What routing cost against no routing this session, today, over 7 or 30 days, this month or in all: by activity, model or tier, and what is worth a look.    |
+
+Under the tab row, one slot shows the warnings on every tab: a project config that was ignored, a native fallback, and missing classifier credentials. They no longer sit inside the Now tab's NEXT TURN block.
 
 The top line of every tab, `ROUTER  [ ◉ on ] [ ○ off ]  Jev ready · 347 ms`, shows the routing mode, switches it, and says whether the classifier is ready. Press `o` or `f` while the pane has focus. The tabs under it carry their digits, `[ 1 Now ] [ 2 Routes ] …`, and **?** shows what the numbers mean above the tab. When routing is unavailable, the top line reads `ROUTER  unavailable  Claude’s model is kept` with the reason under it, and offers no on or off: see [Troubleshooting](#troubleshooting).
 
