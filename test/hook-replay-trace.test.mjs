@@ -14,9 +14,8 @@ function setup(config = {}, preferences = new Map()) {
   answering(h, answer);
   return h;
 }
-async function begin(h, source = 'startup') {
+async function begin(h) {
   await h.event('session.start', { cwd: '/fixture' });
-  await h.event('classic.SessionStart', { source, session_id: 's1' });
 }
 async function turn(h, id = 't1', messages = [user('Synthetic task.')]) {
   await h.event('turn.start', { turnId: id, text: 'Synthetic task.' });
@@ -45,9 +44,9 @@ test('real shadow hooks record a usable sequence, request correlation and narrow
   assert.equal(trace.active, true);
 });
 
-test('startup with injected messages records and exports a usable first request', async () => {
+test('startup with injected messages records and exports a usable first request without classic events', async () => {
   const h = setup();
-  await begin(h);
+  await h.event('session.start', { cwd: '/fixture' });
   await turn(
     h,
     'first',
@@ -62,66 +61,50 @@ test('startup with injected messages records and exports a usable first request'
   assert.equal(evaluateReplay([exported]).fidelity.passed, true);
 });
 
-test('classic startup before Mod session.start still records a usable first request with 17 messages', async () => {
+test('resumed assistant history cannot be fresh even without persisted records', async () => {
   const h = setup();
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
-  await h.event('session.start', { cwd: '/fixture' });
-  await turn(
-    h,
-    'first',
-    Array.from({ length: 17 }, () => user('injected')),
-  );
-  assert.equal(usableTrace(record(h)), true);
-});
-
-test('classic observer needs no session API and table startup remains unaffected', async () => {
-  const h = setup({ routingEngine: 'table' });
-  const id = h.$.session.id;
-  h.$.session.id = async () => {
-    throw new Error('session not bound');
-  };
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 'other' });
-  h.$.session.id = id;
-  await h.event('session.start', { cwd: '/fixture' });
-  await turn(h);
-  assert.equal(record(h), undefined);
-  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', activityRouting: 'off' }));
-  await h.event('command.run', { command: 'router', args: 'activities off' });
-  await turn(h, 'late');
+  await begin(h);
+  const messages = Array.from({ length: 17 }, () => user('message'));
+  messages[8] = assistant('earlier response');
+  await turn(h, 'resume', messages);
   assert.equal(usableTrace(record(h)), false);
+  assert.ok(record(h).incomplete.includes('mid-session'));
 });
 
-test('classic observer metadata failure passes through and makes later trace incomplete', async () => {
-  const h = setup();
-  await h.event('session.start', { cwd: '/fixture' });
-  const event = {
-    get source() {
-      throw new Error('unavailable metadata');
-    },
-    session_id: 's1',
-  };
-  assert.equal(await h.event('classic.SessionStart', event), event);
-  await turn(h);
-  assert.equal(usableTrace(record(h)), false);
-  assert.ok(record(h).lostWrites > 0);
-});
-
-test('resume and unknown lifecycle are incomplete even without persisted records', async () => {
-  for (const source of ['resume', 'fork', 'compact', 'unknown', null]) {
+test('unreadable or malformed current request history is conservatively incomplete', async () => {
+  for (const value of [
+    null,
+    {},
+    [],
+    [null],
+    [{}],
+    [{ role: 'user' }],
+    [{ role: 'user', content: [] }],
+    [{ role: 'user', content: 'bad shape' }],
+    [{ role: 'user', content: [null] }],
+    [{ role: 'user', content: [{}] }],
+    [{ role: 'unknown', content: [] }],
+    'throws',
+  ]) {
     const h = setup();
-    if (source === null) await h.event('session.start', { cwd: '/fixture' });
-    else await begin(h, source);
-    await turn(
-      h,
-      'first',
-      Array.from({ length: 17 }, () => user('message')),
-    );
-    assert.equal(usableTrace(record(h)), false, source);
-    assert.ok(record(h).incomplete.includes('mid-session'), source);
+    await begin(h);
+    await h.event('turn.start', { turnId: 't1', text: 'Synthetic task.' });
+    const read = h.$.session.messages;
+    let first = true;
+    h.$.session.messages = async (...args) => {
+      if (!first) return read(...args);
+      first = false;
+      if (value === 'throws') throw new Error('unreadable history');
+      return value;
+    };
+    await drain(h.step({ ...step, messageCount: 17 }));
+    await h.event('turn.complete', { turnId: 't1' });
+    assert.equal(usableTrace(record(h)), false, JSON.stringify(value));
+    assert.ok(record(h).incomplete.includes('mid-session'));
   }
 });
 
-test('fresh lifecycle cannot override existing loop or trace', async () => {
+test('first-request evidence cannot override existing loop or trace', async () => {
   const original = setup();
   await begin(original);
   await turn(original);
@@ -138,21 +121,18 @@ test('fresh lifecycle cannot override existing loop or trace', async () => {
   }
 });
 
-test('stale sources, duplicate starts and session switches cannot reuse freshness', async () => {
-  for (const boundary of ['mismatch', 'switch', 'duplicate', 'restart', 'resume-switch']) {
+test('duplicate Mod starts and unexplained session switches cannot establish freshness', async () => {
+  for (const boundary of ['switch', 'restart', 'resume-switch']) {
     const h = setup();
     await begin(h);
-    if (boundary === 'mismatch') await h.event('classic.SessionStart', { source: 'startup', session_id: 'other' });
     if (boundary === 'switch') h.clear('s2');
-    if (boundary === 'duplicate') await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
     if (boundary === 'restart') await h.event('session.start', { cwd: '/fixture' });
     if (boundary === 'resume-switch') {
       await h.event('session.end', { reason: 'resume', sessionId: 's1' });
       h.clear('s2');
-      await h.event('classic.SessionStart', { source: 'resume', session_id: 's2' });
     }
     await turn(h);
-    assert.equal(usableTrace(record(h, ['switch', 'resume-switch'].includes(boundary) ? 's2' : 's1')), false, boundary);
+    assert.equal(usableTrace(record(h, boundary === 'restart' ? 's1' : 's2')), false, boundary);
   }
 });
 
@@ -191,13 +171,11 @@ test('clear starts a fresh session and compaction retains a replay reset', async
   await begin(h);
   await turn(h);
   await h.event('session.compact', { trigger: 'auto' });
-  await h.event('classic.SessionStart', { source: 'compact', session_id: 's1' });
   await turn(h, 'after-compact');
   assert.equal(usableTrace(record(h)), true);
   assert.ok(record(h).events.some((event) => event.type === 'reset' && event.cause === 'compact'));
   await h.event('session.end', { reason: 'clear', sessionId: 's1' });
   h.clear('s2');
-  await h.event('classic.SessionStart', { source: 'clear', session_id: 's2' });
   await turn(
     h,
     'after-clear',
