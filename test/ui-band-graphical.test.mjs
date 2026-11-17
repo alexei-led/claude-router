@@ -8,8 +8,6 @@ process.env.TZ = 'UTC';
 const { COLOR, renderBand } = await import('../lib/band.mjs');
 const { DEFAULTS } = await import('../lib/config.mjs');
 const { TIERS } = await import('../lib/config.mjs');
-const { resolveRoute } = await import('../lib/config.mjs');
-const { shortRoute } = await import('../lib/display.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
 const { tierMeter } = await import('../lib/ui/graphical/meter.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
@@ -111,7 +109,8 @@ test('pin Select lists a route per tier and picks call pin', () => {
   assert.equal(select.props.value, empty.value);
   assert.deepEqual(
     tiers.map((o) => o.label),
-    TIERS.map((tier) => shortRoute(DEFAULTS, resolveRoute(DEFAULTS, tier))),
+    // Named as the Now tab's pins are: the family, a spaced dot, the effort.
+    ['Haiku · medium', 'Haiku · high', 'Opus · medium', 'Opus · xhigh'],
   );
   assert.deepEqual(
     tiers.map((o) => o.value),

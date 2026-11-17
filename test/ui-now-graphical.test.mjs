@@ -6,7 +6,6 @@ import test from 'node:test';
 process.env.TZ = 'UTC';
 
 const { DEFAULTS } = await import('../lib/config.mjs');
-const { tierBars } = await import('../lib/display.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { CLAUDE, ROUTED } = await import('./band-states.mjs');
@@ -47,47 +46,84 @@ const card = (tree, title) =>
 const all = (tree) => texts(tree).join('\n');
 
 for (const surface of SURFACES) {
-  test(`${surface}: each pin is a Button holding its tier meter, route and support; with no pending pin none is primary`, () => {
+  test(`${surface}: each pin is its tier meter, a Button named by its route and its support; none primary with no pin`, () => {
     const tree = draw({}, { surface });
     const next = card(tree, 'Next turn');
     assert.ok(next, 'Next turn card');
+    const labels = {};
     for (const tier of ['micro', 'low', 'medium', 'high']) {
       const pin = byKey(next, `pin-${tier}`);
       assert.equal(pin?.type, 'Button', tier);
-      // A Button holds only Text, so its meter is the tier's bars in the tier's colour, not a white label.
-      const meter = kids(pin).find((n) => n.props.children === tierBars(tier));
-      assert.equal(meter?.type, 'Text', tier);
-      assert.equal(meter.props.color, toneColor(`tier:${tier}`, 'graphical'), tier);
-      assert.ok(
-        kids(pin).every((n) => n.type === 'Text'),
-        tier,
-      );
+      // The Button holds its label alone; its meter and reading sit beside it in the pin's group.
+      assert.equal(kids(pin).length, 0, tier);
+      labels[tier] = pin.props.label;
+      const group = find(next, (n) => kids(n).includes(pin))[0];
+      assert.equal(group.props.flexDirection, 'row', tier);
+      assert.equal(group.props.alignItems, 'center', tier);
+      assert.equal(group.props.gap, 'xs', tier);
+      const [meter] = kids(group);
+      assert.equal(meter.type, 'Svg', tier);
+      assert.equal(meter.props.alt, `Tier: ${tier}`, tier);
     }
-    assert.deepEqual(texts(byKey(next, 'pin-low')), ['▂▄', 'Haiku·high', '3%']);
-    const support = find(byKey(next, 'pin-low'), (n) => n.props.children === '3%')[0];
-    assert.equal(support.props.color, toneColor('muted', 'graphical'));
+    assert.deepEqual(labels, {
+      micro: 'Haiku · medium',
+      low: 'Haiku · high',
+      medium: 'Opus · medium',
+      high: 'Opus · xhigh',
+    });
+    // No block glyphs anywhere in the pins: the meters are Svg.
+    const row = find(next, (n) => n.props.gap === 'md' && n.props.flexWrap === 'wrap')[0];
+    assert.equal(row.props.flexDirection, 'row');
+    assert.equal(row.props.justifyContent, 'flex-start');
+    assert.equal(kids(row).length, 4);
+    assert.ok(!texts(row).some((t) => /[▂▄▆█●]/.test(t)), texts(row).join(' | '));
+    const support = (tier) => kids(find(next, (n) => kids(n).includes(byKey(next, `pin-${tier}`)))[0]).at(-1);
+    assert.equal(support('low').props.children, '3%');
+    assert.equal(support('low').props.color, toneColor('muted', 'graphical'));
+    assert.equal(support('low').props.tabular, true);
+    assert.equal(support('low').props.size, 'footnote');
     assert.deepEqual(
       ['micro', 'low', 'medium', 'high'].map((tier) => byKey(next, `pin-${tier}`).props.variant),
       ['secondary', 'secondary', 'secondary', 'secondary'],
     );
-    // The tier that runs now is marked by a dot in its colour and the muted word current, its support still shown.
-    const current = byKey(next, 'pin-high');
-    assert.deepEqual(texts(current), ['●', '▂▄▆█', 'Opus·xhigh', 'current · 88%']);
-    assert.equal(kids(current)[0].props.color, toneColor('tier:high', 'graphical'));
-    assert.equal(kids(current).at(-1).props.color, toneColor('muted', 'graphical'));
-    assert.ok(!texts(byKey(next, 'pin-low')).some((t) => /current|●/.test(t)));
-    assert.equal(byKey(next, 'pin-micro').props.label, undefined);
+    // The tier that runs now says current before its support, with no dot.
+    assert.equal(support('high').props.children, 'current · 88%');
+    assert.ok(!texts(row).some((t) => t === 'current · 3%'));
+  });
+
+  test(`${surface}: a pin without a reading draws no percent and no dash, and without Svg no meter`, () => {
+    const next = card(draw({ probabilities: null }, { surface }), 'Next turn');
+    const group = (tier) => find(next, (n) => kids(n).includes(byKey(next, `pin-${tier}`)))[0];
+    assert.deepEqual(
+      kids(group('low')).map((n) => n.type),
+      ['Svg', 'Button'],
+    );
+    assert.deepEqual(texts(group('high')), ['current']);
+    assert.doesNotMatch(texts(next).join(' '), /—/);
+    const { Svg: _svg, ...NO_SVG } = ELEMENTS;
+    const bare = card(
+      unique(renderPanel(NO_SVG, DEFAULTS, { ...RICH }, CLAUDE, actions, { columns: 100, now: NOW, surface })),
+      'Next turn',
+    );
+    for (const tier of ['micro', 'low', 'medium', 'high']) {
+      const pin = byKey(bare, `pin-${tier}`);
+      const kin = kids(find(bare, (n) => kids(n).includes(pin))[0]);
+      assert.equal(kin[0], pin, tier);
+      assert.ok(!kin.some((n) => n.type === 'Svg'), tier);
+    }
   });
 
   test(`${surface}: a pending pin is shown on its button, which unpins on a second press, with no extra row`, () => {
     const tree = draw({ pendingPin: 'low' }, { surface });
     const next = card(tree, 'Next turn');
-    // Only the pending pin is primary; the current tier (high) keeps its marker and stays secondary.
+    // Only the pending pin is primary; the current tier (high) keeps its word and stays secondary.
     assert.deepEqual(
       ['micro', 'low', 'medium', 'high'].filter((tier) => byKey(next, `pin-${tier}`).props.variant === 'primary'),
       ['low'],
     );
-    assert.ok(texts(byKey(next, 'pin-high')).some((t) => /^current/.test(t)));
+    // The current tier's group still says so beside its secondary Button.
+    const high = find(next, (n) => kids(n).includes(byKey(next, 'pin-high')))[0];
+    assert.ok(texts(high).some((t) => /^current/.test(t)));
     assert.equal(byKey(tree, 'unpin'), undefined);
     assert.doesNotMatch(all(tree), /⏵|unpin/);
     const plain = card(draw({}, { surface }), 'Next turn');

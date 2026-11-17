@@ -79,6 +79,11 @@ test('desktop Now: every card draws in the engine and its controls answer', asyn
   await has({ key: 'usage-detail' });
   await has({ key: 'band-detail-toggle' });
   await has({ key: 'pin-low' });
+  // The pin is a clean label beside its tier meter, which the engine draws outside the Button.
+  expect(((await pane.find({ key: 'pin-low' })) as unknown as { props?: { label?: string } })?.props?.label).toBe(
+    'Haiku · high',
+  );
+  await has({ type: 'Svg' });
   expect(absent).toEqual([]);
   await pane.press({ key: 'pin-low' });
   expect(state.view.pendingPin ?? null).toBeNull();
