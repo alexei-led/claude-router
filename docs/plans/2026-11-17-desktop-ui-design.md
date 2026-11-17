@@ -115,7 +115,7 @@ lib/ui/tokens.mjs              tones and tier colours per surface
 lib/ui/painter.mjs             paintersOf(elements, surface); orTerminal; the fallback reporter
 lib/ui/terminal/               one renderer per tab (now, routes, policy, classifier, usage), kit.mjs, wrap.mjs
 lib/ui/graphical/              one renderer per tab, plus band.mjs, shell.mjs, frame.mjs, painter.mjs,
-                               charts.mjs, meter.mjs, tone.mjs, squares.mjs, divider.mjs
+                               charts.mjs, meter.mjs, tone.mjs, squares.mjs
 lib/band-segments.mjs          the band's segment data
 lib/band.mjs                   the terminal band
 ```
@@ -164,6 +164,7 @@ off       ○ Fable 5.2 · medium  routing off                                  
   tall). Numbers are `tabular`.
 - There is no `1 row`/`2 rows` button. The second (session) row is a setting on the pane's Now tab.
 - Segments still drop by priority against `bodyColumns`.
+- Nothing is drawn between another mod's row and the router's (a hairline was tried and removed at review).
 
 | State | Left | Message | Right-side control |
 | --- | --- | --- | --- |
@@ -296,3 +297,5 @@ the facts under "Spike results"; it was not merged.
 - `rgba()` colours paint. An `Svg` at 16×12 sits well on a text line.
 - At `bodyColumns` 99 two cards of bar rows do not fit side by side; the threshold is 110.
 - Not checked: light mode, VS Code, mobile.
+- After the spike, a one-pixel `Svg` hairline between another mod's band row and the router's was tried and removed
+  at review: the user preferred the rows as they were.

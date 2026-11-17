@@ -46,7 +46,6 @@ The band above the prompt is drawn natively as one fixed row. Nothing appears on
 - **Right**: the context and cache readings, a **Pin next turn** dropdown and the **Router** button, which opens the pane. The dropdown lists one entry per tier, each named by what it runs; a pin forces that tier for the next turn only. On mobile a pending pin also keeps its own `⏵ next` text and **✕** beside the dropdown, since an app may not draw the dropdown.
 - **One control per state**: **Turn on** when routing is off, **Set up** when the active classifier lacks credentials, **Fix** when routing is unavailable. While routing is on, turn it off from the pane's header (**On** / **Off**) or with `/router off`.
 - **Session row**: the second row (plan windows and the session's cost against no routing) is no longer a band button. Turn it on with **Show session row in band** on the pane's Now tab; Router remembers the choice across sessions.
-- When another mod's row sits above the router's, a hairline separates the two.
 
 In a subagent's transcript the band names the agent's model and who picked it, as described under the terminal band.
 

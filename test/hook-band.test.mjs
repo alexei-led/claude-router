@@ -184,3 +184,19 @@ test('the pane’s session row setting and the band share one toggle that is rem
   // The terminal's SESSION line has the same toggle, named by the band's rows.
   assert.equal(controls(await h.render()).find((node) => node.key === 'band-detail-toggle').label, 'band: 1 row');
 });
+
+test('another mod’s row and the band stack with nothing between them on every surface', async () => {
+  const h = harness();
+  await start(h);
+  const row = { type: 'Text', props: { children: 'other mod' } };
+  for (const surface of [undefined, 'terminal', 'desktop', 'vscode', 'mobile']) {
+    const tree = await h.component(
+      'AbovePrompt',
+      { hasSurvey: false, isWorking: false, maxRows: 4, bodyColumns: 120, view: {} },
+      { next: async () => row, ...(surface ? { surface } : {}) },
+    );
+    assert.equal(tree.props.children.length, 2, `${surface}`);
+    assert.equal(tree.props.children[0], row, `${surface}`);
+    assert.equal(tree.props.children[1].props.key, 'router-band', `${surface}`);
+  }
+});
