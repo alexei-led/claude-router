@@ -2,10 +2,10 @@ import { expect, mock, test } from 'claude-code/testing';
 import { loadConfig } from '../lib/config.mjs';
 import { newTrace, observedFromTrace, traceBytes, usableTrace } from '../lib/replay-trace.mjs';
 import { emptyLoop } from '../lib/route.mjs';
-import { jevResponse, user } from './helpers.mjs';
+import { assistant, jevResponse, user } from './helpers.mjs';
 
-for (const order of ['before', 'after']) {
-  test(`shadow startup17 and export execute through real Mod hooks with classic ${order} Mod start`, async ($, on) => {
+for (const hasAssistant of [false, true]) {
+  test(`shadow ${hasAssistant ? 'resume' : 'startup'}17 and export run without classic events`, async ($, on) => {
     const store = new Map<string, unknown>();
     on('store.get', (_$, e) => ({ value: store.get(e.key) }));
     on('store.set', (_$, e) => {
@@ -31,7 +31,9 @@ for (const order of ['before', 'after']) {
     on('session.model', () => ({ value: 'claude-haiku-5-5' }));
     on('session.cwd', () => ({ value: '/fixture/project' }));
     on('session.version', () => ({ value: { version: '2.1.325' } }));
-    on('session.messages', () => ({ value: Array.from({ length: 17 }, () => user('CANARY_PROMPT')) }));
+    const messages = Array.from({ length: 17 }, () => user('CANARY_PROMPT'));
+    if (hasAssistant) messages[8] = assistant('CANARY_REPLY');
+    on('session.messages', () => ({ value: messages }));
     on('session.usage', () => ({
       value: { startedAt: 0, context: { tokens: 8000, breakdown: { totalTokens: 8000 } }, rateLimits: [] },
     }));
@@ -42,7 +44,6 @@ for (const order of ['before', 'after']) {
       value: { ok: true, status: 200, headers: {}, text: JSON.stringify(jevResponse('low', { low: 1 })) },
     }));
     on('session.start', (_$, e) => ({ cwd: e.cwd }));
-    on('classic.SessionStart', () => ({}));
     on('turn.start', (_$, e) => ({ turnId: e.turnId }));
     on('turn.complete', () => ({ text: '' }));
     on('turn.step', async function* (_$, e) {
@@ -62,9 +63,7 @@ for (const order of ['before', 'after']) {
         },
       };
     });
-    if (order === 'before') await $.classic.SessionStart({ source: 'startup', session_id: 'native-trace' });
     await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
-    if (order === 'after') await $.classic.SessionStart({ source: 'startup', session_id: 'native-trace' });
     await $.turn.start({ turnId: 'native-turn', text: 'CANARY_PROMPT' });
     const stream = $.turn.step({
       turnId: 'native-turn',
@@ -93,7 +92,7 @@ for (const order of ['before', 'after']) {
     });
     expect(store.has('trace:v1:native-trace')).toBe(true);
     const recorded = store.get('trace:v1:native-trace');
-    expect(usableTrace(recorded)).toBe(true);
+    expect(usableTrace(recorded)).toBe(!hasAssistant);
     const projected = JSON.parse(JSON.stringify(recorded));
     const continuedOp = projected.events
       .findLast((event: { type: string }) => event.type === 'request')
