@@ -2842,11 +2842,16 @@ export function register(on, options) {
 
   // The Mod session.start has no source; the classic event supplies it, including /clear.
   on('classic.SessionStart', (_$, e, next) => {
-    router.traceFreshSession =
-      ['startup', 'clear'].includes(e.source) && e.session_id && router.traceLifecycleSession !== e.session_id
-        ? e.session_id
-        : null;
-    router.traceLifecycleSession = e.session_id;
+    try {
+      router.traceFreshSession =
+        ['startup', 'clear'].includes(e.source) && e.session_id && router.traceLifecycleSession !== e.session_id
+          ? e.session_id
+          : null;
+      router.traceLifecycleSession = e.session_id;
+    } catch {
+      router.traceFreshSession = null;
+      traceFailed(router);
+    }
     return next(e);
   });
 

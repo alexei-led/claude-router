@@ -91,6 +91,21 @@ test('classic observer needs no session API and table startup remains unaffected
   assert.equal(usableTrace(record(h)), false);
 });
 
+test('classic observer metadata failure passes through and makes later trace incomplete', async () => {
+  const h = setup();
+  await h.event('session.start', { cwd: '/fixture' });
+  const event = {
+    get source() {
+      throw new Error('unavailable metadata');
+    },
+    session_id: 's1',
+  };
+  assert.equal(await h.event('classic.SessionStart', event), event);
+  await turn(h);
+  assert.equal(usableTrace(record(h)), false);
+  assert.ok(record(h).lostWrites > 0);
+});
+
 test('resume and unknown lifecycle are incomplete even without persisted records', async () => {
   for (const source of ['resume', 'fork', 'compact', 'unknown', null]) {
     const h = setup();
