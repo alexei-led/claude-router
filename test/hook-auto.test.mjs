@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readDecisions } from '../lib/decisions.mjs';
 import { answering, CONFIG, drain, harness, JEV_KEY, start, step } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
@@ -46,6 +47,35 @@ test('auto opt-in sends the catalog target model and effort, not the high route 
   assert.equal(h.loop().auto.state.routedDemand, 3);
   const rows = await h.event('command.run', { command: 'router', args: 'decisions' });
   assert.match(rows.text, /demand 3.*target.*move/);
+});
+
+test('auto decision rows retain bounded catalog aliases with spaces, Unicode and slash, but reject controls', async () => {
+  for (const alias of ['modèle / local', 'bad\nline', 'bad\u202eline', 'x'.repeat(65), '😀'.repeat(33)]) {
+    const h = setup();
+    patch(h, (c) => {
+      for (const model of Object.values(c.models)) model.capability = {};
+      c.models[alias] = {
+        id: 'custom-model',
+        input: 1,
+        output: 1,
+        cacheRead: 0.1,
+        contextWindow: 1_000_000,
+        billing: 'plan',
+        efforts: ['high'],
+        capability: { high: 3 },
+      };
+    });
+    await start(h);
+    await command(h, 'pin high');
+    await drain(h.step(step));
+    assert.equal(h.requests[0].model, 'custom-model');
+    await h.event('turn.complete', { turnId: step.turnId });
+    const stored = readDecisions(h.preferences.get('decisions:v1:s1'));
+    assert.equal(stored.rows[0].auto.route, alias === 'modèle / local' ? `${alias}@high` : null);
+    const output = await command(h, 'decisions');
+    if (alias === 'modèle / local') assert.match(output.text, /target modèle \/ local@high/);
+    assert.equal(output.text.includes('bad\nline'), false);
+  }
 });
 
 test('auto no eligible route passes the original native request with explicit reason', async () => {
