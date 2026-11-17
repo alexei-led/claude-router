@@ -283,7 +283,9 @@ function createRouter(options) {
     turnDecisions: new Map(),
     decisionRecord: null,
     trace: null,
-    traceStarted: false,
+    traceFreshSession: null,
+    traceLifecycleSession: null,
+    traceStartedSession: null,
     traceFailures: 0,
     traceOperations: new Map(),
     controllers: new Set(),
@@ -337,7 +339,7 @@ function traceFailed(router) {
   } else router.traceFailures++;
 }
 
-async function ensureTrace($, router, e, turn, loop, loaded) {
+async function ensureTrace($, router, e, turn, loop, loaded, fresh) {
   try {
     if (turn.config.routingEngine !== 'shadow' || router.config.routingEngine !== 'shadow') {
       if (router.trace) router.trace.reasons.add('mode-gap');
@@ -369,7 +371,7 @@ async function ensureTrace($, router, e, turn, loop, loaded) {
       held.lostWrites++;
       held.reasons.add('lost-write');
     }
-    if (!router.traceStarted || e.index !== 0 || e.messageCount > 1 || loaded) held.reasons.add('mid-session');
+    if (!fresh || e.index !== 0 || loaded) held.reasons.add('mid-session');
     held.record ??= newTrace(at, { configured: turn.configured, config: turn.config, loop }, [...held.reasons]);
     if (traceBytes(held.record) > TRACE_SESSION_BYTES - 1024) {
       held.record = {
@@ -2511,7 +2513,7 @@ function paneActions($, router, view) {
       };
       const cleared = await clearRecords().catch(() => false);
       router.trace = null;
-      router.traceStarted = false;
+      router.traceFreshSession = null;
       router.traceOperations.clear();
       // The store kept the history: this session's records start over, and its next write replaces the stored one.
       if (!cleared)
@@ -2750,6 +2752,8 @@ async function* stepMain($, router, e, next) {
   const cfg = turn.config;
   const [sessionId, nativeModel, view] = await Promise.all([$.session.id(), $.session.model(), readView($, router)]);
   const mode = await modeOf($, router, view.mode);
+  const freshTrace = router.traceFreshSession === sessionId;
+  router.traceFreshSession = null;
   if (e.index === 0) {
     const saved = await rememberMode($, mode);
     await updateView($, router, {
@@ -2766,7 +2770,7 @@ async function* stepMain($, router, e, next) {
   loop = resetEngine(router, cfg, turn.configured, e.model, e.messageCount, loop);
   if (loaded.value && loop.generation !== loaded.value.generation) clearGoal(router);
   if (cfg.routingEngine === 'shadow' && router.config.routingEngine === 'shadow') {
-    await ensureTrace($, router, e, turn, loop, Boolean(loaded.value));
+    await ensureTrace($, router, e, turn, loop, Boolean(loaded.value), freshTrace);
     router.traceOperations.delete(e.turnId);
     if (loaded.value && loop.generation !== loaded.value.generation)
       addTrace(router, e, { type: 'reset', at: Date.now(), cause: 'history', loop, generation: loop.generation });
@@ -2836,9 +2840,28 @@ async function* stepMain($, router, e, next) {
 export function register(on, options) {
   const router = createRouter(options);
 
+  // The Mod session.start has no source; the classic event supplies it, including /clear.
+  on('classic.SessionStart', (_$, e, next) => {
+    try {
+      router.traceFreshSession =
+        ['startup', 'clear'].includes(e.source) && e.session_id && router.traceLifecycleSession !== e.session_id
+          ? e.session_id
+          : null;
+      router.traceLifecycleSession = e.session_id;
+    } catch {
+      router.traceFreshSession = null;
+      traceFailed(router);
+    }
+    return next(e);
+  });
+
   on('session.start', async ($, e, next) => {
+    const sessionId = await $.session.id();
+    // Either startup hook may arrive first; a duplicate Mod start is not new history.
+    if (router.traceStartedSession === sessionId || router.traceFreshSession !== sessionId)
+      router.traceFreshSession = null;
+    router.traceStartedSession = sessionId;
     router.trace = null;
-    router.traceStarted = true;
     router.traceOperations.clear();
     router.definitions.clear();
     await $.command.register({
@@ -2971,6 +2994,7 @@ export function register(on, options) {
     const result = await next(e);
     // Only the main conversation is routed, so an agent compaction changes nothing here.
     if (!result.skip && e.trigger !== 'precompute' && !e.agentId) {
+      if (!router.trace) router.traceFreshSession = null;
       const ref = { ...LOOP, id: 'main' };
       const loop = (await $.state.get(ref)).value;
       if (loop) {
@@ -2999,7 +3023,7 @@ export function register(on, options) {
     }
     router.trace = null;
     router.traceOperations.clear();
-    router.traceStarted = false;
+    router.traceFreshSession = null;
     await endSession($, router);
     return next(e);
   });
