@@ -26,9 +26,10 @@ Records use `trace:v1:<session id>`: 30-day retention, 128 KiB per session, 1 Mi
 keeps the earlier contiguous prefix usable and counts excluded turns/events. Late starts, resume/reload, gaps,
 conflicts and lost writes are incomplete. A failed write taints memory and persists that taint on the next success;
 an unavailable store cannot guarantee a durable failure marker. A clean session close is not required.
-Freshness requires the host’s `classic.SessionStart` source (`startup` or `clear`) for the current session,
-with no saved loop or trace. Injected startup messages do not make a trace incomplete. Missing lifecycle
-evidence is conservative; compaction preserves an existing trace with an explicit reset, not a new fresh history.
+Freshness requires the first main request (index 0), no saved loop or trace, and readable normalized request
+history with no assistant messages. Injected startup reminders are user rows and do not make a trace incomplete;
+`classic.SessionStart` is not required. Unreadable or malformed history, reload and late enable are conservative.
+Compaction preserves an existing trace with an explicit reset; `/clear` permits fresh history under a new session ID.
 
 Run `/router trace export` to merge retained traces into `router-traces.json` beside the selected profile's
 router config. The command also works after switching back to `table`; ordinary table turns do no trace I/O.

@@ -16,7 +16,6 @@ async function capture({ controls = false, continuations = false } = {}) {
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 } }));
   answering(h, jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'));
   await h.event('session.start', { cwd: '/fixture' });
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   for (let i = 0; i < 4; i++) {
     const turnId = `t${i}`;
     if (controls && i === 1) {
@@ -103,7 +102,6 @@ test('same-route micro adoption lets low votes and mid-turn review upgrade the r
       jevResponse('low', { micro: 0.2, low: 0.57, medium: 0.13, high: 0.1 }, 0, { code: 1 }, 'produce'),
     );
     await h.event('session.start', { cwd: '/fixture' });
-    await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
     const native = { ...step, model: 'deepseek-flash[1m]', effort: 'low' };
     await h.event('turn.start', { turnId: 'micro', text: 'Synthetic task' });
     h.messages(async () => [user('one')]);
@@ -175,7 +173,6 @@ test('live auto and stateful replay agree on bounded multi-turn pin and forced r
     );
     answering(h, jevResponse('high', { high: 1 }, 0, { code: 1 }, 'produce'));
     await h.event('session.start', { cwd: '/fixture' });
-    await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
     for (const turnId of ['t1', 't2']) {
       if (turnId === 't2') await h.event('command.run', { command: 'router', args: 'pin low' });
       await h.event('turn.start', { turnId, text: 'Synthetic task' });
@@ -219,7 +216,6 @@ test('live/replay no-route suspension and next-turn reentry agree, including pin
       );
       answering(h, jevResponse('high', { high: 1 }, 0, { code: 1 }, 'produce'));
       await h.event('session.start', { cwd: '/fixture' });
-      await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
       for (const turnId of ['normal', 'external', 'reentry']) {
         h.settings({ availableModels: turnId === 'external' ? [] : ['haiku', 'sonnet', 'opus'] });
         if (pinned && turnId === 'external') await h.event('command.run', { command: 'router', args: 'pin low' });
@@ -265,7 +261,6 @@ test('live auto and replay both treat an allowlist expansion as catalog evidence
     );
     answering(h, jevResponse('high', { high: 1 }, 0, { code: 1 }, 'produce'));
     await h.event('session.start', { cwd: '/fixture' });
-    await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
     for (const [turnId, availableModels] of [
       ['limited', ['haiku']],
       ['expanded', ['haiku', 'opus']],
@@ -411,7 +406,6 @@ async function oneTurn(config = {}, response = null, continuationModel = null, m
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 }, ...config }));
   answering(h, answer ?? jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'));
   await h.event('session.start', { cwd: '/fixture' });
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   h.messages(async () => [user('one')]);
   await drain(h.step(step, response));
@@ -539,7 +533,6 @@ test('malformed shadow-only image projection never breaks a pinned table continu
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow' }));
   await h.event('session.start', { cwd: '/fixture' });
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('command.run', { command: 'router', args: 'pin high' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   h.messages(async () => [user('one')]);
@@ -592,7 +585,6 @@ test('rewind and mid-turn classifier reviews preserve sequential table fidelity'
     jevResponse('high', { high: 1 }, 1, { code: 1 }, 'produce'),
   );
   await h.event('session.start', { cwd: '/fixture' });
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   let messages = [user('one')];
   h.messages(async () => messages);
@@ -627,7 +619,6 @@ test('a pinned continuation enforces context and resumes the pre-pin route next 
   );
   answering(h, jevResponse('low', { low: 1 }));
   await h.event('session.start', { cwd: '/fixture' });
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('command.run', { command: 'router', args: 'pin low' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   h.messages(async () => [user('one')]);
@@ -680,7 +671,6 @@ test('bounded execute removal uses own activity evidence and reports effective d
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 } }));
   answering(h, jevResponse('medium', { medium: 1 }, 0, { code: 1 }, 'execute'));
   await h.event('session.start', { cwd: '/fixture' });
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   h.messages(async () => [user('one')]);
   await drain(h.step(step));
@@ -738,7 +728,6 @@ test('checkpoint after an auto-only switch releases own pending downgrade on a c
     jevResponse('low', { low: 1 }, 1, { code: 1 }, 'produce'),
   );
   await h.event('session.start', { cwd: '/fixture' });
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   let messages = [user('one')];
   h.messages(async () => messages);
@@ -777,7 +766,6 @@ test('cross-mode reversals are recognized before partitioning and attributed to 
   );
   answering(h, jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'));
   await h.event('session.start', { cwd: '/fixture' });
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   for (let i = 0; i < 3; i++) {
     if (i) await h.event('command.run', { command: 'router', args: i === 1 ? 'mode quality' : 'mode cost' });
     const turnId = `t${i}`;
@@ -825,7 +813,6 @@ test('manual-only captured traffic is not engine exposure', async () => {
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow' }));
   await h.event('session.start', { cwd: '/fixture' });
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('command.run', { command: 'router', args: 'off' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   await drain(h.step(step));
@@ -843,7 +830,6 @@ test('repeated failure captured at its occurrence raises independent demand once
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 } }));
   answering(h, jevResponse('low', { low: 1 }, 1, { code: 1 }, 'produce'));
   await h.event('session.start', { cwd: '/fixture' });
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   let messages = [user('one')];
   h.messages(async () => messages);
@@ -882,7 +868,6 @@ test('manual interval breaks reversal pairing without losing either policy move'
   );
   answering(h, jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'));
   await h.event('session.start', { cwd: '/fixture' });
-  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   for (let i = 0; i < 5; i++) {
     if (i === 1) await h.event('command.run', { command: 'router', args: 'mode quality' });
     if (i === 2) await h.event('command.run', { command: 'router', args: 'off' });

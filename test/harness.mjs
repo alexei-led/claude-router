@@ -30,7 +30,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   let settings = {};
   let sessionId = 's1';
   let snapshot = new Map();
-  let messages = async () => [{ role: 'user', content: 'One edit.' }];
+  let messages = async () => [{ role: 'user', content: [{ type: 'text', text: 'One edit.' }] }];
   let http = async () => {
     throw new Error('unexpected HTTP');
   };
