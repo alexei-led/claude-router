@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- The default `table` routing behavior is unchanged. Opt in to `routingEngine: "shadow"` to record one-step automatic-routing proposals against the real table incumbent; the table still chooses requests. The pane and `/router decisions` show the proposal and a next-turn cost estimate. `auto` is unavailable: selecting it leaves Claude Code's native model in use.
+- Optional per-effort model capability declarations support the automatic engine; missing values are unknown, not zero. All built-in capabilities remain unknown. Declarations do not change table routing. See [configuration](docs/configuration.md#model-capability-declarations).
+- Shadow records bounded replay inputs separately from decision rows: 30-day retention, 128 KiB per session, a 1 MiB trace budget and a measured 3 MiB shared-store guard. Traces exclude prompts, tool results, filesystem-path fields, classifier endpoints and credentials, but preserve validated routing aliases and model IDs, including path-shaped IDs. Collection is best effort, not an audit log.
+- `/router trace export` merges retained traces into JSON beside the selected profile config, overwriting the previous export after merging and rolling over near 3 MiB. Keep all export files for replay; **Delete history** clears stored traces, not exported files.
+- Offline replay checks table fidelity before simulating automatic routing. Incomplete or tainted traces limit coverage; earlier exports may lack required inputs. The all-session coverage and exposure gates remain unavailable or not established. Costs are conditional estimates, not bills or counterfactual savings, and replay cannot model changed answer quality or transcript length. See [evaluation](docs/evaluation.md#offline-automatic-engine-replay).
+- A paired benchmark harness and task proposal support evaluation planning. The recorded smoke checks harness mechanics on installed Router 1.23.1 only, not this checkout or an engine comparison. No quality, exposure or savings gate is established.
+
 ## 1.23.1 (2026-11-15)
 
 ### Fixed
