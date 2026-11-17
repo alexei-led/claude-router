@@ -66,8 +66,10 @@ An invalid incumbent and no eligible candidate produce explicit `no-route`, neve
 Target outcomes are `meets-demand`, `declared-below-demand`, `unknown-only`, `incumbent` and `no-route`.
 
 Estimates are absolute next-turn `{ minUsd, maxUsd }` ranges: `cost.inputBounds` plus the last reply's output
-length at `cost.ratesAt` prices. Selection uses the conservative `maxUsd` bound, then the incumbent, higher
-declared capability and config order. Automatic prefix caches have no assumed TTL or warm-cache exemption.
+length at `cost.ratesAt` prices. This estimate is effort-blind; it does not model additional thinking tokens.
+Selection uses the conservative `maxUsd` bound, then the incumbent, lower sufficient declared capability and
+config order. The mode margin supplies headroom through the requirement, not a tie preference. Automatic prefix
+caches have no assumed TTL or warm-cache exemption.
 Switch gates use the existing route-to-route `switchingTaxUsd` and `downgradeTaxUsd` math.
 These are conditional estimates, not expected costs or measured savings.
 
