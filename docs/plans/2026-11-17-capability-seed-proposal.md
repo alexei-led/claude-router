@@ -1,6 +1,6 @@
 # Capability seed proposal — review only
 
-**Status:** Draft for user review/edit before any values are applied. No presets, profile files, configuration, engine selection or activation are changed. Numbers record base-route configuration intent, **not** measured quality or proven tier adequacy.
+**Status:** The user approved these profile-derived seed values for the user override layer. This historical rationale records configuration intent, **not** measured quality, proven tier adequacy or a live-routing guarantee. This document applies no profile values and changes no configuration or activation.
 
 **Checked:** 2026-11-17 UTC. Read-only WORK profiles: `~/.claude-team/router.json`, `model-proxy-router.json`, `valar-router.json`. Builtin inheritance comes from [DEFAULTS](../../lib/config.mjs) at router commit `18083c9`. Secondary model-cards checkout: `91cc3b446da2187e7d115c3ae2f43e1ad3d92e37`. Row dates are source review dates, not new live provider checks; configured IDs are not server-confirmed.
 
@@ -44,6 +44,12 @@ The [accepted design](2026-11-16-auto-routing-design.md) describes the capabilit
 The single table preserves **24 unique model/effort rows** across the six models used by the base or informational activity tables. All five configured efforts for Haiku/Sonnet/Opus 5.5 and all three for DeepSeek 1017/GLM Flash/Kimi are listed, even if absent from every base route. No selected model has `efforts: []`; otherwise it would need a native-default row. The full catalogs contain 53 profile-specific pairs: router 20, proxy 24, valar 9. There are **10 seeded profile/pair entries** (4/3/3), from **12 base cells**; all other catalog pairs are unknown. Anthropic `fable` is unused by these route/activity tables, so is outside the 24-row table but included as five unknown catalog candidates in simulation.
 
 Only router.json low/base and medium/base inherit builtin values. Its micro/base and high/base are explicit profile overrides. All four base cells in each custom profile are explicit profile overrides. Two within-profile conflicts exist: DeepSeek high appears at low and medium in **each** custom profile; each independent map uses max 2. There is no cross-profile maximum and no activity-derived seed.
+
+## Builtin and user-profile layering
+
+The builtin Anthropic base seeds landed in [PR #81](https://github.com/alexei-led/claude-router/pull/81): Haiku `medium: 0, high: 1` and Opus `medium: 2, xhigh: 3`. These come from builtin base routes, not wholesale from the user profiles. The approved router.json profile adds its own micro and high choices: Haiku `low: 0` and Opus `high: 3`.
+
+**Explicit capability maps replace each model's builtin map atomically**, rather than merging effort by effort. To preserve the complete approved router.json profile seeds when the user-profile maps are applied, its Haiku map must include **both** `low: 0` and `high: 1`, and its Opus map **both** `medium: 2` and `high: 3`. The approved profile map replaces the corresponding builtin map; it does not retain builtin `medium: 0` for Haiku or `xhigh: 3` for Opus automatically. Applying these chezmoi-managed profile changes is separate and has not been done by this document.
 
 ## Balanced target simulation — comparison, not equivalence
 
@@ -114,4 +120,4 @@ No micro override cell is configured. Unlisted tier/activity cells inherit their
 
 Manifests, overviews, prompting guides and cited local model-card evidence were read only. Exact catalog IDs are `anthropic-claude-haiku-5-5`, `anthropic-claude-sonnet-5-5`, `anthropic-claude-opus-5-5`, `deepseek-deepseek-v4.1-flash-1017` and `zai-glm-5.3-flash`. The router's `canonicalModel` removes only `[1m]` for identity comparison; DeepSeek 1017 and GLM match retained aliases after that removal. Kimi's configured `moonshotai/Kimi-K3.1-Pro[1m]` is **not** an exact retained alias of `moonshot-kimi-k3.1-pro`; its nearby record is mismatch evidence only, never substituted identity, weights or quality. Kimi base seeds refer solely to the exact configured ID. Configured effort lists do not attest backend support.
 
-User decisions: review/edit each independent map, especially each DeepSeek low/medium conflict and the incumbent-dependent Opus medium/high tie; confirm profile scope and backend identity/effort support; then decide whether to approve any values. Replay fidelity, shadow exposure, paired benchmarks and cutover gates remain separate work. No inference, live provider probe, benchmark run, profile write or activation was performed.
+The user approved the independent profile maps, including the DeepSeek low/medium conflicts. Confirm exact backend identity and effort support before applying them; the incumbent-dependent Opus medium/high tie remains fixture-dependent. Replay fidelity, shadow exposure, paired benchmarks and cutover gates remain separate work. No inference, live provider probe, benchmark run, profile write or activation was performed.
