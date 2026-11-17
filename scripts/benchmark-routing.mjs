@@ -469,7 +469,7 @@ export async function cli(args = process.argv.slice(2)) {
   const smoke = args.includes('--smoke');
   const live = args.includes('--live');
   if (live && !smoke)
-    throw new Error('Full live matrix disabled: auto is unavailable; checkout/profile isolation is not implemented.');
+    throw new Error('Full live matrix disabled: checkout/profile isolation is not implemented; approval is required.');
   const cases = casesFor(manifest.tasks, { smoke });
   // Built-in catalog is a portable dry-run scenario only. Smoke preflight reads selected profile rates.
   const config = loadConfig({});
@@ -495,7 +495,8 @@ export async function cli(args = process.argv.slice(2)) {
     assumptions: safety?.assumptions ?? assumptions,
     estimateUsd: safety?.estimateUsd ?? estimate(cases.length, assumptions),
     pricingSource: safety?.pricingSource ?? 'Built-in catalog maximum rates at peak; configured-price scenario only',
-    limitation: 'Input tokens assumed, output capped at 512 for smoke; proxy bill unknown. Auto live unavailable.',
+    limitation:
+      'Input tokens assumed, output capped at 512 for smoke; proxy bill unknown. Full paired benchmark adapter disabled.',
     ...(safety
       ? {
           installedRouterVersion: safety.pluginVersion,

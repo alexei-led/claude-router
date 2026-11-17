@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
   casesFor,
   checkAnswer,
+  cli,
   estimate,
   executeCases,
   hash,
@@ -320,6 +321,7 @@ test('proposal split is hash-frozen before tuning; full live matrix refuses with
   const child = await runProcess(process.execPath, ['scripts/benchmark-routing.mjs', '--live'], { timeoutMs: 1000 });
   assert.equal(child.exitCode, 1);
   assert.equal(child.stdout, '');
+  await assert.rejects(cli(['--live']), /checkout\/profile isolation is not implemented; approval is required/);
 });
 
 test('malformed usage and plugin metadata retain positive cost but fail closed', () => {

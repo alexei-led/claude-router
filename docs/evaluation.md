@@ -199,7 +199,8 @@ outcome has been collected. Difficulty does not establish a capability value.
 
 ### Full paired-run isolation: proposal only
 
-Live `auto` is unavailable until design step 7; a full live matrix always refuses. A native pass-through or table
+Auto routing is available by opt-in in 1.24.0. The full paired benchmark adapter remains disabled pending checkout/profile
+isolation and approval; a full live matrix always refuses. A native pass-through or table
 run is never relabeled `auto`. The current hook reads `routingEngine` only from the selected profile file; there is
 **no** run-scoped environment/settings override. Project `.claude/router.json` can set mode only.
 
