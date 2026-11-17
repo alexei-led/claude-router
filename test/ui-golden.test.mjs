@@ -295,6 +295,13 @@ const EXTRAS = {
   'now-unavailable': { tab: 'now', phase: 'unavailable', error: GATEWAY_SETTINGS, tier: null },
   'now-unavailable-plain': { tab: 'now', phase: 'unavailable', error: 'bad router.json', tier: null },
   'now-no-classifier-key': { tab: 'now', credentials: {} },
+  // The warnings sit under the tab row on every tab, not only Now.
+  'routes-warnings': {
+    tab: 'routes',
+    projectError: 'router.json: unknown model',
+    actualModel: 'claude-sonnet-5-5',
+    credentials: {},
+  },
   'routes-draft': { tab: 'routes', routeDraft: DRAFT, ...NOTICE },
   'status-last-change': { tab: 'now', lastWrite: { label: 'classifier jev' } },
   'status-not-saved': { tab: 'routes', notice: 'Not saved: router.json is read-only' },

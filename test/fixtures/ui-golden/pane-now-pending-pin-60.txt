@@ -78,14 +78,6 @@ Box flexDirection="column"
     Button key="pin-high" label="▶ ▂▄▆█ Opus·xhigh 88%" variant="secondary"
     Text
       " "
-  Box
-    Text color="yellow"
-      "        ⏵ next turn "
-    Text color="#5f9fe0"
-      "▂▄"
-    Text
-      " Haiku·high  "
-    Button key="unpin" label="unpin"
   Text
     " "
   Text bold=true color="cyan"

@@ -50,7 +50,7 @@ const PLAN = {
   ],
 };
 
-test('next turn names the tier meter, the route and why, then one pin per tier low to high with its support', () => {
+test('next turn names the tier meter, the route and why, then one pin per tier low to high with its support; a pending pin is shown on its button, which unpins it', () => {
   const { calls, actions } = recording();
   const probabilities = { high: 0.88, medium: 0.07, low: 0.03 };
   const tree = render({ probabilities, reason: 'upgrade', pendingPin: 'medium' }, { actions });
@@ -66,7 +66,7 @@ test('next turn names the tier meter, the route and why, then one pin per tier l
       '  why   ↑ needs stronger',
       '  pin   [ ▂ Haiku·medium — ] [ ▂▄ Haiku·high 3% ]',
       '        [ ▂▄▆ Opus·medium 7% ] [ ▶ ▂▄▆█ Opus·xhigh 88% ]',
-      '        ⏵ next turn ▂▄▆ Opus·medium  [ unpin ]',
+      '',
     ],
   );
   const pins = controls(tree).filter((c) => c.key.startsWith('pin-'));
@@ -79,10 +79,9 @@ test('next turn names the tier meter, the route and why, then one pin per tier l
       ['pin-high', 'secondary'],
     ],
   );
+  assert.ok(!controls(tree).some((c) => c.key === 'unpin'));
   pins[0].onPress();
-  controls(tree)
-    .find((c) => c.key === 'unpin')
-    .onPress();
+  pins[2].onPress();
   assert.deepEqual(calls, [['pin', 'micro'], ['unpin']]);
 });
 

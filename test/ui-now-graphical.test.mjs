@@ -1,0 +1,267 @@
+// The Now tab on desktop, VS Code and mobile: cards for Next turn, Plan usage beside Context when the pane is wide,
+// This session and Recent decisions. The terminal rows are pinned by ui-golden.test.mjs.
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+process.env.TZ = 'UTC';
+
+const { DEFAULTS } = await import('../lib/config.mjs');
+const { tierBars } = await import('../lib/display.mjs');
+const { renderPanel } = await import('../lib/panel.mjs');
+const { toneColor } = await import('../lib/ui/tokens.mjs');
+const { CLAUDE, ROUTED } = await import('./band-states.mjs');
+const { ELEMENTS, texts } = await import('./harness.mjs');
+const { NOW, SESSION, STORE } = await import('./usage-fixtures.mjs');
+
+const SURFACES = ['desktop', 'vscode', 'mobile'];
+const KEYS_SET = { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null };
+const calls = [];
+const actions = new Proxy(
+  {},
+  {
+    get:
+      (_, name) =>
+      (...args) =>
+        calls.push([name, ...args]),
+  },
+);
+const RICH = {
+  ...ROUTED,
+  tab: 'now',
+  credentials: KEYS_SET,
+  probabilities: { high: 0.88, medium: 0.07, low: 0.03 },
+  estimate: { threshold: 0.82, upgradeMass: 0.88, taxUsd: 0.476 },
+  inputTokens: 1000,
+  cacheRead: 900,
+  usageSession: SESSION,
+  usageStore: STORE,
+  strip: { per: 1, cells: [{ low: 2 }, { medium: 1 }, { high: 1, low: 1 }, { none: 1 }] },
+};
+const draw = (props = {}, { surface = 'desktop', usage = CLAUDE, columns = 100 } = {}) =>
+  renderPanel(ELEMENTS, DEFAULTS, { ...RICH, ...props }, usage, actions, { columns, now: NOW, surface });
+
+const kids = (node) =>
+  (Array.isArray(node?.props?.children) ? node.props.children : [node?.props?.children]).filter(Boolean);
+const find = (tree, match) => {
+  const out = [];
+  (function walk(node) {
+    if (!node || typeof node !== 'object') return;
+    if (node.props && match(node)) out.push(node);
+    for (const child of kids(node)) walk(child);
+  })(tree);
+  return out;
+};
+const byKey = (tree, key) => find(tree, (n) => n.props.key === key)[0];
+// A card is a round-bordered Box whose first row carries its title.
+const card = (tree, title) =>
+  find(tree, (n) => n.props.borderStyle === 'round' && texts(kids(n)[0]).includes(title))[0];
+const all = (tree) => texts(tree).join('\n');
+
+for (const surface of SURFACES) {
+  test(`${surface}: each pin is a Button holding its tier meter, route and support; with no pending pin none is primary`, () => {
+    const tree = draw({}, { surface });
+    const next = card(tree, 'Next turn');
+    assert.ok(next, 'Next turn card');
+    for (const tier of ['micro', 'low', 'medium', 'high']) {
+      const pin = byKey(next, `pin-${tier}`);
+      assert.equal(pin?.type, 'Button', tier);
+      // A Button holds only Text, so its meter is the tier's bars in the tier's colour, not a white label.
+      const meter = kids(pin).find((n) => n.props.children === tierBars(tier));
+      assert.equal(meter?.type, 'Text', tier);
+      assert.equal(meter.props.color, toneColor(`tier:${tier}`, 'graphical'), tier);
+      assert.ok(
+        kids(pin).every((n) => n.type === 'Text'),
+        tier,
+      );
+    }
+    assert.deepEqual(texts(byKey(next, 'pin-low')), ['▂▄', 'Haiku·high', '3%']);
+    const support = find(byKey(next, 'pin-low'), (n) => n.props.children === '3%')[0];
+    assert.equal(support.props.color, toneColor('muted', 'graphical'));
+    assert.deepEqual(
+      ['micro', 'low', 'medium', 'high'].map((tier) => byKey(next, `pin-${tier}`).props.variant),
+      ['secondary', 'secondary', 'secondary', 'secondary'],
+    );
+    // The tier that runs now is marked by a dot in its colour and the muted word current, its support still shown.
+    const current = byKey(next, 'pin-high');
+    assert.deepEqual(texts(current), ['●', '▂▄▆█', 'Opus·xhigh', 'current · 88%']);
+    assert.equal(kids(current)[0].props.color, toneColor('tier:high', 'graphical'));
+    assert.equal(kids(current).at(-1).props.color, toneColor('muted', 'graphical'));
+    assert.ok(!texts(byKey(next, 'pin-low')).some((t) => /current|●/.test(t)));
+    assert.equal(byKey(next, 'pin-micro').props.label, undefined);
+  });
+
+  test(`${surface}: a pending pin is shown on its button, which unpins on a second press, with no extra row`, () => {
+    const tree = draw({ pendingPin: 'low' }, { surface });
+    const next = card(tree, 'Next turn');
+    // Only the pending pin is primary; the current tier (high) keeps its marker and stays secondary.
+    assert.deepEqual(
+      ['micro', 'low', 'medium', 'high'].filter((tier) => byKey(next, `pin-${tier}`).props.variant === 'primary'),
+      ['low'],
+    );
+    assert.ok(texts(byKey(next, 'pin-high')).some((t) => /^current/.test(t)));
+    assert.equal(byKey(tree, 'unpin'), undefined);
+    assert.doesNotMatch(all(tree), /⏵|unpin/);
+    const plain = card(draw({}, { surface }), 'Next turn');
+    assert.equal(kids(next).length, kids(plain).length);
+    calls.length = 0;
+    byKey(next, 'pin-low').props.onPress();
+    byKey(next, 'pin-medium').props.onPress();
+    assert.deepEqual(calls, [['unpin'], ['pin', 'medium']]);
+  });
+
+  test(`${surface}: the headline is the route with the why line, and a turn without a tier says so`, () => {
+    const next = card(draw({ reason: 'upgrade' }, { surface }), 'Next turn');
+    assert.ok(texts(next).includes('Opus 5.5 · xhigh'));
+    assert.match(all(next), /Jev 88% ≥ 82% · switch ≈ \$0\.48/);
+    const first = card(draw({ tier: null, reason: null, probabilities: null }, { surface }), 'Next turn');
+    assert.ok(texts(first).includes('No routed turn yet — the first reply sets the route.'));
+    assert.ok(byKey(first, 'pin-high'), 'pins stay without a tier');
+  });
+
+  test(`${surface}: with routing off the card names the model and offers no pins`, () => {
+    const next = card(draw({ mode: 'manual', phase: 'manual' }, { surface }), 'Next turn');
+    assert.ok(next);
+    assert.match(all(next), /routing off/i);
+    assert.equal(byKey(next, 'pin-high'), undefined);
+  });
+
+  test(`${surface}: plan bars carry their percent beside them, filled in the plan tone over the shared track`, () => {
+    const plan = card(draw({}, { surface }), 'Plan usage');
+    assert.ok(plan, 'Plan usage card');
+    const words = texts(plan);
+    assert.ok(words.includes('5h') && words.includes('7d'));
+    assert.ok(words.includes('37%') && words.includes('81%'));
+    const tracks = find(plan, (n) => n.props.backgroundColor === 'rgba(127,127,127,0.18)');
+    assert.equal(tracks.length, 2);
+    assert.deepEqual(
+      tracks.map((t) => [kids(t)[0].props.width, kids(t)[0].props.backgroundColor]),
+      [
+        ['37%', toneColor('success', 'graphical')],
+        ['81%', toneColor('warning', 'graphical')],
+      ],
+    );
+    const figure = find(plan, (n) => n.props.children === '37%')[0];
+    assert.equal(figure.props.tabular, true);
+  });
+
+  test(`${surface}: Plan and Context share a row from 110 columns and stack below`, () => {
+    for (const [columns, row] of [
+      [120, true],
+      [110, true],
+      [99, false],
+      [null, false],
+    ]) {
+      const tree = draw({}, { surface, columns });
+      const plan = card(tree, 'Plan usage');
+      const context = card(tree, 'Context');
+      const shared = find(
+        tree,
+        (n) =>
+          n.props.flexDirection === 'row' && find(n, (m) => m === plan).length && find(n, (m) => m === context).length,
+      );
+      assert.equal(shared.length > 0, row, `${columns} columns`);
+    }
+  });
+
+  test(`${surface}: the session card has its total, its bars and the strip as tier-coloured cells with counts`, () => {
+    const tree = draw({}, { surface });
+    const session = card(tree, 'This session');
+    assert.ok(session, 'This session card');
+    assert.ok(byKey(session, 'usage-session'));
+    assert.ok(byKey(kids(session)[0], 'band-detail-toggle'), 'the band toggle is in the card header');
+    const words = texts(session);
+    assert.ok(words.some((t) => /^≈\$/.test(t)));
+    assert.ok(words.includes('Main'));
+    for (const tier of ['low', 'medium', 'high'])
+      assert.ok(
+        find(session, (n) => n.type === 'Box' && n.props.backgroundColor === toneColor(`tier:${tier}`, 'graphical'))
+          .length,
+        tier,
+      );
+    for (const legend of ['low 3', 'medium 1', 'high 1', 'not routed 1']) assert.ok(words.includes(legend), legend);
+  });
+
+  test(`${surface}: empty states read as words, never NaN or undefined`, () => {
+    const empty = draw(
+      { usageSession: null, strip: null, contextTokens: null, inputTokens: 0 },
+      { surface, usage: null },
+    );
+    assert.ok(texts(card(empty, 'This session')).includes('No routed replies yet'));
+    assert.ok(texts(card(empty, 'Context')).includes('No reading yet'));
+    const nan = draw(
+      {
+        contextTokens: Number.NaN,
+        inputTokens: Number.NaN,
+        cacheRead: Number.NaN,
+        estimate: { threshold: Number.NaN, upgradeMass: Number.NaN, taxUsd: Number.NaN },
+        probabilities: { low: Number.NaN },
+        usageSession: null,
+        strip: { per: 1, cells: [] },
+        usageDetail: true,
+        history: [Number.NaN],
+      },
+      { surface, usage: null },
+    );
+    assert.doesNotMatch(
+      JSON.stringify(nan, (_, v) => (Number.isNaN(v) ? 'NaN' : v === undefined ? 'undefined' : v)),
+      /NaN|undefined/,
+    );
+    assert.doesNotMatch(all(nan), /NaN|undefined|\?/);
+  });
+
+  test(`${surface}: details in Context still opens the readings, and the old keys answer`, () => {
+    const closed = draw({}, { surface });
+    const context = card(closed, 'Context');
+    assert.ok(byKey(context, 'usage-detail'));
+    calls.length = 0;
+    byKey(context, 'usage-detail').props.onPress();
+    assert.deepEqual(calls, [['usageDetail']]);
+    const open = draw(
+      {
+        usageDetail: true,
+        comparison: { incumbent: 'low', candidate: 'high', minUsd: -0.02, maxUsd: 0.03, paybackTurns: 3 },
+      },
+      { surface },
+    );
+    assert.ok(texts(open).includes('−$0.02 to +$0.03'));
+  });
+}
+
+test('the strip splits into whole percents that sum to 100, however many runs it has', () => {
+  const cells = Array.from({ length: 60 }, (_, i) => ({ [['low', 'medium', 'high', 'none'][i % 4]]: 1 }));
+  const tree = draw({ strip: { per: 1, cells } }, { columns: 100 });
+  const session = card(tree, 'This session');
+  const row = find(
+    session,
+    (n) => n.props.flexDirection === 'row' && n.props.height === 1 && !n.props.backgroundColor,
+  )[0];
+  const widths = kids(row).map((n) => Number(n.props.width.slice(0, -1)));
+  assert.equal(widths.length, 60);
+  assert.ok(widths.every((w) => Number.isInteger(w) && w > 0));
+  assert.equal(
+    widths.reduce((a, b) => a + b, 0),
+    100,
+  );
+  assert.doesNotMatch(all(session), /replies per cell/);
+});
+
+test('whole percents give every non-empty part at least 1, and a small bar value is never an empty bar', async () => {
+  const { wholePercents } = await import('../lib/ui/graphical/charts.mjs');
+  const widths = wholePercents([1000, 1, 1, 1]);
+  assert.equal(
+    widths.reduce((a, b) => a + b, 0),
+    100,
+  );
+  assert.ok(widths.every((w) => w >= 1));
+  assert.deepEqual(wholePercents([0, 0]), [0, 0]);
+  const tree = draw({ subagentSession: null }, {});
+  const session = card(tree, 'This session');
+  const fills = find(session, (n) => n.props.backgroundColor === 'rgba(127,127,127,0.18)').map(
+    (t) => kids(t)[0].props.width,
+  );
+  assert.ok(fills.every((w) => w !== '0%'));
+  const { graphicalKit } = await import('../lib/ui/graphical/painter.mjs');
+  const meter = graphicalKit(ELEMENTS).meter({ label: 'Agents', value: 0.001, tone: 'accent', text: '$0.01' });
+  assert.equal(kids(kids(meter)[1])[0].props.width, '1%');
+  assert.equal(graphicalKit(ELEMENTS).strip({ per: 1, cells: [] }, { columns: 80, now: 0 }), null);
+});

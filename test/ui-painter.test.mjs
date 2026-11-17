@@ -10,7 +10,7 @@ const texts = (tree) =>
     .match(/"children":"([^"]*)"/g)
     ?.map((m) => m.slice(12, -1)) ?? [];
 
-test('every surface draws with the terminal kit until the graphical one exists', () => {
+test('the graphical painter exposes every method the terminal kit does', () => {
   assert.deepEqual(Object.keys(paintersOf(ELEMENTS, 'desktop')), Object.keys(ui));
   assert.deepEqual(Object.keys(paintersOf(ELEMENTS)), Object.keys(ui));
 });

@@ -29,6 +29,12 @@ Box flexDirection="column"
     Text
       " "
     Button key="help" label="?" variant="secondary"
+  Box
+    Text color="yellow"
+      "  Ignored: router.json: unknown model"
+  Box
+    Text color="yellow"
+      "  ! served by Sonnet 5.5 · native fallback"
   Text
     " "
   Text bold=true color="cyan"
@@ -65,10 +71,6 @@ Box flexDirection="column"
       "  from session · effort only on this tier"
     Text dimColor=true
       " · /router mode default clears it"
-  Text color="yellow"
-    "  Ignored: router.json: unknown model"
-  Text color="yellow"
-    "  ! served by Sonnet 5.5 · native fallback"
   Box
     Text dimColor=true
       "  pin   "

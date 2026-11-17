@@ -29,6 +29,10 @@ Box flexDirection="column"
     Text
       " "
     Button key="help" label="?" variant="secondary"
+  Box
+    Text color="yellow"
+      "  Jev: no API key, keeping the model  "
+    Button hotkey="k" key="key" label="Set up"
   Text
     " "
   Text bold=true color="cyan"
@@ -54,10 +58,6 @@ Box flexDirection="column"
       "↑ clearly stronger"
     Text dimColor=true
       "   Jev 88% ≥ 82% · switch ≈ $0.48"
-  Box
-    Text color="yellow"
-      "  Jev: no API key, keeping the model  "
-    Button hotkey="k" key="key" label="Set up"
   Box
     Text dimColor=true
       "  pin   "
