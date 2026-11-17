@@ -98,7 +98,16 @@ test('a classifier shows its probe only for the model that was probed', () => {
 
 test('the Classifier tab puts each probe in its classifier row', () => {
   const lines = screen(
-    renderPanel(ELEMENTS, DEFAULTS, { mode: 'auto', phase: 'routed', credentials: {}, tab: 'classifier' }, null, {}),
+    renderPanel(
+      ELEMENTS,
+      DEFAULTS,
+      { mode: 'auto', phase: 'routed', credentials: {}, tab: 'classifier' },
+      null,
+      {},
+      {
+        columns: 100,
+      },
+    ),
   );
   assert.ok(lines.some((line) => /^\[ ◉ Jev\s+\] api\.typesafe\.ai\s+—\s+—\s+○ no API key/.test(line)));
   assert.ok(lines.some((line) => /^\[ ○ Ollama\s+\] this machine\s+66\/70\s+3483 ms\s+● ready/.test(line)));

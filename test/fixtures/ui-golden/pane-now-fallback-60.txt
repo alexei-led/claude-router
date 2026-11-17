@@ -13,19 +13,19 @@ Box flexDirection="column"
     Text color="green"
       "Jev ready · 347 ms"
   Box
-    Button hotkey="1" key="tab-now" label="1 Now" variant="primary"
+    Button hotkey="1" key="tab-now" label="Now" variant="primary"
     Text
       " "
-    Button hotkey="2" key="tab-routes" label="2 Routes" variant="secondary"
+    Button hotkey="2" key="tab-routes" label="Routes" variant="secondary"
     Text
       " "
-    Button hotkey="3" key="tab-policy" label="3 Policy" variant="secondary"
+    Button hotkey="3" key="tab-policy" label="Policy" variant="secondary"
     Text
       " "
-    Button hotkey="4" key="tab-classifier" label="4 Classifier" variant="secondary"
+    Button hotkey="4" key="tab-classifier" label="Classifier" variant="secondary"
     Text
       " "
-    Button hotkey="5" key="tab-usage" label="5 Usage" variant="secondary"
+    Button hotkey="5" key="tab-usage" label="Usage" variant="secondary"
     Text
       " "
     Button key="help" label="?" variant="secondary"
@@ -139,6 +139,9 @@ Box flexDirection="column"
       "  since 09:00 · 20 replies · 7 agents · 4 switches"
     Text color="yellow"
       "  ● 2 running"
+    Text
+      "  "
+    Button key="band-detail-toggle" label="band: 2 rows"
   Box
     Text
       "  "

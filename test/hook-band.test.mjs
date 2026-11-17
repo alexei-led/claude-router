@@ -142,7 +142,12 @@ test('a narrow band never exceeds its width: optional parts drop, then the route
     [30, /⚠ Jev: no API key/],
   ]) {
     const { tree } = await band(h, { bodyColumns: columns });
-    const row = tree.props.children[1].props.children[0];
+    const first = tree.props.children[1].props.children[0];
+    // The row as drawn at rest: the hover controls over it are hidden.
+    const row = {
+      ...first,
+      props: { ...first.props, children: first.props.children.filter((c) => c?.props.position !== 'absolute') },
+    };
     const line = texts(row).join('');
     const buttons = controls(row)
       .map((node) => (node.plain ? node.label : `[ ${node.label} ]`))
@@ -176,8 +181,6 @@ test('the pane’s session row setting and the band share one toggle that is rem
   assert.equal(h.view().bandDetail, true);
   assert.equal(preferences.get('band:detail'), true);
   assert.equal((await toggle()).label, 'Hide session row in band');
-  assert.equal(
-    controls(await h.render()).some((node) => node.key === 'band-detail-toggle'),
-    false,
-  );
+  // The terminal's SESSION line has the same toggle, named by the band's rows.
+  assert.equal(controls(await h.render()).find((node) => node.key === 'band-detail-toggle').label, 'band: 1 row');
 });

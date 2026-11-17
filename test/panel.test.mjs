@@ -119,16 +119,15 @@ test('while routing is unavailable the header says why and offers no on/off or p
 test('help explains what the numbers are and that savings are not measured', () => {
   const lines = texts(pane({ help: true }));
   const at = lines.indexOf('ABOUT THESE NUMBERS');
-  assert.deepEqual(lines.slice(at, at + 9), [
+  // Whole paragraphs, which the terminal wraps to the pane.
+  assert.deepEqual(lines.slice(at, at + 7), [
     'ABOUT THESE NUMBERS',
     '≈$ is tokens × configured API rates in router.json (list/custom).',
     'These are estimates, not invoices or measured plan-quota savings.',
-    'No routing: your model on the main thread, Claude Code’s pick per agent,',
-    'same tokens and output length. Answer quality is not measured.',
-    'For the whole session cost, with side calls such as titles and compaction',
-    'that the router does not see, run /cost.',
-    'Plan bars are Claude Code’s 5-hour and 7-day readings. Tiers show as',
-    'bars ▂▄▆█, low to high; a route never moves past 80% of its window.',
+    'No routing: your model on the main thread, Claude Code’s pick per agent, same tokens and output length. Answer quality is not measured.',
+    'For the whole session cost, with side calls such as titles and compaction that the router does not see, run /cost.',
+    'Plan bars are Claude Code’s 5-hour and 7-day readings.',
+    'Tiers show as bars ▂▄▆█, low to high; a route never moves past 80% of its window.',
   ]);
   assert.ok(lines.indexOf('ABOUT THESE NUMBERS') < lines.indexOf('NEXT TURN'), 'help sits above the tab');
   assert.ok(!texts(pane({ help: false })).includes('ABOUT THESE NUMBERS'));
@@ -630,8 +629,9 @@ test('the Usage tab shows no plan quota and no Claude readings: the status line 
   assert.ok(!lines.some((line) => /PLAN QUOTA|five hour|CLAUDE READINGS|\$18\.003/.test(line)));
 });
 
+// The wide layout's lines: a pane under 80 columns, or one with no width, puts each classifier on two lines.
 const classifierLines = (props, config = { ...DEFAULTS, activityRouting: 'on' }) =>
-  screen(renderPanel(ELEMENTS, config, view({ tab: 'classifier', ...props }), null, actions));
+  screen(renderPanel(ELEMENTS, config, view({ tab: 'classifier', ...props }), null, actions, { columns: 100 }));
 
 test('the Classifier tab shows the counts across sessions when there are any', () => {
   for (const [name, activityStore, expected] of [

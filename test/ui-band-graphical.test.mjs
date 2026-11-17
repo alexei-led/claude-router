@@ -391,7 +391,7 @@ function pane(surface, view = ROUTED, extra = {}) {
     surface,
   });
 }
-test('the Now tab offers the session row setting on graphical surfaces only', () => {
+test('the Now tab offers the session row setting, named for a card on graphical surfaces and by the band’s rows on the terminal', () => {
   for (const surface of SURFACES) {
     const [toggle] = keyed(pane(surface), 'band-detail-toggle');
     assert.equal(toggle.props.label, 'Show session row in band');
@@ -402,7 +402,11 @@ test('the Now tab offers the session row setting on graphical surfaces only', ()
       'Hide session row in band',
     );
   }
-  for (const surface of ['terminal', undefined]) assert.equal(keyed(pane(surface), 'band-detail-toggle').length, 0);
+  for (const surface of ['terminal', undefined])
+    assert.deepEqual(
+      keyed(pane(surface), 'band-detail-toggle').map((node) => node.props.label),
+      ['band: 2 rows'],
+    );
 });
 
 test('tierMeter draws four rising bars, lit to the tier, or text without Svg', () => {

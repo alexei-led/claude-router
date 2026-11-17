@@ -10,5 +10,5 @@ Box flexDirection="column" key="router-band"
     Text
       "  "
     Button key="details" label="Router" plain=true
-  Box display="none" hover={"display":"flex"}
-    Button key="band-detail" label="2 rows"
+    Box display="none" hover={"display":"flex"} left=34 position="absolute" top=0
+      Button key="band-detail" label="2 rows"

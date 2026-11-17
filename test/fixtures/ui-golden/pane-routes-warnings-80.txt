@@ -10,8 +10,8 @@ Box flexDirection="column"
     Button hotkey="f" key="manual" label="○ off" variant="secondary"
     Text
       "  "
-    Text color="yellow"
-      "Jev: no API key"
+    Text dimColor=true
+      "see below"
   Box
     Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
     Text

@@ -11,6 +11,7 @@ const { renderPanel } = await import('../lib/panel.mjs');
 const { CLAUDE, ROUTED } = await import('./band-states.mjs');
 const { ELEMENTS, goldenText } = await import('./harness.mjs');
 const { NOW } = await import('./usage-fixtures.mjs');
+const { setFallbackReporter } = await import('../lib/ui/painter.mjs');
 
 const actions = new Proxy({}, { get: () => () => undefined });
 // A table whose Svg throws: only the graphical trees draw one.
@@ -26,6 +27,8 @@ test('a graphical band or pane that throws draws the terminal tree instead', () 
   const logged = [];
   const { error, warn, log } = console;
   console.error = console.warn = console.log = (...args) => logged.push(args);
+  // Every fallback here is on purpose.
+  const previous = setFallbackReporter(null);
   try {
     for (const surface of ['desktop', 'vscode', 'mobile']) {
       const band = (elements, at) =>
@@ -39,6 +42,7 @@ test('a graphical band or pane that throws draws the terminal tree instead', () 
     }
   } finally {
     Object.assign(console, { error, warn, log });
+    setFallbackReporter(previous);
   }
   assert.deepEqual(logged, []);
   // The terminal itself still throws what it throws: there is no tree under it to fall back to.
@@ -56,5 +60,21 @@ test('a graphical band or pane that throws draws the terminal tree instead', () 
       actions,
       { surface: 'terminal' },
     ),
+  );
+});
+
+test('a fallback is reported to the reporter tests set, so a broken graphical renderer cannot pass unseen', () => {
+  const seen = [];
+  const previous = setFallbackReporter((error) => seen.push(error.message));
+  try {
+    renderBand(BROKEN, DEFAULTS, VIEW, CLAUDE, { columns: 100, now: NOW, surface: 'desktop' }, actions);
+    assert.deepEqual(seen, ['no Svg here']);
+  } finally {
+    setFallbackReporter(previous);
+  }
+  // The harness's own reporter fails on any fallback it was not told to expect.
+  assert.throws(
+    () => renderBand(BROKEN, DEFAULTS, VIEW, CLAUDE, { columns: 100, now: NOW, surface: 'desktop' }, actions),
+    /no Svg here/,
   );
 });

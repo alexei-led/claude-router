@@ -629,7 +629,7 @@ test('a classifier switch that cannot write leaves the classifier and router.jso
   assert.match(h.view().notice, /Not saved: router\.json is a symlink/);
   assert.equal(h.files.get(CONFIG), '{}');
   assert.equal(controls(await h.render()).find((node) => node.key === 'classifier-jev').label, '◉ Jev       ');
-  assert.ok(texts(await h.render()).some((line) => /^Jev: no API key/.test(line)));
+  assert.ok(texts(await h.render()).some((line) => /^ {2}Jev: no API key, keeping the model/.test(line)));
 });
 
 test('two presses on one drawn pane open and close help again', async () => {

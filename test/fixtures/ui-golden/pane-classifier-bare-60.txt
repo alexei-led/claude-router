@@ -13,19 +13,19 @@ Box flexDirection="column"
     Text color="green"
       "Jev ready"
   Box
-    Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
+    Button hotkey="1" key="tab-now" label="Now" variant="secondary"
     Text
       " "
-    Button hotkey="2" key="tab-routes" label="2 Routes" variant="secondary"
+    Button hotkey="2" key="tab-routes" label="Routes" variant="secondary"
     Text
       " "
-    Button hotkey="3" key="tab-policy" label="3 Policy" variant="secondary"
+    Button hotkey="3" key="tab-policy" label="Policy" variant="secondary"
     Text
       " "
-    Button hotkey="4" key="tab-classifier" label="4 Classifier" variant="primary"
+    Button hotkey="4" key="tab-classifier" label="Classifier" variant="primary"
     Text
       " "
-    Button hotkey="5" key="tab-usage" label="5 Usage" variant="secondary"
+    Button hotkey="5" key="tab-usage" label="Usage" variant="secondary"
     Text
       " "
     Button key="help" label="?" variant="secondary"
@@ -36,93 +36,62 @@ Box flexDirection="column"
       "CLASSIFIER"
     Text dimColor=true
       " · asked once per new turn · a pick saves at once"
-  Text dimColor=true
-    "                 prompt goes to       probe   p95       status"
-  Box
-    Box flexShrink=0 width=17
-      Button key="classifier-jev" label="◉ Jev       " variant="primary"
-    Box flexShrink=0 width=21
-      Text dimColor=true
-        "api.typesafe.ai"
-    Box flexShrink=0 width=8
-      Text dimColor=true
-        "—"
-    Box flexShrink=0 width=10
-      Text dimColor=true
-        "—"
-    Text color="green"
-      "● ready"
-  Box
-    Box flexShrink=0 width=17
-      Button key="classifier-clef" label="○ Clef      " variant="secondary"
-    Box flexShrink=0 width=21
-      Text dimColor=true
-        "api.cloudflare.com"
-    Box flexShrink=0 width=8
-      Text
-        "69/70"
-    Box flexShrink=0 width=10
-      Text
-        "883 ms"
-    Text color="green"
-      "● ready"
-  Box
-    Box flexShrink=0 width=17
-      Button key="classifier-clef-flash" label="○ Clef Flash" variant="secondary"
-    Box flexShrink=0 width=21
-      Text dimColor=true
-        "api.cloudflare.com"
-    Box flexShrink=0 width=8
-      Text
-        "69/70"
-    Box flexShrink=0 width=10
-      Text
-        "874 ms"
-    Text color="green"
-      "● ready"
-  Box
-    Box flexShrink=0 width=17
-      Button key="classifier-clef-omni" label="○ Clef Omni " variant="secondary"
-    Box flexShrink=0 width=21
-      Text dimColor=true
-        "api.cloudflare.com"
-    Box flexShrink=0 width=8
-      Text dimColor=true
-        "—"
-    Box flexShrink=0 width=10
-      Text dimColor=true
-        "—"
-    Text color="green"
-      "● ready"
-  Box
-    Box flexShrink=0 width=17
-      Button key="classifier-openai" label="○ OpenAI    " variant="secondary"
-    Box flexShrink=0 width=21
-      Text dimColor=true
-        "api.openai.com"
-    Box flexShrink=0 width=8
-      Text
-        "70/70"
-    Box flexShrink=0 width=10
-      Text
-        "286 ms"
-    Text color="yellow"
-      "○ no API key  "
-    Button key="key-openai" label="Set up"
-  Box
-    Box flexShrink=0 width=17
-      Button key="classifier-ollama" label="○ Ollama    " variant="secondary"
-    Box flexShrink=0 width=21
-      Text color="green"
-        "this machine"
-    Box flexShrink=0 width=8
-      Text
-        "66/70"
-    Box flexShrink=0 width=10
-      Text
-        "3483 ms"
-    Text color="green"
-      "● ready"
+  Box flexDirection="column"
+    Box
+      Box flexShrink=0 width=17
+        Button key="classifier-jev" label="◉ Jev       " variant="primary"
+      Box flexShrink=1 minWidth=2
+        Text color="green" wrap="truncate-end"
+          "● ready"
+    Text dimColor=true
+      "    api.typesafe.ai"
+  Box flexDirection="column"
+    Box
+      Box flexShrink=0 width=17
+        Button key="classifier-clef" label="○ Clef      " variant="secondary"
+      Box flexShrink=1 minWidth=2
+        Text color="green" wrap="truncate-end"
+          "● ready"
+    Text dimColor=true
+      "    api.cloudflare.com · 69/70 · p95 883 ms"
+  Box flexDirection="column"
+    Box
+      Box flexShrink=0 width=17
+        Button key="classifier-clef-flash" label="○ Clef Flash" variant="secondary"
+      Box flexShrink=1 minWidth=2
+        Text color="green" wrap="truncate-end"
+          "● ready"
+    Text dimColor=true
+      "    api.cloudflare.com · 69/70 · p95 874 ms"
+  Box flexDirection="column"
+    Box
+      Box flexShrink=0 width=17
+        Button key="classifier-clef-omni" label="○ Clef Omni " variant="secondary"
+      Box flexShrink=1 minWidth=2
+        Text color="green" wrap="truncate-end"
+          "● ready"
+    Text dimColor=true
+      "    api.cloudflare.com"
+  Box flexDirection="column"
+    Box
+      Box flexShrink=0 width=17
+        Button key="classifier-openai" label="○ OpenAI    " variant="secondary"
+      Box flexShrink=1 minWidth=2
+        Text color="yellow" wrap="truncate-end"
+          "○ no API key  "
+      Box flexShrink=0
+        Button key="key-openai" label="Set up"
+    Text dimColor=true
+      "    api.openai.com · 70/70 · p95 286 ms"
+  Box flexDirection="column"
+    Box
+      Box flexShrink=0 width=17
+        Button key="classifier-ollama" label="○ Ollama    " variant="secondary"
+      Box flexShrink=1 minWidth=2
+        Text color="green" wrap="truncate-end"
+          "● ready"
+    Text dimColor=true
+      "    this machine · 66/70 · p95 3483 ms"
   Text dimColor=true
     "  probe: historical turn-activity questions, not goal/phase"
   Text dimColor=true
@@ -138,20 +107,23 @@ Box flexDirection="column"
     Box flexShrink=0 width=12
       Text
         "Deadline"
-    Box flexShrink=0 width=12
-      Select key="timeoutMs" options=[{"value":"500","label":"500 ms"},{"value":"1000","label":"1000 ms"},{"value":"1500","label":"1500 ms"},{"value":"3000","label":"3000 ms"},{"value":"5000","label":"5000 ms"}] value="1500"
-    Text dimColor=true
-      "no wait measured yet"
-  Text dimColor=true
-    "            past the deadline the turn keeps its model"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Box
+        Box flexShrink=0 width=12
+          Select key="timeoutMs" options=[{"value":"500","label":"500 ms"},{"value":"1000","label":"1000 ms"},{"value":"1500","label":"1500 ms"},{"value":"3000","label":"3000 ms"},{"value":"5000","label":"5000 ms"}] value="1500"
+        Text dimColor=true
+          "no wait measured yet"
+      Text dimColor=true wrap="wrap"
+        "past the deadline the turn keeps its model"
   Box
     Box flexShrink=0 width=12
       Text
         "Sends"
-    Text
-      "prompt + 6 recent turns → api.typesafe.ai"
-  Text dimColor=true
-    "            the bounded active goal and current step also go to the classifier"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Text wrap="wrap"
+        "prompt + 6 recent turns → api.typesafe.ai"
+      Text dimColor=true wrap="wrap"
+        "the bounded active goal and current step also go to the classifier"
   Box
     Box flexShrink=0 width=12
       Text

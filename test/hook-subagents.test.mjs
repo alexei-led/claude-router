@@ -335,7 +335,7 @@ test('Usage and Now show the session’s agents by model, who picked it, and wha
     agentId: 'w1',
   });
   const now = screen(await h.render()).join('\n');
-  assert.match(now, /^SESSION {2}1 agent {2}● 1 running$/m);
+  assert.match(now, /^SESSION {2}1 agent {2}● 1 running {2}\[ band: 2 rows \]$/m);
   assert.match(now, /^ {2}−\$0\.49 \(−86%\) vs unrouted ≈\$0\.57$/m);
   assert.match(now, /^ {2}main {3}≈\$0\.00 {2}░+$/m);
   assert.match(now, /^ {2}agents ≈\$0\.08 {2}█+ {2}−\$0\.49 vs their picks$/m);

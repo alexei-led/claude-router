@@ -27,5 +27,3 @@ Box flexDirection="column" key="router-band"
       "7d "
     Text color="#f0b429"
       "81%"
-  Box display="none" hover={"display":"flex"}
-    Button key="band-detail" label="1 row"

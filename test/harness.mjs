@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { register } from '../hooks/native-router.mjs';
+import { setFallbackReporter } from '../lib/ui/painter.mjs';
+
+// A graphical renderer that throws falls back to the terminal tree in silence; in a test that is a failure, unless the
+// test expects it and sets its own reporter.
+setFallbackReporter((error) => {
+  throw error;
+});
 
 const element = (type) => (props) => ({ type, props });
 export const ELEMENTS = {

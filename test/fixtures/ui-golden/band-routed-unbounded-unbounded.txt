@@ -17,6 +17,25 @@ Box flexDirection="column" key="router-band"
     Text
       "  "
     Button key="details" label="Router" plain=true
+    Box display="none" hover={"display":"flex"} left=31 position="absolute" top=0
+      Text dimColor=true
+        "pin "
+      Button key="band-pin-micro" label="▂ Haiku·medium"
+      Text
+        " "
+      Button key="band-pin-low" label="▂▄ Haiku·high"
+      Text
+        " "
+      Button key="band-pin-medium" label="▂▄▆ Opus·medium"
+      Text
+        " "
+      Button key="band-pin-high" label="▂▄▆█ Opus·xhigh"
+      Text
+        "  "
+      Button key="band-manual" label="Turn off"
+      Text
+        "  "
+      Button key="band-detail" label="1 row"
   Box
     Text dimColor=true
       "plan 5h "
@@ -26,5 +45,3 @@ Box flexDirection="column" key="router-band"
       "▱▱▱▱▱"
     Text color="green"
       " 37%"
-  Box display="none" hover={"display":"flex"}
-    Button key="band-manual" label="Turn off"

@@ -68,13 +68,19 @@ const elements = { Box: element('Box'), Text: element('Text'), Button: element('
 const drawn = (node) => {
   if (node.type === 'Text') return node.props.children;
   if (node.type === 'Button') return node.props.plain ? node.props.label : `[ ${node.props.label} ]`;
-  return node.props.children.filter(Boolean).map(drawn).join('');
+  return node.props.children
+    .filter((child) => child && child.props.position !== 'absolute')
+    .map(drawn)
+    .join('');
 };
+// The hover controls: drawn over the first row, padded to the width they cover.
+const hoverOf = (tree) => tree.props.children[0].props.children.find((child) => child?.props.display === 'none');
+const shownHover = (tree) => drawn(hoverOf(tree)).trimEnd();
 const buttonsOf = (node) =>
   node.type === 'Button'
     ? [node.props]
     : node.type === 'Box'
-      ? node.props.children.filter(Boolean).flatMap(buttonsOf)
+      ? node.props.children.filter((child) => child && child.props.position !== 'absolute').flatMap(buttonsOf)
       : [];
 
 const modeBands = {
@@ -100,10 +106,12 @@ const modeBands = {
 test('each mode draws one mode control, on one row, and the band fits at 60, 80 and 120 columns', () => {
   for (const [mode, { view, reading, control }] of Object.entries(modeBands)) {
     for (const columns of [60, 80, 120]) {
-      const [main, , hover] = renderBand(elements, DEFAULTS, view, null, { columns }, actions).props.children;
+      const tree = renderBand(elements, DEFAULTS, view, null, { columns }, actions);
+      const main = tree.props.children[0];
+      const hover = hoverOf(tree);
       const name = `${mode} at ${columns}`;
       assert.ok(drawn(main).length <= columns, `${name}: ${drawn(main)}`);
-      assert.ok(drawn(hover).length <= columns, `${name}: ${drawn(hover)}`);
+      assert.ok(hover.props.left + drawn(hover).length <= columns, `${name}: ${drawn(hover)}`);
       assert.ok(drawn(main).startsWith(reading), name);
       if (mode === 'manual') assert.match(drawn(main), /Sonnet 5\.5/, name);
       const modeButtons = (row) => buttonsOf(row).filter((b) => b.key === 'band-auto' || b.key === 'band-manual');
@@ -117,15 +125,18 @@ test('each mode draws one mode control, on one row, and the band fits at 60, 80 
   }
 });
 
-test('the hover row pins low to high by the route each runs, drops the names, then the pins, and keeps Turn off', () => {
+// The hover controls take the wider free stretch of the row: here, with no readings at its end, the one after Router,
+// 52 columns in.
+test('the hover controls pin low to high by the route each runs, drop the names, then 2 rows and the pins, and keep Turn off', () => {
   const { view } = modeBands.auto;
   for (const [columns, expected] of [
-    [120, 'pin [ ▂ Haiku·medium ] [ ▂▄ Haiku·high ] [ ▂▄▆ Opus·medium ] [ ▂▄▆█ Opus·xhigh ]  [ Turn off ]  [ 2 rows ]'],
-    [80, 'pin [ ▂ ] [ ▂▄ ] [ ▂▄▆ ] [ ▂▄▆█ ]  [ Turn off ]  [ 2 rows ]'],
-    [40, '[ Turn off ]'],
+    [160, 'pin [ ▂ Haiku·medium ] [ ▂▄ Haiku·high ] [ ▂▄▆ Opus·medium ] [ ▂▄▆█ Opus·xhigh ]  [ Turn off ]  [ 2 rows ]'],
+    [120, 'pin [ ▂ ] [ ▂▄ ] [ ▂▄▆ ] [ ▂▄▆█ ]  [ Turn off ]  [ 2 rows ]'],
+    [100, 'pin [ ▂ ] [ ▂▄ ] [ ▂▄▆ ] [ ▂▄▆█ ]  [ Turn off ]'],
+    [60, '[ Turn off ]'],
   ])
     assert.equal(
-      drawn(renderBand(elements, DEFAULTS, view, null, { columns }, actions).props.children[2]),
+      shownHover(renderBand(elements, DEFAULTS, view, null, { columns }, actions)),
       expected,
       `${columns} columns`,
     );
@@ -134,14 +145,16 @@ test('the hover row pins low to high by the route each runs, drops the names, th
 test('a narrow two-row band keeps 1 row beside Turn off, the only way back to one row', () => {
   const view = { ...modeBands.auto.view, bandDetail: true };
   for (const [columns, expected] of [
-    [60, 'pin [ ▂ ] [ ▂▄ ] [ ▂▄▆ ] [ ▂▄▆█ ]  [ Turn off ]  [ 1 row ]'],
-    [40, '[ Turn off ]  [ 1 row ]'],
+    [110, 'pin [ ▂ ] [ ▂▄ ] [ ▂▄▆ ] [ ▂▄▆█ ]  [ Turn off ]  [ 1 row ]'],
+    [75, '[ Turn off ]  [ 1 row ]'],
   ])
     assert.equal(
-      drawn(renderBand(elements, DEFAULTS, view, null, { columns }, actions).props.children[2]),
+      shownHover(renderBand(elements, DEFAULTS, view, null, { columns }, actions)),
       expected,
       `${columns} columns`,
     );
+  // Under 12 free columns, over the reading or after Router, there is no room for the controls at all.
+  assert.equal(hoverOf(renderBand(elements, DEFAULTS, view, null, { columns: 40 }, actions)), undefined);
 });
 
 test('a narrow manual band drops the explanation, then cuts the model, and keeps Turn on', () => {

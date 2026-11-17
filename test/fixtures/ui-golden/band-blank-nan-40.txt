@@ -19,5 +19,3 @@ Box flexDirection="column" key="router-band"
     Text
       "  "
     Button key="details" label="Router" plain=true
-  Box display="none" hover={"display":"flex"}
-    Button key="band-manual" label="Turn off"

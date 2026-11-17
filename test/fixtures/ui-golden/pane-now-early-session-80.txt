@@ -114,6 +114,9 @@ Box flexDirection="column"
       "SESSION"
     Text dimColor=true
       "  since 10:00 · 1 reply · 7 agents"
+    Text
+      "  "
+    Button key="band-detail-toggle" label="band: 2 rows"
   Box
     Text
       "  "

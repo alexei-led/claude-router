@@ -28,6 +28,23 @@ const BUTTON = '#2e3340';
 const width = (line) => line.reduce((n, r) => n + [...r.text].length, 0);
 const pad = (lines, w) =>
   lines.map((line) => (width(line) < w ? [...line, { text: ' '.repeat(w - width(line)) }] : line));
+// `runs` painted over `line` from column `at`, as an absolutely placed Box paints over the row beneath it.
+function overlay(line, at, runs) {
+  const cut = (from, to) => {
+    const out = [];
+    let col = 0;
+    for (const run of line) {
+      const chars = [...run.text];
+      const start = Math.max(from, col);
+      const end = Math.min(to, col + chars.length);
+      if (start < end) out.push({ ...run, text: chars.slice(start - col, end - col).join('') });
+      col += chars.length;
+    }
+    return out;
+  };
+  const end = at + width(runs);
+  return [...pad([cut(0, at)], at)[0], ...runs, ...cut(end, Number.POSITIVE_INFINITY)];
+}
 function lay(node, { hover }) {
   if (!node) return [];
   const { type, props } = node;
@@ -47,7 +64,8 @@ function lay(node, { hover }) {
   }
   // Box
   if (props.display === 'none' && !hover) return [];
-  const children = (Array.isArray(props.children) ? props.children : [props.children]).filter(Boolean);
+  const all = (Array.isArray(props.children) ? props.children : [props.children]).filter(Boolean);
+  const children = all.filter((child) => child.props?.position !== 'absolute');
   let lines;
   if (props.flexDirection === 'column') lines = children.flatMap((child) => lay(child, { hover }));
   else {
@@ -59,6 +77,11 @@ function lay(node, { hover }) {
       const padded = pad(block, w);
       for (let i = 0; i < height; i += 1) lines[i].push(...(padded[i] ?? [{ text: ' '.repeat(w) }]));
     }
+  }
+  for (const child of all.filter((one) => one.props?.position === 'absolute')) {
+    const [runs] = lay(child, { hover });
+    if (runs && lines[child.props.top ?? 0])
+      lines[child.props.top ?? 0] = overlay(lines[child.props.top ?? 0], child.props.left ?? 0, runs);
   }
   return props.width ? pad(lines, props.width) : lines;
 }
@@ -191,7 +214,7 @@ const COLUMNS = 112;
 const states = [
   ['Routing on: routed to the high tier on a clear jump', base, false],
   [
-    'Two rows on a Claude plan, with the hover row shown: plan windows, the session as a configured-rate API estimate against your model, pins',
+    'Two rows on a Claude plan, with the hover controls shown over the readings: plan windows, the session as a configured-rate API estimate against your model, pins',
     { ...base, ...yours, bandDetail: true, usageSession: savingsSession, estimate: null },
     true,
   ],
@@ -289,7 +312,7 @@ writeFileSync(
   `${OUT}/router-band.svg`,
   svg({
     title: 'The Router band above the Claude Code prompt',
-    desc: 'Eight band states drawn by the router code: routed to high, two rows on a Claude plan with the hover row, two rows on an API key, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode set for the session.',
+    desc: 'Eight band states drawn by the router code: routed to high, two rows on a Claude plan with the hover controls shown, two rows on an API key, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode set for the session.',
     body: parts.join('\n'),
     w: Math.ceil(COLUMNS * CW + 48),
     h: y - 14,
@@ -304,8 +327,10 @@ const activityStore = {
   lateral: { taken: 9, refused: 4 },
 };
 function pane(view, title, desc, file, paneConfig = config) {
+  // As wide as the band: a pane under 80 columns, or with no width, puts each classifier on two lines.
   const tree = renderPanel(elements, paneConfig, view, usage, actions, {
     modelOptions: Object.keys(config.models),
+    columns: COLUMNS,
     now: NOW,
   });
   const lines = lay(tree, { hover: false }).filter((line, i, all) => i < all.length - 1 || width(line) > 0);

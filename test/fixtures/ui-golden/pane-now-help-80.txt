@@ -33,22 +33,18 @@ Box flexDirection="column"
     " "
   Text bold=true color="cyan"
     "ABOUT THESE NUMBERS"
-  Text dimColor=true
+  Text dimColor=true wrap="wrap"
     "≈$ is tokens × configured API rates in router.json (list/custom)."
-  Text dimColor=true
+  Text dimColor=true wrap="wrap"
     "These are estimates, not invoices or measured plan-quota savings."
-  Text dimColor=true
-    "No routing: your model on the main thread, Claude Code’s pick per agent,"
-  Text dimColor=true
-    "same tokens and output length. Answer quality is not measured."
-  Text dimColor=true
-    "For the whole session cost, with side calls such as titles and compaction"
-  Text dimColor=true
-    "that the router does not see, run /cost."
-  Text dimColor=true
-    "Plan bars are Claude Code’s 5-hour and 7-day readings. Tiers show as"
-  Text dimColor=true
-    "bars ▂▄▆█, low to high; a route never moves past 80% of its window."
+  Text dimColor=true wrap="wrap"
+    "No routing: your model on the main thread, Claude Code’s pick per agent, same tokens and output length. Answer quality is not measured."
+  Text dimColor=true wrap="wrap"
+    "For the whole session cost, with side calls such as titles and compaction that the router does not see, run /cost."
+  Text dimColor=true wrap="wrap"
+    "Plan bars are Claude Code’s 5-hour and 7-day readings."
+  Text dimColor=true wrap="wrap"
+    "Tiers show as bars ▂▄▆█, low to high; a route never moves past 80% of its window."
   Text
     " "
   Text bold=true color="cyan"
@@ -134,6 +130,9 @@ Box flexDirection="column"
       "SESSION"
     Text dimColor=true
       "  since 09:00 · 20 replies · 7 agents · 4 switches"
+    Text
+      "  "
+    Button key="band-detail-toggle" label="band: 2 rows"
   Box
     Text
       "  "

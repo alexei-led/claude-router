@@ -12,23 +12,23 @@ Box flexDirection="column"
       "  "
     Text color="green"
       "Jev ready · 347 ms"
-  Box
-    Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
     Text
-      " "
-    Button hotkey="2" key="tab-routes" label="2 Routes" variant="secondary"
-    Text
-      " "
-    Button hotkey="3" key="tab-policy" label="3 Policy ●" variant="primary"
-    Text
-      " "
-    Button hotkey="4" key="tab-classifier" label="4 Classifier" variant="secondary"
-    Text
-      " "
-    Button hotkey="5" key="tab-usage" label="5 Usage" variant="secondary"
-    Text
-      " "
+      "  "
     Button key="help" label="?" variant="secondary"
+  Box
+    Button hotkey="1" key="tab-now" label="Now" variant="secondary"
+    Text
+      " "
+    Button hotkey="2" key="tab-routes" label="Routes" variant="secondary"
+    Text
+      " "
+    Button hotkey="3" key="tab-policy" label="Policy ●" variant="primary"
+    Text
+      " "
+    Button hotkey="4" key="tab-classifier" label="Classifier" variant="secondary"
+    Text
+      " "
+    Button hotkey="5" key="tab-usage" label="Usage" variant="secondary"
   Text
     " "
   Box
@@ -42,92 +42,101 @@ Box flexDirection="column"
     Box flexShrink=0 width=13
       Text bold=true
         "Mode"
-    Select key="routing-mode" options=[{"value":"cost","label":"cost"},{"value":"balanced","label":"balanced"},{"value":"quality","label":"quality"}] value="balanced"
-    Text dimColor=true
-      "  saved at once"
-  Text dimColor=true
-    "             each tier runs its route as configured"
-  Text color="yellow"
-    "             this session runs cost (session)"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Box
+        Select key="routing-mode" options=[{"value":"cost","label":"cost"},{"value":"balanced","label":"balanced"},{"value":"quality","label":"quality"}] value="balanced"
+        Text dimColor=true
+          "  saved at once"
+      Text dimColor=true wrap="wrap"
+        "each tier runs its route as configured"
+      Text color="yellow" wrap="wrap"
+        "this session runs cost (session)"
   Box
     Box flexShrink=0 width=13
       Text bold=true
         "Start"
-    Text
-      "at "
-    Select key="baseline" options=[{"value":"micro","label":"micro"},{"value":"low","label":"low"},{"value":"medium","label":"medium"},{"value":"high","label":"high"}] value="micro"
-    Text
-      " "
-    Box flexShrink=0 width=2
-      Text color="yellow"
-        "●"
-    Text dimColor=true
-      "default low"
-  Text dimColor=true
-    "             when the session’s model is no tier’s model"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Box
+        Text
+          "at "
+        Select key="baseline" options=[{"value":"micro","label":"micro"},{"value":"low","label":"low"},{"value":"medium","label":"medium"},{"value":"high","label":"high"}] value="micro"
+        Text
+          " "
+        Box flexShrink=0 width=2
+          Text color="yellow"
+            "●"
+        Text dimColor=true
+          "default low"
+      Text dimColor=true wrap="wrap"
+        "when the session’s model is no tier’s model"
   Box
     Box flexShrink=0 width=13
       Text bold=true
         "Going down"
-    Text
-      "after "
-    Select key="downgradeVotes" options=[{"value":"1","label":"1"},{"value":"2","label":"2"},{"value":"3","label":"3"}] value="2"
-    Text
-      " agreeing turns "
-    Box flexShrink=0 width=2
-      Text
-        ""
-  Box
-    Text
-      "             "
-    Text
-      "if a cache write pays back within "
-    Select key="horizon" options=[{"value":"1","label":"1 turn"},{"value":"3","label":"3 turns"},{"value":"5","label":"5 turns"},{"value":"10","label":"10 turns"}] value="10"
-    Text
-      " "
-    Box flexShrink=0 width=2
-      Text color="yellow"
-        "●"
-    Text dimColor=true
-      "default 5 turns"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Box
+        Text
+          "after "
+        Select key="downgradeVotes" options=[{"value":"1","label":"1"},{"value":"2","label":"2"},{"value":"3","label":"3"}] value="2"
+        Text
+          " agreeing turns "
+        Box flexShrink=0 width=2
+          Text
+            ""
+      Box
+        Text
+          "if a cache write pays back within "
+        Select key="horizon" options=[{"value":"1","label":"1 turn"},{"value":"3","label":"3 turns"},{"value":"5","label":"5 turns"},{"value":"10","label":"10 turns"}] value="10"
+        Text
+          " "
+        Box flexShrink=0 width=2
+          Text color="yellow"
+            "●"
+        Text dimColor=true
+          "default 5 turns"
   Box
     Box flexShrink=0 width=13
       Text bold=true
         "Going up"
-    Text dimColor=true
-      "needs Jev support of 75%, up to 90% as the switch costs more"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Text dimColor=true wrap="wrap"
+        "needs Jev support of 75%, up to 90% as the switch costs more"
   Box
     Box flexShrink=0 width=13
       Text bold=true
         "Activities"
-    Text
-      "apply at "
-    Select key="activityMass" options=[{"value":"0.5","label":"50%"},{"value":"0.6","label":"60%"},{"value":"0.7","label":"70%"},{"value":"0.8","label":"80%"}] value="0.8"
-    Text
-      " certainty or more "
-    Box flexShrink=0 width=2
-      Text color="yellow"
-        "●"
-    Text dimColor=true
-      "default 60%"
-  Text dimColor=true
-    "             else a new task runs its tier’s model; a continuation keeps it"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Box
+        Text
+          "apply at "
+        Select key="activityMass" options=[{"value":"0.5","label":"50%"},{"value":"0.6","label":"60%"},{"value":"0.7","label":"70%"},{"value":"0.8","label":"80%"}] value="0.8"
+        Text
+          " certainty or more "
+        Box flexShrink=0 width=2
+          Text color="yellow"
+            "●"
+        Text dimColor=true
+          "default 60%"
+      Text dimColor=true wrap="wrap"
+        "else a new task runs its tier’s model; a continuation keeps it"
   Box
     Box flexShrink=0 width=13
       Text bold=true
         "Credits"
-    Text
-      "cap one cold cache write at "
-    Select key="cashCapUsd" options=[{"value":"0.5","label":"$0.50"},{"value":"1","label":"$1.00"},{"value":"2","label":"$2.00"},{"value":"5","label":"$5.00"}] value="1"
-    Text
-      " "
-    Box flexShrink=0 width=2
-      Text color="yellow"
-        "●"
-    Text dimColor=true
-      "default $2.00"
-  Text dimColor=true
-    "             no model in router.json bills credits, so this has no effect"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Box
+        Text
+          "cap one cold cache write at "
+        Select key="cashCapUsd" options=[{"value":"0.5","label":"$0.50"},{"value":"1","label":"$1.00"},{"value":"2","label":"$2.00"},{"value":"5","label":"$5.00"}] value="1"
+        Text
+          " "
+        Box flexShrink=0 width=2
+          Text color="yellow"
+            "●"
+        Text dimColor=true
+          "default $2.00"
+      Text dimColor=true wrap="wrap"
+        "no model in router.json bills credits, so this has no effect"
   Text
     " "
   Button key="reset-policy" label="Reset policy to defaults"

@@ -54,7 +54,7 @@ In a subagent's transcript the band names the agent's model and who picked it, a
 
 The terminal band is one line above the prompt. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures and the switch cost, then context and cache, then the activity, then the reason. The meter and the model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
 
-![Eight band states: routed to high, two rows on a Claude plan with the hover row, two rows on an API key, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode](router-band.svg)
+![Eight band states: routed to high, two rows on a Claude plan with the hover controls shown, two rows on an API key, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode](router-band.svg)
 
 Read the first line from left to right:
 
@@ -80,9 +80,9 @@ Read the first line from left to right:
 
 **Turn on** and **Fix** sit next to the model and stay at any width.
 
-#### The hover row and two rows
+#### The hover controls and two rows
 
-While routing is on, hover over the band for a second row: a pin per tier, low to high, each named by what it runs (`▂▄ Haiku·high`); **Turn off**; and **2 rows** or **1 row**. A pin forces that tier for the next turn only. On a narrow band the pins lose their model names first; **Turn off** and the row choice stay. The hover row needs a pointer: from the keyboard, run `/router off`, or open the pane and press `f`.
+While routing is on, hover over the band and its controls appear on the same row, in the room it has free, over its readings or after **Router**, and in both when one stretch is too small: a pin per tier, low to high, each named by what it runs (`▂▄ Haiku·high`); **Turn off**; and **2 rows** or **1 row**. Nothing moves: the meter and model, any **Set up**, **Details** or ✕ on the band, and **Router** stay where they are. A pin forces that tier for the next turn only. On a narrow band the pins lose their model names first. With one row, **2 rows** goes next, then the pins, and **Turn off** stays longest. With two rows, the pins go, then **Turn off**, and **1 row** stays longest. A band with no room for even one control shows none on hover; the pane's Now tab always has **band: 1 row** or **band: 2 rows** on its SESSION line, which does the same as the band's button. The hover controls need a pointer: from the keyboard, run `/router off`, or open the pane and press `f`; the SESSION line's toggle also takes a press.
 
 **2 rows** adds the session under the route, in the same numbers as the pane's SESSION block. On a Claude plan it leads with the plan windows Claude Code reports:
 
@@ -143,7 +143,7 @@ Unsaved Routes and Policy changes sit in an **Unsaved changes** card at the bott
 
 Under the tab row, one slot shows the warnings on every tab: a project config that was ignored, a native fallback, and missing classifier credentials. They no longer sit inside the Now tab's NEXT TURN block.
 
-The top line of every tab, `ROUTER  [ ◉ on ] [ ○ off ]  Jev ready · 347 ms`, shows the routing mode, switches it, and says whether the classifier is ready. Press `o` or `f` while the pane has focus. The tabs under it carry their digits, `[ 1 Now ] [ 2 Routes ] …`, and **?** shows what the numbers mean above the tab. When routing is unavailable, the top line reads `ROUTER  unavailable  Claude’s model is kept` with the reason under it, and offers no on or off: see [Troubleshooting](#troubleshooting).
+The top line of every tab, `ROUTER  [ ◉ on ] [ ○ off ]  Jev ready · 347 ms`, shows the routing mode, switches it, and says whether the classifier is ready. Press `o` or `f` while the pane has focus. The tabs under it carry their digits, `[ 1 Now ] [ 2 Routes ] …`, and **?** shows what the numbers mean above the tab. In a pane too narrow for them, the tabs drop the digits (the keys still work), and then **?** moves to the end of the top line. While the warnings under the tabs name missing classifier credentials, the top line says `see below` instead of repeating them. When routing is unavailable, the top line reads `ROUTER  unavailable  Claude’s model is kept` with the reason under it, and offers no on or off: see [Troubleshooting](#troubleshooting).
 
 ![The Now tab in four blocks. NEXT TURN: the tier meter, model and activity, the reason with the classifier support and the switch cost, one pin per tier. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total with one running subagent as an API estimate, the difference against unrouted, the main thread and the subagents as bars, and a strip of every reply colored by tier. CONTEXT: the window fill and the cache reuse](router-pane-now.svg)
 
@@ -156,7 +156,7 @@ The **Now** tab has four blocks, each with its name in capitals.
 **SESSION** sums this session, the main thread and its subagents: `since 14:18 · 86 replies · 6 agents · 9 switches`, and `● 1 running` while a subagent is in the middle of a turn (an agent that waits on its own background command is not counted until it resumes). The counts include the replies of the turn still running.
 
 ```text
-SESSION  since 14:18 · 86 replies · 6 agents · 9 switches  ● 1 running
+SESSION  since 14:18 · 86 replies · 6 agents · 9 switches  ● 1 running  [ band: 2 rows ]
   ≈$8.97  API estimate · plan quota, not a charge  [ Usage ]
   −$4.09 (−31%) vs unrouted ≈$13.06
   main   ≈$6.45  ████████████████  −$4.17 vs Opus 5.5 · xhigh
@@ -447,7 +447,7 @@ The three Clef models take the same request and the same Cloudflare credentials,
 
 ![The Classifier tab: one row per classifier with where the prompt goes, its activity probe, its p95 wait and its status, a missing Jev API key with Set up; the active classifier's deadline against its wait, the host that receives the prompt, health and credentials; the agreement with tools across sessions; and Undo after a switch](router-pane-classifier.svg)
 
-You can save credentials for all of them; only the active one is asked. The **Classifier** tab has one row per classifier, as columns to compare: `◉` marks the active one; then where the prompt goes (`this machine` for Ollama); its last checked-in [activity probe](evaluation.md#activity-probe-set), the test prompts with a known activity it answered right, such as `70/70`, and their p95 wait; and whether its credentials are complete. A row that lacks one names it, such as `○ no API token`, and has its own **Set up** button. The probe columns read `—` when you configured a model other than the probed one.
+You can save credentials for all of them; only the active one is asked. The **Classifier** tab has one row per classifier, as columns to compare: `◉` marks the active one; then where the prompt goes (`this machine` for Ollama); its last checked-in [activity probe](evaluation.md#activity-probe-set), the test prompts with a known activity it answered right, such as `70/70`, and their p95 wait; and whether its credentials are complete. A row that lacks one names it, such as `○ no API token`, and has its own **Set up** button. In a pane too narrow for the widest row, about 80 columns, each classifier takes two lines instead: its name, status and **Set up**, then where the prompt goes and its probe result, such as `api.cloudflare.com · 69/70 · p95 883 ms`. The probe columns read `—` when you configured a model other than the probed one.
 
 Select a row to switch. The choice is written to `router.json` at once and applies from the next turn. **Undo** in the status bar returns to the previous classifier. A turn that is already being classified finishes with the classifier it started with. The new classifier starts with a clean failure count.
 

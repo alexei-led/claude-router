@@ -5,7 +5,14 @@
 ### Changed: terminal
 
 - The warnings for an ignored project config, a native fallback and missing classifier credentials moved out of the Now tab's NEXT TURN block into one slot directly under the tab row, shown on every tab.
-- A pending pin is shown on its pin button, and the separate `⏵ next turn … [unpin]` row is gone. Pressing the pinned button again unpins. The terminal band is unchanged.
+- A pending pin is shown on its pin button, and the separate `⏵ next turn … [unpin]` row is gone. Pressing the pinned button again unpins.
+- The band's hover controls (pins, **Turn off**, **2 rows** / **1 row**) appear on the band's own row, over its readings and after **Router**, instead of on an extra line, so hovering moves nothing. The meter and model, the band's own **Set up**, **Details** and ✕, and **Router** stay uncovered. While two rows show, **1 row** is the last control to go. A band with no 12 free columns shows none.
+- The Now tab's SESSION line ends with **band: 1 row** / **band: 2 rows**, which toggles the band's second row at any band width.
+- The **?** help's paragraphs wrap to the pane instead of being cut into lines for 68 columns.
+- While the warnings under the tab row name missing classifier credentials, the header's classifier status reads `see below` instead of repeating them. On the Classifier tab that warning has no **Set up** of its own; the Credentials row's **Edit** (`k`) is the one control.
+- A tab row too wide for the pane drops the digits from its labels (the hotkeys still work), then moves **?** to the header line's end, instead of squeezing the tabs together.
+- Policy's help lines, and the active classifier's in a narrow pane, wrap inside their column instead of falling back to the pane's edge.
+- In a pane too narrow for its widest row (about 80 columns), the Classifier tab draws each classifier on two lines, name, status and **Set up**, then where the prompt goes and its probe result, instead of columns whose status wrapped a word per line.
 
 ### Changed: desktop app, VS Code and mobile
 

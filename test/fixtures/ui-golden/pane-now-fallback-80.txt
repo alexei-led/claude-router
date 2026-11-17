@@ -133,6 +133,9 @@ Box flexDirection="column"
       "  since 09:00 · 20 replies · 7 agents · 4 switches"
     Text color="yellow"
       "  ● 2 running"
+    Text
+      "  "
+    Button key="band-detail-toggle" label="band: 2 rows"
   Box
     Text
       "  "

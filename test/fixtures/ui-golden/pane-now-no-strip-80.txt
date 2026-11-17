@@ -114,6 +114,9 @@ Box flexDirection="column"
       "SESSION"
     Text dimColor=true
       "  7 agents"
+    Text
+      "  "
+    Button key="band-detail-toggle" label="band: 2 rows"
   Box
     Text
       "  "

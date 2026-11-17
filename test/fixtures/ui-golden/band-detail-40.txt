@@ -32,8 +32,3 @@ Box flexDirection="column" key="router-band"
       "session "
     Text bold=true
       "≈$4.30"
-  Box display="none" hover={"display":"flex"}
-    Button key="band-manual" label="Turn off"
-    Text
-      "  "
-    Button key="band-detail" label="1 row"

@@ -386,6 +386,15 @@ for (const [name, props] of Object.entries(EXTRAS))
     });
   }
 
+// The Classifier tab at 100 columns: the wide layout, which a narrow pane's two-line rows leave alone.
+for (const [name, props] of [
+  ['classifier-wide', { tab: 'classifier' }],
+  ['classifier-missing-key', EXTRAS['classifier-missing-key']],
+])
+  test(`pane ${name} at 100 columns`, () => {
+    golden(`pane-${name}-100`, pane(DEFAULTS, { ...RICH, ...props }, CLAUDE, 100));
+  });
+
 // A non-anthropic provider profile and the cache modes that change the Routes footer.
 for (const [name, config] of [
   ['provider-kimi', loadConfig({ provider: 'kimi' })],

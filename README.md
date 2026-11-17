@@ -54,7 +54,7 @@ The band above the prompt shows the tier, activity, model, and reason for each t
 
 In the desktop app, VS Code and mobile, the band is one fixed row with nothing revealed on hover: a tier meter icon, the route, activity and reason on the left; the readings, a **Pin next turn** dropdown and **Router** on the right. The pane has a header, five tabs (Now, Routes, Policy, Classifier, Usage), one warnings slot and a save bar. <!-- TODO: desktop screenshots (band, Now, Routes, Policy, Classifier, Usage) -->
 
-In the terminal, the picture above shows the band, which has a hover row; the pane's warnings share one slot under the tab row, and a pending pin shows on its pin button (press it again to unpin).
+In the terminal, the picture above shows the band, whose controls appear on its own row on hover; the pane's warnings share one slot under the tab row, and a pending pin shows on its pin button (press it again to unpin).
 
 The router needs Claude Code 2.1.289 or newer. Savings are not measured. The pane's Usage tab estimates what routing cost against no routing (your own model on the main thread, Claude Code's pick for each subagent) for the same tokens at configured list prices, for this session, today, 7 or 30 days, this month or all; it is not a bill and does not judge answer quality. See the [evaluation](docs/evaluation.md).
 

@@ -65,6 +65,9 @@ Box flexDirection="column"
   Box
     Text bold=true color="cyan"
       "SESSION"
+    Text
+      "  "
+    Button key="band-detail-toggle" label="band: 2 rows"
   Text dimColor=true
     "  no replies yet"
   Text
