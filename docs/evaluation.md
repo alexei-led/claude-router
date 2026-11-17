@@ -72,8 +72,9 @@ uses the recorded base policy, with mode only as the capability margin. There is
 
 The report has `fidelity`, `coverage`, `exposureDiagnostic` and anonymous numbered `sessions[].modes`. Each mode
 contains both engines' conditional cost range, priced/unpriced request counts, effort mix, switches and disagreement
-counts grouped by effective demand/activity. Unknown catalog capabilities are counted explicitly; current preset
-declarations remain unknown, so their replay is not capability-calibration evidence.
+counts grouped by effective demand/activity. Unknown catalog capabilities are counted explicitly. Anthropic seeds four balanced base-route pairs as
+user-derived policy judgments; other pairs and provider presets remain unknown. These seeds and their replay are not
+quality-calibration evidence.
 
 Switches are computed on the full session before mode partitioning and attributed to the **destination** mode.
 A reversal closes A→B→A within the explicit `--reversal-window N` main turns (default 3); `reversals` counts closing

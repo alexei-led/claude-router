@@ -4,20 +4,18 @@
 
 ### Added
 
-- Opt in to stateful automatic main-turn routing with `routingEngine: "auto"`. It selects from the configured model and effort catalog using demand, mode, eligibility and cache economics rather than route tables. If no candidate fits, the native request runs. The default `table` routing behavior is unchanged; `shadow` remains opt-in and records one-step proposals while the table routes. Auto quality evaluation and default cutover remain pending. See [configuration](docs/configuration.md#routing-engine).
-- Optional per-effort capability declarations affect auto and shadow, not table routing. Anthropic seeds four balanced base-route pairs: Haiku 5.5 medium 0 and high 1; Opus 5.5 medium 2 and xhigh 3. These are user-derived policy judgments, not quality guarantees. Other pairs and provider presets remain unknown, not zero. A supplied capability map replaces the preset; changing a model ID clears inherited capability. See [providers](docs/providers.md#capability-evidence).
-- Shadow records bounded replay inputs separately from decision rows: 30-day retention, 128 KiB per session, a 1 MiB trace budget and a measured 3 MiB shared-store guard. Traces exclude prompts, tool results, filesystem-path fields, classifier endpoints and credentials, but preserve validated routing aliases and model IDs, including path-shaped IDs. Collection is best effort, not an audit log.
-- `/router trace export` merges retained traces into JSON beside the selected profile config, overwriting the previous export after merging and rolling over near 3 MiB. Keep all export files for replay; **Delete history** clears stored traces, not exported files.
-- Offline replay from a checkout checks table fidelity before simulating auto. Incomplete or tainted traces limit coverage; earlier exports may lack required inputs. All-session coverage and exposure gates remain unavailable or not established. Costs are conditional estimates, not bills or counterfactual savings; replay cannot model changed answer quality or transcript length. See [evaluation](docs/evaluation.md#offline-automatic-engine-replay).
-- A paired benchmark harness and task proposal support evaluation planning. The recorded smoke checks harness mechanics on installed Router 1.23.1 only, not this checkout or an engine comparison. No quality, exposure or savings gate is established.
+- Opt in to stateful main-turn routing with `routingEngine: "auto"`. The default `table` behavior is unchanged; opt-in `shadow` records proposals while the table routes. Auto evaluation and default cutover remain pending. See [configuration](docs/configuration.md#routing-engine).
+- Per-effort capability declarations guide auto and shadow. Anthropic seeds four balanced base-route pairs: Haiku 5.5 medium 0 and high 1; Opus 5.5 medium 2 and xhigh 3. These are user-derived policy judgments, not quality calibration. Other pairs and provider presets remain unknown. A supplied map replaces the preset; changing a model ID clears inherited capability. See [providers](docs/providers.md#capability-evidence).
+- Shadow collects bounded, text-free replay inputs. Traces exclude prompts, tool results, filesystem-path fields, classifier endpoints and credentials, but retain routing aliases and model IDs, including path-shaped IDs. `/router trace export` merges retained traces into JSON, overwriting the previous export and rolling over near 3 MiB. **Delete history** does not delete exported files. See [trace limits and privacy](docs/evaluation.md#replay-trace-recorder).
+- Offline replay from a checkout checks table fidelity before simulating auto. Coverage and exposure gates remain unavailable or not established; costs are conditional estimates, not savings or quality evidence. The recorded benchmark smoke checks harness mechanics on installed Router 1.23.1 only, not this checkout or an engine comparison. See [evaluation](docs/evaluation.md#offline-automatic-engine-replay).
 
 ### Changed
 
-- When eligible auto candidates have equal estimated cost and neither is the incumbent, choose the lower sufficient declared capability before config order. The mode's demand margin supplies headroom rather than a tie preference.
+- Equal-cost auto candidates favor the incumbent, then the lower sufficient declared capability. Estimates do not model unseen effort-dependent thinking tokens; mode margin supplies headroom. See [selection](docs/auto-engine.md#demand-target-and-move).
 
 ### Upgrade
 
-Restart Claude Code after updating. Existing table routing remains the default; automatic routing and shadow collection require explicit opt-in.
+Restart Claude Code after updating. Auto and shadow require explicit opt-in.
 
 ## 1.23.1 (2026-11-15)
 
