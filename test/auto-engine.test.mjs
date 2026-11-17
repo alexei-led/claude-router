@@ -638,13 +638,81 @@ test('pending downgrade retries support and checkpoint until it executes', () =>
   }
 });
 
-test('no physical move cannot change routed demand or route provenance', () => {
-  const state = initialAutoState({ demand: 0, routedDemand: 3, cause: 'catalog' });
-  const result = run({ state, config: config({ a: model(3) }), boundedExecute: true });
-  assert.equal(result.move.reason, 'same-route');
-  assert.equal(result.state.routedDemand, 3);
-  assert.equal(result.state.routeCause, 'catalog');
-  assert.equal(result.demand.level, 0);
+test('same-route accepts zero, rising and falling effective demand without changing move history', () => {
+  const cfg = config({ a: model(3) });
+  const { candidates, target } = targetFor(cfg, 0);
+  for (const [routedDemand, level] of [
+    [1, 0],
+    [0, 1],
+    [3, 1],
+    [2, 1.5],
+  ]) {
+    for (const incumbentOrigin of [null, 'external-fallback']) {
+      const state = {
+        ...initialAutoState({ demand: Math.ceil(level), routedDemand, cause: 'catalog' }),
+        turn: 5,
+        holdUntilTurn: 8,
+        votes: [0, 1],
+        escalatedSignature: 'failure',
+        escalatedIndex: 3,
+      };
+      const before = structuredClone(state);
+      const result = decideMove({
+        config: cfg,
+        state,
+        demandResult: { level },
+        candidates,
+        target,
+        facts: facts({ downAllowed: false, dwellAllowed: false }),
+        now: T0,
+        incumbentOrigin,
+      });
+      assert.equal(result.move, false);
+      assert.equal(result.reason, 'same-route');
+      assert.deepEqual(result.route, route('a'));
+      assert.equal(result.evidence, null);
+      assert.deepEqual(result.state, { ...before, routedDemand: level });
+      assert.deepEqual(state, before);
+    }
+  }
+});
+
+test('no-route, exhausted escalation and blocked moves never adopt pending demand', () => {
+  const cfg = config();
+  const state = { ...initialAutoState({ demand: 2, routedDemand: 0 }), holdUntilTurn: 9 };
+  const { candidates, target } = targetFor(cfg, 2);
+  for (const [proposal, expected] of [
+    [{ ...target, route: null }, 'no-route'],
+    [{ ...target, route: route('a'), reason: 'escalation-exhausted' }, 'escalation-exhausted'],
+    [target, 'upgrade-pending'],
+  ]) {
+    const result = decideMove({
+      config: cfg,
+      state,
+      demandResult: { level: 2 },
+      candidates,
+      target: proposal,
+      facts: facts(),
+      now: T0,
+    });
+    assert.equal(result.reason, expected);
+    assert.equal(result.move, false);
+    assert.strictEqual(result.state, state);
+  }
+});
+
+test('same-route pin leaves the entire original state unchanged', () => {
+  const state = {
+    ...initialAutoState({ demand: 2, routedDemand: 3, cause: 'catalog' }),
+    votes: [1, 2],
+    holdUntilTurn: 8,
+  };
+  const before = structuredClone(state);
+  const result = run({ state, config: config({ a: model(3) }), pin: 'micro' });
+  assert.equal(result.move.reason, 'pinned');
+  assert.equal(result.move.move, false);
+  assert.strictEqual(result.state, state);
+  assert.deepEqual(result.state, before);
 });
 
 test('estimates use input/cache state plus last output, long-context and offpeak math', () => {
@@ -917,7 +985,9 @@ test('same canonical request under a different alias never counts as a physical 
   });
   assert.deepEqual(result.target.route, route('b'));
   assert.equal(result.move.reason, 'same-route');
-  assert.equal(result.state.routedDemand, 1);
+  assert.equal(result.state.routedDemand, 2);
+  assert.equal(result.move.move, false);
+  assert.equal(result.state.routeCause, 'classifier');
 });
 
 test('pin ignores preexisting headroom and normal escalation-only selection', () => {
