@@ -29,7 +29,7 @@ In Claude Code:
 3. To use another classifier, open the pane's **Classifier** tab and select its row. See [Choose the classifier](#choose-the-classifier).
 4. Check the band above the prompt: `Routing on · ready`. With `table` or `shadow`, a model not used by any tier or enabled activity override starts with routing off; the band says why. With `auto`, any model in the selected profile's catalog can start with routing on. `/router auto` turns routing on for the current engine if it is off. In `table`, classifier votes and cache economics gate tier changes; in `auto`, the capability target, routed demand and move gates govern changes. See [routing engine settings](configuration.md#routing-engine).
 
-Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers settings and migrations.
+The desktop app, VS Code and mobile cannot open the `/plugin configure` dialog, so their **Set up** shows a card with a line to run in a terminal: it asks for the key without showing it or keeping it in your shell history and saves it with `claude plugin configure <id> --values-stdin`; **Copy command** copies it, then run `/reload-plugins`. Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers settings and migrations.
 
 In this guide, `router.json` means the selected router file. For example, with `CLAUDE_ROUTER_PROVIDER=zai`, edits go to `zai-router.json`.
 The pane shows its provider and file path.

@@ -134,3 +134,49 @@ test('desktop, vscode and mobile: every pane tab and the band mount without a re
   }
   expect(refused).toEqual([]);
 });
+
+// Set up on a surface without `/plugin configure`'s dialog: the pane shows how to add the key, and no command runs.
+test('desktop, vscode and mobile: the key help card mounts, and Set up runs no command', async ($, on) => {
+  const missing = { ...ROUTED, error: 'missing-key', credentials: { jev: 'missing-key' }, tab: 'now' };
+  const state = setup(on, missing);
+  let commands = 0;
+  on('command.run', () => {
+    commands += 1;
+    return { value: { text: '' } };
+  });
+  const problems: string[] = [];
+  for (const surface of SURFACES) {
+    state.view = { ...missing } as unknown as View;
+    const mount = () =>
+      $.ui.mount({
+        plugin: 'router',
+        surface,
+        component: 'Pane',
+        requestId: 'jev-router',
+        viewport: { columns: 120, rows: 60 },
+        props: {
+          title: 'Router',
+          isFocused: true,
+          bodyColumns: 120,
+          placement: 'dock',
+          scroll: { offset: 0, bodyRows: 60 },
+          view: {},
+        },
+      });
+    let pane = await mount();
+    await pane.press({ key: 'key' });
+    await pane.unmount();
+    if ((state.view as unknown as { keyHelp?: string }).keyHelp !== 'jev') problems.push(`${surface}: no key help`);
+    pane = await mount();
+    const said = await refusal(pane);
+    if (said) problems.push(`${surface}: ${said}`);
+    else {
+      if (!(await pane.find({ key: 'key-help-copy' }))) problems.push(`${surface}: no Copy command`);
+      if (!(await pane.find({ key: 'key-help-done' }))) problems.push(`${surface}: no Done`);
+      if (!(await pane.find({ type: 'Code' }))) problems.push(`${surface}: no Code`);
+    }
+    await pane.unmount();
+  }
+  expect(problems).toEqual([]);
+  expect(commands).toBe(0);
+});

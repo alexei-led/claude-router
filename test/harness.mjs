@@ -16,6 +16,7 @@ export const ELEMENTS = {
   Button: element('Button'),
   Select: element('Select'),
   Svg: element('Svg'),
+  Code: element('Code'),
   Progress: element('Progress'),
   Input: element('Input'),
   Link: element('Link'),

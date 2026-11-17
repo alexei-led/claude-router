@@ -109,7 +109,8 @@ for (const surface of SURFACES) {
     const graphical = run(draw({}, { surface }));
     assert.deepEqual(graphical, [
       ...IDS.filter((one) => one !== 'jev').map((id) => ['classifier', id]),
-      ['key'],
+      // Set up names the classifier it is for, after the press.
+      ['key', undefined, 'clef'],
       ['classifierTimeout', 3000],
     ]);
     assert.deepEqual(graphical, run(renderPanel(ELEMENTS, DEFAULTS, VIEW, null, actions, { columns: 100 })));

@@ -76,6 +76,7 @@ import {
   GATEWAY_SETTINGS,
   missingCredentials,
   NOT_A_TIER_REASON,
+  pluginIdOf,
   savingsLine,
   storeAgreementLine,
   unavailableReason,
@@ -93,7 +94,7 @@ import {
   stripReminders,
 } from '../lib/facts.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
-import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
+import { keyHelpOf, renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
 import { providerFile, providerName } from '../lib/providers.mjs';
 import {
@@ -1035,6 +1036,36 @@ async function credentialsOf($, options, config) {
       ]),
     ),
   );
+}
+
+// A Set up or Edit press: in the terminal, the secure key dialog of `/plugin configure`; a graphical surface, which
+// has no such dialog (the command does nothing there), shows how to add the credentials from a terminal instead, in
+// the pane, for classifier `id`. `surface` is the press's, else the one the pane last drew on.
+async function keySetup($, router, press, id) {
+  const surface = press?.surface ?? router.paneSurface;
+  if (!isGraphical(surface)) {
+    openKeySettings($);
+    return $.ui.close({ id: PANE });
+  }
+  await updateView($, router, { keyHelp: id ?? router.config.classifier, notice: null });
+}
+
+// The pane's credential handlers: Set up or Edit, and the key help's Copy command and Done.
+function keyActions($, router, view) {
+  return {
+    key: (press, id) => keySetup($, router, press, id),
+    copyKeyHelp: async (press) => {
+      const help = keyHelpOf(
+        router.config,
+        (router.view ?? view).keyHelp,
+        pluginIdOf({ name: $.plugin.name, root: $.plugin.root }),
+      );
+      if (!help) return;
+      await $.ui.copy({ text: help.command, surface: press?.surface });
+      await updateView($, router, { notice: 'Copied' });
+    },
+    keyHelpDone: () => updateView($, router, { keyHelp: null, notice: null }),
+  };
 }
 
 // The host refuses $.command.run from a hook the turn is holding, so the secure key dialog opens from a timer.
@@ -2441,10 +2472,7 @@ function paneActions($, router, view) {
       await updateView($, router, { notice: await setPin($, router, tier) });
     },
     unpin: () => updateView($, router, { pendingPin: null, notice: null }),
-    key: async () => {
-      openKeySettings($);
-      await $.ui.close({ id: PANE });
-    },
+    ...keyActions($, router, view),
     copyPath: async (press) => {
       await $.ui.copy({ text: router.config.nativePath, surface: press?.surface });
       await updateView($, router, { notice: 'Path copied.' });
@@ -3119,7 +3147,12 @@ export function register(on, options) {
               mode: (mode) => changeMode($, router, mode),
               pin: async (tier) => $.ui.toast(await setPin($, router, tier)),
               unpin: () => updateView($, router, { pendingPin: null }),
-              key: () => openKeySettings($),
+              // On a graphical surface the band's Set up opens the pane on how to add the credentials.
+              key: async (press) => {
+                if (!isGraphical(press?.surface ?? e.surface)) return openKeySettings($);
+                await openPane($, router);
+                await updateView($, router, { keyHelp: router.config.classifier });
+              },
               toggleDetail: () => toggleBandDetail($, router, view),
             },
           ),
@@ -3127,6 +3160,15 @@ export function register(on, options) {
       });
     }
     view.decisionRows = await paneDecisionRows($, router);
+    router.paneSurface = e.surface;
+    // The key help closes by itself once the credentials it asks for are there.
+    if (
+      view.keyHelp &&
+      (!router.config.classifiers[view.keyHelp] || !missingCredentials(router.config, view, view.keyHelp))
+    ) {
+      view.keyHelp = null;
+      await updateView($, router, { keyHelp: null });
+    }
     const settings = await $.settings.read().catch(() => ({}));
     const modelOptions = Object.keys(router.config.models).filter((alias) =>
       isModelAllowed(router.config.models[alias].id, settings.availableModels, view.nativeModel),
@@ -3135,6 +3177,7 @@ export function register(on, options) {
       modelOptions,
       columns: e.props.bodyColumns,
       surface: e.surface,
+      pluginId: pluginIdOf({ name: $.plugin.name, root: $.plugin.root }),
     });
   });
 }
