@@ -368,18 +368,27 @@ test('external reentry preserves escalation hold and does not count the fallback
   assert.equal(h.loop().auto.state.routedDemand, h.loop().decision.auto.demand);
 });
 
-test('equal native target clears external origin; unavailable candidates remain no-route on reentry', async () => {
+test('equal native target adopts demand and clears external origin; no-route preserves both', async () => {
   for (const eligible of [true, false]) {
-    const h = setup();
+    const h = setup({ baselineTier: 'high' });
     answering(h, low);
     await start(h);
     h.settings({ availableModels: [] });
     await drain(h.step(step));
     assert.equal(h.loop().auto.incumbentOrigin, 'external-fallback');
+    const previous = structuredClone(h.loop());
+    assert.notEqual(previous.auto.state.routedDemand, previous.auto.state.demand);
     h.settings({ availableModels: eligible ? ['haiku'] : [] });
     await nextTurn(h, 'retry');
     assert.equal(h.loop().decision.reason, eligible ? 'same-route' : 'no-route-native');
     assert.equal(h.loop().auto.incumbentOrigin, eligible ? null : 'external-fallback');
+    assert.equal(
+      h.loop().auto.state.routedDemand,
+      eligible ? h.loop().decision.auto.demand : previous.auto.state.routedDemand,
+    );
+    assert.equal(h.loop().auto.state.routeCause, previous.auto.state.routeCause);
+    assert.equal(h.loop().auto.state.holdUntilTurn, previous.auto.state.holdUntilTurn);
+    assert.deepEqual(h.loop().switchedAt, previous.switchedAt);
     assert.equal(h.requests.at(-1).model, step.model);
   }
 });

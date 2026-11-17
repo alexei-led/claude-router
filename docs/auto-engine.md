@@ -86,9 +86,13 @@ A declared stronger eligible request precedes unknown alternatives; neither sear
 request via another alias. The facade performs this headroom feedback automatically.
 
 Stateful replay/auto compares effective demand with `state.routedDemand`, not the previous turn's demand.
-Update routed demand and cause only when the proposed physical move actually executes; the facade returns that
-prospective state in `result.state` and `result.move.state`. Its pre-move demand state remains in
+A physical move updates routed demand and route cause. A `same-route` selection instead accepts the current
+effective demand (including zero) as routed demand without a switch: `move: false`, route cause, hold, votes
+and failure markers remain unchanged. Canonically identical physical requests under different aliases count
+as same-route. Pins, no-route, exhausted escalation and blocked moves do not adopt demand.
+The facade returns accepted state in `result.state` and `result.move.state`; its demand-only state remains in
 `result.demand.state`. A held proposal leaves routed demand and cause unchanged, so it remains pending.
+Runtime and offline replay use the same `decideMove` transition.
 `changeCause` is null, `mode` or `catalog`; it cannot relabel a demand change as an explicit configuration move.
 The live adapter and replay fingerprint the actual allowed configured aliases, including native `default` resolution.
 An allowlist expansion is catalog evidence; reordering it, cache warmth and routine response-ID resolution are not.
@@ -103,7 +107,8 @@ An observed native fallback records `incumbentOrigin: 'external-fallback'` and r
 resetting demand, votes, hold or routed demand. Substituted effort remains unknown. The current turn stays native;
 on the next turn, `decideMove` takes `incumbentOrigin` and permits `reentry` to a different eligible target without
 mass, dwell or payback gates. Hard constraints and the cash cap still apply. Re-entry sets routed demand and cause
-`reentry`, retaining the escalation hold; an equal target clears origin. Pinned fallbacks retain normal state and
+`reentry`, retaining the escalation hold; an equal physical target accepts current effective demand and clears
+origin without changing route cause or counting a switch. Pinned fallbacks retain normal state and
 apply the physical fallback provenance after restoring the pin. Replay counts external requests separately.
 
 ## Checks
