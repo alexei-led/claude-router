@@ -46,7 +46,8 @@ A non-Anthropic file must exist and validate. It never falls back to `router.jso
 { "models": { "sonnet": { "capability": { "medium": 1.5, "high": 2 } } } }
 ```
 
-These example values illustrate the shape, not measured model performance. Missing maps and missing entries are
+These example values illustrate the shape, not measured model performance. Anthropic has user-derived built-in
+policy seeds; see [Providers](providers.md#capability-evidence). Users may replace or clear them. Missing maps and entries are
 unknown, not 0. For a model with `efforts: []`, use only `"default"` for its no-effort candidate. Other keys,
 unsupported efforts, non-numbers and values outside 0–3 or between half-steps are invalid.
 
