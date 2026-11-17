@@ -38,6 +38,170 @@ test('fresh auto sessions start on for catalog-only models and off for models ou
   }
 });
 
+test('lazy turn.start loads validated profile and project mode before freezing automatic config', async () => {
+  const h = setup({ mode: 'cost' });
+  h.files.set('/fixture/project/.claude/router.json', JSON.stringify({ mode: 'quality' }));
+  answering(h, jevResponse('medium', { medium: 1 }));
+  await h.event('turn.start', { turnId: step.turnId, text: 'Synthetic task' });
+  await drain(h.step(step));
+  assert.deepEqual(h.view().routingMode, { mode: 'quality', source: 'project' });
+  assert.equal(h.loop().activeEngine, 'auto');
+  assert.equal(h.loop().decision.auto.requirement, 2.5);
+  assert.equal(h.loop().decision.auto.demand, 2);
+});
+
+test('native custom catalog alias uses actual capability and still requires the unchanged base mass', async () => {
+  for (const strong of [true, false]) {
+    const h = setup({
+      models: {
+        'modèle / local': {
+          id: 'org/custom-model',
+          input: 1,
+          cacheRead: 0.1,
+          output: 1,
+          contextWindow: 1000000,
+          billing: 'plan',
+          efforts: ['low', 'high'],
+          capability: { low: 0, high: 2 },
+        },
+      },
+    });
+    h.model('org/custom-model');
+    h.settings({ availableModels: ['org/custom-model'] });
+    answering(
+      h,
+      jevResponse('low', strong ? { micro: 0.2, low: 0.57, medium: 0.13, high: 0.1 } : { micro: 0.43, low: 0.57 }),
+    );
+    await start(h);
+    await drain(h.step({ ...step, model: 'org/custom-model', effort: 'low' }));
+    assert.equal(h.requests[0].effort, strong ? 'high' : 'low');
+    assert.equal(h.loop().auto.incumbent.model, 'modèle / local');
+    assert.equal(h.loop().auto.state.demand, 1);
+    assert.equal(h.loop().auto.state.routedDemand, strong ? 1 : 0);
+    assert.equal(h.loop().decision.reason, strong ? 'upgrade' : 'upgrade-pending');
+  }
+});
+
+test('lazy initialization failure stays unavailable/native without resetting persisted auto to default table', async () => {
+  const h = setup();
+  await start(h);
+  await drain(h.step(step));
+  const previous = structuredClone(h.loop());
+  for (const file of ['{', JSON.stringify({ routingEngine: 'invalid' }), null]) {
+    const reloaded = harness(JEV_KEY, h.preferences, new Map(h.state));
+    if (file === null) reloaded.env.set('CLAUDE_ROUTER_PROVIDER', 'deepseek');
+    else reloaded.files.set(CONFIG, file);
+    const native = { ...step, index: 1 };
+    await drain(reloaded.step(native));
+    assert.deepEqual(reloaded.requests[0], native);
+    assert.equal(reloaded.view().phase, 'unavailable');
+    assert.equal(
+      reloaded.view().error,
+      file === null ? 'selected provider router file is missing' : 'invalid router configuration',
+    );
+    assert.deepEqual(reloaded.loop(), previous);
+  }
+});
+
+test('Mod reload without session.start loads the auto profile before continuation and next turn', async () => {
+  const h = harness(JEV_KEY);
+  h.env.set('CLAUDE_ROUTER_PROVIDER', 'deepseek');
+  h.model('deepseek-flash[1m]');
+  h.files.set(
+    '/fixture/team/deepseek-router.json',
+    JSON.stringify({
+      routingEngine: 'auto',
+      models: { flash: { capability: { low: 0, high: 2, max: 3 } } },
+      policy: { reviewEveryRequests: 0 },
+    }),
+  );
+  answering(h, jevResponse('low', { micro: 0.2, low: 0.57, medium: 0.13, high: 0.1 }));
+  await start(h);
+  const native = { ...step, model: 'deepseek-flash[1m]', effort: 'low' };
+  await drain(h.step(native));
+  assert.equal(h.requests[0].effort, 'high');
+  const previous = structuredClone(h.loop().auto.state);
+  const reloaded = harness(JEV_KEY, h.preferences, h.state);
+  for (const [path, content] of h.files) reloaded.files.set(path, content);
+  reloaded.env.set('CLAUDE_ROUTER_PROVIDER', 'deepseek');
+  reloaded.model('deepseek-flash[1m]');
+  answering(reloaded, jevResponse('low', { low: 1 }));
+  await drain(reloaded.step({ ...native, index: 1 }));
+  assert.deepEqual(reloaded.requests[0], { ...native, index: 1, effort: 'high' });
+  assert.equal(reloaded.loop().activeEngine, 'auto');
+  assert.deepEqual(reloaded.loop().auto.state, previous);
+  await reloaded.event('turn.complete', { turnId: step.turnId });
+  await reloaded.event('turn.start', { turnId: 'next', text: 'Next task' });
+  await drain(reloaded.step({ ...native, turnId: 'next' }));
+  await reloaded.event('turn.complete', { turnId: 'next' });
+  assert.equal(reloaded.requests[1].effort, 'high');
+  const rows = readDecisions(reloaded.preferences.get('decisions:v1:s1')).rows.filter((row) => row.kind !== 'end');
+  assert.ok(rows.length);
+  for (const row of rows) {
+    assert.equal(row.engine, 'auto');
+    assert.ok(row.auto);
+  }
+});
+
+test('session reload fences an in-flight table answer before a new automatic decision', async () => {
+  const h = setup({ routingEngine: 'table', routes: { high: { model: 'haiku', effort: 'low' } } });
+  let release;
+  h.http(
+    () =>
+      new Promise((resolve) => {
+        release = () =>
+          resolve({ ok: true, status: 200, headers: {}, text: JSON.stringify(jevResponse('high', { high: 1 })) });
+      }),
+  );
+  await start(h);
+  const stream = h.step(step);
+  const pending = stream.next();
+  await tick();
+  assert.ok(release);
+  patch(h, (c) => {
+    c.routingEngine = 'auto';
+  });
+  await reload(h);
+  release();
+  await tick();
+  await pending;
+  await drain(stream);
+  assert.deepEqual(h.requests[0], step);
+  answering(h, jevResponse('high', { high: 1 }));
+  await drain(h.step({ ...step, index: 1 }));
+  assert.equal(h.requests[1].model, 'claude-opus-5-5');
+  assert.equal(h.requests[1].effort, 'xhigh');
+  await h.event('turn.complete', { turnId: step.turnId });
+  const rows = readDecisions(h.preferences.get('decisions:v1:s1')).rows.filter((row) => row.kind !== 'end');
+  assert.ok(rows.length);
+  for (const row of rows) {
+    assert.equal(row.engine, 'auto');
+    assert.ok(row.auto);
+  }
+});
+
+test('same-turn config reload into auto cannot retain a table route or table-shaped decision row', async () => {
+  const h = setup({ routingEngine: 'table', routes: { high: { model: 'haiku', effort: 'low' } } });
+  await start(h);
+  await drain(h.step(step));
+  assert.equal(h.requests[0].model, 'claude-haiku-5-5');
+  patch(h, (c) => {
+    c.routingEngine = 'auto';
+  });
+  await reload(h);
+  await drain(h.step({ ...step, index: 1 }));
+  assert.equal(h.requests[1].model, 'claude-opus-5-5');
+  assert.equal(h.requests[1].effort, 'xhigh');
+  assert.equal(h.loop().activeEngine, 'auto');
+  assert.ok(h.loop().decision.auto);
+  await h.event('turn.complete', { turnId: step.turnId });
+  const rows = readDecisions(h.preferences.get('decisions:v1:s1')).rows;
+  const after = rows.filter((row) => row.kind !== 'end');
+  assert.ok(after.length);
+  assert.equal(after.at(-1).engine, 'auto');
+  assert.ok(after.at(-1).auto);
+});
+
 test('auto opt-in sends the catalog target model and effort, not the high route table', async () => {
   const h = setup({ routes: { high: { model: 'haiku', effort: 'low' } } });
   await start(h);
@@ -342,7 +506,8 @@ test('no-route native response preserves demand and reenters immediately when el
 });
 
 test('external reentry preserves escalation hold and does not count the fallback as a policy move', async () => {
-  const h = setup({ baselineTier: 'high' });
+  const h = setup({ baselineTier: 'medium' });
+  answering(h, jevResponse('medium', { medium: 1 }, 0, { code: 1 }, 'produce'));
   h.model('claude-opus-5-5');
   await start(h);
   await drain(h.step({ ...step, model: 'claude-opus-5-5', effort: 'medium' }));
@@ -371,6 +536,10 @@ test('external reentry preserves escalation hold and does not count the fallback
 test('equal native target adopts demand and clears external origin; no-route preserves both', async () => {
   for (const eligible of [true, false]) {
     const h = setup({ baselineTier: 'high' });
+    patch(h, (c) => {
+      c.models.haiku.efforts = ['medium'];
+      c.models.haiku.capability = { medium: 3 };
+    });
     answering(h, low);
     await start(h);
     h.settings({ availableModels: [] });
@@ -556,8 +725,10 @@ test('native fallback and manual exact model/effort remain outside auto selectio
 });
 
 test('failure occurrences escalate strictly stronger and do not repeat for the same index', async () => {
-  const h = setup({ baselineTier: 'high' });
+  const h = setup({ baselineTier: 'medium' });
+  answering(h, jevResponse('medium', { medium: 1 }, 0, { code: 1 }, 'produce'));
   h.model('claude-opus-5-5');
+  h.settings({ availableModels: ['opus'] });
   await start(h);
   await drain(h.step({ ...step, model: 'claude-opus-5-5', effort: 'medium' }));
   assert.equal(h.requests[0].effort, 'medium');

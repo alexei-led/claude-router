@@ -129,7 +129,10 @@ named here.
 
 **Routed demand.** The session keeps the effective demand level accepted by the incumbent route, and the
 cause of the last physical change (`classifier`, `escalation`, `mode`, `catalog`, `forced`, `reentry`).
-Routed demand is set at session start, when a move executes, and when the selected target is the same physical
+At session start, raw demand is the configured baseline, while routed demand is the actual incumbent's declared
+capability at its supported/resolved native effort. Unknown or unsupported native capability conservatively uses
+the baseline; no effort, mode offset or capability is invented. Runtime and replay share this initialization.
+Routed demand is then set when a move executes and when the selected target is the same physical
 request (`same-route`). Same-route acceptance adopts the current effective demand, including zero, without a
 switch: `move: false`, hold, votes, failure markers and route cause remain unchanged. Pins, no-route,
 exhausted escalation and blocked moves do not adopt demand. Every case below compares the current demand with
@@ -345,6 +348,8 @@ Steps 1–4 change nothing for users on the default.
   estimate and incumbent preference, least-sufficient capability avoids favoring unseen thinking-token costs that
   the effort-blind estimate does not model (round 3; revised tie order).
 - Moves compare against routed demand, so a blocked move stays pending with its original evidence (round 3).
+- Startup raw demand uses the baseline, but accepted routed demand uses the actual known native capability.
+  Unknown native capability keeps the baseline; initialization never invents a rank or mode offset.
 - A same-physical selected target accepts current effective demand without a switch, including a next-turn equal
   external-fallback target. Route cause, holds and votes remain unchanged; pins and non-accepting stays do not
   adopt demand. Runtime and offline replay share this transition.

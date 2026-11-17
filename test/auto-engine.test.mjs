@@ -89,6 +89,63 @@ function moveFor({
   });
 }
 
+test('first proposal seeds accepted demand from the actual supported incumbent capability, not baseline', () => {
+  const cfg = config(
+    {
+      a: model(0, 1, { efforts: ['low', 'high'], capability: { low: 0, high: 2 } }),
+    },
+    { baselineTier: 'low' },
+  );
+  const result = run({
+    config: cfg,
+    state: undefined,
+    incumbent: route('a', 'low'),
+    advice: advice('low', { micro: 0.2, low: 0.57, medium: 0.13, high: 0.1 }),
+  });
+  assert.equal(result.demand.raw, 1);
+  assert.equal(result.demand.state.routedDemand, 0);
+  assert.equal(result.move.reason, 'upgrade');
+  assert.deepEqual(result.move.route, route('a', 'high'));
+  assert.ok(Math.abs(result.move.evidence.mass - 0.8) < Number.EPSILON);
+  assert.equal(result.state.routedDemand, 1);
+
+  const weak = run({
+    config: cfg,
+    state: undefined,
+    incumbent: route('a', 'low'),
+    advice: advice('low', { micro: 0.43, low: 0.57 }),
+  });
+  assert.equal(weak.move.reason, 'upgrade-pending');
+  assert.equal(weak.state.routedDemand, 0);
+  assert.equal(weak.move.evidence.threshold, cfg.policy.upgradeBase);
+});
+
+test('startup uses known half-step capability and never guesses unresolved or unsupported native effort', () => {
+  const cfg = config(
+    {
+      a: model(0, 1, { efforts: ['low', 'high'], capability: { low: 0, high: 2.5 } }),
+      b: model(null, 2),
+    },
+    { baselineTier: 'low' },
+  );
+  for (const [incumbent, effort, expected] of [
+    [route('a', 'high'), null, 2.5],
+    [route('a'), 'low', 0],
+    [route('a'), null, 1],
+    [route('a', 17), 17, 1],
+    [route('a', 'max'), null, 1],
+    [route('b'), null, 1],
+    [route('unlisted'), null, 1],
+  ]) {
+    const result = run({ config: cfg, state: undefined, incumbent, facts: facts({ effort }), pin: 'low' });
+    assert.equal(result.state.demand, 1);
+    assert.equal(result.state.routedDemand, expected);
+    assert.equal(result.state.turn, 0);
+    assert.deepEqual(result.state.votes, []);
+    assert.equal(result.state.holdUntilTurn, 0);
+  }
+});
+
 test('external reentry bypasses evidence and dwell but preserves hold and every eligibility filter', () => {
   for (const availableModels of [undefined, [], ['a'], ['b']]) {
     const state = { ...initialAutoState({ demand: 2, routedDemand: 2 }), holdUntilTurn: 9 };

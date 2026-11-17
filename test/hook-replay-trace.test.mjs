@@ -176,14 +176,17 @@ test('compaction before the first recorded request is not fresh history', async 
   assert.equal(usableTrace(record(h)), false);
 });
 
-test('reload without session.start does not create a trace', async () => {
+test('lazy shadow reload without session.start records only an incomplete mid-session trace', async () => {
   const h = setup();
   await turn(
     h,
     'reload',
     Array.from({ length: 17 }, () => user('message')),
   );
-  assert.equal(record(h), undefined);
+  assert.ok(record(h));
+  assert.equal(record(h).events[0].configured.routingEngine, 'shadow');
+  assert.ok(record(h).incomplete.includes('mid-session'));
+  assert.equal(usableTrace(record(h)), false);
 });
 
 test('clear starts a fresh session and compaction retains a replay reset', async () => {
