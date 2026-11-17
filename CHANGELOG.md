@@ -1,15 +1,23 @@
 # Changelog
 
-## Unreleased
+## 1.24.0 (2026-11-17)
 
 ### Added
 
-- The default `table` routing behavior is unchanged. Opt in to `routingEngine: "shadow"` to record one-step automatic-routing proposals against the real table incumbent; the table still chooses requests. The pane and `/router decisions` show the proposal and a next-turn cost estimate. `auto` is unavailable: selecting it leaves Claude Code's native model in use.
-- Optional per-effort model capability declarations support the automatic engine; missing values are unknown, not zero. All built-in capabilities remain unknown. Declarations do not change table routing. See [configuration](docs/configuration.md#model-capability-declarations).
+- Opt in to stateful automatic main-turn routing with `routingEngine: "auto"`. It selects from the configured model and effort catalog using demand, mode, eligibility and cache economics rather than route tables. If no candidate fits, the native request runs. The default `table` routing behavior is unchanged; `shadow` remains opt-in and records one-step proposals while the table routes. Auto quality evaluation and default cutover remain pending. See [configuration](docs/configuration.md#routing-engine).
+- Optional per-effort capability declarations affect auto and shadow, not table routing. Anthropic seeds four balanced base-route pairs: Haiku 5.5 medium 0 and high 1; Opus 5.5 medium 2 and xhigh 3. These are user-derived policy judgments, not quality guarantees. Other pairs and provider presets remain unknown, not zero. A supplied capability map replaces the preset; changing a model ID clears inherited capability. See [providers](docs/providers.md#capability-evidence).
 - Shadow records bounded replay inputs separately from decision rows: 30-day retention, 128 KiB per session, a 1 MiB trace budget and a measured 3 MiB shared-store guard. Traces exclude prompts, tool results, filesystem-path fields, classifier endpoints and credentials, but preserve validated routing aliases and model IDs, including path-shaped IDs. Collection is best effort, not an audit log.
 - `/router trace export` merges retained traces into JSON beside the selected profile config, overwriting the previous export after merging and rolling over near 3 MiB. Keep all export files for replay; **Delete history** clears stored traces, not exported files.
-- Offline replay checks table fidelity before simulating automatic routing. Incomplete or tainted traces limit coverage; earlier exports may lack required inputs. The all-session coverage and exposure gates remain unavailable or not established. Costs are conditional estimates, not bills or counterfactual savings, and replay cannot model changed answer quality or transcript length. See [evaluation](docs/evaluation.md#offline-automatic-engine-replay).
+- Offline replay from a checkout checks table fidelity before simulating auto. Incomplete or tainted traces limit coverage; earlier exports may lack required inputs. All-session coverage and exposure gates remain unavailable or not established. Costs are conditional estimates, not bills or counterfactual savings; replay cannot model changed answer quality or transcript length. See [evaluation](docs/evaluation.md#offline-automatic-engine-replay).
 - A paired benchmark harness and task proposal support evaluation planning. The recorded smoke checks harness mechanics on installed Router 1.23.1 only, not this checkout or an engine comparison. No quality, exposure or savings gate is established.
+
+### Changed
+
+- When eligible auto candidates have equal estimated cost and neither is the incumbent, choose the lower sufficient declared capability before config order. The mode's demand margin supplies headroom rather than a tie preference.
+
+### Upgrade
+
+Restart Claude Code after updating. Existing table routing remains the default; automatic routing and shadow collection require explicit opt-in.
 
 ## 1.23.1 (2026-11-15)
 
@@ -334,7 +342,7 @@ The Now tab shows this session and today instead of the last 30 replies, a windo
 
 ## 1.12.0 (2026-10-13)
 
-The Usage tab now shows any period, not only this session and the time since the last reset. See [Compare routing with your model](docs/user-guide.md#compare-routing-with-your-model).
+The Usage tab now shows any period, not only this session and the time since the last reset. See [Compare routing with no routing](docs/user-guide.md#compare-routing-with-no-routing).
 
 ### Added
 
