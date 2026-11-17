@@ -62,6 +62,7 @@ test('same-route micro adoption lets low votes and mid-turn review upgrade the r
       jevResponse('low', { micro: 0.2, low: 0.57, medium: 0.13, high: 0.1 }, 0, { code: 1 }, 'produce'),
     );
     await h.event('session.start', { cwd: '/fixture' });
+    await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
     const native = { ...step, model: 'deepseek-flash[1m]', effort: 'low' };
     await h.event('turn.start', { turnId: 'micro', text: 'Synthetic task' });
     h.messages(async () => [user('one')]);
