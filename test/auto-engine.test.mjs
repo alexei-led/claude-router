@@ -226,7 +226,14 @@ test('target outcome precedence and unknowns, including level zero and empty map
     ['empty map unknown', { a: model(1, 3, { capability: {} }), b: model(null, 1) }, 0, 'b', 'unknown-only', null],
     ['zero is known', { a: model(null, 0.01), b: model(0) }, 0, 'b', 'meets-demand', 0],
     ['adequate cheapest not strongest', { a: model(3, 4), b: model(2, 1) }, 2, 'b', 'meets-demand', 2],
-    ['higher capability breaks equal estimate', { a: model(1), b: model(2), c: model(3) }, 2, 'c', 'meets-demand', 3],
+    [
+      'lower sufficient capability breaks equal estimate',
+      { a: model(1), c: model(3), b: model(2) },
+      2,
+      'b',
+      'meets-demand',
+      2,
+    ],
     ['config order last tie', { a: model(1), b: model(2), c: model(2) }, 2, 'b', 'meets-demand', 2],
   ]) {
     const { target } = targetFor(config(models), demand);
@@ -252,6 +259,37 @@ test('equal estimates retain the incumbent in ALL modes, even against higher cap
       assert.equal(target.route.model, incumbent, mode);
     }
   }
+});
+
+test('equal estimated same-model efforts prefer least sufficient unless the incumbent qualifies', () => {
+  const cfg = config({
+    a: model(1),
+    shared: model(null, 1, { efforts: ['high', 'medium'], capability: { medium: 2, high: 3 } }),
+  });
+  const f = facts({ lastRequest: { tokens: 1000, outputTokens: 1200 } });
+  for (const [incumbent, mode, expected] of [
+    [route('a'), 'balanced', 'medium'],
+    [route('shared', 'high'), 'balanced', 'high'],
+    [route('a'), 'quality', 'high'],
+  ]) {
+    const candidates = assessCandidates({ config: cfg, incumbent, facts: f, now: T0 });
+    const efforts = candidates.filter((candidate) => candidate.route.model === 'shared');
+    assert.deepEqual(efforts[0].estimate, efforts[1].estimate);
+    assert.equal(selectTarget({ candidates, demand: 2, mode }).route.effort, expected);
+  }
+  const candidates = assessCandidates({ config: cfg, incumbent: route('a'), facts: f, now: T0 }).filter(
+    (candidate) => candidate.route.model === 'shared',
+  );
+  assert.equal(selectTarget({ candidates, demand: 2 }).route.effort, 'medium');
+});
+
+test('escalation ties prefer the least sufficient strictly stronger effort', () => {
+  const cfg = config({
+    shared: model(null, 1, { efforts: ['low', 'high', 'medium'], capability: { low: 1, medium: 2, high: 3 } }),
+  });
+  const candidates = assessCandidates({ config: cfg, incumbent: route('shared', 'low'), facts: facts(), now: T0 });
+  const target = selectTarget({ candidates, demand: 2, escalation: true });
+  assert.deepEqual([target.route.effort, target.capability, target.reason], ['medium', 2, 'escalation']);
 });
 
 test('mode capability monotonicity over differing prices, sparse capabilities, unknowns and incumbent ties', () => {
