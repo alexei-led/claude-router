@@ -127,19 +127,21 @@ Missing counters remain unknown. See [provider acceptance checks](evaluation.md#
 
 ## Routing engine
 
-Set `"routingEngine": "shadow"` in the selected profile file to record one-step automatic-routing proposals alongside
-the table's decisions. The default, `"table"`, does not run the automatic engine. Shadow uses the real incumbent and
-cache for each proposal; the table still chooses every request. The Now pane and `/router decisions` show demand,
-target, capability (or unknown), outcome and a next-turn cost estimate. Shadow requests no extra classifier advice.
-The proposal is not a prediction of a stateful automatic-routing session.
+Set `routingEngine` in the selected profile file (`router.json` or `<provider>-router.json`); the default is `table`.
+For example, set `{"routingEngine":"shadow"}` or `{"routingEngine":"auto"}`; omit the key to use `table`.
+The engine is selected in this file, not by a `/router` command.
 
-Set `"routingEngine": "auto"` to opt in to stateful automatic routing. It selects from the configured model and
-effort catalog using demand, a mode margin, hard constraints and observed cache economics. It does not use route
-tables or mode policy patches. Tier pins override demand for one turn without a margin, but still obey hard constraints.
-If no candidate fits, the original native request runs with reason `no-route-native`. Auto quality evaluation and
-default cutover remain pending; see [evaluation](evaluation.md). After an observed fallback, the rest of its turn
-stays native. The next turn can re-enter an eligible target without confidence, dwell or payback gates; hard constraints
-and the cash cap still apply, and escalation holds survive. The three values are case-sensitive.
+- **`table` (default):** the deterministic tier-by-activity routes are used. Routing modes transform those routes before the table policy.
+- **`shadow`:** the table still sends every request. The automatic engine records one-step proposals against the real incumbent and cache, without keeping a separate route history or asking the classifier again. The Now pane and `/router decisions` show demand, target, capability (or unknown), outcome and a next-turn estimate. While shadow is enabled, the main-turn hook also records bounded replay traces. Export with `/router trace export`; for the work profile (`CLAUDE_CONFIG_DIR=~/.claude-team`) the file is `~/.claude-team/router-traces.json`. Pass all export files to `node scripts/replay-traces.mjs`. Replay checks table fidelity first; evaluation and exposure gates remain unestablished. See [evaluation](evaluation.md#replay-trace-recorder).
+- **`auto`:** the stateful engine selects each main-turn model and effort from the configured catalog using classifier demand, a mode margin, and hard/cache constraints. It does not use route tables or mode policy patches. Tier pins set exact demand for one turn, without a mode margin, and still obey hard constraints. A first routed decision can move from a known below-requirement native model to a declared qualifying candidate under the normal switch-tax and cash gates; failures can escalate to stronger eligible candidates. Demand, votes, holds and routed demand persist across turns. If no eligible candidate fits, the native request is kept with reason `no-route-native`; after an observed provider fallback, the rest of that turn stays native, and the next turn can re-enter an eligible route.
+
+Auto asks the active classifier for demand. Configure a classifier credential when the provider requires a key; local Ollama needs no key. With no classifier advice, auto has no demand signal and holds its route, though a qualifying startup decision from the initial baseline may still occur.
+
+Auto is only as useful as the profile's per-effort `models.<alias>.capability` declarations: unknown is not zero or proof of adequacy. Anthropic has user-derived balanced base-route seeds; other provider presets remain unknown. See [capability evidence](providers.md#capability-evidence).
+
+Auto decision rows show demand, target, outcome and move reasons such as `startup`, `upgrade`, `escalation`, `same-route`, `reentry` and `no-route-native`.
+
+`/router auto` turns routing on for the session; `/router off` turns it off. Neither changes `routingEngine`. `/router mode cost|balanced|quality` selects the mode, and `/router pin <tier>` pins one turn. Evaluation and default cutover remain pending; see [evaluation](evaluation.md). Engine values are case-sensitive.
 
 ## Built-in defaults
 
