@@ -182,8 +182,48 @@ test('provider pane reset uses provider defaults and identifies its selected fil
   assert.equal(JSON.parse(h.files.get('/fixture/team/zai-router.json')).routes.low.model, 'glm');
 });
 
-test('every built-in preset explicitly leaves uncalibrated capabilities unknown', () => {
-  for (const provider of ['anthropic', 'deepseek', 'zai', 'minimax', 'mimo', 'kimi']) {
+test('Anthropic seeds only inherited balanced base policy capabilities', () => {
+  const config = loadConfig({ provider: 'anthropic' });
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(config.models).map(([alias, model]) => [alias, model.capability])),
+    {
+      fable: {},
+      opus: { medium: 2, xhigh: 3 },
+      sonnet: {},
+      haiku: { medium: 0, high: 1 },
+    },
+  );
+  assert.deepEqual(config.routes, {
+    high: { model: 'opus', effort: 'xhigh' },
+    medium: { model: 'opus', effort: 'medium' },
+    low: { model: 'haiku', effort: 'high' },
+    micro: { model: 'haiku', effort: 'medium' },
+  });
+  for (const [tier, rank] of [
+    ['micro', 0],
+    ['low', 1],
+    ['medium', 2],
+    ['high', 3],
+  ]) {
+    const route = resolveRoute(config, tier);
+    assert.equal(config.models[route.model].capability[route.effort], rank);
+  }
+  assert.equal(config.models.opus.capability.high, undefined);
+  assert.equal(config.models.haiku.capability.low, undefined);
+  for (const alias of ['haiku', 'opus']) {
+    assert.equal(
+      loadConfig({ userFile: { models: { [alias]: { id: 'custom-model' } } } }).models[alias].capability,
+      undefined,
+    );
+    assert.deepEqual(
+      loadConfig({ userFile: { models: { [alias]: { capability: {} } } } }).models[alias].capability,
+      {},
+    );
+  }
+});
+
+test('other built-in presets leave all capabilities unknown', () => {
+  for (const provider of ['deepseek', 'zai', 'minimax', 'mimo', 'kimi']) {
     for (const model of Object.values(loadConfig({ provider }).models)) {
       assert.deepEqual(model.capability, {}, `${provider}: ${model.id}`);
     }
