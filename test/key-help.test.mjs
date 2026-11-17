@@ -22,6 +22,34 @@ test('the plugin id is name@marketplace for an installed plugin, else its name',
   assert.equal(pluginIdOf({ name: 'router', root: undefined }), 'router');
 });
 
+test('a folder install takes its id from settings’ enabledPlugins, when one key names it', () => {
+  const folder = { name: 'router', root: '/work/claude-router' };
+  assert.equal(pluginIdOf(folder, { 'router@router-preview': true, 'other@x': true }), 'router@router-preview');
+  // `--plugin-dir` loads are `@inline`, which the CLI cannot configure.
+  assert.equal(pluginIdOf(folder, { 'router@inline': true, 'router@router-preview': true }), 'router@router-preview');
+  // Two candidates, none, or no settings: the bare name.
+  assert.equal(pluginIdOf(folder, { 'router@a': true, 'router@b': true }), 'router');
+  assert.equal(pluginIdOf(folder, {}), 'router');
+  assert.equal(pluginIdOf(folder, null), 'router');
+  // Anything but word characters, dots, @ and - falls back to the name: nothing to quote in the command.
+  assert.equal(pluginIdOf(folder, { "router@x'; rm -rf ~": true }), 'router');
+  assert.equal(pluginIdOf({ name: 'router', root: '/h/.claude/plugins/cache/a b/router/1' }), 'router');
+});
+
+test('the key help adds a line on the full name only when the id has no marketplace', () => {
+  assert.equal(keyHelpOf(DEFAULTS, 'jev', ID).note, null);
+  assert.equal(
+    keyHelpOf(DEFAULTS, 'jev', 'router').note,
+    'If the command says the plugin is not found, use the full name shown by /plugin (name@marketplace).',
+  );
+});
+
+test('an edit says Change instead of Add', () => {
+  assert.equal(keyHelpOf(DEFAULTS, 'jev', ID, { edit: true }).title, 'Change the Jev key');
+  assert.equal(keyHelpOf(DEFAULTS, 'openai', ID, { edit: true }).title, 'Change the OpenAI key');
+  assert.equal(keyHelpOf(DEFAULTS, 'clef', ID, { edit: true }).title, 'Change the Cloudflare token and account ID');
+});
+
 test('the key help names each option the classifier reads, hides the secret and saves through --values-stdin', () => {
   const jev = keyHelpOf(DEFAULTS, 'jev', ID);
   assert.equal(jev.title, 'Add the Jev key');
@@ -40,7 +68,7 @@ test('the key help names each option the classifier reads, hides the secret and 
   );
   for (const help of [jev, openai, clef]) {
     assert.equal(help.alternative, `Or run claude in a terminal and type /plugin configure ${ID}`);
-    assert.equal(help.reload, 'Then run /reload-plugins.');
+    assert.equal(help.reload, 'Then run /reload-plugins and press Done.');
     assert.doesNotMatch(JSON.stringify(help), /undefined|NaN/);
   }
   assert.equal(keyHelpOf(DEFAULTS, 'ollama', ID), null);
@@ -58,7 +86,7 @@ test('a graphical Set up opens the key help and runs no command; the terminal’
     assert.equal(setUp.props.hotkey, 'k', surface);
     await setUp.props.onPress({ surface });
     assert.equal(h.commandCalls(), 0, surface);
-    assert.equal(h.view().keyHelp, 'jev', surface);
+    assert.deepEqual(h.view().keyHelp, { id: 'jev', edit: false }, surface);
     const tree = await pane(h, surface);
     assert.deepEqual(duplicates(tree), { keys: [], hotkeys: [] }, surface);
     const [code] = find(tree, (node) => node.type === 'Code');
@@ -83,7 +111,7 @@ test('a graphical row’s Set up opens the help for its own classifier', async (
   await start(h);
   await keyed(await pane(h, 'desktop'), 'tab-classifier')[0].props.onPress({ surface: 'desktop' });
   await keyed(await pane(h, 'desktop'), 'key-openai')[0].props.onPress({ surface: 'desktop' });
-  assert.equal(h.view().keyHelp, 'openai');
+  assert.deepEqual(h.view().keyHelp, { id: 'openai', edit: false });
   assert.equal(h.commandCalls(), 0);
   const tree = await pane(h, 'desktop');
   assert.match(find(tree, (node) => node.type === 'Code')[0].props.source, /"openai_api_key":"%s"/);
@@ -132,5 +160,43 @@ test('the band’s Set up on a graphical surface opens the pane on the key help'
     .find((node) => node.key === 'band-key')
     .onPress({ surface: 'desktop' });
   assert.equal(h.commandCalls(), 0);
-  assert.equal(h.view().keyHelp, 'jev');
+  assert.deepEqual(h.view().keyHelp, { id: 'jev', edit: false });
+});
+
+test('Edit credentials with the key present opens the change card, which stays until Done', async () => {
+  const h = harness({ typesafe_api_key: 'synthetic-key' });
+  h.settings({ enabledPlugins: { 'router@router-preview': true } });
+  await start(h);
+  await keyed(await pane(h, 'desktop'), 'tab-classifier')[0].props.onPress({ surface: 'desktop' });
+  const [edit] = keyed(await pane(h, 'desktop'), 'key');
+  assert.equal(edit.props.hotkey, 'k');
+  await edit.props.onPress({ surface: 'desktop' });
+  assert.equal(h.commandCalls(), 0);
+  assert.deepEqual(h.view().keyHelp, { id: 'jev', edit: true });
+  for (let i = 0; i < 2; i += 1) {
+    const tree = await pane(h, 'desktop');
+    assert.ok(texts(tree).includes('Change the Jev key'));
+    // The id comes from settings when the install path names no marketplace.
+    assert.match(find(tree, (node) => node.type === 'Code')[0].props.source, /configure router@router-preview /);
+    assert.ok(!texts(tree).some((line) => /use the full name/.test(line)));
+    assert.deepEqual(duplicates(tree), { keys: [], hotkeys: [] });
+  }
+  await keyed(await pane(h, 'desktop'), 'key-help-copy')[0].props.onPress({ surface: 'desktop' });
+  assert.match(h.copied.at(-1).text, /configure router@router-preview --values-stdin/);
+  await keyed(await pane(h, 'desktop'), 'key-help-done')[0].props.onPress({ surface: 'desktop' });
+  assert.equal(h.view().keyHelp, null);
+  assert.equal(keyed(await pane(h, 'desktop'), 'key-help-copy').length, 0);
+});
+
+test('with no marketplace anywhere the card keeps the bare name and says how to find the full one', async () => {
+  const h = harness();
+  await start(h);
+  await keyed(await pane(h, 'desktop'), 'key')[0].props.onPress({ surface: 'desktop' });
+  const tree = await pane(h, 'desktop');
+  assert.match(find(tree, (node) => node.type === 'Code')[0].props.source, /configure router --values-stdin/);
+  assert.ok(
+    texts(tree).includes(
+      'If the command says the plugin is not found, use the full name shown by /plugin (name@marketplace).',
+    ),
+  );
 });

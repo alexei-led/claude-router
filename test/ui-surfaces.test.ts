@@ -166,7 +166,8 @@ test('desktop, vscode and mobile: the key help card mounts, and Set up runs no c
     let pane = await mount();
     await pane.press({ key: 'key' });
     await pane.unmount();
-    if ((state.view as unknown as { keyHelp?: string }).keyHelp !== 'jev') problems.push(`${surface}: no key help`);
+    if ((state.view as unknown as { keyHelp?: { id: string } }).keyHelp?.id !== 'jev')
+      problems.push(`${surface}: no key help`);
     pane = await mount();
     const said = await refusal(pane);
     if (said) problems.push(`${surface}: ${said}`);

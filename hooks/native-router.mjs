@@ -1046,7 +1046,20 @@ async function keySetup($, router, press, id) {
     openKeySettings($);
     return $.ui.close({ id: PANE });
   }
-  await updateView($, router, { keyHelp: id ?? router.config.classifier, notice: null });
+  await updateView($, router, { keyHelp: keyHelpFor(router, id ?? router.config.classifier), notice: null });
+}
+
+// The key help to open for classifier `id`: an Edit, when nothing is missing, stays open until Done.
+const keyHelpFor = (router, id) => ({
+  id,
+  edit: !missingCredentials(router.config, router.view ?? {}, id),
+});
+
+// The plugin's id for `claude plugin configure`: from its install path, else settings' enabledPlugins.
+async function pluginIdFor($) {
+  const plugin = { name: $.plugin.name, root: $.plugin.root };
+  const settings = await $.settings.read().catch(() => ({}));
+  return pluginIdOf(plugin, settings?.enabledPlugins ?? null);
 }
 
 // The pane's credential handlers: Set up or Edit, and the key help's Copy command and Done.
@@ -1054,11 +1067,8 @@ function keyActions($, router, view) {
   return {
     key: (press, id) => keySetup($, router, press, id),
     copyKeyHelp: async (press) => {
-      const help = keyHelpOf(
-        router.config,
-        (router.view ?? view).keyHelp,
-        pluginIdOf({ name: $.plugin.name, root: $.plugin.root }),
-      );
+      const open = (router.view ?? view).keyHelp;
+      const help = open && keyHelpOf(router.config, open.id, await pluginIdFor($), { edit: open.edit });
       if (!help) return;
       await $.ui.copy({ text: help.command, surface: press?.surface });
       await updateView($, router, { notice: 'Copied' });
@@ -3148,7 +3158,7 @@ export function register(on, options) {
               key: async (press) => {
                 if (!isGraphical(press?.surface ?? e.surface)) return openKeySettings($);
                 await openPane($, router);
-                await updateView($, router, { keyHelp: router.config.classifier });
+                await updateView($, router, { keyHelp: keyHelpFor(router, router.config.classifier) });
               },
               toggleDetail: () => toggleBandDetail($, router, view),
             },
@@ -3158,10 +3168,13 @@ export function register(on, options) {
     }
     view.decisionRows = await paneDecisionRows($, router);
     router.paneSurface = e.surface;
-    // The key help closes by itself once the credentials it asks for are there.
+    // A Set up's key help closes by itself once the credentials it asks for are there; an Edit's waits for Done.
+    const open = view.keyHelp;
     if (
-      view.keyHelp &&
-      (!router.config.classifiers[view.keyHelp] || !missingCredentials(router.config, view, view.keyHelp))
+      open &&
+      (typeof open !== 'object' ||
+        !router.config.classifiers[open.id] ||
+        (!open.edit && !missingCredentials(router.config, view, open.id)))
     ) {
       view.keyHelp = null;
       await updateView($, router, { keyHelp: null });
@@ -3174,7 +3187,7 @@ export function register(on, options) {
       modelOptions,
       columns: e.props.bodyColumns,
       surface: e.surface,
-      pluginId: pluginIdOf({ name: $.plugin.name, root: $.plugin.root }),
+      pluginId: pluginIdOf({ name: $.plugin.name, root: $.plugin.root }, settings?.enabledPlugins ?? null),
     });
   });
 }
