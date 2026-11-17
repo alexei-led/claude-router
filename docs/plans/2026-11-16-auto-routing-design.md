@@ -97,10 +97,12 @@ unknowns. Escalation uses the stronger-only search below, even at maximum demand
    last reply's length, from the existing `nextTurnRange`/`switchEconomics` math. It is named as an estimate, not as
    expected turn cost;
 2. on an equal estimate, the incumbent;
-3. then higher declared capability;
+3. then lower declared capability (the least sufficient candidate);
 4. then the order of `models` in config (deterministic).
 
-The mode acts only through the requirement. It never overrides the incumbent preference.
+The estimate is effort-blind: it freezes output at the last reply's length and does not model extra thinking tokens.
+Least-sufficient selection avoids favoring higher effort with unseen thinking-token costs. The mode provides headroom
+only through the requirement; it never overrides the incumbent preference.
 
 **Escalation target.** A failure must not select a cheaper, weaker request merely because it meets the raised
 requirement. After applying every candidate-local hard constraint, replace normal target selection with:
@@ -329,7 +331,9 @@ Steps 1–4 change nothing for users on the default.
 - Shadow is a one-step proposal against the real incumbent; stateful simulation is offline replay only (round 1).
 - Unexplained fidelity mismatches block evaluation; incomplete and capped coverage are reported separately (round 2, bounded-storage amendment).
 - The benchmark is a smoke gate, not proof of non-inferiority (rounds 1–2).
-- One tie-break order for all modes; the mode acts only through the requirement (round 3).
+- One tie-break order for all modes; the mode provides headroom only through the requirement. After an equal
+  estimate and incumbent preference, least-sufficient capability avoids favoring unseen thinking-token costs that
+  the effort-blind estimate does not model (round 3; revised tie order).
 - Moves compare against routed demand, so a blocked move stays pending with its original evidence (round 3).
 - Bounded replay storage uses the host store rather than an unbounded event file or runtime subprocess:
   30-day retention, 128 KiB per session, 1 MiB total trace budget and a measured 3 MiB store guard.
