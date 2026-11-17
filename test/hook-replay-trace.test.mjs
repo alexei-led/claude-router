@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { evaluateReplay } from '../lib/replay.mjs';
 import { TRACE_ACTIVE_MS, TRACE_PREFIX, TRACE_RETAIN_MS, traceBytes, usableTrace } from '../lib/replay-trace.mjs';
 import { chooseRoute, continueRoute, observeResponse, prepareLoop } from '../lib/route.mjs';
 import { answering, CONFIG, drain, harness, JEV_KEY, press, step } from './harness.mjs';
@@ -13,8 +14,9 @@ function setup(config = {}, preferences = new Map()) {
   answering(h, answer);
   return h;
 }
-async function begin(h) {
+async function begin(h, source = 'startup') {
   await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.SessionStart', { source, session_id: 's1' });
 }
 async function turn(h, id = 't1', messages = [user('Synthetic task.')]) {
   await h.event('turn.start', { turnId: id, text: 'Synthetic task.' });
@@ -41,6 +43,135 @@ test('real shadow hooks record a usable sequence, request correlation and narrow
   assert.equal(trace.events[0].config.models.opus.input, 4);
   assert.equal(trace.events[0].loop.requests, 0);
   assert.equal(trace.active, true);
+});
+
+test('startup with injected messages records and exports a usable first request', async () => {
+  const h = setup();
+  await begin(h);
+  await turn(
+    h,
+    'first',
+    Array.from({ length: 17 }, (_, i) => user(`injected ${i}`)),
+  );
+  const trace = record(h);
+  assert.equal(trace.events.find((event) => event.type === 'request').messageCount, 17);
+  assert.equal(usableTrace(trace), true);
+  assert.match((await h.event('command.run', { command: 'router', args: 'trace export' })).text, /Exported 1/);
+  const exported = JSON.parse(h.files.get('/fixture/team/router-traces.json'));
+  assert.deepEqual(exported.sessions[`${TRACE_PREFIX}s1`], JSON.parse(JSON.stringify(trace)));
+  assert.equal(evaluateReplay([exported]).fidelity.passed, true);
+});
+
+test('classic startup before Mod session.start still records a usable first request with 17 messages', async () => {
+  const h = setup();
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
+  await h.event('session.start', { cwd: '/fixture' });
+  await turn(
+    h,
+    'first',
+    Array.from({ length: 17 }, () => user('injected')),
+  );
+  assert.equal(usableTrace(record(h)), true);
+});
+
+test('resume and unknown lifecycle are incomplete even without persisted records', async () => {
+  for (const source of ['resume', 'fork', 'compact', 'unknown', null]) {
+    const h = setup();
+    if (source === null) await h.event('session.start', { cwd: '/fixture' });
+    else await begin(h, source);
+    await turn(
+      h,
+      'first',
+      Array.from({ length: 17 }, () => user('message')),
+    );
+    assert.equal(usableTrace(record(h)), false, source);
+    assert.ok(record(h).incomplete.includes('mid-session'), source);
+  }
+});
+
+test('fresh lifecycle cannot override existing loop or trace', async () => {
+  const original = setup();
+  await begin(original);
+  await turn(original);
+  for (const kind of ['loop', 'trace']) {
+    const h = setup({}, kind === 'trace' ? new Map(original.preferences) : new Map());
+    if (kind === 'loop') for (const [key, value] of original.state) h.state.set(key, structuredClone(value));
+    await begin(h);
+    await turn(
+      h,
+      'next',
+      Array.from({ length: 17 }, () => user('message')),
+    );
+    assert.equal(usableTrace(record(h)), false, kind);
+  }
+});
+
+test('stale sources, duplicate starts and session switches cannot reuse freshness', async () => {
+  for (const boundary of ['mismatch', 'switch', 'duplicate', 'restart', 'resume-switch']) {
+    const h = setup();
+    await begin(h);
+    if (boundary === 'mismatch') await h.event('classic.SessionStart', { source: 'startup', session_id: 'other' });
+    if (boundary === 'switch') h.clear('s2');
+    if (boundary === 'duplicate') await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
+    if (boundary === 'restart') await h.event('session.start', { cwd: '/fixture' });
+    if (boundary === 'resume-switch') {
+      await h.event('session.end', { reason: 'resume', sessionId: 's1' });
+      h.clear('s2');
+      await h.event('classic.SessionStart', { source: 'resume', session_id: 's2' });
+    }
+    await turn(h);
+    assert.equal(usableTrace(record(h, ['switch', 'resume-switch'].includes(boundary) ? 's2' : 's1')), false, boundary);
+  }
+});
+
+test('first table request consumes freshness before shadow is enabled', async () => {
+  const h = setup({ routingEngine: 'table' });
+  await begin(h);
+  await turn(h);
+  h.state.delete('loops:main');
+  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', activityRouting: 'off' }));
+  await h.event('command.run', { command: 'router', args: 'activities off' });
+  await turn(h, 'after-enable');
+  assert.equal(usableTrace(record(h)), false);
+  assert.ok(record(h).incomplete.includes('mid-session'));
+});
+
+test('compaction before the first recorded request is not fresh history', async () => {
+  const h = setup();
+  await begin(h);
+  await h.event('session.compact', { trigger: 'auto' });
+  await turn(h);
+  assert.equal(usableTrace(record(h)), false);
+});
+
+test('reload without session.start does not create a trace', async () => {
+  const h = setup();
+  await turn(
+    h,
+    'reload',
+    Array.from({ length: 17 }, () => user('message')),
+  );
+  assert.equal(record(h), undefined);
+});
+
+test('clear starts a fresh session and compaction retains a replay reset', async () => {
+  const h = setup();
+  await begin(h);
+  await turn(h);
+  await h.event('session.compact', { trigger: 'auto' });
+  await h.event('classic.SessionStart', { source: 'compact', session_id: 's1' });
+  await turn(h, 'after-compact');
+  assert.equal(usableTrace(record(h)), true);
+  assert.ok(record(h).events.some((event) => event.type === 'reset' && event.cause === 'compact'));
+  await h.event('session.end', { reason: 'clear', sessionId: 's1' });
+  h.clear('s2');
+  await h.event('classic.SessionStart', { source: 'clear', session_id: 's2' });
+  await turn(
+    h,
+    'after-clear',
+    Array.from({ length: 17 }, () => user('message')),
+  );
+  assert.equal(usableTrace(record(h, 's2')), true);
 });
 
 test('privacy canaries in prompt/tool/path/key/classifier URL and accidental objects never reach store/export', async () => {
