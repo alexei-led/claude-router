@@ -27,7 +27,14 @@ test('a folder install takes its id from settings’ enabledPlugins, when one ke
   assert.equal(pluginIdOf(folder, { 'router@router-preview': true, 'other@x': true }), 'router@router-preview');
   // `--plugin-dir` loads are `@inline`, which the CLI cannot configure.
   assert.equal(pluginIdOf(folder, { 'router@inline': true, 'router@router-preview': true }), 'router@router-preview');
-  // Two candidates, none, or no settings: the bare name.
+  // A disabled earlier install is no candidate: the enabled one names the plugin.
+  assert.equal(
+    pluginIdOf(folder, { 'router@alexei-led-claude-router': false, 'router@router-preview': true }),
+    'router@router-preview',
+  );
+  assert.equal(pluginIdOf(folder, { 'router@a': null, 'router@b': ['x'] }), 'router@b');
+  // Two enabled candidates, none, or no settings: the bare name.
+  assert.equal(pluginIdOf(folder, { 'router@a': false, 'router@b': false }), 'router');
   assert.equal(pluginIdOf(folder, { 'router@a': true, 'router@b': true }), 'router');
   assert.equal(pluginIdOf(folder, {}), 'router');
   assert.equal(pluginIdOf(folder, null), 'router');
@@ -199,4 +206,33 @@ test('with no marketplace anywhere the card keeps the bare name and says how to 
       'If the command says the plugin is not found, use the full name shown by /plugin (name@marketplace).',
     ),
   );
+});
+
+// The title's status says the classifier needs attention only while a notice states its error.
+const titleOf = (tree) => {
+  const status = find(
+    tree,
+    (node) => node.type === 'Text' && /needs attention| ready/.test(String(node.props.children)),
+  );
+  return status.map((node) => node.props.children);
+};
+
+test('an open Edit card leaves the title ready; an open Set up card says the classifier needs attention', async () => {
+  const present = harness({ typesafe_api_key: 'synthetic-key' });
+  await start(present);
+  await keyed(await pane(present, 'desktop'), 'tab-classifier')[0].props.onPress({ surface: 'desktop' });
+  await keyed(await pane(present, 'desktop'), 'key')[0].props.onPress({ surface: 'desktop' });
+  const editing = await pane(present, 'desktop');
+  assert.equal(keyed(editing, 'key-help-copy').length, 1);
+  assert.ok(!titleOf(editing).some((text) => /needs attention/.test(text)), titleOf(editing).join(' | '));
+  assert.ok(
+    titleOf(editing).some((text) => /^Jev ready/.test(text)),
+    titleOf(editing).join(' | '),
+  );
+  const missing = harness();
+  await start(missing);
+  await keyed(await pane(missing, 'desktop'), 'key')[0].props.onPress({ surface: 'desktop' });
+  const setUp = await pane(missing, 'desktop');
+  assert.equal(keyed(setUp, 'key-help-copy').length, 1);
+  assert.ok(titleOf(setUp).includes('Jev needs attention'), titleOf(setUp).join(' | '));
 });
