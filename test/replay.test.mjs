@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { readDecisions } from '../lib/decisions.mjs';
 import { observedActivity, progressEvidence, routingBucket } from '../lib/facts.mjs';
 import { evaluateReplay, replayAuto, replayTable } from '../lib/replay.mjs';
 import { observedFromTrace, TRACE_PREFIX } from '../lib/replay-trace.mjs';
@@ -15,6 +16,7 @@ async function capture({ controls = false, continuations = false } = {}) {
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 } }));
   answering(h, jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'));
   await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   for (let i = 0; i < 4; i++) {
     const turnId = `t${i}`;
     if (controls && i === 1) {
@@ -36,6 +38,85 @@ async function capture({ controls = false, continuations = false } = {}) {
   return h.preferences.get(`${TRACE_PREFIX}s1`);
 }
 
+test('same-route micro adoption lets low votes and mid-turn review upgrade the real DeepSeek request', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
+  const runs = [];
+  const states = [];
+  for (const routingEngine of ['shadow', 'auto']) {
+    const h = harness(JEV_KEY);
+    h.env.set('CLAUDE_ROUTER_PROVIDER', 'deepseek');
+    h.files.set(
+      '/fixture/team/deepseek-router.json',
+      JSON.stringify({
+        routingEngine,
+        baselineTier: 'low',
+        models: { flash: { capability: { low: 0, high: 2, max: 3 } } },
+        policy: { reviewEveryRequests: 1 },
+      }),
+    );
+    h.model('deepseek-flash[1m]');
+    h.settings({ availableModels: ['deepseek-flash[1m]'] });
+    const calls = answering(
+      h,
+      jevResponse('micro', { micro: 0.95, low: 0.05 }, 0, { code: 1 }, 'produce'),
+      jevResponse('low', { micro: 0.2, low: 0.57, medium: 0.13, high: 0.1 }, 0, { code: 1 }, 'produce'),
+    );
+    await h.event('session.start', { cwd: '/fixture' });
+    await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
+    const native = { ...step, model: 'deepseek-flash[1m]', effort: 'low' };
+    await h.event('turn.start', { turnId: 'micro', text: 'Synthetic task' });
+    h.messages(async () => [user('one')]);
+    await drain(h.step({ ...native, turnId: 'micro' }));
+    const micro = structuredClone(h.loop());
+    await h.event('turn.complete', { turnId: 'micro' });
+    await h.event('turn.start', { turnId: 'low', text: 'Synthetic task' });
+    h.messages(async () => [user('one'), assistant('done'), user('next')]);
+    for (const index of [0, 1, 2]) {
+      await drain(h.step({ ...native, turnId: 'low', index, messageCount: 3 }));
+      await new Promise(setImmediate);
+      if (routingEngine === 'auto') states.push(structuredClone(h.loop()));
+    }
+    await h.event('turn.complete', { turnId: 'low' });
+    assert.equal(calls.length, 3);
+    runs.push({ h, micro });
+  }
+  const live = runs[1];
+  assert.deepEqual(
+    live.h.requests.map(({ model, effort }) => ({ model, effort })),
+    ['low', 'low', 'low', 'high'].map((effort) => ({ model: 'deepseek-flash[1m]', effort })),
+  );
+  assert.equal(live.micro.auto.state.demand, 0);
+  assert.equal(live.micro.auto.state.routedDemand, 0);
+  assert.equal(live.micro.decision.reason, 'same-route');
+  assert.equal(states[0].auto.state.demand, 0);
+  assert.deepEqual(states[0].auto.state.votes, [0, 1]);
+  assert.equal(states[0].decision.auto.reason, 'upgrade-pending');
+  assert.deepEqual(states[0].switchedAt, live.micro.switchedAt);
+  assert.equal(states[2].auto.state.demand, 1);
+  assert.equal(states[2].auto.state.routedDemand, 1);
+  assert.deepEqual(states[2].auto.state.votes, [1, 1]);
+  const decisions = readDecisions(live.h.preferences.get('decisions:v1:s1')).rows;
+  const review = decisions.find((row) => row.kind === 'review');
+  assert.equal(review.reason, 'upgrade');
+  assert.equal(review.auto.demand, 1);
+  assert.equal(states[2].decision.reason, 'same-route');
+  const trace = runs[0].h.preferences.get(`${TRACE_PREFIX}s1`);
+  const table = replayTable(trace);
+  assert.deepEqual(table.mismatches, []);
+  const replayed = replayAuto(trace, table.rows);
+  assert.deepEqual(
+    replayed.map((row) => row.pair),
+    live.h.requests.map(({ model, effort }) => ({ model, effort: effort ?? null })),
+  );
+  assert.deepEqual(
+    replayed.map((row) => row.demand),
+    [0, 0, 0, 1],
+  );
+  assert.equal(replayed.at(-1).reason, 'same-route');
+  const report = evaluateReplay([exportOf(trace)]);
+  assert.equal(report.sessions[0].modes.balanced.auto.switches.moves, 1);
+});
+
 test('live auto and stateful replay agree on bounded multi-turn pin and forced refit', async (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
   const capabilities = {
@@ -53,6 +134,7 @@ test('live auto and stateful replay agree on bounded multi-turn pin and forced r
     );
     answering(h, jevResponse('high', { high: 1 }, 0, { code: 1 }, 'produce'));
     await h.event('session.start', { cwd: '/fixture' });
+    await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
     for (const turnId of ['t1', 't2']) {
       if (turnId === 't2') await h.event('command.run', { command: 'router', args: 'pin low' });
       await h.event('turn.start', { turnId, text: 'Synthetic task' });
@@ -96,6 +178,7 @@ test('live/replay no-route suspension and next-turn reentry agree, including pin
       );
       answering(h, jevResponse('high', { high: 1 }, 0, { code: 1 }, 'produce'));
       await h.event('session.start', { cwd: '/fixture' });
+      await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
       for (const turnId of ['normal', 'external', 'reentry']) {
         h.settings({ availableModels: turnId === 'external' ? [] : ['haiku', 'sonnet', 'opus'] });
         if (pinned && turnId === 'external') await h.event('command.run', { command: 'router', args: 'pin low' });
@@ -141,6 +224,7 @@ test('live auto and replay both treat an allowlist expansion as catalog evidence
     );
     answering(h, jevResponse('high', { high: 1 }, 0, { code: 1 }, 'produce'));
     await h.event('session.start', { cwd: '/fixture' });
+    await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
     for (const [turnId, availableModels] of [
       ['limited', ['haiku']],
       ['expanded', ['haiku', 'opus']],
@@ -286,6 +370,7 @@ async function oneTurn(config = {}, response = null, continuationModel = null, m
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 }, ...config }));
   answering(h, answer ?? jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'));
   await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   h.messages(async () => [user('one')]);
   await drain(h.step(step, response));
@@ -413,6 +498,7 @@ test('malformed shadow-only image projection never breaks a pinned table continu
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow' }));
   await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('command.run', { command: 'router', args: 'pin high' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   h.messages(async () => [user('one')]);
@@ -465,6 +551,7 @@ test('rewind and mid-turn classifier reviews preserve sequential table fidelity'
     jevResponse('high', { high: 1 }, 1, { code: 1 }, 'produce'),
   );
   await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   let messages = [user('one')];
   h.messages(async () => messages);
@@ -493,6 +580,7 @@ test('a pinned continuation enforces context and resumes the pre-pin route next 
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', models: { haiku: { contextWindow: 200000 } } }));
   answering(h, jevResponse('low', { low: 1 }));
   await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('command.run', { command: 'router', args: 'pin low' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   h.messages(async () => [user('one')]);
@@ -545,6 +633,7 @@ test('bounded execute removal uses own activity evidence and reports effective d
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 } }));
   answering(h, jevResponse('medium', { medium: 1 }, 0, { code: 1 }, 'execute'));
   await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   h.messages(async () => [user('one')]);
   await drain(h.step(step));
@@ -602,6 +691,7 @@ test('checkpoint after an auto-only switch releases own pending downgrade on a c
     jevResponse('low', { low: 1 }, 1, { code: 1 }, 'produce'),
   );
   await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   let messages = [user('one')];
   h.messages(async () => messages);
@@ -640,6 +730,7 @@ test('cross-mode reversals are recognized before partitioning and attributed to 
   );
   answering(h, jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'));
   await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   for (let i = 0; i < 3; i++) {
     if (i) await h.event('command.run', { command: 'router', args: i === 1 ? 'mode quality' : 'mode cost' });
     const turnId = `t${i}`;
@@ -687,6 +778,7 @@ test('manual-only captured traffic is not engine exposure', async () => {
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow' }));
   await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('command.run', { command: 'router', args: 'off' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   await drain(h.step(step));
@@ -704,6 +796,7 @@ test('repeated failure captured at its occurrence raises independent demand once
   h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 } }));
   answering(h, jevResponse('low', { low: 1 }, 1, { code: 1 }, 'produce'));
   await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   let messages = [user('one')];
   h.messages(async () => messages);
@@ -742,6 +835,7 @@ test('manual interval breaks reversal pairing without losing either policy move'
   );
   answering(h, jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'));
   await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.SessionStart', { source: 'startup', session_id: 's1' });
   for (let i = 0; i < 5; i++) {
     if (i === 1) await h.event('command.run', { command: 'router', args: 'mode quality' });
     if (i === 2) await h.event('command.run', { command: 'router', args: 'off' });

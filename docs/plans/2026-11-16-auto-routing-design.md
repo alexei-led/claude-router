@@ -127,24 +127,27 @@ The target is a proposal. Whether the physical route changes this turn depends o
 the incumbent. Each case has a defined evidence input. The threshold formulas are today's; only their inputs are
 named here.
 
-**Routed demand.** The session keeps one more value: the demand level the incumbent route was chosen for, and the
-cause of the last change (`classifier`, `escalation`, `mode`, `catalog`, `forced`). It is set only when a move
-executes, and at session start. Every case below compares the current demand with **routed demand**, not with the
-previous turn's demand. So a blocked move stays pending without extra state. For example, demand rises to 3 while
-routed demand is 2 and the switch-tax bar blocks the upgrade. On the next turns the case is still "demand rose",
+**Routed demand.** The session keeps the effective demand level accepted by the incumbent route, and the
+cause of the last physical change (`classifier`, `escalation`, `mode`, `catalog`, `forced`, `reentry`).
+Routed demand is set at session start, when a move executes, and when the selected target is the same physical
+request (`same-route`). Same-route acceptance adopts the current effective demand, including zero, without a
+switch: `move: false`, hold, votes, failure markers and route cause remain unchanged. Pins, no-route,
+exhausted escalation and blocked moves do not adopt demand. Every case below compares the current demand with
+**routed demand**, not with the previous turn's demand. So a blocked move stays pending without extra state.
+For example, demand rises to 3 while routed demand is 2 and the switch-tax bar blocks the upgrade. On the next turns the case is still "demand rose",
 and the mass is recomputed from the current advice against routed demand 2. The pending move ends when it executes,
 when demand returns to routed demand, or when a forced or escalation move replaces it.
 
-| Why the target differs                                                       | Evidence and gate                                                                                                                                        |
-| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Incumbent origin is `external-fallback`, on the next main turn               | Re-entry to a different eligible target bypasses mass, dwell and payback. Hard constraints and cash cap still apply. An equal target clears origin; no eligible target continues native fallback. Re-entry sets routed demand and cause `reentry`, preserving escalation hold. |
-| Incumbent fails a hard constraint (context, images, availability)            | Forced move now. No confidence needed; dwell does not apply.                                                                                             |
-| New failure escalation or pending headroom selected a different request      | Move now to the stronger-only target above; not held by dwell, confidence or switch tax. Exhaustion stays with its explicit reason.                      |
-| Demand above routed demand                                                   | Upgrade mass = current classifier probability above routed demand (`massAbove`), against the upgrade bar that rises with the route-to-route switch tax.  |
-| Demand below routed demand                                                   | Support = current probability at or below demand (`massAtOrBelow`), against the downgrade bar with downgrade tax; same-task hold (`downAllowed`); dwell. |
-| Demand equals routed demand, target stronger, after a mode or catalog change | Mass 1: an explicit user or config choice, as `lateralMove` treats the base route (`lib/activity.mjs:109`). Gated by switch tax and cash cap only.       |
-| Demand equals routed demand, target stronger, any other cause                | No move. A stronger route at the same demand needs a demand change or an explicit choice.                                                                |
-| Demand equals routed demand, target cheaper                                  | Economics, as `lateralMove`'s down path: must pay back its cache write within `downgradeHorizonTurns`; same-task hold; dwell.                            |
+| Why the target differs                                                       | Evidence and gate                                                                                                                                                                                                                                                                                                                                             |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Incumbent origin is `external-fallback`, on the next main turn               | Re-entry to a different eligible target bypasses mass, dwell and payback. Hard constraints and cash cap still apply. An equal physical target accepts current effective demand and clears origin without a switch or cause change; no eligible target continues native fallback. Re-entry sets routed demand and cause `reentry`, preserving escalation hold. |
+| Incumbent fails a hard constraint (context, images, availability)            | Forced move now. No confidence needed; dwell does not apply.                                                                                                                                                                                                                                                                                                  |
+| New failure escalation or pending headroom selected a different request      | Move now to the stronger-only target above; not held by dwell, confidence or switch tax. Exhaustion stays with its explicit reason.                                                                                                                                                                                                                           |
+| Demand above routed demand                                                   | Upgrade mass = current classifier probability above routed demand (`massAbove`), against the upgrade bar that rises with the route-to-route switch tax.                                                                                                                                                                                                       |
+| Demand below routed demand                                                   | Support = current probability at or below demand (`massAtOrBelow`), against the downgrade bar with downgrade tax; same-task hold (`downAllowed`); dwell.                                                                                                                                                                                                      |
+| Demand equals routed demand, target stronger, after a mode or catalog change | Mass 1: an explicit user or config choice, as `lateralMove` treats the base route (`lib/activity.mjs:109`). Gated by switch tax and cash cap only.                                                                                                                                                                                                            |
+| Demand equals routed demand, target stronger, any other cause                | No move. A stronger route at the same demand needs a demand change or an explicit choice.                                                                                                                                                                                                                                                                     |
+| Demand equals routed demand, target cheaper                                  | Economics, as `lateralMove`'s down path: must pay back its cache write within `downgradeHorizonTurns`; same-task hold; dwell.                                                                                                                                                                                                                                 |
 
 Demand votes decide the demand change; they are not counted a second time in the move.
 
@@ -342,6 +345,9 @@ Steps 1–4 change nothing for users on the default.
   estimate and incumbent preference, least-sufficient capability avoids favoring unseen thinking-token costs that
   the effort-blind estimate does not model (round 3; revised tie order).
 - Moves compare against routed demand, so a blocked move stays pending with its original evidence (round 3).
+- A same-physical selected target accepts current effective demand without a switch, including a next-turn equal
+  external-fallback target. Route cause, holds and votes remain unchanged; pins and non-accepting stays do not
+  adopt demand. Runtime and offline replay share this transition.
 - Bounded replay storage uses the host store rather than an unbounded event file or runtime subprocess:
   30-day retention, 128 KiB per session, 1 MiB total trace budget and a measured 3 MiB store guard.
   Contiguous open prefixes are usable; capped turns remain separate; failed writes taint on next success;
