@@ -22,6 +22,7 @@ import {
   turnActivity,
 } from '../lib/activity-stats.mjs';
 import { advanceDemand, assessCandidates, initialAutoState, selectTarget } from '../lib/auto-engine.mjs';
+import { autoRoute, observeAutoFallback } from '../lib/auto-route.mjs';
 import { renderBand, switchToast } from '../lib/band.mjs';
 import { ClassifierClient } from '../lib/classifier-client.mjs';
 import { resolveCredentials } from '../lib/classifier-contract.mjs';
@@ -194,7 +195,6 @@ const PANE = 'jev-router';
 const PANE_TITLE = 'Router';
 const BAND_DETAIL = 'band:detail';
 const MODE_PREFIX = 'mode:';
-const AUTO_UNAVAILABLE = 'auto routing is not available yet; use table or shadow';
 // The session's routing mode override (lib/modes.mjs), apart from its auto|manual MODE_PREFIX.
 const ROUTING_MODE_PREFIX = 'routing-mode:';
 const isSet = (value) => /^(1|true|yes|on)$/i.test(String(value ?? '').trim());
@@ -637,7 +637,11 @@ async function modeOf($, router, fallback = 'auto') {
 // A saved preference wins; a fresh session starts with routing on for a model some route runs (a tier's, or in `on` an
 // activity override's), and off for any other.
 async function startMode($, router, model) {
-  const mode = await modeOf($, router, cellForModel(router.config, model) === null ? 'manual' : 'auto');
+  const listed =
+    router.config.routingEngine === 'auto'
+      ? Object.values(router.config.models).some((spec) => isSameModel(spec.id, model))
+      : cellForModel(router.config, model) !== null;
+  const mode = await modeOf($, router, listed ? 'auto' : 'manual');
   router.modes.set(await $.session.id(), mode);
   return mode;
 }
@@ -691,7 +695,14 @@ const sameMode = (a, b) => a?.mode === b?.mode && a?.source === b?.source;
 
 // A turn's configs when turn.start did not record them, as after a reload of the Mod mid-turn.
 async function turnConfigOf($, router) {
-  return { config: applyMode(router.config, await routingModeOf($, router)), configured: router.config };
+  const routingMode = await routingModeOf($, router);
+  return {
+    config:
+      router.config.routingEngine === 'auto'
+        ? { ...router.config, routingMode }
+        : applyMode(router.config, routingMode),
+    configured: router.config,
+  };
 }
 
 // The turn routes on the configured routes as its routing mode moves them, fixed now so a change mid-turn waits for
@@ -872,6 +883,26 @@ async function changeMode($, router, mode) {
   if (mode === 'manual') {
     router.afterDown = null;
     router.offSwitches += 1;
+    if (router.config.routingEngine === 'auto') {
+      for (const review of router.reviews.values()) review.controller.abort();
+      router.reviews.clear();
+      router.decisions.clear();
+      const ref = { ...LOOP, id: 'main' };
+      const loaded = await $.state.get(ref);
+      if (loaded.value)
+        await $.state.set(
+          ref,
+          {
+            ...loaded.value,
+            auto: null,
+            turnId: null,
+            decision: null,
+            route: null,
+            generation: loaded.value.generation + 1,
+          },
+          { ifVersion: loaded.version },
+        );
+    }
   }
   router.modes.set(await $.session.id(), mode);
   const saved = await rememberMode($, mode);
@@ -1087,11 +1118,15 @@ async function contextOf($, loop) {
   }
 }
 
-async function* passMain($, e, next, loop, version, nativeModel, reason, router) {
+async function* passMain($, e, next, previous, version, nativeModel, reason, router) {
   // A turn routing did not choose is a turn on another route: it ends the watch for escalations after a cheaper
   // activity move, including one a turn started before routing was turned off mid-turn.
   if (reason === 'manual') router.afterDown = null;
   const ref = { ...LOOP, id: 'main' };
+  const loop =
+    reason === 'manual' && router.config.routingEngine === 'auto'
+      ? { ...previous, auto: null, route: null, decision: null, turnId: null }
+      : previous;
   const context = await contextOf($, loop);
   await updateView($, router, {
     nativeModel,
@@ -1108,16 +1143,30 @@ async function* passMain($, e, next, loop, version, nativeModel, reason, router)
   const response = yield* next(e);
   if (!next.signal.aborted && (await $.session.id()) === sessionId) {
     const at = Date.now();
-    const observed = observeResponse(router.config, loop, {
+    let observed = observeResponse(router.config, loop, {
       usage: response.usage,
       requestedModel: e.model,
       effort: e.effort ?? null,
       stopReason: response.stopReason,
       now: at,
     });
+    if (router.config.routingEngine === 'auto' && ['no-route-native', 'native-fallback'].includes(reason))
+      observed = {
+        ...observeAutoFallback(router.config, observed, {
+          requestedModel: e.model,
+          effort: e.effort,
+          usage: response.usage,
+        }),
+        suspended: true,
+      };
+    if (reason === 'no-route-native' && loop.auto?.savedPin) {
+      observed.switchedAt = loop.auto.savedPin.switchedAt;
+      observed.servedRoute = loop.auto.savedPin.servedRoute;
+    }
     // Before routing has chosen a route, the one in use is the model serving now: /model can change it with routing
     // off. Once a decision exists, the last routed route is kept, as for every model.
-    if (reason === 'manual' && !loop.decision) observed.route = ownRoute(router.config, e.model);
+    if (reason === 'manual' && !loop.decision && router.config.routingEngine !== 'auto')
+      observed.route = ownRoute(router.config, e.model);
     // Routing chose nothing here, so the reply is not counted; your model's cache still follows it.
     const compared = await compareYours($, router, loop, response, e.effort ?? null, nativeModel);
     if (compared) observed.yoursBy = compared.states;
@@ -1220,7 +1269,7 @@ function shadowProposal(
 async function decideTurn($, router, e, signal, step) {
   const { sessionId, view, loop, loopVersion, context, nativeModel, availableModels } = step;
   // A pin runs its tier's configured route: the routing mode moves only routes the router chooses.
-  const cfg = view.pendingPin ? step.configured : step.cfg;
+  const cfg = view.pendingPin && step.cfg.routingEngine !== 'auto' ? step.configured : step.cfg;
   const ref = { ...LOOP, id: 'main' };
   const controller = new AbortController();
   const cancel = () => controller.abort();
@@ -1292,7 +1341,10 @@ async function decideTurn($, router, e, signal, step) {
       availableModels,
       now: Date.now(),
     };
-    const selected = chooseRoute(cfg, loop, traceInput);
+    const selected =
+      cfg.routingEngine === 'auto'
+        ? autoRoute(cfg, loop, { ...traceInput, engineModel: e.model })
+        : chooseRoute(cfg, loop, traceInput);
     const alt = shadowProposal(step.configured, loop, selected, {
       facts,
       advice: result.advice,
@@ -1437,7 +1489,7 @@ const activityLabel = (cfg, decision) => (cfg.activityRouting === 'on' ? (decisi
 // tool calls after the last applied review count (`loop.observedFrom`): the review judged the ones before. The
 // transcript is read only when some activity's route at this tier is stronger than the running one.
 async function moveOnObserved($, router, cfg, loop, e, context) {
-  if (!canMoveUp(cfg, loop.decision, e.effort)) return loop;
+  if (cfg.routingEngine === 'auto' || !canMoveUp(cfg, loop.decision, e.effort)) return loop;
   const messages = await transcript($);
   if (!messages) return loop;
   const facts = stepFacts(cfg, router, loop, e, messages, context);
@@ -1499,7 +1551,8 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       availableModels,
       now: Date.now(),
     };
-    const selected = chooseRoute(cfg, loop, traceInput);
+    const selected =
+      cfg.routingEngine === 'auto' ? autoRoute(cfg, loop, traceInput) : chooseRoute(cfg, loop, traceInput);
     if (cfg.routingEngine === 'shadow') traceOp(router, e, cfg, 'choose', traceInput, selected, messages);
     const previous = loop.decision;
     const configured = router.turnConfigs.get(e.turnId)?.configured ?? router.config;
@@ -1629,7 +1682,7 @@ async function publishReply($, router, turnId, request, response, tier, route, r
 async function observeRouted($, router, { turnId, cfg, loop, loopVersion, request, response, nativeModel }) {
   // When the reply arrived: the awaits below can cross midnight or the hour it is kept under.
   const at = Date.now();
-  const observed = observeResponse(cfg, loop, {
+  let observed = observeResponse(cfg, loop, {
     usage: response.usage,
     requestedModel: request.model,
     effort: request.effort ?? null,
@@ -1637,6 +1690,16 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
     now: at,
   });
   if (response.stopReason === null) observed.suspended = true;
+  if (cfg.routingEngine === 'auto' && response.usage?.model && !isSameModel(request.model, response.usage.model))
+    observed = observeAutoFallback(cfg, observed, {
+      requestedModel: request.model,
+      effort: request.effort,
+      usage: response.usage,
+    });
+  if (cfg.routingEngine === 'auto' && loop.auto?.savedPin) {
+    observed.switchedAt = loop.auto.savedPin.switchedAt;
+    observed.servedRoute = loop.auto.savedPin.servedRoute;
+  }
   const compared = await compareYours($, router, loop, response, request.effort ?? null, nativeModel, cfg);
   if (compared) observed.yoursBy = compared.states;
   const written = await $.state.set({ ...LOOP, id: 'main' }, observed, { ifVersion: loopVersion });
@@ -1942,7 +2005,7 @@ async function pruneDecisionRecords($) {
 
 // `/router decisions [n]`: this session's newest routing decisions, the running turn's included.
 async function paneDecisionRows($, router) {
-  if (router.config.routingEngine !== 'shadow') return [];
+  if (!['shadow', 'auto'].includes(router.config.routingEngine)) return [];
   const sessionId = await $.session.id();
   const record =
     router.decisionRecord?.sessionId === sessionId
@@ -2268,8 +2331,7 @@ function paneActions($, router, view) {
     const switched = loaded.classifier !== router.config.classifier;
     traceConfigAdopted(router, loaded);
     router.config = loaded;
-    if (loaded.routingEngine === 'auto') await updateView($, router, { phase: 'unavailable', error: AUTO_UNAVAILABLE });
-    else if (router.view?.error === AUTO_UNAVAILABLE) await updateView($, router, { phase: 'ready', error: null });
+
     if (!switched) return {};
     clientOf(router, router.config.classifier).restore(null);
     const current = router.view ?? view;
@@ -2576,10 +2638,10 @@ async function imagesOf($, config, decision) {
   return messages === null || hasImages(messages);
 }
 
-function startError(supported, gateway, config) {
+function startError(supported, gateway) {
   if (!supported) return 'requires Claude Code 2.1.289 or newer';
   if (gateway) return GATEWAY_SETTINGS;
-  return config.routingEngine === 'auto' ? AUTO_UNAVAILABLE : null;
+  return null;
 }
 
 function configurationError(error) {
@@ -2594,6 +2656,8 @@ async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, session
     router.turnPins.delete(e.turnId);
     if (pinPresses === router.pinPresses) await updateView($, router, { pendingPin: null });
   }
+  if (cfg.routingEngine === 'auto' && !loop.decision.route)
+    return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'no-route-native', router);
   const request = { ...e, model: loop.decision.model };
   if (loop.decision.effort === null) delete request.effort;
   else request.effort = loop.decision.effort;
@@ -2604,6 +2668,78 @@ async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, session
     await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
   else if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('aborted');
   return response;
+}
+
+function resetEngine(router, cfg, configured, model, messageCount, previous) {
+  let loop = previous;
+  // Engine state is incompatible, but physical cache/usage observations remain valid across engine changes.
+  if ((cfg.routingEngine === 'auto' || loop.activeEngine === 'auto') && loop.activeEngine !== cfg.routingEngine) {
+    const fresh = emptyLoop(configured, model);
+    loop = {
+      ...loop,
+      lastRoute: fresh.lastRoute,
+      lastActivity: fresh.lastActivity,
+      route: fresh.route,
+      state: fresh.state,
+      turnId: null,
+      decision: null,
+      suspended: false,
+      reviewedAt: loop.requests,
+      observedFrom: messageCount,
+      auto: null,
+      shadow: undefined,
+      generation: loop.generation + 1,
+      activeEngine: cfg.routingEngine,
+    };
+    for (const review of router.reviews.values()) review.controller.abort();
+    router.reviews.clear();
+    router.decisions.clear();
+  }
+  return loop;
+}
+
+async function continueAuto($, router, cfg, prior, e, context, traceInput) {
+  let loop = prior;
+  const messages = await transcript($);
+  const facts = { ...stepFacts(cfg, router, loop, e, messages ?? [], context), midTurn: true };
+  // An unreadable transcript cannot establish that an image-ineligible request is safe.
+  facts.hasImages = messages ? hasImages(messages) : true;
+  const observed = messages
+    ? routingBucket(observedActivity(messages, Math.max(promptIndex(messages), (loop.observedFrom ?? 0) - 1)))
+    : null;
+  const previous = loop.decision;
+  loop = autoRoute(cfg, loop, { ...traceInput, facts, now: Date.now() }, { continuation: true, observed });
+  if (JSON.stringify(previous.auto) !== JSON.stringify(loop.decision.auto))
+    addDecision(
+      router,
+      e.turnId,
+      decisionRow({
+        at: Date.now(),
+        kind: 'observed',
+        engine: 'auto',
+        mode: cfg.routingMode.mode,
+        decision: loop.decision,
+        facts,
+      }),
+    );
+
+  return loop;
+}
+
+async function traceContinuation($, router, cfg, loop, e, traceInput) {
+  if (cfg.routingEngine === 'shadow') {
+    // Replay's incumbent may differ from the table's: retain unconditional modality and checkpoint evidence.
+    // Failure stays unknown, never a false assertion that the hypothetical route can accept this history.
+    let replayMessages = null;
+    let actualHasImages = null;
+    try {
+      replayMessages = await transcript($);
+      if (replayMessages) actualHasImages = hasImages(replayMessages);
+    } catch {
+      replayMessages = null;
+    }
+    traceOp(router, e, cfg, 'continue', { ...traceInput, actualHasImages }, loop, replayMessages);
+  }
 }
 
 async function* stepMain($, router, e, next) {
@@ -2625,6 +2761,7 @@ async function* stepMain($, router, e, next) {
   let loopVersion = loaded.version;
   // The session's model names its tier in the configured routes: a mode's table can run it at another tier.
   let loop = prepareLoop(loaded.value ?? emptyLoop(turn.configured, e.model), e.messageCount);
+  loop = resetEngine(router, cfg, turn.configured, e.model, e.messageCount, loop);
   if (loaded.value && loop.generation !== loaded.value.generation) clearGoal(router);
   if (cfg.routingEngine === 'shadow' && router.config.routingEngine === 'shadow') {
     await ensureTrace($, router, e, turn, loop, Boolean(loaded.value));
@@ -2672,29 +2809,25 @@ async function* stepMain($, router, e, next) {
     loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
     loop = await moveOnObserved($, router, cfg, loop, e, context);
     const traceInput = {
-      hasImages: await imagesOf($, cfg, loop.decision),
+      hasImages: cfg.routingEngine === 'auto' ? false : await imagesOf($, cfg, loop.decision),
       nativeModel,
       contextTokens: context.tokens,
       contextKnown: context.known,
       availableModels,
       effort: e.effort,
     };
-    loop = continueRoute(cfg, loop, traceInput);
-    if (cfg.routingEngine === 'shadow') {
-      // Replay's incumbent may differ from the table's: retain unconditional modality and checkpoint evidence.
-      // Failure stays unknown, never a false assertion that the hypothetical route can accept this history.
-      let replayMessages = null;
-      let actualHasImages = null;
-      try {
-        replayMessages = await transcript($);
-        if (replayMessages) actualHasImages = hasImages(replayMessages);
-      } catch {
-        replayMessages = null;
-      }
-      traceOp(router, e, cfg, 'continue', { ...traceInput, actualHasImages }, loop, replayMessages);
-    }
+    loop =
+      cfg.routingEngine === 'auto'
+        ? await continueAuto($, router, cfg, loop, e, context, traceInput)
+        : continueRoute(cfg, loop, traceInput);
+    await traceContinuation($, router, cfg, loop, e, traceInput);
     await updateView($, router, continuationView(cfg, loop.decision, context));
   }
+  if (
+    cfg.routingEngine === 'auto' &&
+    (next.signal.aborted || (await $.session.id()) !== sessionId || (await modeOf($, router)) !== 'auto')
+  )
+    return yield* next(e);
   return yield* sendRouted($, router, e, next, { cfg, loop, loopVersion, sessionId, nativeModel, turn });
 }
 
@@ -2735,8 +2868,8 @@ export function register(on, options) {
           ? { activityContract: ACTIVITY_CONTRACT, activityStats: null }
           : {}),
         ...(await startView($, router, model)),
-        phase: gateway || !supported || router.config.routingEngine === 'auto' ? 'unavailable' : 'ready',
-        error: startError(supported, gateway, router.config),
+        phase: gateway || !supported ? 'unavailable' : 'ready',
+        error: startError(supported, gateway),
         ...(sameClassifier ? {} : CLEARED_READINGS),
         credentials: await credentialsOf($, options, router.config),
         health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
@@ -2848,6 +2981,11 @@ export function register(on, options) {
       }
       clearGoal(router);
       for (const controller of router.controllers) controller.abort();
+      if (router.config.routingEngine === 'auto') {
+        for (const review of router.reviews.values()) review.controller.abort();
+        router.reviews.clear();
+        router.decisions.clear();
+      }
     }
     return result;
   });

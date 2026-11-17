@@ -1,7 +1,7 @@
 # Routing modes
 
 One setting trades cost against answer quality: `cost`, `balanced` (the default) or `quality`. The classifier and
-your routes stay as they are. The mode moves the route each tier runs by one fixed step.
+your routes stay as they are. With the default `table` engine, the mode moves the route each tier runs by one fixed step.
 
 | Mode       | What changes                                                                                                                                                                                                                                                                                 |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -19,8 +19,10 @@ In every mode:
   on a model listing only those three. A route with a `null` effort (the session's) or a model without efforts has no effort step.
 - [MiniMax, MiMo and Kimi tables](providers.md#new-provider-modes) show every new preset's mode/activity combination.
 
-Optional [automatic-routing shadow proposals](configuration.md#routing-engine) use the same mode as a demand margin;
-the table rules above still select the actual request.
+Optional [automatic routing](configuration.md#routing-engine) uses the mode only as a capability margin: `cost`
+subtracts 0.5 from demand, `balanced` adds nothing and `quality` adds 0.5, clamped to 0–3. It uses base policy,
+not mode policy patches. Tier pins use exact demand without a margin; candidates still must fit. Shadow records a
+proposal while the table routes. Auto is opt-in; quality evaluation and cutover are pending.
 
 ## Choose a mode
 
@@ -46,6 +48,8 @@ show ([Changes during a task](user-guide.md#changes-during-a-task)). A move must
 then the band says why the route stays. Pin a tier to run its configured route now.
 
 ## Policy per mode
+
+The policy patches in this section apply to `table` and `shadow`, not opt-in `auto`.
 
 Each mode except `balanced` replaces some `policy` fields while it is active. The built-in values started as
 codex-router's and are **not tuned** on outcomes. Since 1.16, `cost` upgrades on balanced's bar (2 votes from 0.75):

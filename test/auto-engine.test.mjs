@@ -89,6 +89,31 @@ function moveFor({
   });
 }
 
+test('external reentry bypasses evidence and dwell but preserves hold and every eligibility filter', () => {
+  for (const availableModels of [undefined, [], ['a'], ['b']]) {
+    const state = { ...initialAutoState({ demand: 2, routedDemand: 2 }), holdUntilTurn: 9 };
+    const result = run({
+      state,
+      incumbentOrigin: 'external-fallback',
+      availableModels,
+      facts: facts({ downAllowed: false, dwellAllowed: false }),
+    });
+    assert.equal(result.state.holdUntilTurn, 9);
+    if (availableModels?.length === 0) {
+      assert.equal(result.move.reason, 'no-route');
+      assert.equal(result.move.route, null);
+    } else if (availableModels?.[0] === 'a') {
+      assert.equal(result.move.reason, 'same-route');
+      assert.equal(result.move.move, false);
+    } else {
+      assert.equal(result.move.reason, 'reentry');
+      assert.deepEqual(result.move.route, route('b'));
+      assert.equal(result.state.routeCause, 'reentry');
+      assert.equal(result.state.routedDemand, result.demand.level);
+    }
+  }
+});
+
 test('demand has no price, cache, physical incumbent, mode-policy or dwell dependency', () => {
   const a = advice('medium', { medium: 0.8, low: 0.2 });
   const cfg = config();
