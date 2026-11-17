@@ -248,7 +248,12 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
     expect(await pane.find({ key: 'classifier-clef-flash' })).toBeDefined();
     expect(await pane.find({ key: 'key-clef' })).toBeDefined();
     expect(await pane.find({ key: 'timeoutMs' })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /no account ID/ })).toBeDefined();
+    // A card's status line starts with a capital.
+    expect(await pane.find({ type: 'Text', text: terminal ? /no account ID/ : 'No account ID' })).toBeDefined();
+    if (!terminal) {
+      expect(await pane.find({ type: 'Button', text: 'Use' })).toBeDefined();
+      expect(await pane.find({ type: 'Text', text: 'Across sessions' })).toBeUndefined();
+    }
     await pane.press({ key: 'tab-routes' });
     await pane.redraw();
     await pane.press({ key: 'cell-tier-medium' });

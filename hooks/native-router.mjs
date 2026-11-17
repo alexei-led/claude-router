@@ -166,6 +166,8 @@ import {
   subagentsAfterReset,
   typeRoute,
 } from '../lib/subagents.mjs';
+import { bandDivider, drewRow } from '../lib/ui/graphical/divider.mjs';
+import { isGraphical } from '../lib/ui/tokens.mjs';
 import {
   emptyUsage,
   mergeUsage,
@@ -3095,10 +3097,12 @@ export function register(on, options) {
     const usage = await $.session.usage().catch(() => null);
     if (e.component === 'AbovePrompt') {
       if (e.props.hasSurvey) return next(e);
+      const beneath = await next(e);
       return Box({
         flexDirection: 'column',
         children: [
-          await next(e),
+          beneath,
+          ...(isGraphical(e.surface) && drewRow(beneath) ? [bandDivider(elements)] : []),
           renderBand(
             elements,
             router.config,

@@ -58,10 +58,11 @@ for (const surface of SURFACES) {
       alignItems: 'center',
       justifyContent: 'space-between',
       flexWrap: 'nowrap',
-      overflow: 'hidden',
-      paddingX: 1,
     }))
       assert.equal(tree.props[name], value, name);
+    // Buttons are taller than a text row: the row must neither clip them nor indent.
+    assert.equal(tree.props.overflow, undefined);
+    assert.equal(tree.props.paddingX, undefined);
     assert.equal(byKey(tree, 'band-detail').length + byKey(tree, 'band-manual').length, 0);
   });
 }
@@ -81,6 +82,8 @@ test('no state has a hover reveal, a hidden box or a hover control', () => {
 test('left group yields, right group stays, and the meter leads', () => {
   const [left, rightGroup] = kids(draw(ROUTED));
   assert.equal(left.props.flexShrink, 1);
+  assert.equal(left.props.overflow, 'hidden');
+  assert.equal(rightGroup.props.overflow, undefined);
   assert.equal(rightGroup.props.flexShrink, 0);
   const [first] = kids(left);
   assert.equal(first.type, 'Svg');

@@ -202,9 +202,10 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
         async () => null,
       );
     },
-    component: async (component, props = {}) => {
+    component: async (component, props = {}, { next = async (input) => input, surface } = {}) => {
       snapshot = new Map();
-      return handler('ui.render', { component })($, { component, requestId: component, props }, async (input) => input);
+      const event = { component, requestId: component, props, ...(surface ? { surface } : {}) };
+      return handler('ui.render', { component })($, event, next);
     },
     step: (input, response = {}, signal = new AbortController().signal) => {
       snapshot = new Map();
@@ -414,3 +415,21 @@ export function answering(h, ...answers) {
 }
 
 export const JEV_KEY = { typesafe_api_key: 'synthetic-key' };
+
+// An element's children as a list, nulls dropped.
+export const kids = (node) =>
+  (Array.isArray(node?.props?.children) ? node.props.children : [node?.props?.children]).filter(Boolean);
+
+// Every element in the tree that `match` accepts, in document order.
+export function find(tree, match) {
+  const out = [];
+  (function walk(node) {
+    if (!node || typeof node !== 'object') return;
+    if (node.props && match(node)) out.push(node);
+    for (const child of kids(node)) walk(child);
+  })(tree);
+  return out;
+}
+
+// The first element with this key.
+export const byKey = (tree, key) => find(tree, (n) => n.props.key === key)[0];
