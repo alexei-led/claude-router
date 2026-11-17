@@ -2195,6 +2195,7 @@ async function decideSpawn($, router, cfg, e, definition, signal) {
 // Claude Code uses in place of the Agent call's `model` and the agent's frontmatter. Routing off or unavailable keeps
 // every model Claude Code chooses, and records nothing.
 async function spawnAgent($, router, e, next) {
+  if (!(await ensureInitialized($, router))) return next(e);
   const cfg = router.config;
   if (cfg.subagentRouting === 'off') return next(e);
   const view = router.view ?? (await readView($, router));
