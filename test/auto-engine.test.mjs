@@ -114,6 +114,25 @@ test('external reentry bypasses evidence and dwell but preserves hold and every 
   }
 });
 
+test('known token lower bounds reject oversized candidates without a fresh context estimate', () => {
+  for (const incumbent of [route('a'), route('unlisted-native')]) {
+    const cfg = config({ a: model(1, 1, { contextWindow: 1_000_000 }), b: model(3, 2, { contextWindow: 200_000 }) });
+    const result = run({
+      config: cfg,
+      incumbent,
+      contextKnown: false,
+      facts: facts({
+        contextTokens: null,
+        historyMeasured: true,
+        lastRequest: { tokens: 900_000, outputTokens: 1000 },
+      }),
+    });
+    assert.equal(result.target.outcome, 'no-route');
+    assert.equal(result.move.route, null);
+    assert.ok(result.candidates.filter((c) => c.selectable).every((c) => c.reasons.includes('context-full')));
+  }
+});
+
 test('demand has no price, cache, physical incumbent, mode-policy or dwell dependency', () => {
   const a = advice('medium', { medium: 0.8, low: 0.2 });
   const cfg = config();

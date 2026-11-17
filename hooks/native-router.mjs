@@ -883,7 +883,10 @@ async function changeMode($, router, mode) {
   if (mode === 'manual') {
     router.afterDown = null;
     router.offSwitches += 1;
-    if (router.config.routingEngine === 'auto') {
+    if (
+      router.config.routingEngine === 'auto' ||
+      [...router.turnConfigs.values()].some((turn) => turn.config.routingEngine === 'auto')
+    ) {
       for (const review of router.reviews.values()) review.controller.abort();
       router.reviews.clear();
       router.decisions.clear();
@@ -1123,10 +1126,10 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
   // activity move, including one a turn started before routing was turned off mid-turn.
   if (reason === 'manual') router.afterDown = null;
   const ref = { ...LOOP, id: 'main' };
+  const turn = router.turnConfigs.get(e.turnId) ?? { config: router.config, configured: router.config };
+  const auto = turn.config.routingEngine === 'auto';
   const loop =
-    reason === 'manual' && router.config.routingEngine === 'auto'
-      ? { ...previous, auto: null, route: null, decision: null, turnId: null }
-      : previous;
+    reason === 'manual' && auto ? { ...previous, auto: null, route: null, decision: null, turnId: null } : previous;
   const context = await contextOf($, loop);
   await updateView($, router, {
     nativeModel,
@@ -1137,22 +1140,22 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
     contextKnown: context.known,
   });
   const sessionId = await $.session.id();
-  const turn = router.turnConfigs.get(e.turnId) ?? { config: router.config, configured: router.config };
   if (turn.config.routingEngine === 'shadow')
     traceRequest(router, e, turn, e, reason === 'manual' ? 'manual' : 'auto', loop);
   const response = yield* next(e);
   if (!next.signal.aborted && (await $.session.id()) === sessionId) {
     const at = Date.now();
-    let observed = observeResponse(router.config, loop, {
+    const cfg = auto ? turn.config : router.config;
+    let observed = observeResponse(cfg, loop, {
       usage: response.usage,
       requestedModel: e.model,
       effort: e.effort ?? null,
       stopReason: response.stopReason,
       now: at,
     });
-    if (router.config.routingEngine === 'auto' && ['no-route-native', 'native-fallback'].includes(reason))
+    if (auto && ['no-route-native', 'native-fallback'].includes(reason))
       observed = {
-        ...observeAutoFallback(router.config, observed, {
+        ...observeAutoFallback(cfg, observed, {
           requestedModel: e.model,
           effort: e.effort,
           usage: response.usage,
@@ -1165,10 +1168,9 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
     }
     // Before routing has chosen a route, the one in use is the model serving now: /model can change it with routing
     // off. Once a decision exists, the last routed route is kept, as for every model.
-    if (reason === 'manual' && !loop.decision && router.config.routingEngine !== 'auto')
-      observed.route = ownRoute(router.config, e.model);
+    if (reason === 'manual' && !loop.decision && !auto) observed.route = ownRoute(router.config, e.model);
     // Routing chose nothing here, so the reply is not counted; your model's cache still follows it.
-    const compared = await compareYours($, router, loop, response, e.effort ?? null, nativeModel);
+    const compared = await compareYours($, router, loop, response, e.effort ?? null, nativeModel, cfg);
     if (compared) observed.yoursBy = compared.states;
     const written = await $.state.set(ref, observed, { ifVersion: version });
     if (turn.config.routingEngine === 'shadow') {

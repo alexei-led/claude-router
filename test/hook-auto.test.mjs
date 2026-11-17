@@ -340,6 +340,102 @@ test('reentry never bypasses a cold cash cap', async () => {
   assert.equal(h.loop().auto.incumbentOrigin, 'external-fallback');
 });
 
+test('in-flight auto fallback keeps its frozen engine and cache semantics across profile saves', async () => {
+  const h = setup();
+  await start(h);
+  await drain(h.step(step));
+  h.settings({ availableModels: [] });
+  await h.event('turn.start', { turnId: 'paused-native', text: 'Continue.' });
+  const native = { ...step, turnId: 'paused-native', model: 'claude-sonnet-5-5', effort: 'medium' };
+  const stream = h.step(native);
+  assert.equal((await stream.next()).done, false);
+  patch(h, (c) => {
+    c.routingEngine = 'table';
+    c.cache = { effortScope: 'separate' };
+  });
+  await command(h, 'activities off');
+  assert.equal((await stream.next()).done, true);
+  assert.equal(h.loop().auto.incumbentOrigin, 'external-fallback');
+  assert.deepEqual(h.loop().auto.incumbent, { model: 'sonnet', effort: 'medium' });
+  assert.ok(h.loop().models['claude-sonnet-5-5']);
+  assert.equal(h.loop().models['claude-sonnet-5-5@medium'], undefined);
+  patch(h, (c) => {
+    c.routingEngine = 'auto';
+    delete c.cache;
+  });
+  await command(h, 'activities on');
+  h.settings({ availableModels: ['sonnet', 'opus'] });
+  await nextTurn(h, 'reentry-after-save');
+  assert.equal(h.loop().decision.reason, 'reentry');
+  assert.equal(h.requests.at(-1).model, 'claude-opus-5-5');
+});
+
+test('manual interval fences an in-flight frozen auto response after the profile switches to table', async () => {
+  const h = setup();
+  await start(h);
+  await drain(h.step(step));
+  h.settings({ availableModels: [] });
+  await h.event('turn.start', { turnId: 'paused-off', text: 'Continue.' });
+  const native = { ...step, turnId: 'paused-off' };
+  const stream = h.step(native);
+  assert.equal((await stream.next()).done, false);
+  patch(h, (c) => {
+    c.routingEngine = 'table';
+  });
+  await command(h, 'activities off');
+  await command(h, 'off');
+  assert.equal(h.loop().auto, null);
+  assert.equal((await stream.next()).done, true);
+  assert.equal(h.loop().auto, null);
+  await command(h, 'auto');
+  patch(h, (c) => {
+    c.routingEngine = 'auto';
+  });
+  await command(h, 'activities on');
+  h.settings({});
+  answering(h, low);
+  await nextTurn(h, 'fresh-after-off');
+  assert.equal(h.loop().auto.state.turn, 1);
+  assert.equal(h.loop().auto.state.demand, 1);
+  assert.deepEqual(h.loop().auto.state.votes, [1]);
+});
+
+test('usage-read failure retains the measured context lower bound for listed and unlisted native models', async () => {
+  for (const unlisted of [false, true]) {
+    const h = setup();
+    const native = unlisted ? { ...step, model: 'claude-unknown-99', effort: 17 } : step;
+    if (unlisted) {
+      h.model(native.model);
+      patch(h, (c) => {
+        for (const model of Object.values(c.models)) model.contextWindow = 200_000;
+      });
+    }
+    await start(h);
+    await drain(
+      h.step(native, {
+        usage: {
+          model: unlisted ? native.model : 'claude-opus-5-5',
+          input_tokens: 1000,
+          cache_read_input_tokens: 899_000,
+          cache_creation_input_tokens: 0,
+          output_tokens: 1000,
+        },
+      }),
+    );
+    assert.equal(h.loop().lastRequest.tokens, 900_000);
+    h.$.session.usage = async () => {
+      throw new Error('usage unavailable');
+    };
+    if (unlisted) await command(h, 'auto');
+    await h.event('turn.start', { turnId: 'oversized', text: 'Continue.' });
+    const incoming = { ...native, turnId: 'oversized' };
+    await drain(h.step(incoming));
+    assert.deepEqual(h.requests.at(-1), incoming);
+    assert.equal(h.loop().decision.reason, 'no-route-native');
+    assert.equal(h.loop().decision.route, null);
+  }
+});
+
 test('context-window failure excludes the served model and refits the next continuation', async () => {
   const h = setup();
   await start(h);
@@ -439,6 +535,27 @@ test('known persisted auto state resumes; unknown version cannot reuse votes or 
     assert.equal(h.loop().auto.version, 1);
     assert.equal(h.loop().auto.state.turn, version === 1 ? 2 : 1);
     assert.equal(h.loop().auto.state.demand, version === 1 ? 3 : 1);
+  }
+});
+
+test('malformed persisted pin metadata resets safely on a continuation', async () => {
+  for (const metadata of [
+    { savedPin: { pin: 'bogus' } },
+    { savedPin: { pin: 'low', switchedAt: 'invalid', servedRoute: null } },
+    { savedPin: { pin: 'low', switchedAt: null, servedRoute: {} } },
+    { fallback: { incumbent: {}, incumbentOrigin: 'external-fallback' } },
+  ]) {
+    const h = setup();
+    await start(h);
+    await drain(h.step(step));
+    const stored = structuredClone(h.state.get('loops:main'));
+    Object.assign(stored.value.auto, metadata);
+    h.state.set('loops:main', stored);
+    await drain(h.step({ ...step, index: 1 }));
+    assert.equal(h.loop().auto.savedPin, null);
+    assert.deepEqual(h.loop().auto.state.votes, []);
+    assert.equal(h.loop().auto.state.turn, 0);
+    assert.ok(h.requests.at(-1).model);
   }
 });
 
