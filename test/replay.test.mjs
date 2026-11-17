@@ -36,6 +36,141 @@ async function capture({ controls = false, continuations = false } = {}) {
   return h.preferences.get(`${TRACE_PREFIX}s1`);
 }
 
+test('live auto and stateful replay agree on bounded multi-turn pin and forced refit', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
+  const capabilities = {
+    haiku: { capability: { low: 0, medium: 1, high: 1.5, xhigh: 2, max: 2 }, imageInput: false },
+    sonnet: { capability: { low: 1, medium: 2, high: 2.5, xhigh: 2.5, max: 2.5 } },
+    opus: { capability: { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 } },
+    fable: { capability: { low: 3, medium: 3, high: 3, xhigh: 3, max: 3 } },
+  };
+  const runs = [];
+  for (const engine of ['shadow', 'auto']) {
+    const h = harness(JEV_KEY);
+    h.files.set(
+      CONFIG,
+      JSON.stringify({ routingEngine: engine, models: capabilities, policy: { reviewEveryRequests: 0 } }),
+    );
+    answering(h, jevResponse('high', { high: 1 }, 0, { code: 1 }, 'produce'));
+    await h.event('session.start', { cwd: '/fixture' });
+    for (const turnId of ['t1', 't2']) {
+      if (turnId === 't2') await h.event('command.run', { command: 'router', args: 'pin low' });
+      await h.event('turn.start', { turnId, text: 'Synthetic task' });
+      h.messages(async () => [user('Synthetic task')]);
+      await drain(h.step({ ...step, turnId }));
+      if (turnId === 't2') {
+        h.settings({ availableModels: ['sonnet'] });
+        await drain(h.step({ ...step, turnId, index: 1 }));
+      }
+      await h.event('turn.complete', { turnId });
+    }
+    runs.push(h);
+  }
+  const trace = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+  const table = replayTable(trace);
+  assert.deepEqual(table.mismatches, []);
+  const replayed = replayAuto(trace, table.rows);
+  assert.deepEqual(
+    replayed.map((row) => row.pair),
+    runs[1].requests.map(({ model, effort }) => ({ model, effort: effort ?? null })),
+  );
+  assert.deepEqual(
+    replayed.map((row) => row.demand),
+    [3, 1, 1],
+  );
+});
+
+test('live/replay no-route suspension and next-turn reentry agree, including pinned native fallback', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
+  for (const pinned of [false, true]) {
+    const runs = [];
+    for (const routingEngine of ['shadow', 'auto']) {
+      const h = harness(JEV_KEY);
+      h.files.set(
+        CONFIG,
+        JSON.stringify({
+          routingEngine,
+          policy: { reviewEveryRequests: 0 },
+          models: { haiku: { capability: { medium: 1 } }, opus: { capability: { xhigh: 3 } } },
+        }),
+      );
+      answering(h, jevResponse('high', { high: 1 }, 0, { code: 1 }, 'produce'));
+      await h.event('session.start', { cwd: '/fixture' });
+      for (const turnId of ['normal', 'external', 'reentry']) {
+        h.settings({ availableModels: turnId === 'external' ? [] : ['haiku', 'sonnet', 'opus'] });
+        if (pinned && turnId === 'external') await h.event('command.run', { command: 'router', args: 'pin low' });
+        await h.event('turn.start', { turnId, text: 'Synthetic task' });
+        h.messages(async () => [user('Synthetic task')]);
+        const native = { ...step, turnId, model: turnId === 'external' ? 'claude-sonnet-5-5' : step.model };
+        await drain(h.step(native));
+        if (turnId === 'external') {
+          h.settings({ availableModels: ['sonnet', 'opus'] });
+          await drain(h.step({ ...native, index: 1 }));
+        }
+        await h.event('turn.complete', { turnId });
+      }
+      runs.push(h);
+    }
+    const record = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+    const table = replayTable(record);
+    assert.deepEqual(table.mismatches, []);
+    const replayed = replayAuto(record, table.rows);
+    assert.deepEqual(
+      replayed.map((row) => row.pair),
+      runs[1].requests.map(({ model, effort }) => ({ model, effort: effort ?? null })),
+    );
+    assert.equal(replayed.at(-1).reason, 'reentry');
+    assert.equal(replayed[1].external, true);
+    assert.equal(replayed[2].reason, 'native-fallback');
+    const report = evaluateReplay([{ version: 1, sessions: { [`${TRACE_PREFIX}s1`]: record } }]);
+    assert.equal(report.sessions[0].modes.balanced.auto.externalRequests, 2);
+  }
+});
+
+test('live auto and replay both treat an allowlist expansion as catalog evidence', async () => {
+  const runs = [];
+  for (const routingEngine of ['shadow', 'auto']) {
+    const h = harness(JEV_KEY);
+    h.files.set(
+      CONFIG,
+      JSON.stringify({
+        routingEngine,
+        policy: { reviewEveryRequests: 0 },
+        models: { haiku: { capability: { medium: 1, xhigh: 2 } }, opus: { capability: { xhigh: 3 } } },
+      }),
+    );
+    answering(h, jevResponse('high', { high: 1 }, 0, { code: 1 }, 'produce'));
+    await h.event('session.start', { cwd: '/fixture' });
+    for (const [turnId, availableModels] of [
+      ['limited', ['haiku']],
+      ['expanded', ['haiku', 'opus']],
+    ]) {
+      h.settings({ availableModels });
+      await h.event('turn.start', { turnId, text: 'Synthetic task' });
+      h.messages(async () => [user('Synthetic task')]);
+      await drain(h.step({ ...step, turnId }));
+      await h.event('turn.complete', { turnId });
+    }
+    runs.push(h);
+  }
+  const record = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+  const table = replayTable(record);
+  assert.deepEqual(table.mismatches, []);
+  const auto = replayAuto(record, table.rows);
+  assert.deepEqual(
+    auto.map((row) => row.pair),
+    runs[1].requests.map(({ model, effort }) => ({ model, effort })),
+  );
+  assert.deepEqual(
+    auto.map((row) => row.reason),
+    ['upgrade', 'explicit-up'],
+  );
+  assert.deepEqual(
+    auto.map((row) => row.demand),
+    [3, 3],
+  );
+});
+
 test('fidelity evolves real captured multi-turn, pin, mode, manual, reset and continuation operations', async () => {
   const record = await capture({ controls: true, continuations: true });
   const result = evaluateReplay([exportOf(record)]);

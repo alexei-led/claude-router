@@ -11,9 +11,12 @@ This guide assumes Claude Code already works with your provider. Endpoint and cr
 
 ## Capability evidence
 
-Every built-in model has an empty capability map: all effort-specific adequacy levels are unknown, not zero.
-These sources document model controls or benchmark outcomes, but do not calibrate the classifier's task levels
-against every effort. No numeric rating is inferred from price, ordinal strength, benchmark rank, or an effort name.
+The Anthropic preset seeds `claude-haiku-5-5@medium` at 0, `claude-haiku-5-5@high` at 1,
+`claude-opus-5-5@medium` at 2, and `claude-opus-5-5@xhigh` at 3. These are user-derived policy judgments
+from the built-in balanced base routes, not model-card benchmarks or quality guarantees. All other pairs, including
+Haiku at low and Opus at high, remain unknown, not zero. User-router PR #79 seed values are profile overrides layered
+over these built-ins. Other built-in provider presets have no seeds. No rating is inferred from price, ordinal strength, benchmark rank,
+or an effort name.
 This metadata does not affect the current table router. See [configuration](configuration.md#model-capability-declarations)
 for declarations and overrides.
 
@@ -31,8 +34,8 @@ numeric values on this router's demand scale.
 | MiniMax M3.1 Flash / `minimax-minimax-m3.1-flash`; Kimi K3.1 Pro / `moonshot-kimi-k3.1-pro` | [Provider experiments](provider-experiments.md): small synthetic checks do not calibrate repository tasks per effort. |
 | MiMo V2.6 Flash and Pro / no model-card record | [Provider experiments](provider-experiments.md): no granular effort setting; small synthetic checks do not establish demand-tier adequacy. |
 
-The proposed auto engine would select the cheapest eligible unknown when no eligible declaration is known. With these
-presets alone that outcome cannot claim quality or escalation-headroom calibration; it is a release/cutover risk.
+The auto engine selects the cheapest eligible unknown when no eligible declaration is known. Neither the seeds nor
+unknown-only selections establish quality or escalation-headroom calibration; users can configure their own maps.
 
 ## Select a provider
 

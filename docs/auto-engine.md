@@ -1,8 +1,7 @@
 # Pure automatic routing engine
 
 `lib/auto-engine.mjs` implements the [automatic routing design](plans/2026-11-16-auto-routing-design.md).
-It has no I/O and is not connected to live routing. The existing table engine is unchanged.
-The module is for callers implementing shadow proposals, offline replay and automatic routing.
+It has no I/O. Opt-in `routingEngine: "auto"` uses the stateful adapter `lib/auto-route.mjs` in the main-turn hook; the default table engine is unchanged. Shadow remains a one-step proposal and offline replay has its own state. Evaluation and default cutover remain pending.
 
 ## Inputs
 
@@ -14,7 +13,9 @@ A route is `{ model: alias, effort: string | number | null }`. Generated candida
 or `null` for a model with `efforts: []`. A real native incumbent with an unresolved null or finite numeric effort
 is valid but has unknown capability. An unsupported explicit string is not silently clamped.
 Capability comes only from `models[alias].capability[effort]`, or `capability.default` on a no-effort model.
-No declaration means unknown, not zero.
+No declaration means unknown, not zero. Anthropic includes user-derived balanced base-route policy seeds, not
+measured quality; all other pairs remain unknown. Users can replace them as described in
+[Providers](providers.md#capability-evidence).
 
 The facts object uses the existing controller shapes:
 
@@ -66,8 +67,10 @@ An invalid incumbent and no eligible candidate produce explicit `no-route`, neve
 Target outcomes are `meets-demand`, `declared-below-demand`, `unknown-only`, `incumbent` and `no-route`.
 
 Estimates are absolute next-turn `{ minUsd, maxUsd }` ranges: `cost.inputBounds` plus the last reply's output
-length at `cost.ratesAt` prices. Selection uses the conservative `maxUsd` bound, then the incumbent, higher
-declared capability and config order. Automatic prefix caches have no assumed TTL or warm-cache exemption.
+length at `cost.ratesAt` prices. This estimate is effort-blind; it does not model additional thinking tokens.
+Selection uses the conservative `maxUsd` bound, then the incumbent, lower sufficient declared capability and
+config order. The mode margin supplies headroom through the requirement, not a tie preference. Automatic prefix
+caches have no assumed TTL or warm-cache exemption.
 Switch gates use the existing route-to-route `switchingTaxUsd` and `downgradeTaxUsd` math.
 These are conditional estimates, not expected costs or measured savings.
 
@@ -87,12 +90,21 @@ Update routed demand and cause only when the proposed physical move actually exe
 prospective state in `result.state` and `result.move.state`. Its pre-move demand state remains in
 `result.demand.state`. A held proposal leaves routed demand and cause unchanged, so it remains pending.
 `changeCause` is null, `mode` or `catalog`; it cannot relabel a demand change as an explicit configuration move.
+The live adapter and replay fingerprint the actual allowed configured aliases, including native `default` resolution.
+An allowlist expansion is catalog evidence; reordering it, cache warmth and routine response-ID resolution are not.
 
 Tier pins accept a tier string or integer 0..3. They are one-turn overrides: no mode margin and no move gates,
 but normal candidate constraints, outcome precedence and incumbent ties. The facade returns the pinned route
 with `move: false`, reason `pinned` and unchanged state. The caller resumes the pre-pin incumbent and state on
 the next unpinned turn. With the lower-level API, pass `mode: 'balanced'` to `selectTarget` for a pinned demand.
 Exact model/effort pins remain the controller's separate responsibility.
+
+An observed native fallback records `incumbentOrigin: 'external-fallback'` and rebases the physical incumbent without
+resetting demand, votes, hold or routed demand. Substituted effort remains unknown. The current turn stays native;
+on the next turn, `decideMove` takes `incumbentOrigin` and permits `reentry` to a different eligible target without
+mass, dwell or payback gates. Hard constraints and the cash cap still apply. Re-entry sets routed demand and cause
+`reentry`, retaining the escalation hold; an equal target clears origin. Pinned fallbacks retain normal state and
+apply the physical fallback provenance after restoring the pin. Replay counts external requests separately.
 
 ## Checks
 

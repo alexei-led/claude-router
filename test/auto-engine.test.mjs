@@ -89,6 +89,50 @@ function moveFor({
   });
 }
 
+test('external reentry bypasses evidence and dwell but preserves hold and every eligibility filter', () => {
+  for (const availableModels of [undefined, [], ['a'], ['b']]) {
+    const state = { ...initialAutoState({ demand: 2, routedDemand: 2 }), holdUntilTurn: 9 };
+    const result = run({
+      state,
+      incumbentOrigin: 'external-fallback',
+      availableModels,
+      facts: facts({ downAllowed: false, dwellAllowed: false }),
+    });
+    assert.equal(result.state.holdUntilTurn, 9);
+    if (availableModels?.length === 0) {
+      assert.equal(result.move.reason, 'no-route');
+      assert.equal(result.move.route, null);
+    } else if (availableModels?.[0] === 'a') {
+      assert.equal(result.move.reason, 'same-route');
+      assert.equal(result.move.move, false);
+    } else {
+      assert.equal(result.move.reason, 'reentry');
+      assert.deepEqual(result.move.route, route('b'));
+      assert.equal(result.state.routeCause, 'reentry');
+      assert.equal(result.state.routedDemand, result.demand.level);
+    }
+  }
+});
+
+test('known token lower bounds reject oversized candidates without a fresh context estimate', () => {
+  for (const incumbent of [route('a'), route('unlisted-native')]) {
+    const cfg = config({ a: model(1, 1, { contextWindow: 1_000_000 }), b: model(3, 2, { contextWindow: 200_000 }) });
+    const result = run({
+      config: cfg,
+      incumbent,
+      contextKnown: false,
+      facts: facts({
+        contextTokens: null,
+        historyMeasured: true,
+        lastRequest: { tokens: 900_000, outputTokens: 1000 },
+      }),
+    });
+    assert.equal(result.target.outcome, 'no-route');
+    assert.equal(result.move.route, null);
+    assert.ok(result.candidates.filter((c) => c.selectable).every((c) => c.reasons.includes('context-full')));
+  }
+});
+
 test('demand has no price, cache, physical incumbent, mode-policy or dwell dependency', () => {
   const a = advice('medium', { medium: 0.8, low: 0.2 });
   const cfg = config();
@@ -211,6 +255,28 @@ test('failure hold precedes classifier votes; reset permits the same occurrence 
   assert.equal(reset.escalated, true);
 });
 
+test('balanced builtin targets follow seeded base routes without inferring other efforts', () => {
+  const cfg = loadConfig({});
+  const candidates = assessCandidates({ config: cfg, incumbent: route('sonnet', 'low'), facts: facts(), now: T0 });
+  const candidate = (model, effort) => candidates.find((c) => c.route.model === model && c.route.effort === effort);
+  assert.equal(candidate('haiku', 'low').capability, null);
+  assert.equal(candidate('opus', 'high').capability, null);
+  assert.deepEqual(candidate('haiku', 'medium').estimate, candidate('haiku', 'high').estimate);
+  assert.deepEqual(candidate('opus', 'medium').estimate, candidate('opus', 'xhigh').estimate);
+  assert.ok(candidate('haiku', 'medium').estimate.maxUsd < candidate('opus', 'medium').estimate.maxUsd);
+  for (const [demand, expected] of [
+    [0, route('haiku', 'medium')],
+    [1, route('haiku', 'high')],
+    [2, route('opus', 'medium')],
+    [3, route('opus', 'xhigh')],
+  ]) {
+    const target = selectTarget({ candidates, demand });
+    assert.equal(target.outcome, 'meets-demand');
+    assert.deepEqual(target.route, expected);
+    assert.equal(target.capability, demand);
+  }
+});
+
 test('target outcome precedence and unknowns, including level zero and empty maps', () => {
   for (const [name, models, demand, expected, outcome, cap] of [
     ['declared below beats cheap unknown', { a: model(null, 0.01), b: model(1) }, 3, 'b', 'declared-below-demand', 1],
@@ -226,7 +292,14 @@ test('target outcome precedence and unknowns, including level zero and empty map
     ['empty map unknown', { a: model(1, 3, { capability: {} }), b: model(null, 1) }, 0, 'b', 'unknown-only', null],
     ['zero is known', { a: model(null, 0.01), b: model(0) }, 0, 'b', 'meets-demand', 0],
     ['adequate cheapest not strongest', { a: model(3, 4), b: model(2, 1) }, 2, 'b', 'meets-demand', 2],
-    ['higher capability breaks equal estimate', { a: model(1), b: model(2), c: model(3) }, 2, 'c', 'meets-demand', 3],
+    [
+      'lower sufficient capability breaks equal estimate',
+      { a: model(1), c: model(3), b: model(2) },
+      2,
+      'b',
+      'meets-demand',
+      2,
+    ],
     ['config order last tie', { a: model(1), b: model(2), c: model(2) }, 2, 'b', 'meets-demand', 2],
   ]) {
     const { target } = targetFor(config(models), demand);
@@ -252,6 +325,37 @@ test('equal estimates retain the incumbent in ALL modes, even against higher cap
       assert.equal(target.route.model, incumbent, mode);
     }
   }
+});
+
+test('equal estimated same-model efforts prefer least sufficient unless the incumbent qualifies', () => {
+  const cfg = config({
+    a: model(1),
+    shared: model(null, 1, { efforts: ['high', 'medium'], capability: { medium: 2, high: 3 } }),
+  });
+  const f = facts({ lastRequest: { tokens: 1000, outputTokens: 1200 } });
+  for (const [incumbent, mode, expected] of [
+    [route('a'), 'balanced', 'medium'],
+    [route('shared', 'high'), 'balanced', 'high'],
+    [route('a'), 'quality', 'high'],
+  ]) {
+    const candidates = assessCandidates({ config: cfg, incumbent, facts: f, now: T0 });
+    const efforts = candidates.filter((candidate) => candidate.route.model === 'shared');
+    assert.deepEqual(efforts[0].estimate, efforts[1].estimate);
+    assert.equal(selectTarget({ candidates, demand: 2, mode }).route.effort, expected);
+  }
+  const candidates = assessCandidates({ config: cfg, incumbent: route('a'), facts: f, now: T0 }).filter(
+    (candidate) => candidate.route.model === 'shared',
+  );
+  assert.equal(selectTarget({ candidates, demand: 2 }).route.effort, 'medium');
+});
+
+test('escalation ties prefer the least sufficient strictly stronger effort', () => {
+  const cfg = config({
+    shared: model(null, 1, { efforts: ['low', 'high', 'medium'], capability: { low: 1, medium: 2, high: 3 } }),
+  });
+  const candidates = assessCandidates({ config: cfg, incumbent: route('shared', 'low'), facts: facts(), now: T0 });
+  const target = selectTarget({ candidates, demand: 2, escalation: true });
+  assert.deepEqual([target.route.effort, target.capability, target.reason], ['medium', 2, 'escalation']);
 });
 
 test('mode capability monotonicity over differing prices, sparse capabilities, unknowns and incumbent ties', () => {
