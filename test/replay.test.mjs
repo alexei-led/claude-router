@@ -66,7 +66,7 @@ test('first low advice routes from actual DeepSeek low capability without a prec
   );
   assert.equal(runs[1].loop().auto.state.demand, 1);
   assert.equal(runs[1].loop().auto.state.routedDemand, 1);
-  assert.equal(runs[1].loop().decision.reason, 'upgrade');
+  assert.equal(runs[1].loop().decision.reason, 'startup');
   const record = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
   const table = replayTable(record);
   assert.deepEqual(table.mismatches, []);
@@ -75,7 +75,7 @@ test('first low advice routes from actual DeepSeek low capability without a prec
     replayed.map((row) => row.pair),
     [{ model: 'deepseek-flash[1m]', effort: 'high' }],
   );
-  assert.equal(replayed[0].reason, 'upgrade');
+  assert.equal(replayed[0].reason, 'startup');
 });
 
 test('same-route micro adoption lets low votes and mid-turn review upgrade the real DeepSeek request', async (t) => {

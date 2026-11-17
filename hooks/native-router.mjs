@@ -121,6 +121,7 @@ import {
   continueRoute,
   economicConfig,
   emptyLoop,
+  hasRoutedDecision,
   isModelAllowed,
   isNativeFallback,
   isSameModel,
@@ -916,6 +917,7 @@ async function changeMode($, router, mode) {
           ref,
           {
             ...loaded.value,
+            hasRoutedDecision: hasRoutedDecision(loaded.value),
             auto: null,
             turnId: null,
             decision: null,
