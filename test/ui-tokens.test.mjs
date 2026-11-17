@@ -4,7 +4,7 @@ import { renderBand } from '../lib/band.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
 import { TIER_COLOR } from '../lib/display.mjs';
 import { paintersOf } from '../lib/ui/painter.mjs';
-import { GRAPHICAL_TONE, isGraphical, toneColor } from '../lib/ui/tokens.mjs';
+import { GRAPHICAL_PENDING, GRAPHICAL_TONE, isGraphical, toneColor } from '../lib/ui/tokens.mjs';
 import { ELEMENTS, goldenText } from './harness.mjs';
 
 // WCAG 2.x relative luminance and contrast ratio.
@@ -35,6 +35,11 @@ test('the activity tone reads at 3:1 on both grounds, and every graphical tone i
   assert.ok(contrast(GRAPHICAL_TONE.activity, '#1f1f1f') >= 3);
   for (const tone of Object.keys(GRAPHICAL_TONE)) assert.ok(toneColor(tone, 'desktop'));
   for (const tone of Object.keys(GRAPHICAL_TONE)) assert.ok(toneColor(tone, 'terminal'));
+});
+
+test('the pending meter hex reads at 3:1 on both grounds', () => {
+  assert.ok(contrast(GRAPHICAL_PENDING, '#ffffff') >= 3, 'on white');
+  assert.ok(contrast(GRAPHICAL_PENDING, '#1f1f1f') >= 3, 'on dark');
 });
 
 test('only a surface that is not the terminal is graphical', () => {

@@ -2326,6 +2326,14 @@ function traceConfigAdopted(router, loaded) {
   }
 }
 
+// The session row under the band, on or off. The band's button and the pane's setting share it; `view` is the view the
+// caller was drawn from, and `router.view` holds any press since.
+async function toggleBandDetail($, router, view) {
+  const bandDetail = !(router.view ?? view).bandDetail;
+  await $.store.set(BAND_DETAIL, bandDetail).catch(() => {});
+  await updateView($, router, { bandDetail });
+}
+
 // The pane's handlers. `view` is the view the pane was drawn from; a handler reads `router.view` first, which holds
 // any press since.
 function paneActions($, router, view) {
@@ -2426,6 +2434,7 @@ function paneActions($, router, view) {
     mode: (mode) => changeMode($, router, mode),
     tab: (tab) => updateView($, router, { tab, notice: null, confirmDelete: false }),
     help: () => updateView($, router, { help: !(router.view ?? view).help }),
+    toggleDetail: () => toggleBandDetail($, router, view),
     pin: async (tier) => {
       await updateView($, router, { notice: await setPin($, router, tier) });
     },
@@ -3107,11 +3116,7 @@ export function register(on, options) {
               pin: async (tier) => $.ui.toast(await setPin($, router, tier)),
               unpin: () => updateView($, router, { pendingPin: null }),
               key: () => openKeySettings($),
-              toggleDetail: async () => {
-                const bandDetail = !(router.view ?? view).bandDetail;
-                await $.store.set(BAND_DETAIL, bandDetail).catch(() => {});
-                await updateView($, router, { bandDetail });
-              },
+              toggleDetail: () => toggleBandDetail($, router, view),
             },
           ),
         ],

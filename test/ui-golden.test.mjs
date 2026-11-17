@@ -14,6 +14,7 @@ const { DEFAULTS, editActivity, loadConfig } = await import('../lib/config.mjs')
 const { GATEWAY_SETTINGS, NOT_A_TIER_REASON } = await import('../lib/display.mjs');
 const { renderPanel, routeDraftOf } = await import('../lib/panel.mjs');
 const { emptySubagentStore, recordAgent, spawnRecord } = await import('../lib/subagents.mjs');
+const { BAND_STATES, CLAUDE, ROUTED, SESSION_RECORDS } = await import('./band-states.mjs');
 const { ELEMENTS, goldenText } = await import('./harness.mjs');
 const { at, NOW, OTHER, reply, SESSION, STORE } = await import('./usage-fixtures.mjs');
 const { emptyUsage, recordUsage } = await import('../lib/usage.mjs');
@@ -36,16 +37,6 @@ function golden(name, tree) {
   assert.equal(actual, readFileSync(file, 'utf8'));
 }
 
-// Claude Code's own readings: context fill, the plan windows (the 5h one resets in an hour; the 7d one reports no
-// reset) and its cost.
-const CLAUDE = {
-  context: { tokens: 120_000 },
-  rateLimits: [
-    { kind: 'five_hour', percentUsed: 37, resetsAt: new Date(NOW + 3600e3).toISOString() },
-    { kind: 'seven_day', percentUsed: 81 },
-  ],
-  cost: { usd: 18.003 },
-};
 // One model at different efforts: the session and Usage show the effort mix, not a saving.
 const EFFORT_ONLY = {
   ...DEFAULTS,
@@ -156,74 +147,6 @@ const DECISIONS = [
 ];
 
 // ---- the band ---------------------------------------------------------------------------------------------------
-
-const ROUTED = {
-  mode: 'auto',
-  phase: 'routed',
-  tier: 'high',
-  selectedModel: 'claude-opus-5-5',
-  actualModel: 'claude-opus-5-5',
-  effort: 'xhigh',
-  nativeModel: 'claude-opus-5-5',
-  nativeEffort: 'xhigh',
-  reason: 'jump',
-};
-const SESSION_RECORDS = { usageSession: SESSION, usageStore: STORE };
-
-const BAND_STATES = {
-  routed: { view: ROUTED },
-  'routed-activity-estimate': {
-    view: {
-      ...ROUTED,
-      tier: 'medium',
-      selectedModel: 'claude-sonnet-5-5',
-      actualModel: 'claude-sonnet-5-5',
-      effort: 'high',
-      reason: 'upgrade',
-      activity: 'code',
-      estimate: { threshold: 0.82, upgradeMass: 0.88, taxUsd: 0.476 },
-      routingMode: { mode: 'cost', source: 'session' },
-      contextTokens: 90_000,
-      inputTokens: 1000,
-      cacheRead: 900,
-    },
-    usage: CLAUDE,
-  },
-  'routed-goal': {
-    view: { ...ROUTED, goal: 'ship', taskPhase: 'build', activity: 'code', reason: 'same-tier' },
-    usage: CLAUDE,
-  },
-  ready: { view: { mode: 'auto', phase: 'ready', nativeModel: 'claude-opus-5-5', nativeEffort: 'xhigh' } },
-  off: {
-    view: {
-      mode: 'manual',
-      phase: 'manual',
-      nativeModel: 'claude-sonnet-5-5',
-      reason: 'model selected manually',
-    },
-  },
-  unavailable: {
-    view: {
-      mode: 'auto',
-      phase: 'unavailable',
-      nativeModel: 'claude-opus-5-5',
-      nativeEffort: 'xhigh',
-      error: GATEWAY_SETTINGS,
-    },
-  },
-  choosing: { view: { mode: 'auto', phase: 'choosing', nativeModel: 'claude-opus-5-5' } },
-  'pending-pin': { view: { ...ROUTED, pendingPin: 'low' } },
-  'native-fallback': { view: { ...ROUTED, actualModel: 'claude-sonnet-5-5', reason: 'native-fallback' } },
-  'classifier-set-up': {
-    view: { ...ROUTED, tier: 'medium', selectedModel: 'claude-opus-5-5', effort: 'medium', error: 'missing-key' },
-  },
-  'classifier-details': { view: { ...ROUTED, error: 'timeout', reason: 'no-advice' } },
-  detail: { view: { ...ROUTED, ...SESSION_RECORDS, bandDetail: true }, usage: CLAUDE },
-  'detail-off': {
-    view: { mode: 'manual', phase: 'manual', nativeModel: 'claude-sonnet-5-5', bandDetail: true },
-    usage: CLAUDE,
-  },
-};
 
 for (const [name, { view, usage = null }] of Object.entries(BAND_STATES))
   for (const columns of [100, 40])

@@ -303,7 +303,9 @@ test('unknown readings remain unknown and the band preserves other Mods', async 
     });
     expect(await band.find({ type: 'Text', text: 'other mod' })).toBeDefined();
     expect(await band.find({ key: 'details' })).toBeDefined();
-    expect(await band.find({ key: 'band-manual' })).toBeDefined();
+    // The terminal band has the hover row's Turn off; the graphical band keeps it in the pane header only.
+    if (surface === 'terminal') expect(await band.find({ key: 'band-manual' })).toBeDefined();
+    else expect(await band.find({ key: 'band-manual' })).toBeUndefined();
     await band.unmount();
   }
 });

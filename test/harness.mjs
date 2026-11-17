@@ -194,11 +194,11 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       snapshot = new Map();
       return handler(name, input)($, input, next);
     },
-    render: async (props = PANE) => {
+    render: async (props = PANE, surface = undefined) => {
       snapshot = new Map();
       return handler('ui.render', { component: 'Pane' })(
         $,
-        { component: 'Pane', requestId: 'jev-router', props },
+        { component: 'Pane', requestId: 'jev-router', props, surface },
         async () => null,
       );
     },

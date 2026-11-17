@@ -162,3 +162,22 @@ test('two presses on one drawn band toggle two rows on and off again', async () 
   assert.equal(h.view().bandDetail, false);
   assert.equal(preferences.get('band:detail'), false);
 });
+
+test('the pane’s session row setting and the band share one toggle that is remembered', async () => {
+  const preferences = new Map();
+  const h = harness({}, preferences);
+  await start(h);
+  const toggle = async () => {
+    const tree = await h.render(undefined, 'desktop');
+    return controls(tree).find((node) => node.key === 'band-detail-toggle');
+  };
+  assert.equal((await toggle()).label, 'Show session row in band');
+  await (await toggle()).onPress();
+  assert.equal(h.view().bandDetail, true);
+  assert.equal(preferences.get('band:detail'), true);
+  assert.equal((await toggle()).label, 'Hide session row in band');
+  assert.equal(
+    controls(await h.render()).some((node) => node.key === 'band-detail-toggle'),
+    false,
+  );
+});
