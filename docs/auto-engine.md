@@ -14,7 +14,9 @@ A route is `{ model: alias, effort: string | number | null }`. Generated candida
 or `null` for a model with `efforts: []`. A real native incumbent with an unresolved null or finite numeric effort
 is valid but has unknown capability. An unsupported explicit string is not silently clamped.
 Capability comes only from `models[alias].capability[effort]`, or `capability.default` on a no-effort model.
-No declaration means unknown, not zero.
+No declaration means unknown, not zero. Anthropic includes user-derived balanced base-route policy seeds, not
+measured quality; all other pairs remain unknown. Users can replace them as described in
+[Providers](providers.md#capability-evidence).
 
 The facts object uses the existing controller shapes:
 

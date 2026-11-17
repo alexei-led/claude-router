@@ -211,6 +211,28 @@ test('failure hold precedes classifier votes; reset permits the same occurrence 
   assert.equal(reset.escalated, true);
 });
 
+test('balanced builtin targets follow seeded base routes without inferring other efforts', () => {
+  const cfg = loadConfig({});
+  const candidates = assessCandidates({ config: cfg, incumbent: route('sonnet', 'low'), facts: facts(), now: T0 });
+  const candidate = (model, effort) => candidates.find((c) => c.route.model === model && c.route.effort === effort);
+  assert.equal(candidate('haiku', 'low').capability, null);
+  assert.equal(candidate('opus', 'high').capability, null);
+  assert.deepEqual(candidate('haiku', 'medium').estimate, candidate('haiku', 'high').estimate);
+  assert.deepEqual(candidate('opus', 'medium').estimate, candidate('opus', 'xhigh').estimate);
+  assert.ok(candidate('haiku', 'medium').estimate.maxUsd < candidate('opus', 'medium').estimate.maxUsd);
+  for (const [demand, expected] of [
+    [0, route('haiku', 'medium')],
+    [1, route('haiku', 'high')],
+    [2, route('opus', 'medium')],
+    [3, route('opus', 'xhigh')],
+  ]) {
+    const target = selectTarget({ candidates, demand });
+    assert.equal(target.outcome, 'meets-demand');
+    assert.deepEqual(target.route, expected);
+    assert.equal(target.capability, demand);
+  }
+});
+
 test('target outcome precedence and unknowns, including level zero and empty maps', () => {
   for (const [name, models, demand, expected, outcome, cap] of [
     ['declared below beats cheap unknown', { a: model(null, 0.01), b: model(1) }, 3, 'b', 'declared-below-demand', 1],
