@@ -10,7 +10,7 @@ const { tierBars } = await import('../lib/display.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { CLAUDE, ROUTED } = await import('./band-states.mjs');
-const { ELEMENTS, texts } = await import('./harness.mjs');
+const { byKey, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
 const { NOW, SESSION, STORE } = await import('./usage-fixtures.mjs');
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
@@ -38,20 +38,9 @@ const RICH = {
   strip: { per: 1, cells: [{ low: 2 }, { medium: 1 }, { high: 1, low: 1 }, { none: 1 }] },
 };
 const draw = (props = {}, { surface = 'desktop', usage = CLAUDE, columns = 100 } = {}) =>
-  renderPanel(ELEMENTS, DEFAULTS, { ...RICH, ...props }, usage, actions, { columns, now: NOW, surface });
+  // Every tree a test draws holds each key and hotkey once.
+  unique(renderPanel(ELEMENTS, DEFAULTS, { ...RICH, ...props }, usage, actions, { columns, now: NOW, surface }));
 
-const kids = (node) =>
-  (Array.isArray(node?.props?.children) ? node.props.children : [node?.props?.children]).filter(Boolean);
-const find = (tree, match) => {
-  const out = [];
-  (function walk(node) {
-    if (!node || typeof node !== 'object') return;
-    if (node.props && match(node)) out.push(node);
-    for (const child of kids(node)) walk(child);
-  })(tree);
-  return out;
-};
-const byKey = (tree, key) => find(tree, (n) => n.props.key === key)[0];
 // A card is a round-bordered Box whose first row carries its title.
 const card = (tree, title) =>
   find(tree, (n) => n.props.borderStyle === 'round' && texts(kids(n)[0]).includes(title))[0];
@@ -178,7 +167,7 @@ for (const surface of SURFACES) {
           .length,
         tier,
       );
-    for (const legend of ['low 3', 'medium 1', 'high 1', 'not routed 1']) assert.ok(words.includes(legend), legend);
+    for (const legend of ['Low 3', 'Medium 1', 'High 1', 'not routed 1']) assert.ok(words.includes(legend), legend);
   });
 
   test(`${surface}: empty states read as words, never NaN or undefined`, () => {
@@ -224,6 +213,48 @@ for (const surface of SURFACES) {
       { surface },
     );
     assert.ok(texts(open).includes('−$0.02 to +$0.03'));
+  });
+}
+
+// The Context card keeps the accent fill and plain cache figure until a reading warns: past 60% the fill warns, past
+// 80% it is in danger (display.mjs bar()); a cache reuse below 60% warns from 20%.
+for (const surface of SURFACES) {
+  test(`${surface}: the Context card keeps the accent until the fill or the cache warns`, () => {
+    const fill = (contextTokens) => {
+      const context = card(draw({ contextTokens, inputTokens: 1000, cacheRead: 900 }, { surface }), 'Context');
+      return find(context, (n) => n.type === 'Box' && /%$/.test(String(n.props.width)) && n.props.backgroundColor).map(
+        (n) => [n.props.width, n.props.backgroundColor],
+      );
+    };
+    assert.deepEqual(fill(400_000), [['40%', toneColor('accent', 'graphical')]]);
+    assert.deepEqual(fill(700_000), [['70%', toneColor('warning', 'graphical')]]);
+    assert.deepEqual(fill(850_000), [['85%', toneColor('danger', 'graphical')]]);
+    assert.deepEqual(fill(950_000), [['95%', toneColor('danger', 'graphical')]]);
+    const figure = (cacheRead, text) => {
+      const context = card(draw({ inputTokens: 1000, cacheRead }, { surface }), 'Context');
+      return find(context, (n) => n.type === 'Text' && n.props.children === text)[0].props.color;
+    };
+    assert.equal(figure(900, '90%'), toneColor('primary', 'graphical'));
+    assert.equal(figure(100, '10%'), toneColor('primary', 'graphical'));
+    assert.equal(figure(300, '30%'), toneColor('warning', 'graphical'));
+  });
+}
+
+// The input per reply behind Details is a trend chart, not block glyphs in proportional text.
+for (const surface of SURFACES) {
+  test(`${surface}: the input per reply is a trend with its alt, never glyphs`, () => {
+    const context = card(
+      draw({ usageDetail: true, history: [12_000, 48_000, 30_000], tiers: ['low', 'high', 'medium'] }, { surface }),
+      'Context',
+    );
+    const [chart] = find(context, (n) => n.type === 'Svg' && n.props.height === 48);
+    assert.ok(chart, 'a trend Svg');
+    assert.match(chart.props.alt, /12\.0K/);
+    assert.match(chart.props.alt, /48\.0K/);
+    for (const word of texts(context)) assert.doesNotMatch(word, /[▁▂▃▄▅▆▇█]/, word);
+    assert.ok(texts(context).includes('12.0K lowest · 48.0K highest'));
+    const none = card(draw({ usageDetail: true, history: [] }, { surface }), 'Context');
+    assert.ok(texts(none).includes('No replies yet'));
   });
 }
 

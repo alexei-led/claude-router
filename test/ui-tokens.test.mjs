@@ -4,7 +4,14 @@ import { renderBand } from '../lib/band.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
 import { TIER_COLOR } from '../lib/display.mjs';
 import { paintersOf } from '../lib/ui/painter.mjs';
-import { GRAPHICAL_PENDING, GRAPHICAL_TONE, isGraphical, toneColor } from '../lib/ui/tokens.mjs';
+import {
+  GRAPHICAL_MODEL,
+  GRAPHICAL_PENDING,
+  GRAPHICAL_TONE,
+  isGraphical,
+  svgColor,
+  toneColor,
+} from '../lib/ui/tokens.mjs';
 import { ELEMENTS, goldenText } from './harness.mjs';
 
 // WCAG 2.x relative luminance and contrast ratio.
@@ -40,6 +47,29 @@ test('the activity tone reads at 3:1 on both grounds, and every graphical tone i
 test('the pending meter hex reads at 3:1 on both grounds', () => {
   assert.ok(contrast(GRAPHICAL_PENDING, '#ffffff') >= 3, 'on white');
   assert.ok(contrast(GRAPHICAL_PENDING, '#1f1f1f') >= 3, 'on dark');
+});
+
+test('every model family colour reads at 3:1 on both grounds', () => {
+  for (const [family, color] of Object.entries(GRAPHICAL_MODEL)) {
+    assert.equal(toneColor(`model:${family}`, 'desktop'), color);
+    assert.ok(contrast(color, '#ffffff') >= 3, `${family} ${color} on white`);
+    assert.ok(contrast(color, '#1f1f1f') >= 3, `${family} ${color} on dark`);
+  }
+});
+
+test('every hex an Svg draws in reads at 3:1 on both grounds', () => {
+  const tones = ['primary', 'muted', 'accent', 'success', 'warning', 'danger', 'activity'];
+  const all = [
+    ...tones,
+    ...Object.keys(TIER_COLOR).map((tier) => `tier:${tier}`),
+    ...Object.keys(GRAPHICAL_MODEL).map((family) => `model:${family}`),
+  ];
+  for (const tone of all) {
+    const color = svgColor(/** @type {any} */ (tone));
+    assert.match(color, /^#[0-9a-f]{6}$/i, tone);
+    assert.ok(contrast(color, '#ffffff') >= 3, `${tone} ${color} on white`);
+    assert.ok(contrast(color, '#1f1f1f') >= 3, `${tone} ${color} on dark`);
+  }
 });
 
 test('only a surface that is not the terminal is graphical', () => {

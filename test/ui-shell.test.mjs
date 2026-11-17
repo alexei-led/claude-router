@@ -6,7 +6,7 @@ import { DEFAULTS } from '../lib/config.mjs';
 import { renderPanel, routeDraftOf } from '../lib/panel.mjs';
 import { paintersOf } from '../lib/ui/painter.mjs';
 import { toneColor } from '../lib/ui/tokens.mjs';
-import { controls, ELEMENTS, texts } from './harness.mjs';
+import { byKey, controls, ELEMENTS, find, kids, texts } from './harness.mjs';
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
 const KEYS_SET = { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null };
@@ -32,18 +32,6 @@ const WARNED = {
 const SAVED = routeDraftOf(DEFAULTS, {});
 const DRAFT = { ...SAVED, routes: { ...SAVED.routes, micro: { ...SAVED.routes.high } } };
 
-const kids = (node) =>
-  (Array.isArray(node?.props?.children) ? node.props.children : [node?.props?.children]).filter(Boolean);
-const find = (tree, test) => {
-  const out = [];
-  (function walk(node) {
-    if (!node || typeof node !== 'object') return;
-    if (node.props && test(node)) out.push(node);
-    for (const child of kids(node)) walk(child);
-  })(tree);
-  return out;
-};
-const byKey = (tree, key) => find(tree, (n) => n.props.key === key)[0];
 const textOf = (node) =>
   typeof node?.props?.children === 'string' ? node.props.children : kids(node).map(textOf).join('');
 // The shell's own children, in order, under the root.
@@ -100,8 +88,12 @@ for (const surface of SURFACES) {
       assert.match(lines[0], /Ignored: router\.json: unknown model/);
       assert.match(lines[1], /served by .* native fallback/);
       assert.match(lines[2], /keeping the model/);
-      assert.ok(byKey(slot, 'key'), `${tab} Set up`);
-      assert.equal(byKey(slot, 'key').props.hotkey, 'k');
+      // On Classifier the active card holds Set up and k; on every other tab the notice does.
+      if (tab === 'classifier') assert.equal(byKey(slot, 'key'), undefined, `${tab} Set up`);
+      else {
+        assert.ok(byKey(slot, 'key'), `${tab} Set up`);
+        assert.equal(byKey(slot, 'key').props.hotkey, 'k');
+      }
       // Nothing else on the page repeats a warning.
       const rest = texts({ type: 'Box', props: { children: shell(tree).filter((n) => n !== slot) } }).join('\n');
       assert.doesNotMatch(rest, /Ignored:|native fallback|keeping the model/, tab);
@@ -121,7 +113,7 @@ for (const surface of SURFACES) {
       const tree = draw({ tab, routeDraft: DRAFT }, surface);
       const last = shell(tree).at(-1);
       assert.equal(last.props.key, 'save-bar', tab);
-      assert.match(texts(last).join(' '), /1 unsaved routing change/, tab);
+      assert.match(texts(last).join(' '), /^Unsaved changes 1 change/, tab);
       calls.length = 0;
       byKey(last, 'save-routing').props.onPress();
       byKey(last, 'discard-routing').props.onPress();
@@ -205,8 +197,9 @@ test('the terminal shows view.error once, in its header line, not in a slot', ()
 test('the graphical painter draws section as a bordered card and keeps the shared methods', () => {
   const ui = paintersOf(ELEMENTS, 'desktop');
   const terminal = paintersOf(ELEMENTS, 'terminal');
-  assert.deepEqual(Object.keys(ui).sort(), Object.keys(terminal).sort());
-  for (const surface of ['mobile', 'vscode']) assert.notEqual(paintersOf(ELEMENTS, surface).section, terminal.section);
+  for (const name of Object.keys(terminal)) assert.ok(name in ui, name);
+  assert.equal(terminal.section, undefined);
+  for (const surface of ['mobile', 'vscode']) assert.equal(typeof paintersOf(ELEMENTS, surface).section, 'function');
   const card = ui.section('Next turn', { hint: 'why' }, [ui.text('body')]);
   assert.equal(card.props.borderStyle, 'round');
   assert.equal(card.props.flexDirection, 'column');
@@ -269,3 +262,121 @@ test('choice is a segmented row of Buttons, the selected one primary, each press
   buttons[0].onPress();
   assert.deepEqual(picked, ['auto']);
 });
+
+// The save bar, the help and the profile line are cards and tones on a graphical surface, never the terminal's lines.
+const RAW = ['red', 'green', 'yellow', 'cyan', 'white', 'gray'];
+const PROVIDER = { ...DEFAULTS, provider: 'deepseek' };
+for (const surface of SURFACES) {
+  test(`${surface}: the save bar is an Unsaved changes card with a table and Discard then Save`, () => {
+    const tree = draw({ tab: 'routes', routeDraft: DRAFT }, surface);
+    const bar = byKey(tree, 'save-bar');
+    assert.ok(bar.props.gap, 'the bar has a gap');
+    const words = texts(bar);
+    assert.ok(words.includes('Unsaved changes'));
+    assert.ok(words.includes('Micro route'), words.join(' | '));
+    assert.ok(words.includes('Setting'));
+    for (const word of words) {
+      assert.doesNotMatch(word, /^[-+] |router\.json changes|^●|routes\.micro/, word);
+      assert.notEqual(word, ' ');
+    }
+    const [discard, save] = controls(bar).filter((c) => /-routing$/.test(c.key));
+    assert.deepEqual(
+      [discard.key, discard.variant, discard.hotkey, save.key, save.variant, save.hotkey],
+      ['discard-routing', 'secondary', 'd', 'save-routing', 'primary', 's'],
+    );
+    // Elsewhere the card says where the changes are listed instead of listing them.
+    const now = byKey(draw({ tab: 'now', routeDraft: DRAFT }, surface), 'save-bar');
+    assert.ok(texts(now).includes('Unsaved changes'));
+    assert.ok(!texts(now).includes('Micro route'));
+    assert.match(texts(now).join(' '), /listed on Routes and Policy/);
+  });
+
+  test(`${surface}: the last notice and Undo are a notice in a tone`, () => {
+    const saved = byKey(
+      draw({ notice: 'Saved: 1 routing change', lastWrite: { label: 'routes' } }, surface),
+      'save-bar',
+    );
+    const [line] = find(saved, (n) => n.type === 'Text' && /^Saved/.test(n.props.children));
+    assert.equal(line.props.children, 'Saved: 1 routing change');
+    assert.equal(line.props.color, toneColor('success', 'graphical'));
+    assert.equal(byKey(saved, 'undo').props.hotkey, 'u');
+    const last = byKey(draw({ lastWrite: { label: 'classifier jev' } }, surface), 'save-bar');
+    const [words] = find(last, (n) => n.type === 'Text' && /Last change/.test(n.props.children));
+    assert.equal(words.props.children, 'Last change: classifier jev');
+    assert.equal(words.props.color, toneColor('muted', 'graphical'));
+  });
+
+  test(`${surface}: help is an About the router card of sentences, the tiers as meters`, () => {
+    const tree = draw({ help: true }, surface);
+    const words = texts(tree);
+    assert.ok(words.includes('About the router'));
+    assert.ok(!words.includes('ABOUT THESE NUMBERS'));
+    assert.ok(
+      words.some((t) => /^No routing: your model on the main thread, .* Answer quality is not measured\.$/.test(t)),
+    );
+    const card = find(tree, (n) => n.props.borderStyle && texts(n).includes('About the router'))[0];
+    for (const word of texts(card)) assert.doesNotMatch(word, /▂|▄|▆|█/, word);
+    assert.equal(find(card, (n) => n.type === 'Svg').length, 4);
+  });
+
+  test(`${surface}: the profile line is a muted footnote`, () => {
+    const tree = renderPanel(ELEMENTS, PROVIDER, view({ configPath: '/x/router.json' }), null, actions, {
+      columns: 100,
+      surface,
+    });
+    const [line] = find(tree, (n) => n.type === 'Text' && /^Profile/.test(n.props.children));
+    assert.equal(line.props.children, 'Profile: DeepSeek · /x/router.json');
+    assert.equal(line.props.size, 'footnote');
+    assert.equal(line.props.color, toneColor('muted', 'graphical'));
+  });
+
+  test(`${surface}: no text on any tab is drawn in a raw terminal colour`, () => {
+    for (const tab of ['now', 'routes', 'policy', 'classifier', 'usage'])
+      for (const props of [
+        { routeDraft: DRAFT, help: true, notice: 'Not saved: x', lastWrite: { label: 'y' } },
+        WARNED,
+      ]) {
+        const tree = draw({ tab, ...props }, surface);
+        for (const node of find(tree, (n) => n.type === 'Text'))
+          assert.ok(!RAW.includes(node.props.color), `${tab}: ${node.props.color} on ${textOf(node)}`);
+      }
+  });
+}
+
+// Missing credentials are said once, in the notice with Set up; the title points to it instead of repeating it.
+for (const surface of SURFACES) {
+  test(`${surface}: missing classifier credentials are announced once`, () => {
+    for (const tab of ['now', 'classifier']) {
+      const tree = draw({ tab, error: 'missing-key', credentials: { jev: 'missing-key' } }, surface);
+      const said = texts(tree).filter((t) => /no API key/.test(t));
+      assert.equal(said.length, 1, `${tab}: ${said.join(' | ')}`);
+      assert.match(said[0], /keeping the model/);
+      const head = shell(tree)[0];
+      assert.ok(texts(head).includes('Jev needs attention'), texts(head).join(' | '));
+      const [dot] = find(head, (n) => n.type === 'Text' && n.props.children === '●');
+      assert.equal(dot.props.color, toneColor('warning', 'graphical'));
+    }
+    // Another error is a notice too: the title points to it.
+    const timed = draw({ error: 'timeout' }, surface);
+    assert.equal(texts(timed).filter((t) => /timed out/.test(t)).length, 1);
+    assert.ok(texts(shell(timed)[0]).includes('Jev needs attention'));
+    // With routing off no notice says it, so the title keeps the whole state.
+    const off = draw({ mode: 'manual', error: 'missing-key', credentials: { jev: 'missing-key' } }, surface);
+    assert.ok(
+      texts(shell(off)[0]).some((t) => /^Jev: no API key/.test(t)),
+      texts(shell(off)[0]).join(' | '),
+    );
+  });
+
+  test(`${surface}: on the Classifier tab the notice leaves Set up and k to the active card`, () => {
+    const tree = draw({ ...WARNED, tab: 'classifier' }, surface);
+    const slot = byKey(tree, 'notices');
+    assert.equal(controls(slot).length, 0);
+    assert.match(texts(slot).join(' '), /keeping the model/);
+    const owners = controls(tree).filter((c) => c.hotkey === 'k');
+    assert.deepEqual(
+      owners.map((c) => c.key),
+      ['key-jev'],
+    );
+  });
+}

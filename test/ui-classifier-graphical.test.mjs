@@ -10,7 +10,7 @@ const { DEFAULTS } = await import('../lib/config.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { ROUTED } = await import('./band-states.mjs');
-const { byKey, controls, ELEMENTS, find, kids, texts } = await import('./harness.mjs');
+const { byKey, controls, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
 const calls = [];
@@ -46,7 +46,8 @@ const VIEW = {
   activityMetrics: METRICS,
 };
 const draw = (props = {}, { surface = 'desktop', config = DEFAULTS } = {}) =>
-  renderPanel(ELEMENTS, config, { ...VIEW, ...props }, null, actions, { columns: 100, surface });
+  // Every tree a test draws holds each key and hotkey once.
+  unique(renderPanel(ELEMENTS, config, { ...VIEW, ...props }, null, actions, { columns: 100, surface }));
 
 const isCard = (n) => n.props.borderStyle === 'round';
 const titleOf = (n) => texts(kids(n)[0])[0];

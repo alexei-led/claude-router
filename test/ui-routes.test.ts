@@ -81,7 +81,7 @@ test('desktop Routes: the grid and the editor draw in the engine and their contr
   await pane.press({ key: 'cell-tier-medium' });
   expect(state.view.routeCell).toBe('tier.medium');
   await pane.redraw();
-  expect(await pane.find({ type: 'Text', text: 'Edit Default at medium' })).toBeDefined();
+  expect(await pane.find({ type: 'Text', text: 'Edit Default at Medium' })).toBeDefined();
   expect(await pane.find({ key: 'route-medium-effort' })).toBeDefined();
   await pane.select({ key: 'route-medium-model', value: 'sonnet' });
   expect(state.view.routeDraft?.routes.medium.model).toBe('sonnet');
@@ -90,7 +90,7 @@ test('desktop Routes: the grid and the editor draw in the engine and their contr
 
   await pane.press({ key: 'cell-code-high' });
   await pane.redraw();
-  expect(await pane.find({ type: 'Text', text: 'Edit code at high' })).toBeDefined();
+  expect(await pane.find({ type: 'Text', text: 'Edit code at High' })).toBeDefined();
   await pane.select({ key: 'activity-code-high-model', value: 'fable' });
   expect(state.view.routeDraft?.activities.code?.high?.model).toBe('fable');
   await pane.redraw();

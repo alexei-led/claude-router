@@ -211,14 +211,16 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
     const terminal = surface === 'terminal';
     expect(await pane.find({ type: 'Text', text: terminal ? / 15%$/ : '15%' })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /~150\.5K \/ 1\.00M/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: terminal ? '80%' : /^80% last reply/ })).toBeDefined();
+    // The desktop sets the figure apart from its words, in the cache's tone.
+    expect(await pane.find({ type: 'Text', text: '80%' })).toBeDefined();
+    if (!terminal) expect(await pane.find({ type: 'Text', text: 'last reply' })).toBeDefined();
     expect(
       await pane.find({
         type: 'Text',
         text: terminal ? /no priced replies: cost unknown/ : 'No priced replies: cost unknown',
       }),
     ).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: terminal ? ' 2   ' : 'low 2' })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: terminal ? ' 2   ' : 'Low 2' })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /\/cost|0\.25/ })).toBeUndefined();
     await pane.press({ key: 'usage-detail' });
     await pane.redraw();

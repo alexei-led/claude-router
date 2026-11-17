@@ -4,11 +4,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { DEFAULTS } = await import('../lib/config.mjs');
+const { DEFAULTS, TIERS } = await import('../lib/config.mjs');
 const { POLICY_FORM, POLICY_ROWS, renderPanel, routeDraftOf } = await import('../lib/panel.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { ROUTED } = await import('./band-states.mjs');
-const { byKey, controls, ELEMENTS, find, kids, texts } = await import('./harness.mjs');
+const { byKey, controls, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
 const GROUPS = ['Routing mode', 'Switching down', 'Switching up', 'Activities', 'Credits'];
@@ -24,7 +24,8 @@ const actions = new Proxy(
 );
 const VIEW = { ...ROUTED, tab: 'policy', credentials: { jev: null }, configPath: '/fixture/team/router.json' };
 const draw = (props = {}, { surface = 'desktop', config = DEFAULTS, elements = ELEMENTS } = {}) =>
-  renderPanel(elements, config, { ...VIEW, ...props }, null, actions, { columns: 100, surface });
+  // Every tree a test draws holds each key and hotkey once.
+  unique(renderPanel(elements, config, { ...VIEW, ...props }, null, actions, { columns: 100, surface }));
 
 const isCard = (n) => n.props.borderStyle === 'round';
 const titleOf = (n) => texts(kids(n)[0])[0];
@@ -191,6 +192,20 @@ for (const surface of SURFACES) {
     assert.deepEqual(
       byKey(tree, 'baseline').props.options.map((o) => o.label),
       ['Micro', 'Low', 'Medium', 'High'],
+    );
+    // Their values stay the tier ids router.json holds, and a pick passes the id on.
+    const baseline = byKey(tree, 'baseline');
+    assert.deepEqual(
+      baseline.props.options.map((o) => o.value),
+      TIERS,
+    );
+    assert.equal(baseline.props.value, DEFAULTS.baselineTier);
+    calls.length = 0;
+    baseline.props.onSelect('micro');
+    assert.deepEqual(calls, [['baseline', 'micro']]);
+    assert.deepEqual(
+      byKey(tree, 'routing-mode').props.options.map((o) => o.value),
+      ['cost', 'balanced', 'quality'],
     );
     // No option label is a bare lowercase word.
     for (const select of find(body(tree), (n) => n.type === 'Select'))

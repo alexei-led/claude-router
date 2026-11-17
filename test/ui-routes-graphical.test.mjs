@@ -6,8 +6,9 @@ import test from 'node:test';
 const { ACTIVITIES, DEFAULTS, TIERS } = await import('../lib/config.mjs');
 const { renderPanel, routeDraftOf } = await import('../lib/panel.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
+const { tierLabel } = await import('../lib/ui/model/words.mjs');
 const { ROUTED } = await import('./band-states.mjs');
-const { byKey, controls, ELEMENTS, find, kids, texts } = await import('./harness.mjs');
+const { byKey, controls, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
 const calls = [];
@@ -22,7 +23,8 @@ const actions = new Proxy(
 );
 const VIEW = { ...ROUTED, tab: 'routes', credentials: { jev: null } };
 const draw = (props = {}, { surface = 'desktop', config = DEFAULTS, columns = 100 } = {}) =>
-  renderPanel(ELEMENTS, config, { ...VIEW, ...props }, null, actions, { columns, surface });
+  // Every tree a test draws holds each key and hotkey once.
+  unique(renderPanel(ELEMENTS, config, { ...VIEW, ...props }, null, actions, { columns, surface }));
 
 const isCard = (n) => n.props.borderStyle === 'round';
 const titleOf = (n) => texts(kids(n)[0])[0];
@@ -82,7 +84,7 @@ for (const surface of SURFACES) {
   test(`${surface}: the header names every tier beside its meter; Default holds each tier's route`, () => {
     const tree = draw({}, { surface });
     const head = byKey(tree, 'grid-head');
-    for (const tier of TIERS) assert.ok(texts(head).includes(tier), tier);
+    for (const tier of TIERS) assert.ok(texts(head).includes(tierLabel(tier)), tier);
     assert.equal(find(head, (n) => n.type === 'Svg').length, TIERS.length);
     assert.deepEqual(texts(kids(byKey(tree, 'grid-tier'))[0]), ['Default']);
     assert.deepEqual(texts(byKey(tree, 'cell-tier-medium')), ['Opus 5.5 · medium']);
@@ -140,7 +142,7 @@ for (const surface of SURFACES) {
     assert.equal(gridRows(tree).length, gridRows(plain).length);
     const editors = cards(tree).filter((n) => /^Edit /.test(titleOf(n)));
     assert.equal(editors.length, 1);
-    assert.equal(titleOf(editors[0]), 'Edit Default at medium');
+    assert.equal(titleOf(editors[0]), 'Edit Default at Medium');
     const stack = kids(kids(body(tree))[0]);
     const routes = stack.findIndex((n) => isCard(n) && titleOf(n) === 'Routes');
     assert.ok(routes >= 0);
@@ -165,7 +167,7 @@ for (const surface of SURFACES) {
 
   test(`${surface}: an override's editor has its state, Remove override and Restore default, and its warnings`, () => {
     const view = { routeCell: 'code.medium', routeDraft: DRAFT };
-    const editor = card(draw(view, { surface }), 'Edit code at medium');
+    const editor = card(draw(view, { surface }), 'Edit code at Medium');
     assert.ok(editor);
     assert.ok(byKey(editor, 'activity-code-medium-model'));
     assert.ok(byKey(editor, 'activity-code-medium-effort'));
@@ -184,7 +186,7 @@ for (const surface of SURFACES) {
       const draft = routeDraftOf(DEFAULTS, {});
       return { ...draft, activities: { ...draft.activities, code: { low: { model: 'opus', effort: 'low' } } } };
     })();
-    const back = card(draw({ routeCell: 'code.low', routeDraft: moved }, { surface }), 'Edit code at low');
+    const back = card(draw({ routeCell: 'code.low', routeDraft: moved }, { surface }), 'Edit code at Low');
     assert.ok(byKey(back, 'activity-default-code-low'));
   });
 
@@ -215,14 +217,14 @@ for (const surface of SURFACES) {
       { routeDraft: { ...routeDraftOf(DEFAULTS, {}), routes: { ...DEFAULTS.routes, high: DEFAULTS.routes.medium } } },
       { surface },
     );
-    assert.match(texts(card(same, 'Routes')).join(' '), /Medium and high run the same model and effort/);
+    assert.match(texts(card(same, 'Routes')).join(' '), /Medium and High run the same model and effort/);
   });
 
   test(`${surface}: a cell names a model by its display name, not its 90-character router.json key`, () => {
     const tree = draw({}, { surface, config: LONG_KEYED });
     assert.deepEqual(texts(byKey(tree, 'cell-tier-medium')), ['Vendor Long · high']);
     assert.doesNotMatch(texts(byKey(tree, 'routes-grid')).join(' '), new RegExp(LONG_KEY));
-    for (const tier of TIERS) assert.ok(texts(byKey(tree, 'grid-head')).includes(tier), tier);
+    for (const tier of TIERS) assert.ok(texts(byKey(tree, 'grid-head')).includes(tierLabel(tier)), tier);
   });
 
   test(`${surface}: a 90-character display name truncates in its cell and the tier header stays visible`, () => {
@@ -232,7 +234,7 @@ for (const surface of SURFACES) {
     assert.equal(label.props.wrap, 'truncate-end');
     const column = find(byKey(tree, 'grid-tier'), (n) => kids(n).includes(byKey(tree, 'cell-tier-medium')))[0];
     assert.equal(column.props.overflow, 'hidden');
-    for (const tier of TIERS) assert.ok(texts(byKey(tree, 'grid-head')).includes(tier), tier);
+    for (const tier of TIERS) assert.ok(texts(byKey(tree, 'grid-head')).includes(tierLabel(tier)), tier);
     for (const row of gridRows(tree)) assert.equal(columnsOf(row), 1 + TIERS.length);
   });
 

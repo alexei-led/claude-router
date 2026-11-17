@@ -12,7 +12,7 @@ const { emptySubagentStore, recordAgent, spawnRecord } = await import('../lib/su
 const { paintersOf } = await import('../lib/ui/painter.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { CLAUDE, ROUTED } = await import('./band-states.mjs');
-const { byKey, controls, ELEMENTS, find, kids, texts } = await import('./harness.mjs');
+const { byKey, controls, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
 const { at, NOW, OTHER, reply, SESSION, STORE } = await import('./usage-fixtures.mjs');
 const { emptyUsage, recordUsage, replyEntry } = await import('../lib/usage.mjs');
 
@@ -71,7 +71,8 @@ const VIEW = {
   subagentStore: AGENTS,
 };
 const draw = (props = {}, { surface = 'desktop', config = DEFAULTS, columns = 100, usage = CLAUDE } = {}) =>
-  renderPanel(ELEMENTS, config, { ...VIEW, ...props }, usage, actions, { columns, now: NOW, surface });
+  // Every tree a test draws holds each key and hotkey once.
+  unique(renderPanel(ELEMENTS, config, { ...VIEW, ...props }, usage, actions, { columns, now: NOW, surface }));
 const terminal = (props = {}, { config = DEFAULTS, columns = 100 } = {}) =>
   renderPanel(ELEMENTS, config, { ...VIEW, ...props }, CLAUDE, actions, { columns, now: NOW });
 
@@ -375,6 +376,33 @@ for (const surface of SURFACES) {
     };
     const open = { confirmDelete: true, usageOpen: 'activity:code' };
     assert.deepEqual(confirm(draw(open, { surface })), confirm(terminal(open)));
+  });
+
+  test(`${surface}: group-tier, insight-switch, session-policy and a pass-through row press as on the terminal`, () => {
+    const press = (tree, keys) => {
+      calls.length = 0;
+      for (const key of keys) byKey(tree, key).props.onPress();
+      return [...calls];
+    };
+    const pair = (props, keys) => {
+      const graphical = press(draw(props, { surface }), keys);
+      assert.deepEqual(graphical, press(terminal(props), keys), keys.join(' '));
+      return graphical;
+    };
+    assert.deepEqual(pair({ usagePeriod: 'today' }, ['group-tier', 'row-subagent-pass:workflow']), [
+      ['usageGroup', 'tier'],
+      ['usageOpen', 'subagent-pass:workflow'],
+    ]);
+    // Cache rebuilds past 15% of the cheaper-model saving point to Policy.
+    const costly = recordUsage(SESSION, [reply(at(2026, 10, 13, 14), 'hard')], { now: NOW, switched: 'tier' });
+    const heavy = { ...costly, days: structuredClone(costly.days) };
+    for (const sums of Object.values(heavy.days['2026-10-13'].cells)) {
+      sums[1] += 0.3;
+      sums[5] += 0.3;
+    }
+    assert.deepEqual(pair({ usageSession: heavy }, ['insight-switch']), [['tab', 'policy']]);
+    assert.deepEqual(pair(STATES.lost, ['session-policy']), [['tab', 'policy']]);
+    assert.deepEqual(pair({ ...STATES.lost, tab: 'now' }, ['session-policy']), [['tab', 'policy']]);
   });
 
   for (const [name, props] of Object.entries(STATES))

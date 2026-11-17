@@ -433,3 +433,24 @@ export function find(tree, match) {
 
 // The first element with this key.
 export const byKey = (tree, key) => find(tree, (n) => n.props.key === key)[0];
+
+// The keys and the hotkeys the tree holds more than once: a Button with no key is addressed by its label. One owner
+// per key and per hotkey, so a press or a key always reaches the control it names.
+export function duplicates(tree) {
+  const keys = new Map();
+  const hotkeys = new Map();
+  const count = (map, name) => map.set(name, (map.get(name) ?? 0) + 1);
+  for (const node of find(tree, () => true)) {
+    const key = node.props.key ?? (node.type === 'Button' ? node.props.label : undefined);
+    if (key !== undefined) count(keys, `${node.type === 'Box' ? 'Box ' : ''}${key}`);
+    if (node.props.hotkey !== undefined) count(hotkeys, node.props.hotkey);
+  }
+  const many = (map) => [...map].filter(([, n]) => n > 1).map(([name]) => name);
+  return { keys: many(keys), hotkeys: many(hotkeys) };
+}
+
+// The tree, after failing on any key or hotkey it holds twice: a graphical test's draw passes every tree through it.
+export function unique(tree) {
+  assert.deepEqual(duplicates(tree), { keys: [], hotkeys: [] });
+  return tree;
+}

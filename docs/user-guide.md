@@ -42,8 +42,8 @@ The pane shows its provider and file path.
 
 The band above the prompt is drawn natively as one fixed row. Nothing appears on hover: every control is on the row itself.
 
-- **Left**: a small tier meter icon, then the route (the model and effort for this turn), the activity and the reason, in the words of the [terminal band](#in-the-terminal).
-- **Right**: the readings (classifier support, switch cost, context and cache), a **Pin next turn** dropdown and the **Router** button, which opens the pane. The dropdown lists one entry per tier, each named by what it runs; a pin forces that tier for the next turn only.
+- **Left**: a small tier meter icon, then the route (the model and effort for this turn), the activity, the reason, the classifier's support and the switch cost, in the words of the [terminal band](#in-the-terminal). When the window narrows, the left side gives way first.
+- **Right**: the context and cache readings, a **Pin next turn** dropdown and the **Router** button, which opens the pane. The dropdown lists one entry per tier, each named by what it runs; a pin forces that tier for the next turn only. On mobile a pending pin also keeps its own `⏵ next` text and **✕** beside the dropdown, since an app may not draw the dropdown.
 - **One control per state**: **Turn on** when routing is off, **Set up** when the active classifier lacks credentials, **Fix** when routing is unavailable. While routing is on, turn it off from the pane's header (**On** / **Off**) or with `/router off`.
 - **Session row**: the second row (plan windows and the session's cost against no routing) is no longer a band button. Turn it on with **Show session row in band** on the pane's Now tab; Router remembers the choice across sessions.
 - When another mod's row sits above the router's, a hairline separates the two.
@@ -109,7 +109,7 @@ In a subagent's transcript the band names the model the agent runs on and who pi
 
 Run `/router` or select **Router** above the prompt. Without a UI surface, as in `claude -p`, `/router` prints a short status instead. The pane has five tabs. Select a tab or press its digit (1 to 5) while the pane has focus.
 
-### In the desktop app, VS Code and mobile
+### The pane in the desktop app, VS Code and mobile
 
 <!-- TODO: desktop screenshots (band, Now, Routes, Policy, Classifier, Usage) -->
 
@@ -126,11 +126,11 @@ What each tab shows:
 - **Routes**: a grid of tiers by activities, with an edit card under it for the selected cell.
 - **Policy**: form cards for Routing mode, Switching down, Switching up, Activities and Credits, and a Settings file card with the `router.json` path.
 - **Classifier**: a full card for the active classifier (deadline, wait, health, credentials) and compact rows for the others under **Other classifiers**, then **Across sessions**.
-- **Usage**: period buttons, then Summary, Trend, Breakdown, Insights, Subagents, About these numbers and **Delete history**.
+- **Usage**: period buttons, then Summary, Trend, Breakdown, Worth a look, Subagents, About these numbers and **Delete history**.
 
-Saving, undoing and the numbers behind each card follow the terminal descriptions below.
+Unsaved Routes and Policy changes sit in an **Unsaved changes** card at the bottom, a table of each setting before and after with **Discard** and **Save**; the last save and **Undo** follow it. **?** opens an **About the router** card. When the classifier needs attention, the header says so and the warning under the tabs says what to do. Saving, undoing and the numbers behind each card follow the terminal descriptions below.
 
-### In the terminal
+### The pane in the terminal
 
 
 | Tab          | What it answers                                                                                                                                             |

@@ -68,7 +68,8 @@ test('desktop shell: tabs without digits, the same warnings under the tabs on ev
     await pane.redraw();
     await has({ type: 'Text', text: /Ignored: router\.json: unknown model/ });
     await has({ type: 'Text', text: /native fallback/ });
-    await has({ key: 'key' });
+    // Set up: the notice's on every tab but Classifier, where the active card holds it (and k).
+    await has({ key: tab === 'classifier' ? 'key-jev' : 'key' });
   }
   expect(absent).toEqual([]);
   await pane.unmount();
