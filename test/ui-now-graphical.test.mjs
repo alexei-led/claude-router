@@ -54,14 +54,23 @@ for (const surface of SURFACES) {
     for (const tier of ['micro', 'low', 'medium', 'high']) {
       const pin = byKey(next, `pin-${tier}`);
       assert.equal(pin?.type, 'Button', tier);
-      // The Button holds its label alone; its meter and reading sit beside it in the pin's group.
-      assert.equal(kids(pin).length, 0, tier);
+      // The Button holds its label alone, a Text cut at its end; its meter and reading sit beside it in the group.
+      assert.deepEqual(
+        kids(pin).map((n) => [n.type, n.props.children, n.props.wrap]),
+        [['Text', pin.props.label, 'truncate-end']],
+        tier,
+      );
       labels[tier] = pin.props.label;
       const group = find(next, (n) => kids(n).includes(pin))[0];
       assert.equal(group.props.flexDirection, 'row', tier);
       assert.equal(group.props.alignItems, 'center', tier);
       assert.equal(group.props.gap, 'xs', tier);
-      const [meter] = kids(group);
+      // A group may shrink to the card; its meter never does.
+      assert.equal(group.props.flexShrink, 1, tier);
+      assert.equal(group.props.minWidth, 0, tier);
+      const [holder] = kids(group);
+      assert.equal(holder.props.flexShrink, 0, tier);
+      const [meter] = kids(holder);
       assert.equal(meter.type, 'Svg', tier);
       assert.equal(meter.props.alt, `Tier: ${tier}`, tier);
     }
@@ -96,9 +105,9 @@ for (const surface of SURFACES) {
     const group = (tier) => find(next, (n) => kids(n).includes(byKey(next, `pin-${tier}`)))[0];
     assert.deepEqual(
       kids(group('low')).map((n) => n.type),
-      ['Svg', 'Button'],
+      ['Box', 'Button'],
     );
-    assert.deepEqual(texts(group('high')), ['current']);
+    assert.equal(kids(group('high')).at(-1).props.children, 'current');
     assert.doesNotMatch(texts(next).join(' '), /—/);
     const { Svg: _svg, ...NO_SVG } = ELEMENTS;
     const bare = card(
@@ -111,6 +120,25 @@ for (const surface of SURFACES) {
       assert.equal(kin[0], pin, tier);
       assert.ok(!kin.some((n) => n.type === 'Svg'), tier);
     }
+  });
+
+  test(`${surface}: a 90-character model name keeps its pin group shrinkable and draws without a throw`, () => {
+    const name = `Custom ${'Long '.repeat(16)}Model`.slice(0, 90);
+    const config = {
+      ...DEFAULTS,
+      models: { ...DEFAULTS.models, long: { ...DEFAULTS.models.haiku, id: `vendor/${name}`, name } },
+      routes: { ...DEFAULTS.routes, low: { model: 'long', effort: 'high' } },
+    };
+    const tree = unique(
+      renderPanel(ELEMENTS, config, { ...RICH }, CLAUDE, actions, { columns: 60, now: NOW, surface }),
+    );
+    const next = card(tree, 'Next turn');
+    const pin = byKey(next, 'pin-low');
+    assert.ok(pin.props.label.length > 40, pin.props.label);
+    assert.equal(kids(pin)[0].props.wrap, 'truncate-end');
+    const group = find(next, (n) => kids(n).includes(pin))[0];
+    assert.equal(group.props.flexShrink, 1);
+    assert.equal(group.props.minWidth, 0);
   });
 
   test(`${surface}: a pending pin is shown on its button, which unpins on a second press, with no extra row`, () => {

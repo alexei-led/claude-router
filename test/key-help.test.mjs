@@ -231,6 +231,9 @@ test('an open Edit card leaves the title ready; an open Set up card says the cla
   );
   const missing = harness();
   await start(missing);
+  // Routing on: the missing-key notice, which the card replaces, applies only then.
+  await missing.event('command.run', { command: 'router', args: 'auto' });
+  assert.equal(missing.view().mode, 'auto');
   await keyed(await pane(missing, 'desktop'), 'key')[0].props.onPress({ surface: 'desktop' });
   const setUp = await pane(missing, 'desktop');
   assert.equal(keyed(setUp, 'key-help-copy').length, 1);

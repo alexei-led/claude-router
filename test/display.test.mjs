@@ -4,6 +4,7 @@ import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import {
   activityDetailLines,
   bar,
+  cardRoute,
   classifierStatus,
   formatTokens,
   missingCredentials,
@@ -353,4 +354,33 @@ test('modelName reads Claude and provider ids as names, without the context suff
     [null, 'no response yet'],
   ])
     assert.equal(modelName(id), expected, id);
+});
+
+test('cardRoute names a route as a card does, and as a pin does with short', () => {
+  const route = (model, effort) => ({ model, effort });
+  assert.equal(cardRoute(DEFAULTS, route('opus', 'medium')), 'Opus 5.5 · medium');
+  assert.equal(cardRoute(DEFAULTS, route('opus', 'medium'), { short: true }), 'Opus · medium');
+  assert.equal(cardRoute(DEFAULTS, route('haiku', null)), 'Haiku 5.5 · inherit');
+  assert.equal(cardRoute(DEFAULTS, route('haiku', null), { short: true }), 'Haiku · inherit');
+  const models = {
+    ...DEFAULTS.models,
+    plain: { ...DEFAULTS.models.haiku, id: 'local/plain-model', efforts: [] },
+    custom: { ...DEFAULTS.models.haiku, id: 'deepseek-v4.1-flash' },
+    numbers: { ...DEFAULTS.models.haiku, id: '5.5' },
+  };
+  const config = { ...DEFAULTS, models };
+  // A model without efforts shows its name alone, with no trailing dot.
+  assert.doesNotMatch(cardRoute(config, route('plain', 'high')), / · /);
+  assert.equal(
+    cardRoute(config, route('plain', 'high'), { short: true }),
+    cardRoute(config, route('plain', 'high'), { short: true }).trim(),
+  );
+  // A provider's model reads as modelName names it.
+  assert.equal(cardRoute(config, route('custom', 'high')), `${modelName('deepseek-v4.1-flash')} · high`);
+  assert.match(cardRoute(config, route('custom', 'high'), { short: true }), /^\S.* · high$/);
+  // A name that is all version keeps it, rather than an empty family.
+  assert.equal(cardRoute(config, route('numbers', 'high'), { short: true }), `${modelName('5.5')} · high`);
+  assert.notEqual(cardRoute(config, route('numbers', 'high'), { short: true }).split(' · ')[0], '');
+  // A route to a model the config lacks names the alias.
+  assert.equal(cardRoute(config, route('missing', 'high')), 'missing');
 });
