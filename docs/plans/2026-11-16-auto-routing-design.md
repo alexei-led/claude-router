@@ -137,6 +137,7 @@ when demand returns to routed demand, or when a forced or escalation move replac
 
 | Why the target differs                                                       | Evidence and gate                                                                                                                                        |
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Incumbent origin is `external-fallback`, on the next main turn               | Re-entry to a different eligible target bypasses mass, dwell and payback. Hard constraints and cash cap still apply. An equal target clears origin; no eligible target continues native fallback. Re-entry sets routed demand and cause `reentry`, preserving escalation hold. |
 | Incumbent fails a hard constraint (context, images, availability)            | Forced move now. No confidence needed; dwell does not apply.                                                                                             |
 | New failure escalation or pending headroom selected a different request      | Move now to the stronger-only target above; not held by dwell, confidence or switch tax. Exhaustion stays with its explicit reason.                      |
 | Demand above routed demand                                                   | Upgrade mass = current classifier probability above routed demand (`massAbove`), against the upgrade bar that rises with the route-to-route switch tax.  |
@@ -158,6 +159,12 @@ Demand votes decide the demand change; they are not counted a second time in the
 - An exact model+effort pin keeps today's meaning: that route runs.
 - Every decision row carries demand, target, move reason and the next-turn estimate, for example:
   `demand 2 (balanced) → target sonnet@high cap 2.5 ~$0.04; move held: dwell 2/6`.
+
+An observed native fallback rebases the incumbent to the request actually served, retaining demand, votes, hold and
+routed demand. A substituted model's unreported effort remains unknown. Its origin is `external-fallback`, not a
+policy move; external requests are counted separately. The rest of the current turn passes incoming native requests
+through unchanged, even if eligibility returns. The next main turn uses the re-entry rule above. A pinned fallback
+retains normal pre-pin state; restoring it must not erase the observed external physical provenance.
 
 ## 4. Running both engines safely
 
@@ -344,3 +351,7 @@ Steps 1–4 change nothing for users on the default.
   the pre-pin incumbent and demand resume afterwards.
 - Escalation searches strictly stronger declared requests before unknown alternatives; exhaustion retains pending
   headroom. Failure occurrence deduplication uses signature and index, independent of physical moves.
+- Observed native fallback rebases physical incumbent identity without resetting demand evidence. Explicit
+  `external-fallback` provenance authorizes next-turn re-entry through hard constraints and cash cap, but not
+  confidence, dwell or payback; equal native targets clear the marker. Substituted effort stays unknown. Re-entry
+  updates routed demand and cause, preserves escalation holds, and counts external requests separately.

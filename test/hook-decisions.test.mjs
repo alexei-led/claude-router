@@ -17,21 +17,31 @@ async function turn(h, turnId, text, kind, { messages = [user(text)] } = {}) {
   await h.event('turn.complete', { turnId });
 }
 
-test('the reserved auto engine is visibly unavailable and never rewrites a request', async () => {
+test('auto opt-in is ready, runs advice and records explicit unknown catalog semantics', async () => {
   const h = harness(JEV_KEY);
-  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'auto' }));
+  h.files.set(
+    CONFIG,
+    JSON.stringify({
+      routingEngine: 'auto',
+      models: {
+        haiku: { capability: {} },
+        sonnet: { capability: {} },
+        opus: { capability: {} },
+        fable: { capability: {} },
+      },
+    }),
+  );
   const bodies = answering(h, HIGH);
   await h.event('session.start', { cwd: '/fixture' });
-  assert.equal(h.view().phase, 'unavailable');
-  assert.equal(h.view().error, 'auto routing is not available yet; use table or shadow');
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  assert.equal(h.view().phase, 'ready');
+  assert.equal(h.view().error, null);
   await h.event('turn.start', { turnId: 't1', text: 'Design it.' });
   await drain(h.step(step));
-  assert.deepEqual(h.requests, [step]);
-  assert.equal(bodies.length, 0);
-  assert.equal(h.loop().decision, null);
-  assert.equal(decisions(h), undefined);
-  assert.match(texts(await h.render()).join('\n'), /auto routing is not available yet; use table or shadow/);
+  assert.equal(bodies.length, 1);
+  assert.equal(h.loop().decision.auto.outcome, 'unknown-only');
+  await h.event('turn.complete', { turnId: 't1' });
+  assert.equal(decisions(h).rows[0].engine, 'auto');
+  assert.equal(decisions(h).rows[0].auto.capability, null);
 });
 
 test('shadow proposals leave real requests and cache observations identical to table', async (t) => {
