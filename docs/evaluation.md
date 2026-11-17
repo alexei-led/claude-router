@@ -76,8 +76,9 @@ uses the recorded base policy, with mode only as the capability margin. There is
 
 The report has `fidelity`, `coverage`, `exposureDiagnostic` and anonymous numbered `sessions[].modes`. Each mode
 contains both engines' conditional cost range, priced/unpriced request counts, effort mix, switches and disagreement
-counts grouped by effective demand/activity. Unknown catalog capabilities are counted explicitly; current preset
-declarations remain unknown, so their replay is not capability-calibration evidence.
+counts grouped by effective demand/activity. Unknown catalog capabilities are counted explicitly. Anthropic seeds four balanced base-route pairs as
+user-derived policy judgments; other pairs and provider presets remain unknown. These seeds and their replay are not
+quality-calibration evidence.
 
 Switches are computed on the full session before mode partitioning and attributed to the **destination** mode.
 A reversal closes A→B→A within the explicit `--reversal-window N` main turns (default 3); `reversals` counts closing
@@ -202,7 +203,8 @@ outcome has been collected. Difficulty does not establish a capability value.
 
 ### Full paired-run isolation: proposal only
 
-Live `auto` is unavailable until design step 7; a full live matrix always refuses. A native pass-through or table
+Auto routing is available by opt-in in 1.24.0. The full paired benchmark adapter remains disabled pending checkout/profile
+isolation and approval; a full live matrix always refuses. A native pass-through or table
 run is never relabeled `auto`. The current hook reads `routingEngine` only from the selected profile file; there is
 **no** run-scoped environment/settings override. Project `.claude/router.json` can set mode only.
 

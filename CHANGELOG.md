@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.24.0 (2026-11-17)
+
+### Added
+
+- Opt in to stateful main-turn routing with `routingEngine: "auto"`. The default `table` behavior is unchanged; opt-in `shadow` records proposals while the table routes. Auto evaluation and default cutover remain pending. See [configuration](docs/configuration.md#routing-engine).
+- Per-effort capability declarations guide auto and shadow. Anthropic seeds four balanced base-route pairs: Haiku 5.5 medium 0 and high 1; Opus 5.5 medium 2 and xhigh 3. These are user-derived policy judgments, not quality calibration. Other pairs and provider presets remain unknown. A supplied map replaces the preset; changing a model ID clears inherited capability. See [providers](docs/providers.md#capability-evidence).
+- Shadow collects bounded, text-free replay inputs. Traces exclude prompts, tool results, filesystem-path fields, classifier endpoints and credentials, but retain routing aliases and model IDs, including path-shaped IDs. `/router trace export` merges retained traces into JSON, overwriting the previous export and rolling over near 3 MiB. **Delete history** does not delete exported files. See [trace limits and privacy](docs/evaluation.md#replay-trace-recorder).
+- Offline replay from a checkout checks table fidelity before simulating auto. Coverage and exposure gates remain unavailable or not established; costs are conditional estimates, not savings or quality evidence. The recorded benchmark smoke checks harness mechanics on installed Router 1.23.1 only, not this checkout or an engine comparison. See [evaluation](docs/evaluation.md#offline-automatic-engine-replay).
+
+### Changed
+
+- Equal-cost auto candidates favor the incumbent, then the lower sufficient declared capability. Estimates do not model unseen effort-dependent thinking tokens; mode margin supplies headroom. See [selection](docs/auto-engine.md#demand-target-and-move).
+
+### Upgrade
+
+Restart Claude Code after updating. Auto and shadow require explicit opt-in.
+
 ## 1.23.1 (2026-11-15)
 
 ### Fixed
@@ -323,7 +340,7 @@ The Now tab shows this session and today instead of the last 30 replies, a windo
 
 ## 1.12.0 (2026-10-13)
 
-The Usage tab now shows any period, not only this session and the time since the last reset. See [Compare routing with your model](docs/user-guide.md#compare-routing-with-your-model).
+The Usage tab now shows any period, not only this session and the time since the last reset. See [Compare routing with no routing](docs/user-guide.md#compare-routing-with-no-routing).
 
 ### Added
 
