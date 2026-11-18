@@ -48,6 +48,20 @@ test('the hold is on the model the failed request ran, not on the session’s mo
   assert.equal(h.toasts.at(-1), 'Haiku 5.5 held out of routing: overloaded, 5 min');
 });
 
+test('a subagent’s request in between leaves the main request’s model as the one a failure holds', async (t) => {
+  const h = await started(t);
+  answering(h, LOW);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't1', model: OPUS }));
+  await drain(h.step({ ...step, turnId: 't1', agentId: 'a1', model: OPUS, effort: 'high' }));
+  assert.deepEqual(
+    h.requests.map((r) => r.model),
+    [HAIKU, OPUS],
+  );
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded' });
+  assert.deepEqual(Object.keys(h.loop().held), [HAIKU]);
+});
+
 test('a request routing passed on unchanged is the one a failure holds', async (t) => {
   const h = await started(t);
   answering(h, LOW);
