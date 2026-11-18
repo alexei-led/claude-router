@@ -9,7 +9,7 @@ Box flexDirection="column" key="router-band"
     Button key="band-auto" label="Turn on" variant="primary"
     Text
       "  "
-    Button key="details" label="Router" plain=true
+    Button key="details" label="Router" plain=false
   Box
     Text dimColor=true
       "plan 5h "

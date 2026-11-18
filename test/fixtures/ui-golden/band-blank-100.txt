@@ -18,8 +18,8 @@ Box flexDirection="column" key="router-band"
       ""
     Text
       "  "
-    Button key="details" label="Router" plain=true
-    Box display="none" hover={"display":"flex"} left=33 position="absolute" top=0
+    Button key="details" label="Router" plain=false
+    Box display="none" hover={"display":"flex"} left=37 position="absolute" top=0
       Text dimColor=true
         "pin "
       Button key="band-pin-micro" label="▂"
@@ -39,4 +39,4 @@ Box flexDirection="column" key="router-band"
         "  "
       Button key="band-detail" label="2 rows"
       Text
-        "        "
+        "    "

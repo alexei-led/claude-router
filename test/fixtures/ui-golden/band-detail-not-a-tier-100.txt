@@ -17,7 +17,7 @@ Box flexDirection="column" key="router-band"
       "not a routing tier"
     Text
       "  "
-    Button key="details" label="Router" plain=true
+    Button key="details" label="Router" plain=false
     Box display="none" hover={"display":"flex"} left=27 position="absolute" top=0
       Button key="band-detail" label="1 row"
       Text

@@ -23,7 +23,7 @@ Box flexDirection="column" key="router-band"
     Text dimColor=true
       "= fits"
     Text
-      "                           "
+      "                       "
     Text dimColor=true
       "ctx "
     Text color="success"
@@ -34,7 +34,7 @@ Box flexDirection="column" key="router-band"
       " 12%"
     Text
       "  "
-    Button key="details" label="Router" plain=true
+    Button key="details" label="Router" plain=false
     Box display="none" hover={"display":"flex"} left=24 position="absolute" top=0
       Text dimColor=true
         "pin "
@@ -55,4 +55,4 @@ Box flexDirection="column" key="router-band"
         "  "
       Button key="band-detail" label="2 rows"
       Text
-        "         "
+        "     "
