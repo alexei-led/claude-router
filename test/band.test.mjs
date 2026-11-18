@@ -356,3 +356,13 @@ test('in cost, the band says when the mode changed only the effort of the route 
   const balanced = { ...view, routingMode: { mode: 'balanced', source: 'default' } };
   assert.doesNotMatch(line(bandSegments(DEFAULTS, balanced, null, actions)), /effort only|balanced/);
 });
+
+test('fitSegments keeps every segment whole when the width is unknown', () => {
+  const segments = [
+    { priority: 0, parts: [{ text: 'route' }] },
+    { priority: 2, parts: [{ text: 'ctx 62%' }] },
+  ];
+  for (const columns of [null, undefined, Number.POSITIVE_INFINITY, Number.NaN]) {
+    assert.deepEqual(fitSegments(segments, columns), segments, String(columns));
+  }
+});

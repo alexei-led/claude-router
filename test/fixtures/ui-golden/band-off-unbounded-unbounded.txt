@@ -8,7 +8,15 @@ Box flexDirection="column" key="router-band"
       " "
     Button key="band-auto" label="Turn on" variant="primary"
     Text
+      "   "
+    Text dimColor=true
+      "routing off"
+    Text
+      "   "
+    Text dimColor=true
+      "not a routing tier"
+    Text
       "  "
     Button key="details" label="Router" plain=true
-    Box display="none" hover={"display":"flex"} left=34 position="absolute" top=0
+    Box display="none" hover={"display":"flex"} left=69 position="absolute" top=0
       Button key="band-detail" label="2 rows"
