@@ -8,6 +8,7 @@
     "target": "ES2023",
     "strict": false,
     "noImplicitAny": false,
+    "useUnknownInCatchVariables": true,
     "strictFunctionTypes": true,
     "strictBindCallApply": true,
     "noImplicitThis": true,

@@ -600,9 +600,8 @@ async function flushTrace($, router, turnId = null, ending = false) {
       if (ending) held.controls = null;
     } catch (error) {
       held.lostWrites++;
-      held.reasons.add(
-        error.message === 'conflict' ? 'conflict' : error.message === 'store-guard' ? 'store-guard' : 'lost-write',
-      );
+      const message = /** @type {Error} */ (error).message;
+      held.reasons.add(message === 'conflict' ? 'conflict' : message === 'store-guard' ? 'store-guard' : 'lost-write');
     }
   } catch {
     traceFailed(router);
