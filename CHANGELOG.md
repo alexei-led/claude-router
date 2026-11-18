@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.25.1 (2026-11-18)
+
+### Summary
+
+Documentation and developer-guide work, and one fewer CI workflow. Pictures of the band and pane, drawn from the real component tree, now sit in the README and the user guide; CONTRIBUTING.md, AGENTS.md and CLAUDE.md describe how to work on the router. Routing, costs and the pane's behaviour are unchanged, so this is a patch.
 
 ### Added
 
