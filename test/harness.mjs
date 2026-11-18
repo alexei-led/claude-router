@@ -38,7 +38,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   let surfaces = ['terminal'];
   const copied = [];
   const toasts = [];
-  let version = '2.1.289';
+  let version = '2.1.321';
   let settings = {};
   let sessionId = 's1';
   let snapshot = new Map();

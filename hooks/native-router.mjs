@@ -37,6 +37,7 @@ import {
   effectiveRoutes,
   loadConfig,
   MIGRATION_HINT,
+  MIN_CLAUDE_CODE,
   ROUTING_MODES,
   supportedVersion,
   TIERS,
@@ -2713,7 +2714,7 @@ async function imagesOf($, config, decision) {
 }
 
 function startError(supported, gateway) {
-  if (!supported) return 'requires Claude Code 2.1.289 or newer';
+  if (!supported) return `requires Claude Code ${MIN_CLAUDE_CODE} or newer`;
   if (gateway) return GATEWAY_SETTINGS;
   return null;
 }
@@ -3026,8 +3027,7 @@ export function register(on, options) {
 
   on('prompt.submit', (_$, e, next) => submitPrompt(router, e, next));
 
-  // A hook failure spawns the agent as Claude Code would; next(e) replays a spawn already made. agent.spawn and a
-  // catchable on() are in the 2.1.293 build types, not checked on 2.1.289: an engine without them still loads routing.
+  // A hook failure spawns the agent as Claude Code would; next(e) replays a spawn already made.
   try {
     on('agent.spawn', ($, e, next) => spawnAgent($, router, e, next)).catch((_$, e, next) => next(e));
   } catch {}

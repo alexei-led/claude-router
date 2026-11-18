@@ -685,16 +685,17 @@ test('a draft edits only the activity cells it changed and follows the saved con
   );
 });
 
-test('supportedVersion accepts Claude Code 2.1.289 and newer, with or without a prerelease', () => {
+test('supportedVersion accepts Claude Code 2.1.321 and newer, with or without a prerelease', () => {
   for (const [version, supported] of [
-    ['2.1.289', true],
-    ['2.1.290-beta.1', true],
+    ['2.1.321', true],
+    ['2.1.322-beta.1', true],
     ['2.2.0', true],
     ['3.0.0', true],
-    ['2.1.288', false],
+    ['2.1.320', false],
+    ['2.1.289', false],
     ['2.0.999', false],
     ['1.9.400', false],
-    ['2.1.289.1', false],
+    ['2.1.321.1', false],
     ['2.1', false],
     ['', false],
     [undefined, false],

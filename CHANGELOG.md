@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed: requirements
+
+- The router needs Claude Code 2.1.321 or newer (was 2.1.289). Older builds refuse the desktop, VS Code and mobile pane and band; on them routing stays off and the band says why.
+
 ### Changed: terminal
 
 - The warnings for an ignored project config, a native fallback and missing classifier credentials moved out of the Now tab's NEXT TURN block into one slot directly under the tab row, shown on every tab.

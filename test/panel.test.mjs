@@ -102,7 +102,7 @@ test('five tabs take the digits 1 to 5, and a draft marks the tab whose settings
 
 test('while routing is unavailable the header says why and offers no on/off or pins', () => {
   for (const [error, reason, cleanup] of [
-    ['requires Claude Code 2.1.289 or newer', 'requires Claude Code 2.1.289 or newer', false],
+    ['requires Claude Code 2.1.321 or newer', 'requires Claude Code 2.1.321 or newer', false],
     [GATEWAY_SETTINGS, 'v0.8 gateway settings remain', true],
   ]) {
     const tree = pane({ phase: 'unavailable', error, tier: null });

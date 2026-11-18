@@ -340,13 +340,13 @@ test('turn completion removes an interrupted choosing indicator', async () => {
 
 test('an unsupported Claude version leaves the native request unchanged', async () => {
   const h = harness();
-  h.version('2.1.288');
+  h.version('2.1.320');
   await start(h);
   await h.event('command.run', { command: 'router', args: 'auto' });
   await h.event('command.run', { command: 'router', args: 'pin high' });
   await drain(h.step(step));
   assert.equal(h.view().phase, 'unavailable');
-  assert.match(h.view().error, /2\.1\.289/);
+  assert.match(h.view().error, /2\.1\.321/);
   assert.equal(h.view().pendingPin, null);
   assert.equal(h.requests[0].model, step.model);
   assert.equal(h.requests[0].effort, step.effort);
@@ -354,10 +354,10 @@ test('an unsupported Claude version leaves the native request unchanged', async 
 
 test('while routing is unavailable, /router says why and its on, off and activity commands change nothing', async () => {
   const h = harness();
-  h.version('2.1.288');
+  h.version('2.1.320');
   await start(h);
   const command = async (args) => (await h.event('command.run', { command: 'router', args })).text;
-  const why = 'Routing unavailable: requires Claude Code 2.1.289 or newer. Claude’s model is kept.';
+  const why = 'Routing unavailable: requires Claude Code 2.1.321 or newer. Claude’s model is kept.';
   const mode = h.preferences.get('mode:s1');
   for (const args of ['auto', 'off', 'pin high', 'activities off']) assert.equal(await command(args), why, args);
   assert.equal(h.preferences.get('mode:s1'), mode);
