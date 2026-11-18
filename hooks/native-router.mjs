@@ -322,6 +322,8 @@ function createRouter(options) {
     traceStartedSession: null,
     traceFailures: 0,
     traceOperations: new Map(),
+    // The surfaces that showed the unavailable toast this session, so an attach never repeats it on the same one.
+    noticeSurfaces: new Set(),
     controllers: new Set(),
     turnControllers: new Map(),
     view: /** @type {Record<string, unknown> | null} */ (null),
@@ -3125,16 +3127,21 @@ function unavailableCause(error) {
 
 // One toast when a session starts with routing unavailable, at most once a day per cause: the band says it too, but not
 // once it is collapsed or scrolled away. Not for a headless run, which has no one to read it. The day is recorded before
-// the toast, so a toast no surface draws is not retried until tomorrow.
+// the toast, so a toast no surface draws is not retried until tomorrow. A surface that attaches later (desktop, VS Code,
+// mobile) gets it too, once per surface, whatever the day record says: it was not there to see the first.
 async function noticeUnavailable($, router, e) {
   const view = router.view;
   if (view?.phase !== 'unavailable' || !e.isInteractive || !e.surface) return;
+  if (router.noticeSurfaces.has(e.surface)) return;
   try {
-    const key = `${UNAVAILABLE_NOTICE_PREFIX}${unavailableCause(view.error)}`;
-    const last = await $.store.get(key);
-    const now = Date.now();
-    if (Number.isFinite(last) && now - last >= 0 && now - last < UNAVAILABLE_NOTICE_INTERVAL_MS) return;
-    await $.store.set(key, now);
+    if (router.noticeSurfaces.size === 0) {
+      const key = `${UNAVAILABLE_NOTICE_PREFIX}${unavailableCause(view.error)}`;
+      const last = await $.store.get(key);
+      const now = Date.now();
+      if (Number.isFinite(last) && now - last >= 0 && now - last < UNAVAILABLE_NOTICE_INTERVAL_MS) return;
+      await $.store.set(key, now);
+    }
+    router.noticeSurfaces.add(e.surface);
     $.ui.toast(`Routing off: ${unavailableReason(view)}. Claude’s model is kept.`);
   } catch {}
 }
@@ -3159,9 +3166,17 @@ export function register(on, options) {
     router.traceOperations.clear();
     router.lastRoute = null;
     router.initialized = false;
+    router.noticeSurfaces.clear();
     await ensureInitialized($, router);
     await noticeUnavailable($, router, e);
     return next(e);
+  });
+
+  // The terminal's own attachment raises nothing; a desktop, VS Code or mobile surface attaches after session.start.
+  on('session.attach', async ($, e, next) => {
+    const result = await next(e);
+    await noticeUnavailable($, router, { isInteractive: true, surface: e.surface });
+    return result;
   });
 
   on('command.run', { command: 'model' }, async ($, e, next) => {

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- The "Routing off" toast now also shows on a desktop, VS Code or mobile surface that attaches after the session started, once per surface. The once-a-day rule per cause is unchanged.
+
 ### Removed
 
 - The `ai-review` label and its GitHub workflow, which 1.25.0 added for maintainer-started AI reviews of pull requests. CI keeps its four checks.
