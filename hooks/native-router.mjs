@@ -537,7 +537,7 @@ async function flushTrace($, router, turnId = null, ending = false) {
     try {
       const at = Date.now();
       const keys = await $.store.keys();
-      let entries = await Promise.all(keys.map(async (key) => [key, await $.store.get(key)]));
+      let entries = await Promise.all(keys.map(async (name) => [name, await $.store.get(name)]));
       if (entries.some(([, value]) => value === undefined)) throw new Error('store-guard');
       if (traceBytes(Object.fromEntries(entries)) > TRACE_STORE_BYTES) throw new Error('store-guard');
       const resetAt = entries.find(([name]) => name === SAVINGS_RESET_KEY)?.[1];
@@ -785,7 +785,7 @@ async function updateView($, router, patch) {
 // This session's record of `kind`, read from the store once per session, and the last reset (ms) from any session,
 // read each time: a Reset in another session empties a record held from before it.
 async function ownRecord($, router, kind) {
-  const { prefix, read, afterReset } = LEDGERS[kind];
+  const { prefix, read, afterReset: resetRecord } = LEDGERS[kind];
   const held = router.ledgers[kind];
   const sessionId = await $.session.id();
   const resetAt = await $.store.get(SAVINGS_RESET_KEY);
@@ -794,7 +794,7 @@ async function ownRecord($, router, kind) {
     // Another call may have read it meanwhile and a turn added to it: that one stands.
     if (held.own?.sessionId !== sessionId) held.own = { sessionId, record };
   }
-  held.own.record = afterReset(held.own.record, resetAt);
+  held.own.record = resetRecord(held.own.record, resetAt);
   return { own: held.own, resetAt };
 }
 
