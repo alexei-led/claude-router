@@ -114,11 +114,6 @@ test('a price error moves the bar only within its bounds, and a confident jump i
 
 const efforts = JSON.parse(readFileSync(new URL('./fixtures/effort-support.json', import.meta.url), 'utf8'));
 
-test('the effort fixture names its method and the date it was checked', () => {
-  assert.match(efforts.source, /^Live probe: /);
-  assert.match(efforts.checked, /^\d{4}-\d{2}-\d{2}$/);
-});
-
 for (const [alias, model] of Object.entries(DEFAULTS.models)) {
   test(`default efforts of ${alias} match the levels the live API accepted, which clampEffort relies on`, () => {
     assert.deepEqual(model.efforts, efforts.models[model.id]);

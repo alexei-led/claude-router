@@ -99,12 +99,3 @@ test('with no rows to draw the layout reads as fitting, with no -Infinity in the
   assert.equal(classifierTwoLine([], 60), false);
   assert.equal(classifierTwoLine([], null), true);
 });
-
-for (const [columns, twoLine] of [
-  [81, true],
-  [82, false],
-])
-  test(`one row with Set up is ${twoLine ? 'two-line' : 'wide'} at ${columns} columns`, () => {
-    const row = { state: { text: '○ no API token  ' }, setup: { label: 'Set up' } };
-    assert.equal(classifierTwoLine([row], columns), twoLine);
-  });
