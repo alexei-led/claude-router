@@ -499,6 +499,43 @@ test('a /model change before routing starts replaces the seeded route, so Auto d
   assert.equal(h.requests.at(-1).model, step.model);
 });
 
+const modelSwitch = (source) => ({
+  hook_event_name: 'PostModelSwitch',
+  from_model: step.model,
+  to_model: 'claude-opus-5-5',
+  requested_model: 'opus',
+  source,
+});
+
+for (const [source, mode] of [
+  ['picker', 'manual'],
+  ['sdk', 'manual'],
+  ['auto', 'auto'],
+  ['resume', 'auto'],
+]) {
+  test(`a '${source}' model switch with no /model command leaves the session ${mode}`, async () => {
+    const h = harness();
+    await start(h);
+    h.model('claude-opus-5-5');
+    await h.event('classic.PostModelSwitch', modelSwitch(source));
+    assert.equal(h.view().mode, mode);
+    assert.equal(h.preferences.get('mode:s1'), mode === 'manual' ? 'manual' : undefined);
+    if (mode === 'manual') {
+      assert.equal(h.view().nativeModel, 'claude-opus-5-5');
+      assert.equal(h.view().reason, 'model selected manually');
+    }
+  });
+}
+
+test('a plugin-run /model stays Auto though the engine reports the switch as a command', async () => {
+  const h = harness();
+  await start(h);
+  h.model('claude-opus-5-5');
+  await h.event('command.run', { command: 'model', origin: { kind: 'plugin' } });
+  await h.event('classic.PostModelSwitch', modelSwitch('command'));
+  assert.equal(h.view().mode, 'auto');
+});
+
 test('clear after a manual /model choice on a non-baseline model starts Auto', async () => {
   const h = harness();
   await start(h);

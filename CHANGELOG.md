@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added
+
+- **API failover:** when a turn ends because the model is overloaded, rate limited, failing on the server or not found, the router holds that model out for a few minutes (an hour when not found) and runs the next turns on the nearest tier's route on another model, pinned turns too. A toast and the route line (`! held out`) say so; when the hold ends, routing returns to the held route. The `auto` routing engine holds no model.
+
+### Changed
+
+- Terminal controls: from 72 columns the pane's Now blocks, the Policy controls and the active classifier sit in single-line boxes; the Now tab pins the next turn from one dropdown (pick a tier, or **No pin** to unpin) instead of a button per tier; and the band's Router reads `[ Router ]` when the band has room for it without dropping anything.
+- Desktop, VS Code and mobile: the pane's five tabs are drawn as a segmented control, the same as the On | Off switch, with the same keys and 1-5 hotkeys.
+
+### Fixed
+
+- The "Routing off" toast now also shows on a desktop, VS Code or mobile surface that attaches after the session started, once per surface. The once-a-day rule per cause is unchanged.
+- A model chosen in the model picker, or set from the SDK, an IDE or Remote Control, now turns routing off as `/model` does, so the router no longer overrides it.
+- After you switch models with `/model` or the picker, the Now tab names the model you chose instead of the last routed one.
+- The pin row no longer reads like a model picker: the Now tab's pin row and the band's pin dropdown are named for pinning the next turn to a tier, show the model that runs now, and point to `/model` (with routing off) for models no tier routes to, such as Sonnet. Closes #91.
+
 ### Removed
 
 - The `ai-review` label and its GitHub workflow, which 1.25.0 added for maintainer-started AI reviews of pull requests. CI keeps its four checks.

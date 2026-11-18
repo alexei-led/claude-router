@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { modelTotals, readSubagentStore, SUBAGENT_PREFIX, summarizeSubagents } from '../lib/subagents.mjs';
-import { answering, CONFIG, drain, harness, JEV_KEY, press, screen, step } from './harness.mjs';
+import { answering, CONFIG, drain, harness, JEV_KEY, press, screen, step, unboxed } from './harness.mjs';
 import { jevResponse } from './helpers.mjs';
 
 const ENGINE = { plugin: 'engine', tier: 'core' };
@@ -337,7 +337,7 @@ test('Usage and Now show the session’s agents by model, who picked it, and wha
     model: 'claude-opus-5-5',
     agentId: 'w1',
   });
-  const now = screen(await h.render()).join('\n');
+  const now = unboxed(screen(await h.render())).join('\n');
   assert.match(now, /^SESSION {2}1 agent {2}● 1 running {2}\[ band: 2 rows \]$/m);
   assert.match(now, /^ {2}−\$0\.49 \(−86%\) vs unrouted ≈\$0\.57$/m);
   assert.match(now, /^ {2}main {3}≈\$0\.00 {2}░+$/m);

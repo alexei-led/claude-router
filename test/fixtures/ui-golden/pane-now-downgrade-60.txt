@@ -61,30 +61,14 @@ Box flexDirection="column"
       " quality "
     Text dimColor=true
       "  from project · effort only on this tier"
-  Box
-    Text dimColor=true
-      "  pin   "
-    Button key="pin-micro" label="▂ Haiku·medium —" variant="secondary"
-    Text
-      " "
+  Text dimColor=true
+    "  pin next turn to a tier · now Opus 5.5 · xhigh"
   Box
     Text
-      "        "
-    Button key="pin-low" label="▂▄ Haiku·high 3%" variant="secondary"
-    Text
-      " "
-  Box
-    Text
-      "        "
-    Button key="pin-medium" label="▂▄▆ Opus·medium 7%" variant="secondary"
-    Text
-      " "
-  Box
-    Text
-      "        "
-    Button key="pin-high" label="▶ ▂▄▆█ Opus·xhigh 88%" variant="secondary"
-    Text
-      " "
+      "    "
+    Select key="pin" options=[{"value":"none","label":"Pin to a tier"},{"value":"micro","label":"▂ Haiku·medium —"},{"value":"low","label":"▂▄ Haiku·high 3%"},{"value":"medium","label":"▂▄▆ Opus·medium 7%"},{"value":"high","label":"▶ ▂▄▆█ Opus·xhigh 88%"}] value="none"
+  Text dimColor=true
+    "    other models: /model, with routing off"
   Text
     " "
   Text color="suggestion" weight="semibold"
@@ -158,13 +142,6 @@ Box flexDirection="column"
       "████████████████"
     Text dimColor=true
       ""
-    Box
-      Text
-        "  "
-      Text color="success"
-        "−$4.70"
-      Text dimColor=true
-        " vs Opus 5.5 · xhigh"
   Box
     Text
       "  agents"

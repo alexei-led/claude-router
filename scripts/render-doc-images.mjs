@@ -49,7 +49,9 @@ function overlay(line, at, runs) {
   const end = at + width(runs);
   return [...pad([cut(0, at)], at)[0], ...runs, ...cut(end, Number.POSITIVE_INFINITY)];
 }
-function lay(node, { hover }) {
+// `columns` is the pane's width, which a bordered Box stretches to as the terminal draws it.
+function lay(node, opts) {
+  const { hover } = opts;
   if (!node) return [];
   const { type, props } = node;
   if (type === 'Text') {
@@ -81,9 +83,9 @@ function lay(node, { hover }) {
   const all = (Array.isArray(props.children) ? props.children : [props.children]).filter(Boolean);
   const children = all.filter((child) => child.props?.position !== 'absolute');
   let lines;
-  if (props.flexDirection === 'column') lines = children.flatMap((child) => lay(child, { hover }));
+  if (props.flexDirection === 'column') lines = children.flatMap((child) => lay(child, opts));
   else {
-    const blocks = children.map((child) => lay(child, { hover })).filter((b) => b.length);
+    const blocks = children.map((child) => lay(child, opts)).filter((b) => b.length);
     const height = Math.max(1, ...blocks.map((b) => b.length));
     lines = Array.from({ length: height }, () => []);
     for (const block of blocks) {
@@ -93,16 +95,44 @@ function lay(node, { hover }) {
     }
   }
   for (const child of all.filter((one) => one.props?.position === 'absolute')) {
-    const [runs] = lay(child, { hover });
+    const [runs] = lay(child, opts);
     if (runs && lines[child.props.top ?? 0])
       lines[child.props.top ?? 0] = overlay(lines[child.props.top ?? 0], child.props.left ?? 0, runs);
   }
+  if (props.borderStyle) lines = bordered(lines, props, opts.columns);
   return props.width ? pad(lines, props.width) : lines;
+}
+
+// A bordered Box: its lines inside a single line in the border's colour, its paddingX from it on each side, as wide as
+// the pane (or its widest line, with no width).
+function bordered(lines, { borderColor, paddingX = 0 }, columns) {
+  const fill = COLORS[borderColor] ?? borderColor ?? DIM;
+  const inner = Math.max(Number.isFinite(columns) ? columns - 2 : 0, ...lines.map(width).map((w) => w + 2 * paddingX));
+  const side = (glyph, rule) => ({ text: glyph, fill, rule });
+  const space = { text: ' '.repeat(paddingX) };
+  return [
+    [side(`┌${'─'.repeat(inner)}┐`, 'top')],
+    ...pad(lines, inner - 2 * paddingX).map((line) => [side('│', 'side'), space, ...line, space, side('│', 'side')]),
+    [side(`└${'─'.repeat(inner)}┘`, 'bottom')],
+  ];
 }
 
 const CW = 7.8;
 const LH = 19;
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// A border drawn as lines, not box-drawing glyphs: a glyph does not fill the 19px row, so a side would show as dashes.
+// `base` is the text baseline of the row; the cell spans base - 14 to base + 5.
+function ruleSvg({ rule, fill }, x, base, width) {
+  const [top, mid, bottom] = [base - 14, base - 5, base + 5];
+  const left = (x + CW / 2).toFixed(1);
+  const right = (x + width - CW / 2).toFixed(1);
+  const path = {
+    side: `M${left} ${top}V${bottom}`,
+    top: `M${left} ${bottom}V${mid}H${right}V${bottom}`,
+    bottom: `M${left} ${top}V${mid}H${right}V${top}`,
+  }[rule];
+  return `<path d="${path}" fill="none" stroke="${fill}"/>`;
+}
 function runsSvg(lines, x0, y0) {
   const out = [];
   lines.forEach((line, row) => {
@@ -110,6 +140,11 @@ function runsSvg(lines, x0, y0) {
     for (const run of line) {
       const x = x0 + col * CW;
       const width = [...run.text].length * CW;
+      if (run.rule) {
+        out.push(ruleSvg(run, x, y0 + row * LH, width));
+        col += [...run.text].length;
+        continue;
+      }
       if (run.bg && run.text.trim()) {
         out.push(
           `<rect x="${x.toFixed(1)}" y="${y0 + row * LH - 14}" width="${width.toFixed(1)}" height="18" rx="4" fill="${run.bg}"/>`,
@@ -171,7 +206,7 @@ function pane(view, title, desc, file, paneConfig = config, columns = COLUMNS) {
     columns,
     now: NOW,
   });
-  const lines = lay(tree, { hover: false }).filter((line, i, all) => i < all.length - 1 || width(line) > 0);
+  const lines = lay(tree, { hover: false, columns }).filter((line, i, all) => i < all.length - 1 || width(line) > 0);
   const cols = Math.max(...lines.map(width), 70);
   const w = Math.ceil(cols * CW + 48);
   const h = lines.length * LH + 40;
@@ -201,7 +236,7 @@ pane(
 pane(
   paneViews.now,
   'Router pane, Now tab',
-  'NEXT TURN: the tier meter, model and activity, the reason with the classifier support it weighed and the switch cost, and one pin per tier, low to high, with its support. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total of the main thread and one running subagent as a configured-rate API estimate, the difference against unrouted, the main thread and the subagents as bars on one scale, and a strip of every reply colored by tier with the replies per tier. CONTEXT: the window fill and the cache reuse.',
+  'Each block in a single-line box. NEXT TURN: the tier meter, model and activity, the reason with the classifier support it weighed and the switch cost, and the dropdown that pins the next turn to a tier. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total of the main thread and one running subagent as a configured-rate API estimate, the difference against unrouted, the main thread and the subagents as bars on one scale, and a strip of every reply colored by tier with the replies per tier. CONTEXT: the window fill and the cache reuse.',
   'router-pane-now.svg',
 );
 pane(

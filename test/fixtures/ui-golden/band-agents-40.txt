@@ -16,7 +16,7 @@ Box flexDirection="column" key="router-band"
       " · xhigh"
     Text
       "  "
-    Button key="details" label="Router" plain=true
+    Button key="details" label="Router"
   Box
     Text dimColor=true
       "agents 2"

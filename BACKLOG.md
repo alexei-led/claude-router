@@ -5,19 +5,19 @@ Ideas and minor issues that can wait for the next release. Add an item when you 
 ## Routing
 
 - **Limit-aware routing.** `session.measure` pushes plan usage (`rateLimits[].percentUsed`, `resetsAt`). Lean to the cost mode near 85% of the 5-hour plan limit and say so once. Medium effort.
-- **API failover.** `StopFailure` carries `rate_limit`, `overloaded`, `server_error`, `model_not_found` and `billing_error`. Hold the failed model out for a while. Medium effort.
-- **Catch manual model switches.** `PreModelSwitch` and `PostModelSwitch` report `from_model`, `to_model` and `source` (command, picker, SDK). Today only `command.run model` and `config.set model` are hooked, so a picker or SDK switch may be missed. Needs a live check first.
+- **Live checks of 1.26.0 on the 2.1.321 floor.** The `classic.StopFailure`, `classic.PostModelSwitch` and `session.attach` hooks rest on the 2.1.296 type snapshot and were run live only on 2.1.327, and failover and the late-attach toast not at all (no API error, no second surface). Check on 2.1.321: a real `overloaded` error holds the model and the next turn runs another; a picker switch turns routing off; a desktop that attaches late shows the toast once.
+- **Failover gaps.** `StopFailure` carries no model id, so the hold is on the last main request the router sent. A hold lasts a fixed 5, 5, 2 or 60 minutes (no retry-after) and is lost on `--continue`. Subagent spawns and the `auto` engine do not read holds, and replay traces do not record them.
 - **Zero-key classifier.** `$.model.complete` and `$.model.classify` use the session's own credentials, which would fill the "classifier not set up" state.
 - **Early classification while typing.** Hook `prompt.edit` and warm the verdict by draft hash. Needs an opt-in because of privacy.
 - **Live tool results.** `PostToolUse` and `PostToolUseFailure` give incremental failure counts instead of re-reading `$.session.messages` on every step.
 
 ## Terminal and desktop
 
-- The transcript echoes `/router pin high` and the other `/router` commands as `❯ /router `, dropping the arguments; the reply line is right. Probably the engine's echo of a command with a typeahead hint; check whether `argumentHint` changes it.
+- The transcript echoes `/router pin high` and the other `/router` commands as `❯ /router `, dropping the arguments; the reply line is right. Read in 1.26.0 work: the router registers `/router` once (`name`, `description`, `argumentHint`, `immediate: true`) and never draws the echo, and the engine types say the echo normally carries the arguments. Not yet found whether `immediate` or `argumentHint` causes it. Live recipe: type `/router pin high` while idle, then remove `immediate`, reload, repeat, then restore it and remove `argumentHint`. If neither helps, report it upstream.
 - **Spinner shows the route** while the turn runs (`word`, `message`, `suffix` props).
 - **Retry on higher** button and an inline `~high` pin (`$.prompt.fill` and a `prompt.submit` strip).
 - **Dynamic `/router` description** with `command.describe`.
-- **Re-render on `session.attach`** so a desktop that attaches late gets the notice. The unavailable toast has the same gap: it is raised at `session.start` and recorded for the day, so a surface that attaches after it never shows it.
+- **Live checks of the 1.26.0 terminal controls.** Nobody has seen them in a real terminal below 72 columns, or driven the Now tab's pin dropdown (open it, pick a tier, pick **No pin**). Neither has anyone checked on a real desktop app the segmented tab row or the `?` button, which wraps under the tabs in a narrow pane.
 - **Agent tool row "Open" button** through the `ToolUse` render component.
 - **Progress element.** Once the floor passes 2.1.327, `Progress` replaces the Svg meter in `lib/ui/graphical/meter.mjs`. `session.info()`, per-plugin band rows (`AbovePromptRow`), `session.stop` and `agent.limits` need 2.1.327 too.
 - **Route line extras.** The line shows the route and why. Not built: the turn's cost and saving against your model (`≈$0.04 · −$0.11 vs Opus 5.5`), a "was Sonnet 5.5 · high" form for a move, a click that opens a card, and a **Line** control on the pane's Policy tab. The setting is `/router line` only. `$.state` has no delete, so `router.lines` keeps one small record per placed row until the session ends.
@@ -27,11 +27,11 @@ Ideas and minor issues that can wait for the next release. Add an item when you 
 
 ## Docs
 
-- Desktop screenshots: the README and the user guide carry a maintainer note where images belong. Shots to take: band, Now, Routes, Policy, Classifier, Usage and the key card, each in dark and light.
+- Desktop screenshots: the README and the user guide show pictures drawn from the component tree, not screenshots of the Claude app. Real shots to take: band, Now, Routes, Policy, Classifier, Usage and the key card, each in dark and light.
 
 ## Subagents
 
-- On Claude Code 2.1.321 the debug log shows a `ZodError` (`path model`, expected `sonnet|opus|haiku|fable`) after every routed spawn: the engine's Agent schema accepts aliases only and the router sends the configured full model id on purpose (a family alias resolves to the parent's exact model). The route applies anyway. Check whether the alias form is safe when the parent's family differs.
+- On Claude Code 2.1.321 the debug log shows a `ZodError` (`path model`, expected `sonnet|opus|haiku|fable`) after every routed spawn: the engine's Agent schema accepts aliases only and the router sends the configured full model id on purpose (a family alias resolves to the parent's exact model). The route applies anyway. Read in 1.26.0 work (2.1.327 bundle, minified, so inferred): the engine re-checks permissions on the rewritten input after the hook returns, and that check validates `model` against the alias enum; the spawn itself takes the hook's model with no enum check. The error looks like log noise. A family alias would not name an exact id (the parent's model, or the engine default for another family), so do not switch to it. Live check: `claude --debug-file`, spawn one routed agent, `grep ZodError`, and confirm the agent's transcript `api-request` carries the configured full id.
 - The `+N` form of the band's agent rows has not been seen live with two or more concurrent agents.
 
 ## Packaging

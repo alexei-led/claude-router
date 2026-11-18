@@ -31,115 +31,114 @@ Box flexDirection="column"
     Button key="help" label="?" variant="secondary"
   Text
     " "
-  Box
-    Text color="suggestion" weight="semibold"
-      "POLICY"
-    Text dimColor=true
-      " · how readily the router changes models · edit, then Save"
-  Text
-    " "
-  Box
-    Box flexShrink=0 width=13
-      Text weight="semibold"
-        "Mode"
-    Box flexDirection="column" flexGrow=1 flexShrink=1
-      Box
-        Text
-          "balanced"
-        Text dimColor=true
-          "  saved at once"
-      Text dimColor=true wrap="wrap"
-        "each tier runs its route as configured"
-  Box
-    Box flexShrink=0 width=13
-      Text weight="semibold"
-        "Start"
-    Box flexDirection="column" flexGrow=1 flexShrink=1
-      Box
-        Text
-          "at "
-        Text
-          "micro"
-        Text
-          " "
-        Box flexShrink=0 width=2
-          Text color="warning"
-            "●"
-        Text dimColor=true
-          "default low"
-      Text dimColor=true wrap="wrap"
-        "when the session’s model is no tier’s model"
-  Box
-    Box flexShrink=0 width=13
-      Text weight="semibold"
-        "Going down"
-    Box flexDirection="column" flexGrow=1 flexShrink=1
-      Box
-        Text
-          "after "
-        Text
-          "2"
-        Text
-          " agreeing turns "
-        Box flexShrink=0 width=2
+  Box borderColor="subtle" borderStyle="single" flexDirection="column" paddingX=1
+    Box
+      Text color="suggestion" weight="semibold"
+        "POLICY"
+      Text dimColor=true
+        " · how readily the router changes models · edit, then Save"
+    Text
+      " "
+    Box
+      Box flexShrink=0 width=13
+        Text weight="semibold"
+          "Mode"
+      Box flexDirection="column" flexGrow=1 flexShrink=1
+        Box
           Text
-            ""
-      Box
-        Text
-          "if a cache write pays back within "
-        Text
-          "5 turns"
-        Text
-          " "
-        Box flexShrink=0 width=2
+            "balanced"
+          Text dimColor=true
+            "  saved at once"
+        Text dimColor=true wrap="wrap"
+          "each tier runs its route as configured"
+    Box
+      Box flexShrink=0 width=13
+        Text weight="semibold"
+          "Start"
+      Box flexDirection="column" flexGrow=1 flexShrink=1
+        Box
           Text
-            ""
-  Box
-    Box flexShrink=0 width=13
-      Text weight="semibold"
-        "Going up"
-    Box flexDirection="column" flexGrow=1 flexShrink=1
-      Text dimColor=true wrap="wrap"
-        "needs Jev support of 75%, up to 90% as the switch costs more"
-  Box
-    Box flexShrink=0 width=13
-      Text weight="semibold"
-        "Activities"
-    Box flexDirection="column" flexGrow=1 flexShrink=1
-      Box
-        Text
-          "apply at "
-        Text
-          "60%"
-        Text
-          " certainty or more "
-        Box flexShrink=0 width=2
+            "at "
           Text
-            ""
-      Text dimColor=true wrap="wrap"
-        "else a new task runs its tier’s model; a continuation keeps it"
-  Box
-    Box flexShrink=0 width=13
-      Text weight="semibold"
-        "Credits"
-    Box flexDirection="column" flexGrow=1 flexShrink=1
-      Box
-        Text
-          "cap one cold cache write at "
-        Text
-          "$2.00"
-        Text
-          " "
-        Box flexShrink=0 width=2
+            "micro"
           Text
-            ""
-      Text dimColor=true wrap="wrap"
-        "no model in router.json bills credits, so this has no effect"
-  Text
-    " "
-  Button key="reset-policy" label="Reset policy to defaults"
-  Text
-    " "
+            " "
+          Box flexShrink=0 width=2
+            Text color="warning"
+              "●"
+          Text dimColor=true
+            "default low"
+        Text dimColor=true wrap="wrap"
+          "when the session’s model is no tier’s model"
+    Box
+      Box flexShrink=0 width=13
+        Text weight="semibold"
+          "Going down"
+      Box flexDirection="column" flexGrow=1 flexShrink=1
+        Box
+          Text
+            "after "
+          Text
+            "2"
+          Text
+            " agreeing turns "
+          Box flexShrink=0 width=2
+            Text
+              ""
+        Box
+          Text
+            "if a cache write pays back within "
+          Text
+            "5 turns"
+          Text
+            " "
+          Box flexShrink=0 width=2
+            Text
+              ""
+    Box
+      Box flexShrink=0 width=13
+        Text weight="semibold"
+          "Going up"
+      Box flexDirection="column" flexGrow=1 flexShrink=1
+        Text dimColor=true wrap="wrap"
+          "needs Jev support of 75%, up to 90% as the switch costs more"
+    Box
+      Box flexShrink=0 width=13
+        Text weight="semibold"
+          "Activities"
+      Box flexDirection="column" flexGrow=1 flexShrink=1
+        Box
+          Text
+            "apply at "
+          Text
+            "60%"
+          Text
+            " certainty or more "
+          Box flexShrink=0 width=2
+            Text
+              ""
+        Text dimColor=true wrap="wrap"
+          "else a new task runs its tier’s model; a continuation keeps it"
+    Box
+      Box flexShrink=0 width=13
+        Text weight="semibold"
+          "Credits"
+      Box flexDirection="column" flexGrow=1 flexShrink=1
+        Box
+          Text
+            "cap one cold cache write at "
+          Text
+            "$2.00"
+          Text
+            " "
+          Box flexShrink=0 width=2
+            Text
+              ""
+        Text dimColor=true wrap="wrap"
+          "no model in router.json bills credits, so this has no effect"
+    Text
+      " "
+    Button key="reset-policy" label="Reset policy to defaults"
   Box
     Text color="suggestion" weight="semibold"
       "FILE"

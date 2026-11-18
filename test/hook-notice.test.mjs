@@ -66,6 +66,39 @@ test('a session where routing runs says nothing', async () => {
   assert.deepEqual(h.toasts, []);
 });
 
+const ATTACH = { surface: 'desktop', clientId: 'c1' };
+
+test('a surface that attaches after session.start gets the toast once, even after the terminal showed it', async () => {
+  const h = harness(JEV_KEY);
+  CAUSES['an old Claude Code'](h);
+  await h.event('session.start', REPL);
+  assert.equal(h.toasts.length, 1);
+  await h.event('session.attach', ATTACH);
+  assert.equal(h.toasts.length, 2);
+  await h.event('session.attach', ATTACH);
+  await h.event('session.attach', { surface: 'terminal', clientId: 'c2' });
+  assert.equal(h.toasts.length, 2);
+});
+
+test('a surface that attaches to a session with no surface at start gets the toast, once a day', async () => {
+  const h = harness(JEV_KEY);
+  CAUSES['an old Claude Code'](h);
+  await h.event('session.start', { cwd: '/fixture', isInteractive: true });
+  assert.deepEqual(h.toasts, []);
+  await h.event('session.attach', ATTACH);
+  assert.equal(h.toasts.length, 1);
+  await h.event('session.start', { cwd: '/fixture', isInteractive: true });
+  await h.event('session.attach', ATTACH);
+  assert.equal(h.toasts.length, 1);
+});
+
+test('an attach where routing runs says nothing', async () => {
+  const h = harness(JEV_KEY);
+  await h.event('session.start', REPL);
+  await h.event('session.attach', ATTACH);
+  assert.deepEqual(h.toasts, []);
+});
+
 test('a store that fails keeps the session starting', async () => {
   const h = harness(JEV_KEY);
   CAUSES['an old Claude Code'](h);

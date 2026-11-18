@@ -603,3 +603,150 @@ test('routing turned on for a model no tier routes to keeps it running: failures
     assert.equal(decision.escalated, false, name);
   }
 });
+
+const OPUS = 'claude-opus-5-5';
+const heldOpus = (until = now + 300_000) => ({
+  ...emptyLoop(DEFAULTS, OPUS),
+  held: { [OPUS]: { error: 'overloaded', until } },
+});
+const opusInput = (loop, overrides = {}) =>
+  input(loop, { nativeModel: OPUS, advice: adviceOf('medium', { medium: 0.97, high: 0.03 }), ...overrides });
+
+test('a held-out model routes the turn to the nearest tier on another model and keeps the held route for later', () => {
+  const loop = heldOpus();
+  const result = chooseRoute(DEFAULTS, loop, opusInput(loop));
+  assert.deepEqual(
+    [result.decision.tier, result.decision.model, result.decision.effort, result.decision.reason],
+    ['low', 'claude-haiku-5-5', 'high', 'model-held'],
+  );
+  assert.equal(result.lastRoute, loop.lastRoute);
+  assert.equal(result.route, loop.route);
+});
+
+test('a held-out model at the turn’s activity falls to that activity’s nearest route', () => {
+  const loop = heldOpus();
+  const code = {
+    ...adviceOf('medium', { medium: 0.97, high: 0.03 }),
+    activity: { choice: 'code', probabilities: { code: 0.95 } },
+  };
+  const { decision } = chooseRoute(DEFAULTS, loop, opusInput(loop, { advice: code }));
+  assert.deepEqual(
+    [decision.tier, decision.model, decision.effort, decision.reason],
+    ['low', 'claude-sonnet-5-5', 'high', 'model-held'],
+  );
+});
+
+test('a pinned turn on a held-out model runs the fallback and names the hold', () => {
+  const loop = heldOpus();
+  const { decision } = chooseRoute(DEFAULTS, loop, opusInput(loop, { pin: 'high' }));
+  assert.deepEqual([decision.pinned, decision.model, decision.reason], [true, 'claude-haiku-5-5', 'model-held']);
+});
+
+test('once the hold ends the next turn runs the held model again', () => {
+  const loop = heldOpus(now);
+  const { decision } = chooseRoute(DEFAULTS, loop, opusInput(loop));
+  assert.deepEqual([decision.tier, decision.model], ['medium', OPUS]);
+  assert.notEqual(decision.reason, 'model-held');
+});
+
+test('a compaction keeps the holds', () => {
+  assert.deepEqual(resetHistory(heldOpus()).held, heldOpus().held);
+});
+
+const holdOpusUntil = (loop, until) => ({ ...loop, held: { [OPUS]: { error: 'overloaded', until } } });
+
+for (const [name, until, expected] of [
+  ['while Opus is held out the turn stays on its route', now + 300_000, ['ops', model]],
+  ['once the hold ends the turn moves up to Opus', now, ['code', OPUS]],
+])
+  test(`a turn whose tool calls edit code: ${name}`, () => {
+    const routed = holdOpusUntil(
+      {
+        ...emptyLoop(DEFAULTS, model),
+        lastRoute: 'medium',
+        lastActivity: 'ops',
+        decision: { tier: 'medium', activity: 'ops', model, effort: 'high', reason: 'activity-down', pinned: false },
+      },
+      until,
+    );
+    const facts = nativeFacts(DEFAULTS, routed, context);
+    const { decision } = observedMove(DEFAULTS, routed, { observed: 'code', facts, contextKnown: true, now });
+    assert.deepEqual([decision.activity, decision.model], expected);
+  });
+
+for (const [name, until, expected] of [
+  ['a held-out route is not taken', now + 300_000, [null, model]],
+  ['an ended hold lets the route run', now, ['medium', OPUS]],
+])
+  test(`a tool continuation the context outgrows into Opus: ${name}`, () => {
+    const config = loadConfig({ userFile: { models: { tiny }, routes: { low: { model: 'tiny' } } } });
+    const decision = { tier: 'low', activity: null, route: { model: 'tiny' }, model: tiny.id, effort: null };
+    const loop = holdOpusUntil({ ...emptyLoop(config, model), decision }, until);
+    const continued = continueRoute(config, loop, {
+      nativeModel: model,
+      contextTokens: 300_000,
+      contextKnown: true,
+      effort: 'medium',
+      now,
+    }).decision;
+    assert.deepEqual([continued.tier, continued.model], expected);
+  });
+
+for (const [name, until, expected] of [
+  ['skips the held-out tiers', now + 300_000, ['micro', model]],
+  ['takes the strongest once the hold ends', now, ['high', OPUS]],
+])
+  test(`a tool continuation with images on a route that takes none ${name}`, () => {
+    const config = loadConfig({
+      userFile: { models: { tiny: { ...tiny, imageInput: false } }, routes: { low: { model: 'tiny' } } },
+    });
+    const decision = { tier: 'low', activity: null, route: { model: 'tiny' }, model: tiny.id, effort: null };
+    const loop = holdOpusUntil({ ...emptyLoop(config, model), decision }, until);
+    const continued = continueRoute(config, loop, {
+      nativeModel: model,
+      contextTokens: 20_000,
+      contextKnown: true,
+      effort: 'medium',
+      hasImages: true,
+      now,
+    }).decision;
+    assert.deepEqual([continued.tier, continued.model], expected);
+  });
+
+test('an escalation a hold turned away still escalates on the same failure once the hold ends', () => {
+  const failure = "not ok 1 - login\n  error: 'unauthorized'\n";
+  const messages = [
+    user('fix the tests'),
+    assistant('running', ['Bash']),
+    toolResult(failure, { isError: true }),
+    assistant('editing', ['Edit']),
+    toolResult(failure, { isError: true }),
+    user('continue'),
+  ];
+  const failing = (loop, at) =>
+    input(loop, { facts: nativeFacts(DEFAULTS, loop, { ...context, messages }), advice: null, now: at });
+  const loop = holdOpusUntil(emptyLoop(DEFAULTS, model), now + 300_000);
+  const during = chooseRoute(DEFAULTS, loop, failing(loop, now));
+  assert.deepEqual([during.decision.tier, during.decision.model, during.decision.reason], ['low', model, 'model-held']);
+  const after = chooseRoute(DEFAULTS, during, failing(during, now + 300_000));
+  assert.deepEqual([after.decision.tier, after.decision.model, after.decision.reason], ['medium', OPUS, 'escalation']);
+});
+
+// Sonnet ran medium before a mode change made the configured medium route Opus; no classifier answer moves it.
+for (const [name, held, expected] of [
+  ['unheld, it keeps running', undefined, 'claude-sonnet-5-5'],
+  ['held, Opus replaces it, and stays after the hold', { error: 'overloaded', until: now + 300_000 }, OPUS],
+])
+  test(`a route kept apart from its tier’s configured route, ${name}`, () => {
+    const loop = {
+      ...emptyLoop(DEFAULTS, OPUS),
+      route: { model: 'sonnet', effort: 'high' },
+      held: held && { 'claude-sonnet-5-5': held },
+    };
+    const during = chooseRoute(DEFAULTS, loop, opusInput(loop, { advice: null }));
+    const after = chooseRoute(DEFAULTS, during, opusInput(during, { advice: null, now: now + 300_000 }));
+    assert.deepEqual(
+      [during.decision.model, during.decision.reason, after.decision.model],
+      [expected, 'no-advice', expected],
+    );
+  });

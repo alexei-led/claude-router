@@ -75,3 +75,23 @@ for (const surface of SURFACES) {
     );
   });
 }
+
+// The renderers draw a model; they never read the config or the raw view. The band takes both only to hand them to the
+// band model, and reads the one flag that picks its second row.
+test('the graphical renderers read neither the config nor the view', () => {
+  for (const file of readdirSync(GRAPHICAL)) {
+    const source = readFileSync(new URL(file, GRAPHICAL), 'utf8')
+      .replace(/^import .*$/gm, (line) => line.replace(/config\.mjs/, ''))
+      .replace(/^\s*\/\/.*$/gm, '');
+    if (file === 'band.mjs') {
+      assert.deepEqual(
+        [...source.matchAll(/\bview\.(\w+)/g)].map((m) => m[1]),
+        ['bandDetail', 'bandDetail'],
+        file,
+      );
+      assert.doesNotMatch(source, /\bconfig\.\w/, file);
+      continue;
+    }
+    assert.doesNotMatch(source, /\b(config|view)\b/, file);
+  }
+});

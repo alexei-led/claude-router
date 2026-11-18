@@ -6,6 +6,7 @@ import { GATEWAY_SETTINGS } from '../lib/display.mjs';
 import { bandSegments, fitSegments } from '../lib/ui/model/band.mjs';
 import { partGlyphs } from '../lib/ui/terminal/band.mjs';
 import { toneColor } from '../lib/ui/tokens.mjs';
+import { BAND_STATES } from './band-states.mjs';
 import { ELEMENTS, quiet } from './harness.mjs';
 
 const ROUTER_BUTTON_COLUMNS = 8;
@@ -161,8 +162,8 @@ test('a narrow two-row band keeps 1 row beside Turn off, the only way back to on
 test('a narrow manual band drops the explanation, then cuts the model, and keeps Turn on', () => {
   const { view } = modeBands.manual;
   for (const [columns, expected] of [
-    [80, '○ Sonnet 5.5 [ Turn on ]   routing off · /model  Router'],
-    [52, '○ Sonnet 5.5 [ Turn on ]  Router'],
+    [80, '○ Sonnet 5.5 [ Turn on ]   routing off · /model  [ Router ]'],
+    [52, '○ Sonnet 5.5 [ Turn on ]  [ Router ]'],
     [30, '○ Sonnet … [ Turn on ]  Router'],
   ]) {
     const main = renderBand(ELEMENTS, DEFAULTS, view, null, { columns }, quiet).props.children[0];
@@ -381,3 +382,18 @@ test('fitSegments keeps every segment whole when the width is unknown', () => {
     assert.deepEqual(fitSegments(segments, columns), segments, String(columns));
   }
 });
+
+// Router is a bracketed Button only where the brackets cost nothing: no reading and no hover control the plain label
+// leaves room for.
+for (const [name, ends] of [
+  ['routed-activity-estimate', 'cache 90% last  Router'],
+  ['routed-goal', 'ctx ▰▱▱▱▱ 12%  [ Router ]'],
+  ['pending-pin', '↑ clearly stronger  [ Router ]'],
+  ['detail', 'ctx ▰▱▱▱▱ 12%  [ Router ]'],
+])
+  test(`at 100 columns the ${name} band ends with ${ends}`, () => {
+    const { view, usage = null } = BAND_STATES[name];
+    const main = renderBand(ELEMENTS, DEFAULTS, view, usage, { columns: 100 }, quiet).props.children[0];
+    assert.ok(drawn(main).endsWith(ends), drawn(main));
+    assert.ok(drawn(main).length <= 100);
+  });

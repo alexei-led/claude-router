@@ -45,7 +45,7 @@ The pane shows its provider and file path.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/desktop-band-routed-dark.png">
-  <img src="images/desktop-band-routed-light.png" alt="The desktop band in one row: a tier meter, Opus 5.5 xhigh, the code activity and the reason "clearly stronger" on the left; context and cache readings, the Pin next turn dropdown and the Router button on the right.">
+  <img src="images/desktop-band-routed-light.png" alt="The desktop band in one row: a tier meter, Opus 5.5 xhigh, the code activity and the reason &quot;clearly stronger&quot; on the left; context and cache readings, the Pin to a tier dropdown and the Router button on the right.">
 </picture>
 
 *Rendered from the real component tree with a browser's layout and approximate theme colours; not a screenshot of the Claude app.*
@@ -55,7 +55,7 @@ The pane shows its provider and file path.
 The band above the prompt is drawn natively as one fixed row. Nothing appears on hover: every control is on the row itself. Colours come from the app's theme, so the band reads in light and dark.
 
 - **Left**: a small tier meter icon, then the route (the model and effort for this turn), the activity, the reason, the classifier's support and the switch cost, in the words of the [terminal band](#in-the-terminal). When the window narrows, the left side gives way first.
-- **Right**: the context and cache readings, a **Pin next turn** dropdown and the **Router** button, which opens the pane. The dropdown lists one entry per tier. With `table` or `shadow` each entry names the route that tier runs, whatever the routing mode; with `auto` it names the tier (`Low tier`), because Auto picks the cheapest capable model when the turn runs. A pin forces that tier for the next turn only. On mobile a pending pin also keeps its own `⏵ next` text and **✕** beside the dropdown, since an app may not draw the dropdown.
+- **Right**: the context and cache readings, a **Pin to a tier** dropdown and the **Router** button, which opens the pane. The dropdown lists one entry per tier, not every model; for a model no tier routes to, such as Sonnet on the default routes, turn routing off and use `/model`. With `table` or `shadow` each entry names the route that tier runs, whatever the routing mode; with `auto` it names the tier (`Low tier`), because Auto picks the cheapest capable model when the turn runs. A pin forces that tier for the next turn only. On mobile a pending pin also keeps its own `⏵ next` text and **✕** beside the dropdown, since an app may not draw the dropdown.
 - **One control per state**: **Turn on** when routing is off, **Set up** when the active classifier lacks credentials, **Fix** when routing is unavailable. While routing is on, turn it off from the pane's header (**On** / **Off**) or with `/router off`.
 - **Session row**: the second row (plan windows and the session's cost against no routing) is no longer a band button. Turn it on with **Show session row in band** on the pane's Now tab; Router remembers the choice across sessions.
 
@@ -68,17 +68,17 @@ While subagents run, a row of buttons under the band lists them, one per agent w
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/desktop-band-setup-dark.png">
-  <img src="images/desktop-band-setup-light.png" alt="The desktop band with a missing classifier key: a warning "Jev: no API key", the model kept, and a Set up button beside Router.">
+  <img src="images/desktop-band-setup-light.png" alt="The desktop band with a missing classifier key: a warning &quot;Jev: no API key&quot;, the model kept, and a Set up button beside Router.">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/desktop-band-off-dark.png">
-  <img src="images/desktop-band-off-light.png" alt="The desktop band with routing off: Sonnet 5.5, "routing off", and a Turn on button beside Router.">
+  <img src="images/desktop-band-off-light.png" alt="The desktop band with routing off: Sonnet 5.5, &quot;routing off&quot;, and a Turn on button beside Router.">
 </picture>
 
 ### In the terminal
 
-The terminal band is one line above the prompt. Its text, secondary text, accents, success, warning and error colours are your Claude Code theme's own, so a light theme reads as well as a dark one; tiers, models and activities keep their own colours. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures and the switch cost, then context and cache, then the activity, then the reason. The meter and the model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
+The terminal band is one line above the prompt. Its text, secondary text, accents, success, warning and error colours are your Claude Code theme's own, so a light theme reads as well as a dark one; tiers, models and activities keep their own colours. The line ends with a **Router** button that opens the pane, drawn as `[ Router ]` when the band has room for the brackets without dropping a reading or a hover control, and as a plain `Router` otherwise. When the band is narrow, the less important parts drop first: classifier figures and the switch cost, then context and cache, then the activity, then the reason. The meter and the model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
 
 ![Eight band states: routed to high, two rows on a Claude plan with the hover controls shown, two rows on an API key, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode](router-band.svg)
 
@@ -193,7 +193,7 @@ At a phone's width the same trees narrow: the band shortens its route to fit and
 
 | Tab          | What it answers                                                                                                                                             |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 Now        | What runs next turn, and why, with a **pin** per tier; the plan windows; this session's cost against no routing; context and cache.                     |
+| 1 Now        | What runs next turn, and why, with a **pin** dropdown; the plan windows; this session's cost against no routing; context and cache.                      |
 | 2 Routes     | Which model runs: one grid of tiers by activities, the activity routing mode, and an editor for the selected cell.                                          |
 | 3 Policy     | How readily the router changes models: the start tier, going down, going up, the activity threshold, the credits cap; the `router.json` path.               |
 | 4 Classifier | Which classifier to ask: one row per classifier to compare, the active one's deadline, wait, health and credentials, and the counts kept across sessions.   |
@@ -203,11 +203,11 @@ Under the tab row, one slot shows the warnings on every tab: a project config th
 
 The top line of every tab, `ROUTER  [ ◉ on ] [ ○ off ]  Jev ready · 347 ms`, shows the routing mode, switches it, and says whether the classifier is ready. Press `o` or `f` while the pane has focus. The tabs under it carry their digits, `[ 1 Now ] [ 2 Routes ] …`, and **?** shows what the numbers mean above the tab. In a pane too narrow for them, the tabs drop the digits (the keys still work), and then **?** moves to the end of the top line. While the warnings under the tabs name missing classifier credentials, the top line says `see below` instead of repeating them. When routing is unavailable, the top line reads `ROUTER  unavailable  Claude’s model is kept` with the reason under it, and offers no on or off: see [Troubleshooting](#troubleshooting).
 
-![The Now tab in four blocks. NEXT TURN: the tier meter, model and activity, the reason with the classifier support and the switch cost, one pin per tier. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total with one running subagent as an API estimate, the difference against unrouted, the main thread and the subagents as bars, and a strip of every reply colored by tier. CONTEXT: the window fill and the cache reuse](router-pane-now.svg)
+![The Now tab in four blocks. NEXT TURN: the tier meter, model and activity, the reason with the classifier support and the switch cost, the pin dropdown. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total with one running subagent as an API estimate, the difference against unrouted, the main thread and the subagents as bars, and a strip of every reply colored by tier. CONTEXT: the window fill and the cache reuse](router-pane-now.svg)
 
-The **Now** tab has four blocks, each with its name in capitals.
+The **Now** tab has four blocks, each with its name in capitals. From 72 columns wide each block sits in a single-line box with its name as the first line; a narrower pane draws them as plain lines. The Policy controls and the active classifier on the Classifier tab are boxed the same way.
 
-**NEXT TURN** answers "what runs next turn, and why". The first line is the tier meter, the model and effort, and the classifier's activity with its share, such as `code 84%  debug 8%`. When an activity override runs, a line under it names the tier's own route. **why** gives the reason in the band's words and, beside it, the classifier's support against the bar the policy set and the switch cost: `↑ clearly stronger   Jev 88% ≥ 82% · switch ≈ $0.48`. **pin** has one button per tier, low to high, each named by what it runs, such as `▂▄ Haiku·high 3%`, with the support the classifier gave it on the last turn; `▶` marks the tier that runs now. A press forces that tier for the next turn only; the pinned button stays highlighted until the pin applies, and pressing it again unpins. With routing off, the block names Claude's model, `routing off · /model choice`, and the pins say they need routing on; nothing from an earlier routed turn stays.
+**NEXT TURN** answers "what runs next turn, and why". The first line is the tier meter, the model and effort, and the classifier's activity with its share, such as `code 84%  debug 8%`. When an activity override runs, a line under it names the tier's own route. **why** gives the reason in the band's words and, beside it, the classifier's support against the bar the policy set and the switch cost: `↑ clearly stronger   Jev 88% ≥ 82% · switch ≈ $0.48`. **pin next turn to a tier** names the model that runs now, and one dropdown under it pins: **Pin to a tier**, then one entry per tier, low to high, each named by what it runs, such as `▂▄ Haiku·high 3%`, with the support the classifier gave it on the last turn; `▶` marks the tier that runs now. Picking a tier forces it for the next turn only, and the dropdown shows the pending pin until it applies; pick **No pin** to drop it. A line under the dropdown points to `/model`, with routing off, for models no tier routes to. With routing off, the block names Claude's model, `routing off · /model choice`, and the pins say they need routing on; nothing from an earlier routed turn stays.
 
 **PLAN** appears on a Claude plan: Claude Code's 5-hour and 7-day windows as gauges, with when each resets. They turn yellow at 75% and red at 90%.
 
@@ -412,6 +412,21 @@ These thresholds are starting values. They are not tuned on data yet.
 
 On Claude Code 2.1.322 an effort that the router changed inside a turn was not sent in the 6 cases found, while a changed model was, so the band and the decision record can name an effort that did not run. Claude Code sends an effort change on a tool-result step only when `CLAUDE_CODE_MODEL_CAPABILITIES=per_turn_effort` is set in its environment; the router does not set it. See [What we do not know yet](activity-routing.md#what-we-do-not-know-yet).
 
+### When a model fails
+
+When a turn ends on an API error that is the model's fault, the router holds that model out of routing for a while, so the next turns run another model. A toast says so once, such as `Opus 5.5 held out of routing: overloaded, 5 min`.
+
+| Error Claude Code reports | Held out for |
+| ------------------------- | ------------ |
+| `rate_limit`              | 5 minutes    |
+| `overloaded`              | 5 minutes    |
+| `server_error`            | 2 minutes    |
+| `model_not_found`         | 1 hour       |
+
+A billing error, a rejected key or request, a cut-off answer and an unknown error hold nothing: another model would not help. Claude Code reports no retry-after, so the times are fixed.
+
+While a model is held out, a turn whose route runs it, a pinned turn too, runs the nearest tier's route on another model at the turn's activity; of two tiers as near, the stronger. The switch toast, the band and the route line show `! held out`. The turn's own tool calls do not move it onto a held model either. When the hold ends, the next turn returns to the route it held out without waiting for votes or a checkpoint. A route that is not its tier's configured route, kept from before a routing mode change or a route edit, or your own model when no tier routes to it, is the exception: when the tier's configured route runs another model, that route takes over at once and stays after the hold. The failed request is not sent again: Claude Code reports the error after the turn has ended. A subagent's failure holds nothing. A compaction keeps the holds; a new session starts without them. With `"routingEngine": "auto"` no model is held and no toast shows: that engine does not route around holds.
+
 ### Read the activity on the pane
 
 - **Now**: the first line of **NEXT TURN** names the classifier's activity with its share and the next answer, such as `code 84%  debug 8%`. An `uncertain` answer is shown dim: it applies no activity. In `on`, a line under it names the cell when the route is an override, such as `code at low runs on Sonnet 5.5 · high · tier route Haiku 5.5 · high`, and **why** reads `↑ code` or `↓ ops` when the activity moved the route; a refused move, a hold, or a tier change keeps its reason.
@@ -436,7 +451,7 @@ On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the
 | `/router mode default`                   | Clear the session's mode: the project's or the profile's applies again.                                  |
 | `/router decisions [n]`                  | Print this session's last `n` routing decisions, 20 by default. See [Routing decisions](#routing-decisions). |
 | `/router line <off\|moves\|all>`          | Choose when a turn leaves a [route line](#the-route-line) in the transcript. `moves` is the default. Kept across sessions. |
-| `/model <name>`                          | Select a model and turn routing off. Use `/router auto` to turn it back on.                               |
+| `/model <name>`                          | Select a model and turn routing off. Use `/router auto` to turn it back on. The model picker and a model set from the SDK, an IDE or Remote Control do the same. |
 | **Turn on** / **Turn off** on the band   | The same as `/router auto` and `/router off`.                                                             |
 | **on** / **off** on the pane (`o` / `f`) | The same as `/router auto` and `/router off`.                                                             |
 | **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.                                      |
@@ -567,7 +582,7 @@ To stop routing for a session, run `/router off`. To keep tier routing but stop 
 | Status says `no API key` or `no API token`  | The active classifier's plugin option is unset or unavailable to this process.                        | Select **Set up** in the pane, or run `/plugin configure router`. Save the option and start a new turn.                                                                      |
 | Status says `no account ID`                 | Clef, Clef Flash or Clef Omni is active without the Cloudflare account ID.                            | Run `/plugin configure router` and save the Cloudflare account ID.                                                                                                           |
 | Route stays on the current model            | The classifier timed out, failed, is paused, or network policy refused it.                            | Read the status band and the pane header. Network policy refusal is not bypassed.                                                                                            |
-| `/model` changed but routing stopped        | Choosing a model turns routing off.                                                                   | Run `/router auto` to turn routing back on.                                                                                                                                  |
+| `/model` changed but routing stopped        | Choosing a model (`/model`, the model picker, or the SDK, an IDE or Remote Control) turns routing off. | Run `/router auto` to turn routing back on.                                                                                                                                  |
 | Selected provider file is missing | The provider name selects a file that does not exist. | Create that file in the active Claude Code profile directory. Use `{}` only for built-in profiles. See [Providers](providers.md). |
 | A custom profile containing `{}` fails | No built-in model catalog exists for that provider name. | Define all four routes and their model entries. See the [custom profile example](providers.md#add-another-provider). |
 | Router reports invalid configuration | The selected file is invalid, or project/local settings redirect the profile. | Inspect the file shown in the pane. Remove project/local `HOME`, `CLAUDE_CONFIG_DIR`, or `CLAUDE_ROUTER_PROVIDER` overrides. |
@@ -581,6 +596,6 @@ To stop routing for a session, run `/router off`. To keep tier routing but stop 
 | Pane reads `ROUTER  unavailable`            | Old gateway settings, an old Claude Code, or an invalid `router.json`. The line under it names which. | Fix the cause it names and restart. Until then every turn keeps Claude's model, and `/router auto`, `off`, `pin`, and `activities` reply with the reason and change nothing. |
 | Context reads as unknown                    | The router lacks a reliable local estimate or current-history measurement.                            | Keep using the current model, or start a new history with a supported context estimate.                                                                                      |
 
-When a session starts with the router unavailable, a toast says why (`Routing off: requires Claude Code 2.1.321 or newer. Claude’s model is kept.`). It shows once a day for each cause (old Claude Code, v0.8 gateway settings, a `router.json` that does not load) and never under `claude -p`. The band and the pane keep saying it.
+When a session starts with the router unavailable, a toast says why (`Routing off: requires Claude Code 2.1.321 or newer. Claude’s model is kept.`). A desktop, VS Code or mobile surface that attaches later gets it once as well. It shows once a day for each cause (old Claude Code, v0.8 gateway settings, a `router.json` that does not load) and never under `claude -p`. The band and the pane keep saying it.
 
 For the internal event flow and network deadline behavior, see [Architecture](architecture.md). For what the test traces do and do not show, see [Evaluation](evaluation.md).

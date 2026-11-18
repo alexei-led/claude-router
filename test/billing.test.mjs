@@ -5,7 +5,7 @@ import { renderBand } from '../lib/band.mjs';
 import { loadConfig } from '../lib/config.mjs';
 import { savingsLine } from '../lib/display.mjs';
 import { renderPanel } from '../lib/panel.mjs';
-import { ELEMENTS, quiet, screen } from './harness.mjs';
+import { ELEMENTS, quiet, screen, unboxed } from './harness.mjs';
 
 const PROXY = loadConfig({
   provider: 'model-proxy',
@@ -108,8 +108,8 @@ test('Now and Usage identify configured-rate estimates for every billing product
       nativeEffort: 'high',
       usageSession: record({ [`low|${model}@high`]: [10, 24.1, 30, -5.9, 0, 0] }, { [model]: 10 }),
     });
-    const now = screen(
-      renderPanel(ELEMENTS, config, { ...props, tab: 'now' }, usage, quiet, { columns: 140, now: NOW }),
+    const now = unboxed(
+      screen(renderPanel(ELEMENTS, config, { ...props, tab: 'now' }, usage, quiet, { columns: 140, now: NOW })),
     );
     assert.ok(now.includes(`  ≈$24.10  ${note}  [ Usage ]`), note);
     const shown = screen(

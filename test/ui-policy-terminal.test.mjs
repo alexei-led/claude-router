@@ -7,7 +7,7 @@ process.env.TZ = 'UTC';
 
 const { DEFAULTS } = await import('../lib/config.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
-const { ELEMENTS, find, hangs, recorder } = await import('./harness.mjs');
+const { ELEMENTS, find, hangs, recorder, screen, texts } = await import('./harness.mjs');
 const { NOW } = await import('./usage-fixtures.mjs');
 
 const VIEW = {
@@ -72,4 +72,26 @@ for (const [key, expected] of [
     const { actions, calls } = recorder();
     find(policy(60, actions), (node) => node.props.key === key)[0].props.onPress();
     assert.deepEqual(calls, [expected]);
+  });
+
+// From 72 columns the POLICY block through Reset is one single-line box; the file and the subagents line stay outside.
+for (const [columns, boxed] of [
+  [60, false],
+  [80, true],
+  [88, true],
+])
+  test(`at ${columns} columns the policy controls draw ${boxed ? 'in one box, no line wider than the pane' : 'in no box'}`, () => {
+    const tree = policy(columns);
+    const boxes = find(tree, (node) => node.type === 'Box' && node.props.borderStyle !== undefined);
+    assert.equal(boxes.length, boxed ? 1 : 0);
+    if (!boxed) return;
+    assert.equal(boxes[0]?.props.borderStyle, 'single');
+    const words = texts(boxes[0]);
+    assert.equal(words[0], 'POLICY');
+    assert.ok(find(boxes[0], (node) => node.props.key === 'reset-policy').length);
+    assert.ok(!words.includes('FILE'));
+    assert.deepEqual(
+      screen(tree).filter((line) => [...line].length > columns),
+      [],
+    );
   });

@@ -129,52 +129,56 @@ Box flexDirection="column"
     "  that run"
   Text
     " "
-  Box
+  Box borderColor="subtle" borderStyle="single" flexDirection="column" paddingX=1
+    Box
+      Text color="suggestion" weight="semibold"
+        "OLLAMA"
+      Text dimColor=true
+        " · active"
+    Box
+      Box flexShrink=0 width=12
+        Text
+          "Deadline"
+      Box flexDirection="column" flexGrow=1 flexShrink=1
+        Box
+          Box flexShrink=0 width=12
+            Select key="timeoutMs" options=[{"value":"500","label":"500 ms"},{"value":"1000","label":"1000 ms"},{"value":"1500","label":"1500 ms"},{"value":"3000","label":"3000 ms"},{"value":"5000","label":"5000 ms"}] value="5000"
+          Text dimColor=true
+            "p95 3483 ms in its probe"
+        Text dimColor=true wrap="wrap"
+          "past the deadline the turn keeps its model"
+    Box
+      Box flexShrink=0 width=12
+        Text
+          "Sends"
+      Box flexDirection="column" flexGrow=1 flexShrink=1
+        Text wrap="wrap"
+          "prompt + 6 recent turns → this machine"
+        Text dimColor=true wrap="wrap"
+          "the bounded active goal and current step also go to the classifier"
+    Box
+      Box flexShrink=0 width=12
+        Text
+          "Health"
+      Text
+        "not paused"
+      Text
+        " · 1 recent failure"
+      Text dimColor=true
+        " · last 347 ms"
+    Box
+      Box flexShrink=0 width=12
+        Text
+          "Credentials"
+      Button hotkey="k" key="key" label="Edit"
+      Text dimColor=true
+        "  opens /plugin configure"
+    Text
+      " "
     Text color="suggestion" weight="semibold"
-      "OLLAMA"
-    Text dimColor=true
-      " · active"
-  Box
-    Box flexShrink=0 width=12
-      Text
-        "Deadline"
-    Box flexShrink=0 width=12
-      Select key="timeoutMs" options=[{"value":"500","label":"500 ms"},{"value":"1000","label":"1000 ms"},{"value":"1500","label":"1500 ms"},{"value":"3000","label":"3000 ms"},{"value":"5000","label":"5000 ms"}] value="5000"
-    Text dimColor=true
-      "p95 3483 ms in its probe"
-  Text dimColor=true
-    "            past the deadline the turn keeps its model"
-  Box
-    Box flexShrink=0 width=12
-      Text
-        "Sends"
+      "THIS SESSION"
     Text
-      "prompt + 6 recent turns → this machine"
-  Text dimColor=true
-    "            the bounded active goal and current step also go to the classifier"
-  Box
-    Box flexShrink=0 width=12
-      Text
-        "Health"
-    Text
-      "not paused"
-    Text
-      " · 1 recent failure"
-    Text dimColor=true
-      " · last 347 ms"
-  Box
-    Box flexShrink=0 width=12
-      Text
-        "Credentials"
-    Button hotkey="k" key="key" label="Edit"
-    Text dimColor=true
-      "  opens /plugin configure"
-  Text
-    " "
-  Text color="suggestion" weight="semibold"
-    "THIS SESSION"
-  Text
-    "Tool compatibility (not accuracy): 19 of 22 turns (86%)"
+      "Tool compatibility (not accuracy): 19 of 22 turns (86%)"
   Text
     " "
   Text color="suggestion" weight="semibold"

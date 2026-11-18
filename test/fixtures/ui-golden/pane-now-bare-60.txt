@@ -42,30 +42,14 @@ Box flexDirection="column"
       "  "
     Text weight="semibold"
       "no response yet"
-  Box
-    Text dimColor=true
-      "  pin   "
-    Button key="pin-micro" label="▂ Haiku·medium —" variant="secondary"
-    Text
-      " "
+  Text dimColor=true
+    "  pin next turn to a tier"
   Box
     Text
-      "        "
-    Button key="pin-low" label="▂▄ Haiku·high —" variant="secondary"
-    Text
-      " "
-  Box
-    Text
-      "        "
-    Button key="pin-medium" label="▂▄▆ Opus·medium —" variant="secondary"
-    Text
-      " "
-  Box
-    Text
-      "        "
-    Button key="pin-high" label="▂▄▆█ Opus·xhigh —" variant="secondary"
-    Text
-      " "
+      "    "
+    Select key="pin" options=[{"value":"none","label":"Pin to a tier"},{"value":"micro","label":"▂ Haiku·medium —"},{"value":"low","label":"▂▄ Haiku·high —"},{"value":"medium","label":"▂▄▆ Opus·medium —"},{"value":"high","label":"▂▄▆█ Opus·xhigh —"}] value="none"
+  Text dimColor=true
+    "    other models: /model, with routing off"
   Text
     " "
   Box

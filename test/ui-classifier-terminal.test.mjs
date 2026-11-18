@@ -9,7 +9,7 @@ const { DEFAULTS } = await import('../lib/config.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
 const { classifierTwoLine } = await import('../lib/ui/terminal/classifier.mjs');
 const { CLAUDE } = await import('./band-states.mjs');
-const { ELEMENTS, find, hangs, kids, parentOf, recorder, screen, textOf } = await import('./harness.mjs');
+const { ELEMENTS, find, hangs, kids, parentOf, recorder, screen, textOf, texts } = await import('./harness.mjs');
 const { NOW } = await import('./usage-fixtures.mjs');
 
 const CLASSIFIER_IDS = Object.keys(DEFAULTS.classifiers);
@@ -99,4 +99,32 @@ for (const words of [
 test('with no rows to draw the layout reads as fitting, with no -Infinity in the comparison', () => {
   assert.equal(classifierTwoLine([], 60), false);
   assert.equal(classifierTwoLine([], null), true);
+});
+
+// From 72 columns the active classifier's block is one single-line box, its help hanging in its field; the comparison
+// rows and the counts across sessions stay outside.
+const activeBox = (tree) => find(tree, (node) => node.type === 'Box' && node.props.borderStyle !== undefined);
+for (const [columns, boxed] of [
+  [60, false],
+  [80, true],
+  [88, true],
+])
+  test(`at ${columns} columns the active classifier draws ${boxed ? 'in one box' : 'in no box'}`, () => {
+    const tree = classifier(columns);
+    const boxes = activeBox(tree);
+    assert.equal(boxes.length, boxed ? 1 : 0);
+    if (!boxed) return;
+    assert.equal(boxes[0]?.props.borderStyle, 'single');
+    assert.deepEqual(texts(boxes[0]).slice(0, 2), ['JEV', ' · active']);
+    assert.ok(!find(boxes[0], (node) => /^classifier-/.test(node.props.key ?? '')).length);
+    assert.equal(hangs(tree, 'past the deadline the turn keeps its model', 12), 'hangs');
+  });
+
+test('at 88 columns the comparison rows stay wide and no line of the active box is wider than the pane', () => {
+  const tree = classifier(88);
+  assert.ok(!isTwoLine(tree));
+  assert.deepEqual(
+    screen(tree).filter((line) => [...line].length > 88),
+    [],
+  );
 });

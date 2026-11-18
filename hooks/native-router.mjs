@@ -76,6 +76,7 @@ import {
   GATEWAY_CLEANUP,
   GATEWAY_SETTINGS,
   missingCredentials,
+  modelName,
   NOT_A_TIER_REASON,
   pinCard,
   pluginIdOf,
@@ -95,6 +96,7 @@ import {
   routingBucket,
   stripReminders,
 } from '../lib/facts.mjs';
+import { activeHolds, holdModel, holdMs, holdText } from '../lib/failover.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
@@ -315,6 +317,8 @@ function createRouter(options) {
     turnDecisions: new Map(),
     // The route the last routed turn ran, to tell whether the next one moved it; null at a session's start.
     lastRoute: null,
+    // The model of the last main request sent: the one an API error that ends the turn failed on (holdFailedModel).
+    lastRequested: /** @type {string | null} */ (null),
     decisionRecord: null,
     trace: /** @type {TraceHold | null} */ (null),
     traceFreshSession: null,
@@ -322,6 +326,8 @@ function createRouter(options) {
     traceStartedSession: null,
     traceFailures: 0,
     traceOperations: new Map(),
+    // The surfaces that showed the unavailable toast this session, so an attach never repeats it on the same one.
+    noticeSurfaces: new Set(),
     controllers: new Set(),
     turnControllers: new Map(),
     view: /** @type {Record<string, unknown> | null} */ (null),
@@ -2877,6 +2883,8 @@ async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, session
   else request.effort = loop.decision.effort;
   if (cfg.routingEngine === 'shadow' && !next.signal.aborted && (await $.session.id()) === sessionId)
     traceRequest(router, e, router.turnConfigs.get(e.turnId) ?? turn, request, 'auto', loop);
+  // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
+  router.lastRequested = request.model;
   const response = yield* next(request);
   if (!next.signal.aborted && (await $.session.id()) === sessionId)
     await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
@@ -2959,6 +2967,10 @@ async function traceContinuation($, router, cfg, loop, e, traceInput) {
 async function* stepMain($, router, e, next) {
   if (!(await ensureInitialized($, router))) return yield* next(e);
   if (e.agentId) return yield* stepAgent($, router, e, next);
+  // A main request goes out as Claude Code built it unless sendRouted routes it, so its model is the one a failure
+  // holds (holdFailedModel) until sendRouted names another.
+  // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
+  router.lastRequested = e.model;
   const turn = router.turnConfigs.get(e.turnId) ?? (await turnConfigOf($, router));
   const cfg = turn.config;
   const [sessionId, nativeModel, view] = await Promise.all([$.session.id(), $.session.model(), readView($, router)]);
@@ -3035,6 +3047,7 @@ async function* stepMain($, router, e, next) {
       contextKnown: context.known,
       availableModels,
       effort: e.effort,
+      now: Date.now(),
     };
     loop =
       cfg.routingEngine === 'auto'
@@ -3125,17 +3138,59 @@ function unavailableCause(error) {
 
 // One toast when a session starts with routing unavailable, at most once a day per cause: the band says it too, but not
 // once it is collapsed or scrolled away. Not for a headless run, which has no one to read it. The day is recorded before
-// the toast, so a toast no surface draws is not retried until tomorrow.
+// the toast, so a toast no surface draws is not retried until tomorrow. A surface that attaches later (desktop, VS Code,
+// mobile) gets it too, once per surface, once this session has shown it: it was not there to see the first. The day
+// record still gates the session's first toast, on whichever surface asks first.
 async function noticeUnavailable($, router, e) {
   const view = router.view;
   if (view?.phase !== 'unavailable' || !e.isInteractive || !e.surface) return;
+  if (router.noticeSurfaces.has(e.surface)) return;
   try {
-    const key = `${UNAVAILABLE_NOTICE_PREFIX}${unavailableCause(view.error)}`;
-    const last = await $.store.get(key);
-    const now = Date.now();
-    if (Number.isFinite(last) && now - last >= 0 && now - last < UNAVAILABLE_NOTICE_INTERVAL_MS) return;
-    await $.store.set(key, now);
+    if (router.noticeSurfaces.size === 0) {
+      const key = `${UNAVAILABLE_NOTICE_PREFIX}${unavailableCause(view.error)}`;
+      const last = await $.store.get(key);
+      const now = Date.now();
+      if (Number.isFinite(last) && now - last >= 0 && now - last < UNAVAILABLE_NOTICE_INTERVAL_MS) return;
+      await $.store.set(key, now);
+    }
+    router.noticeSurfaces.add(e.surface);
     $.ui.toast(`Routing off: ${unavailableReason(view)}. Claude’s model is kept.`);
+  } catch {}
+}
+
+const MODEL_SELECTED_MANUALLY = 'model selected manually';
+const MANUAL_SWITCH_SOURCES = new Set(['picker', 'sdk']);
+
+// A person chose the session's model: routing turns off and keeps it.
+async function keepChosenModel($, router, reason) {
+  await changeMode($, router, 'manual');
+  await updateView($, router, { nativeModel: await $.session.model(), ...(reason ? { reason } : {}) });
+}
+
+// A main turn ended on an API error (`StopFailure`): the request is lost, and Claude Code reports neither the model nor
+// a retry-after. An error that is the model's holds the model the last request ran out of routing for a while
+// (lib/failover.mjs), so the next turn runs another; the hold lives in the loop, which the table and shadow engines
+// read. The `auto` engine routes without holds, so it gets none and no toast claims one.
+async function holdFailedModel($, router, error) {
+  // A failed hold changes no route; the turn's result stands.
+  try {
+    if (holdMs(error) === null || !(await ensureInitialized($, router))) return;
+    if (router.config.routingEngine === 'auto') return;
+    const model = router.lastRequested ?? (await $.session.model());
+    const ref = { ...LOOP, id: 'main' };
+    // A write that lost to a step's own write reads the loop again.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { value: loop, version } = await $.state.get(ref);
+      if (!loop) return;
+      const now = Date.now();
+      const held = holdModel(loop.held, model, error, now);
+      const written = await $.state.set(ref, { ...loop, held }, { ifVersion: version });
+      if (!written.isSet) continue;
+      const hold = activeHolds(held, now)[model];
+      if (hold && (await modeOf($, router)) === 'auto')
+        $.ui.toast(`${modelName(model)} held out of routing: ${holdText(hold, now)}`);
+      return;
+    }
   } catch {}
 }
 
@@ -3158,27 +3213,38 @@ export function register(on, options) {
     router.trace = null;
     router.traceOperations.clear();
     router.lastRoute = null;
+    router.lastRequested = null;
     router.initialized = false;
+    router.noticeSurfaces.clear();
     await ensureInitialized($, router);
     await noticeUnavailable($, router, e);
     return next(e);
   });
 
+  // The terminal's own attachment raises nothing; a desktop, VS Code or mobile surface attaches after session.start.
+  on('session.attach', async ($, e, next) => {
+    const result = await next(e);
+    await noticeUnavailable($, router, { isInteractive: true, surface: e.surface });
+    return result;
+  });
+
   on('command.run', { command: 'model' }, async ($, e, next) => {
     const result = await next(e);
-    if (e.origin.kind !== 'plugin') {
-      await changeMode($, router, 'manual');
-      await updateView($, router, { nativeModel: await $.session.model(), reason: 'model selected manually' });
-    }
+    if (e.origin.kind !== 'plugin') await keepChosenModel($, router, MODEL_SELECTED_MANUALLY);
     return result;
   });
 
   on('config.set', { key: 'model' }, async ($, e, next) => {
     const result = await next(e);
-    if (!result.deny && e.origin.kind !== 'plugin') {
-      await changeMode($, router, 'manual');
-      await updateView($, router, { nativeModel: await $.session.model() });
-    }
+    if (!result.deny && e.origin.kind !== 'plugin') await keepChosenModel($, router);
+    return result;
+  });
+
+  // A switch the two hooks above never see: the model picker's shortcut, or set_model from the SDK, an IDE or Remote
+  // Control. A 'command' switch is theirs (they know a plugin's own /model); 'auto' and 'resume' are no one's choice.
+  on('classic.PostModelSwitch', async ($, e, next) => {
+    const result = await next(e);
+    if (MANUAL_SWITCH_SOURCES.has(e.source)) await keepChosenModel($, router, MODEL_SELECTED_MANUALLY);
     return result;
   });
 
@@ -3244,6 +3310,14 @@ export function register(on, options) {
     router.traceOperations.delete(e.turnId);
     return next(e);
   });
+
+  // Since 2.1.296 (present at the 2.1.321 floor): a turn that ended on an API error. A subagent's is not routed here.
+  // A hook failure leaves the event to the hooks beneath, as without the router.
+  on('classic.StopFailure', async ($, e, next) => {
+    const result = await next(e);
+    if (e.agent_id === undefined) await holdFailedModel($, router, e.error);
+    return result;
+  }).catch((_$, e, next) => next(e));
 
   on('session.compact', async ($, e, next) => {
     const result = await next(e);

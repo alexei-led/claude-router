@@ -359,3 +359,37 @@ for (const surface of SURFACES) {
     assert.equal(hint?.props.tabular, true);
   });
 }
+
+// The desktop reference (variant D): every Now section is a bordered card, and the Next turn card holds the pin head,
+// the four pins and the note where other models are chosen. The graphical Now keeps one Button per tier rather than the
+// terminal's Select: Elements.mobile has no Select, and the Buttons carry the Svg meter and each tier's support.
+for (const surface of SURFACES)
+  test(`${surface}: the Now tab matches the desktop reference`, () => {
+    const tree = draw({}, { surface });
+    const cardOf = (title) => card(tree, title);
+    const table = [
+      ['Next turn', ['Pin next turn to a tier · now Opus 5.5 · xhigh', 'Other models: /model, with routing off']],
+      ['Plan usage', []],
+      ['Context', []],
+      ['This session', []],
+    ];
+    for (const [title, words] of table) {
+      const section = cardOf(title);
+      assert.equal(section?.type, 'Box', title);
+      assert.equal(section.props.borderStyle, 'round', title);
+      for (const line of words) assert.ok(texts(section).includes(line), `${title}: ${line}`);
+    }
+    const next = cardOf('Next turn');
+    const children = texts(next);
+    const buttons = ['micro', 'low', 'medium', 'high'].map((tier) => byKey(next, `pin-${tier}`));
+    assert.deepEqual(
+      buttons.map((b) => b.type),
+      ['Button', 'Button', 'Button', 'Button'],
+    );
+    assert.ok(
+      children.indexOf('Pin next turn to a tier · now Opus 5.5 · xhigh') < children.indexOf(buttons[0].props.label),
+    );
+    assert.ok(children.indexOf(buttons[3].props.label) < children.indexOf('Other models: /model, with routing off'));
+    // Every border on the tab is the card's round one.
+    assert.ok(find(tree, (n) => n.props.borderStyle).every((n) => n.props.borderStyle === 'round'));
+  });

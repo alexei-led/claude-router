@@ -19,7 +19,7 @@ Box flexDirection="column" key="router-band"
       "v0.8 gateway settings remain"
     Text
       "  "
-    Button key="details" label="Router" plain=true
+    Button key="details" label="Router"
     Box display="none" hover={"display":"flex"} left=29 position="absolute" top=0
       Button key="band-detail" label="2 rows"
       Text
