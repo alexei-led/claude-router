@@ -171,7 +171,7 @@ import {
   subagentsAfterReset,
   typeRoute,
 } from '../lib/subagents.mjs';
-import { argumentHint, routerSuggestions, SUBCOMMANDS } from '../lib/subcommands.mjs';
+import { argumentHint, routerSuggestions } from '../lib/subcommands.mjs';
 import { routeDraftOf, routingChanges } from '../lib/ui/model/draft.mjs';
 import { keyHelpOf } from '../lib/ui/model/frame.mjs';
 import { isGraphical } from '../lib/ui/tokens.mjs';
@@ -982,26 +982,36 @@ async function setPin($, router, tier) {
   return `${tier} pinned for the next turn and its tool continuations.`;
 }
 
-// What each word of the SUBCOMMANDS table does. A handler that answers nothing leaves the command to open the pane.
-const SUBCOMMAND_RUNNERS = {
-  auto: ($, router) => switchRouting($, router, 'auto'),
-  off: ($, router) => switchRouting($, router, 'manual'),
-  trace: async ($, router, value) => (value === 'export' ? { text: await exportTraces($, router) } : undefined),
-  decisions: async ($, router, value) => ({ text: await decisionsText($, router, value) }),
-  pin: async ($, router, value) => ({
-    text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.`,
-  }),
-  mode: async ($, router, value) => ({
-    text: [...ROUTING_MODES, 'default'].includes(value)
-      ? await setRoutingMode($, router, value)
-      : `Choose mode ${[...ROUTING_MODES, 'default'].join(', ')}.`,
-  }),
-  activities: async ($, router, value) => ({
-    text: ACTIVITY_MODES.includes(value)
-      ? await setActivityRouting($, router, value)
-      : `Choose activities ${ACTIVITY_MODES.join(', ')}.`,
-  }),
-};
+// What each word of the SUBCOMMANDS table does: a switch, since the engine reads `$` only where it is passed to a
+// function it can name. A word with no case, or one that answers nothing, leaves the command to open the pane.
+async function runSubcommand($, router, action, value) {
+  switch (action) {
+    case 'auto':
+      return switchRouting($, router, 'auto');
+    case 'off':
+      return switchRouting($, router, 'manual');
+    case 'trace':
+      return value === 'export' ? { text: await exportTraces($, router) } : undefined;
+    case 'decisions':
+      return { text: await decisionsText($, router, value) };
+    case 'pin':
+      return { text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.` };
+    case 'mode':
+      return {
+        text: [...ROUTING_MODES, 'default'].includes(value)
+          ? await setRoutingMode($, router, value)
+          : `Choose mode ${[...ROUTING_MODES, 'default'].join(', ')}.`,
+      };
+    case 'activities':
+      return {
+        text: ACTIVITY_MODES.includes(value)
+          ? await setActivityRouting($, router, value)
+          : `Choose activities ${ACTIVITY_MODES.join(', ')}.`,
+      };
+    default:
+      return undefined;
+  }
+}
 
 async function switchRouting($, router, mode) {
   const view = router.view ?? (await readView($, router));
@@ -1013,8 +1023,7 @@ async function switchRouting($, router, mode) {
 // `/router [word [value]]`, the words of SUBCOMMANDS; with none, the pane, or the status text without a surface.
 async function routerCommand($, router, args) {
   const [action, value] = args.trim().split(/\s+/);
-  const known = SUBCOMMANDS.some((sub) => sub.name === action);
-  const answer = known ? await SUBCOMMAND_RUNNERS[action]($, router, value) : undefined;
+  const answer = await runSubcommand($, router, action, value);
   if (answer) return answer;
   const storedView = await readView($, router);
   const view = { ...storedView, mode: await modeOf($, router, storedView.mode) };
