@@ -1983,6 +1983,7 @@ async function submitPrompt(router, e, next) {
   router.submitting = entry;
   try {
     const result = await next(e);
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: turn.start sets `started` through router.submitting, an alias Biome cannot follow
     if (!entry.started && typeof result?.text === 'string' && !result.drop)
       router.origins = queueOrigin(router.origins, { kind: entry.kind, text: result.text, at: Date.now() });
     return result;
@@ -3077,6 +3078,7 @@ export function register(on, options) {
     const result = await next(e);
     // Only the main conversation is routed, so an agent compaction changes nothing here.
     if (!result.skip && e.trigger !== 'precompute' && !e.agentId) {
+      // biome-ignore lint/suspicious/noUnnecessaryConditions: router.trace is set by helpers that take `router`, which Biome cannot follow
       if (!router.trace) {
         router.traceFreshSession = null;
         router.traceClearSession = null;
