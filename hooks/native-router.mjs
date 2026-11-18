@@ -3045,6 +3045,7 @@ async function* stepMain($, router, e, next) {
       contextKnown: context.known,
       availableModels,
       effort: e.effort,
+      now: Date.now(),
     };
     loop =
       cfg.routingEngine === 'auto'

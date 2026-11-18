@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { answering, drain, harness, JEV_KEY, step } from './harness.mjs';
-import { jevResponse } from './helpers.mjs';
+import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
 const OPUS = 'claude-opus-5-5';
 const HAIKU = 'claude-haiku-5-5';
@@ -52,6 +52,28 @@ test('a pinned turn on a held-out model runs the fallback and its route line nam
   assert.equal((await turn(h, 't2')).model, HAIKU);
   assert.equal(h.loop().decision.pinned, true);
   assert.equal(h.state.get('lines:rl-t2').value.reason, 'model-held');
+});
+
+test('a turn whose own tool calls edit code does not move up onto the held-out model', async (t) => {
+  const h = await started(t);
+  await turn(h, 't1', { error: 'overloaded' });
+  answering(h, jevResponse('medium', { medium: 0.97, high: 0.03 }, 0, { ops: 0.9, code: 0.1 }, 'execute'));
+  await h.event('turn.start', { turnId: 't2', text: 'Run the worker brief.' });
+  h.messages(async () => [user('Run the worker brief.')]);
+  await drain(h.step({ ...step, turnId: 't2', model: OPUS }));
+  h.messages(async () => [
+    user('Run the worker brief.'),
+    assistant('running', ['Bash']),
+    toolResult('ok'),
+    assistant('fixing', ['Edit']),
+    toolResult('ok'),
+  ]);
+  await drain(h.step({ ...step, turnId: 't2', model: OPUS, index: 1, messageCount: 5 }));
+  assert.deepEqual(
+    h.requests.slice(1).map((r) => `${r.model}@${r.effort}`),
+    ['claude-haiku-5-5@high', 'claude-haiku-5-5@high'],
+  );
+  assert.equal(h.loop().decision.activity, 'ops');
 });
 
 for (const [name, failure] of [

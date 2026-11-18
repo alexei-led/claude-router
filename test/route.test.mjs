@@ -652,3 +652,63 @@ test('once the hold ends the next turn runs the held model again', () => {
 test('a compaction keeps the holds', () => {
   assert.deepEqual(resetHistory(heldOpus()).held, heldOpus().held);
 });
+
+const holdOpusUntil = (loop, until) => ({ ...loop, held: { [OPUS]: { error: 'overloaded', until } } });
+
+for (const [name, until, expected] of [
+  ['while Opus is held out the turn stays on its route', now + 300_000, ['ops', model]],
+  ['once the hold ends the turn moves up to Opus', now, ['code', OPUS]],
+])
+  test(`a turn whose tool calls edit code: ${name}`, () => {
+    const routed = holdOpusUntil(
+      {
+        ...emptyLoop(DEFAULTS, model),
+        lastRoute: 'medium',
+        lastActivity: 'ops',
+        decision: { tier: 'medium', activity: 'ops', model, effort: 'high', reason: 'activity-down', pinned: false },
+      },
+      until,
+    );
+    const facts = nativeFacts(DEFAULTS, routed, context);
+    const { decision } = observedMove(DEFAULTS, routed, { observed: 'code', facts, contextKnown: true, now });
+    assert.deepEqual([decision.activity, decision.model], expected);
+  });
+
+for (const [name, until, expected] of [
+  ['a held-out route is not taken', now + 300_000, [null, model]],
+  ['an ended hold lets the route run', now, ['medium', OPUS]],
+])
+  test(`a tool continuation the context outgrows into Opus: ${name}`, () => {
+    const config = loadConfig({ userFile: { models: { tiny }, routes: { low: { model: 'tiny' } } } });
+    const decision = { tier: 'low', activity: null, route: { model: 'tiny' }, model: tiny.id, effort: null };
+    const loop = holdOpusUntil({ ...emptyLoop(config, model), decision }, until);
+    const continued = continueRoute(config, loop, {
+      nativeModel: model,
+      contextTokens: 300_000,
+      contextKnown: true,
+      effort: 'medium',
+      now,
+    }).decision;
+    assert.deepEqual([continued.tier, continued.model], expected);
+  });
+
+for (const [name, until, expected] of [
+  ['skips the held-out tiers', now + 300_000, ['micro', model]],
+  ['takes the strongest once the hold ends', now, ['high', OPUS]],
+])
+  test(`a tool continuation with images on a route that takes none ${name}`, () => {
+    const config = loadConfig({
+      userFile: { models: { tiny: { ...tiny, imageInput: false } }, routes: { low: { model: 'tiny' } } },
+    });
+    const decision = { tier: 'low', activity: null, route: { model: 'tiny' }, model: tiny.id, effort: null };
+    const loop = holdOpusUntil({ ...emptyLoop(config, model), decision }, until);
+    const continued = continueRoute(config, loop, {
+      nativeModel: model,
+      contextTokens: 20_000,
+      contextKnown: true,
+      effort: 'medium',
+      hasImages: true,
+      now,
+    }).decision;
+    assert.deepEqual([continued.tier, continued.model], expected);
+  });
