@@ -472,3 +472,37 @@ test('tierMeter draws four rising bars, lit to the tier', () => {
   assert.equal(tierMeter(ELEMENTS, null, 'off').props.alt, 'Tier: off');
   assert.equal(tierMeter(ELEMENTS, null, 'pending').props.alt, 'Tier: choosing');
 });
+
+// The desktop reference (variant D): the meter and route on the left; the readings, the pin Select and Router on the
+// right. The Select's first option reads Pin to a tier, or No pin while a pin waits.
+for (const surface of SURFACES)
+  test(`${surface}: the band matches the desktop reference`, () => {
+    const read = { ...ROUTED, contextTokens: 90_000, inputTokens: 1000, cacheRead: 900 };
+    const table = [
+      ['no pin', read, 'Pin to a tier', 'none', true],
+      // Mobile keeps the pin's words and ✕ beside its Select, which leaves the readings no room.
+      ['pending pin', { ...read, pendingPin: 'low' }, 'No pin', 'low', surface !== 'mobile'],
+    ];
+    for (const [name, view, first, value, readings] of table) {
+      const tree = draw(view, CLAUDE, { surface });
+      const [left, right] = kids(row(tree));
+      const meter = find(left, (n) => n.type === 'Svg')[0];
+      assert.equal(meter?.props.alt, `Tier: ${view.tier}`, name);
+      assert.ok(textOf(left).length > 0, `${name}: the route and reason`);
+      const items = kids(right);
+      const [select, router] = items.slice(-2);
+      assert.equal(select.type, 'Select', name);
+      assert.equal(select.props.key, 'band-pin', name);
+      assert.equal(select.props.options[0].label, first, name);
+      assert.equal(select.props.value, value, name);
+      assert.deepEqual(
+        [router.type, router.props.key, router.props.label, router.props.variant],
+        ['Button', 'details', 'Router', 'secondary'],
+      );
+      if (readings)
+        assert.ok(
+          items.some((n) => n.type === 'Text' && textOf(n).startsWith('ctx')),
+          `${name}: readings`,
+        );
+    }
+  });

@@ -9,6 +9,7 @@
 ### Changed
 
 - Terminal controls: from 72 columns the pane's Now blocks, the Policy controls and the active classifier sit in single-line boxes; the Now tab pins the next turn from one dropdown (pick a tier, or **No pin** to unpin) instead of a button per tier; and the band's Router reads `[ Router ]` when the band has room for it without dropping anything.
+- Desktop, VS Code and mobile: the pane's five tabs are drawn as a segmented control, the same as the On | Off switch, with the same keys and 1-5 hotkeys.
 
 ### Fixed
 

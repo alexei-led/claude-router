@@ -57,6 +57,27 @@ for (const surface of SURFACES) {
     );
   });
 
+  test(`${surface}: the tab row is the kit's segmented control, then the ? Button`, () => {
+    const tree = draw({ tab: 'usage' }, surface);
+    const [segmented, help, ...rest] = kids(shell(tree)[1]);
+    assert.equal(rest.length, 0);
+    // ui.choice's row: Buttons side by side with the tight gap, wrapping, as the title row's On | Off.
+    assert.equal(segmented.type, 'Box');
+    assert.deepEqual(
+      [segmented.props.flexDirection, segmented.props.gap, segmented.props.flexWrap],
+      ['row', 'xs', 'wrap'],
+    );
+    assert.deepEqual(
+      kids(segmented).map((b) => [b.type, b.props.key]),
+      ['now', 'routes', 'policy', 'classifier', 'usage'].map((id) => ['Button', `tab-${id}`]),
+    );
+    assert.equal(help.props.key, 'help');
+    calls.length = 0;
+    kids(segmented)[2].props.onPress();
+    help.props.onPress();
+    assert.deepEqual(calls, [['tab', 'policy'], ['help']]);
+  });
+
   test(`${surface}: the title row has Router, the classifier status and On | Off on the old keys`, () => {
     const tree = draw({ adviceMs: 347 }, surface);
     const head = shell(tree)[0];
