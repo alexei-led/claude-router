@@ -2362,11 +2362,32 @@ async function noteSpawn($, router, { cfg, e, pass, decision, routed, result, de
   await showRunning($, router);
 }
 
-// How many of the agents with a record are between their start or a step and their turn's end, in the view when it
-// changes. An agent spawned with routing off has no record and is not counted.
+// Which of the agents with a record are between their start or a step and their turn's end, and how many, in the view
+// when the set changes: the band draws a row for each. An agent spawned with routing off has no record and is not
+// listed.
 async function showRunning($, router) {
-  const running = [...router.agents.values()].filter((agent) => agent.running).length;
-  if ((router.view?.subagentsRunning ?? 0) !== running) await updateView($, router, { subagentsRunning: running });
+  const ids = [...router.agents].filter(([, agent]) => agent.running).map(([id]) => id);
+  if ((router.view?.subagentIds ?? []).join(' ') !== ids.join(' '))
+    await updateView($, router, { subagentsRunning: ids.length, subagentIds: ids });
+}
+
+// The band's rows: the agents with a record that Claude Code still lists as running, never a teammate, whose own
+// session the person opens from the tasks list. The list names the type and the task; the record the model.
+async function runningAgents($, router) {
+  const listed = await $.agent.list().catch(() => []);
+  return listed.flatMap((agent) => {
+    const record = router.agents.get(agent.id);
+    return record?.running && !agent.teammateId && ['running', 'waiting'].includes(agent.status)
+      ? [{ id: agent.id, type: agent.type, description: agent.description, record }]
+      : [];
+  });
+}
+
+// A press on an agent's row, or on Back, shows that transcript in the main view. Claude Code allows it only while the
+// call answers the person's own input, so a press is the one place to ask; a refusal is told.
+async function showView($, view) {
+  const shown = await $.ui.view(view).catch(() => ({ deny: 'Could not switch the view.' }));
+  if (shown.deny) $.ui.toast(shown.deny);
 }
 
 // A subagent's prompt-cache lifetime, by Claude Code's rule for requests outside the main conversation.
@@ -3252,9 +3273,13 @@ export function register(on, options) {
               onFallback: logFallback($, 'band'),
               agentId: e.props.view?.agentId,
               agent: router.agents.get(e.props.view?.agentId) ?? null,
+              agents: e.props.view?.agentId ? [] : await runningAgents($, router),
+              back: true,
             },
             {
               open: () => openPane($, router),
+              viewAgent: (agentId) => showView($, { agentId }),
+              back: () => showView($, {}),
               mode: (mode) => changeMode($, router, mode),
               pin: async (tier) => $.ui.toast(await setPin($, router, tier)),
               unpin: () => updateView($, router, { pendingPin: null }),

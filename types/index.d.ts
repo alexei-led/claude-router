@@ -264,6 +264,9 @@ declare module 'claude-code' {
     usageDetail?: boolean;
     help?: boolean;
     bandDetail?: boolean;
+    // The subagents with a record that are running, by `$.agent.list()` id, and how many: a change redraws the band's rows.
+    subagentIds?: string[];
+    subagentsRunning?: number;
     notice?: string | null;
   }
   interface RouterPolicyState {
