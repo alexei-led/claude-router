@@ -3034,9 +3034,7 @@ export function register(on, options) {
   on('prompt.submit', (_$, e, next) => submitPrompt(router, e, next));
 
   // A hook failure spawns the agent as Claude Code would; next(e) replays a spawn already made.
-  try {
-    on('agent.spawn', ($, e, next) => spawnAgent($, router, e, next)).catch((_$, e, next) => next(e));
-  } catch {}
+  on('agent.spawn', ($, e, next) => spawnAgent($, router, e, next)).catch((_$, e, next) => next(e));
 
   on('turn.step', async function* ($, e, next) {
     return yield* stepMain($, router, e, next);
