@@ -232,7 +232,7 @@ test('a symlinked project file is refused, and the home directory has no project
   assert.equal(home.view().projectError, null);
 });
 
-test('a pin runs its tier’s configured route on both engines in every mode, and its label names that route', async () => {
+test('a table pin runs its tier’s configured route in every mode and its label names it; an Auto pin’s label names no model', async () => {
   const config = loadConfig({});
   for (const engine of ['table', 'auto']) {
     for (const mode of ['cost', 'balanced', 'quality']) {
@@ -247,8 +247,25 @@ test('a pin runs its tier’s configured route on both engines in every mode, an
         assert.deepEqual(sent(h), [`${routeSpec(config, route).id}@${route.effort}`], where);
         const view = { mode: 'auto', phase: 'routed', routingMode: { mode, source: 'session' } };
         const option = pinOf({ ...config, routingEngine: engine }, view)?.options.find((item) => item.value === tier);
-        assert.equal(option?.label, cardRoute(config, resolveRoute(config, tier), { short: true }), where);
+        const named = cardRoute(config, route, { short: true });
+        assert.equal(
+          option?.label,
+          engine === 'table' ? named : `${tier[0]?.toUpperCase()}${tier.slice(1)} tier`,
+          where,
+        );
       }
     }
+  }
+});
+
+test('an Auto pin’s label names no model, however the routes and capabilities are customised', () => {
+  const view = { mode: 'auto', phase: 'routed' };
+  for (const userFile of [
+    { routingEngine: 'auto', routes: { low: { model: 'sonnet', effort: 'medium' } } },
+    { routingEngine: 'auto', models: { sonnet: { capability: { high: 2 } } } },
+  ]) {
+    const labels = pinOf(loadConfig({ userFile }), view)?.options.map((item) => item.label) ?? [];
+    assert.ok(labels.length > 0);
+    for (const label of labels) assert.doesNotMatch(label, /Haiku|Sonnet|Opus|Fable/, label);
   }
 });

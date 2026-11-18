@@ -38,7 +38,7 @@
 
 ### Fixed
 
-- A pin button named the route the routing mode had adjusted, but on the `table` engine a pin runs its tier's configured route. The pin dropdown, the pending-pin label, the Now tab's pins, the terminal hover pins and `/router pin` completion now show the route the press runs.
+- A pin's label names what pressing it runs. On `table` and `shadow` that is the tier's configured route in every routing mode: the dropdown, the pending-pin chip, the Now tab's buttons, the terminal band's hover pins and the `/router pin` typeahead used to show the mode's adjusted route. On `auto` a pin sets only the demand and the cheapest capable model is chosen when the turn runs, so its label names the tier and no model.
 - A subagent's `turn.start` no longer takes over the main turn's goal. Claude Code 2.1.321 raises that event for subagent loops too.
 - Two turns that end together no longer lose each other's decision rows.
 - Two view updates arriving as a session starts no longer drop one another.

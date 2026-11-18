@@ -43,7 +43,7 @@ The pane shows its provider and file path.
 The band above the prompt is drawn natively as one fixed row. Nothing appears on hover: every control is on the row itself. Colours come from the app's theme, so the band reads in light and dark.
 
 - **Left**: a small tier meter icon, then the route (the model and effort for this turn), the activity, the reason, the classifier's support and the switch cost, in the words of the [terminal band](#in-the-terminal). When the window narrows, the left side gives way first.
-- **Right**: the context and cache readings, a **Pin next turn** dropdown and the **Router** button, which opens the pane. The dropdown lists one entry per tier, each named by what it runs; a pin forces that tier for the next turn only. On mobile a pending pin also keeps its own `⏵ next` text and **✕** beside the dropdown, since an app may not draw the dropdown.
+- **Right**: the context and cache readings, a **Pin next turn** dropdown and the **Router** button, which opens the pane. The dropdown lists one entry per tier. With `table` or `shadow` each entry names the route that tier runs, whatever the routing mode; with `auto` it names the tier (`Low tier`), because Auto picks the cheapest capable model when the turn runs. A pin forces that tier for the next turn only. On mobile a pending pin also keeps its own `⏵ next` text and **✕** beside the dropdown, since an app may not draw the dropdown.
 - **One control per state**: **Turn on** when routing is off, **Set up** when the active classifier lacks credentials, **Fix** when routing is unavailable. While routing is on, turn it off from the pane's header (**On** / **Off**) or with `/router off`.
 - **Session row**: the second row (plan windows and the session's cost against no routing) is no longer a band button. Turn it on with **Show session row in band** on the pane's Now tab; Router remembers the choice across sessions.
 
@@ -119,7 +119,7 @@ The pane is drawn natively. From the top it has:
 
 What each tab shows:
 
-- **Now**: cards for Next turn (the route, the reason, a pin button per tier), Plan usage (on a Claude plan), Context, This session and, once the session has any, Recent decisions. The Next turn and This session cards carry the same facts as the terminal blocks below. The tab also holds the **Show session row in band** setting.
+- **Now**: cards for Next turn (the route, the reason, a pin button per tier, named by route or, with `auto`, by tier), Plan usage (on a Claude plan), Context, This session and, once the session has any, Recent decisions. The Next turn and This session cards carry the same facts as the terminal blocks below. The tab also holds the **Show session row in band** setting.
 - **Routes**: a grid of tiers by activities, with an edit card under it for the selected cell.
 - **Policy**: form cards for Routing mode, Switching down, Switching up, Activities and Credits, and a Settings file card with the `router.json` path.
 - **Classifier**: a full card for the active classifier (deadline, wait, health, credentials) and compact rows for the others under **Other classifiers**, then **Across sessions**.

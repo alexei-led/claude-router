@@ -39,7 +39,6 @@ import {
   MIGRATION_HINT,
   MIN_CLAUDE_CODE,
   ROUTING_MODES,
-  resolveRoute,
   supportedVersion,
   TIERS,
   tuningOf,
@@ -72,13 +71,13 @@ import {
 } from '../lib/decisions.mjs';
 import {
   activityDetailLines,
-  cardRoute,
   classifierStatus,
   classifierTimed,
   GATEWAY_CLEANUP,
   GATEWAY_SETTINGS,
   missingCredentials,
   NOT_A_TIER_REASON,
+  pinCard,
   pluginIdOf,
   savingsLine,
   storeAgreementLine,
@@ -3189,10 +3188,7 @@ export function register(on, options) {
   // alone, so the hook reads the text before it. Nothing is read or written but the router's own view.
   on('prompt.autocomplete', async (_$, e, next) => {
     const mine = routerSuggestions(e, {
-      describe: (name, value) =>
-        name === 'pin' && router.view
-          ? cardRoute(router.config, resolveRoute(router.config, value), { short: true })
-          : undefined,
+      describe: (name, value) => (name === 'pin' && router.view ? pinCard(router.config, value) : undefined),
     });
     if (!mine.length) return next(e);
     return { suggestions: [...(await next(e)).suggestions, ...mine] };
