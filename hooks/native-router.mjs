@@ -777,8 +777,10 @@ async function readProject($, profilePath) {
 }
 
 async function updateView($, router, patch) {
-  const value = router.view ?? (await readView($, router));
-  router.view = { ...value, ...patch };
+  // Read the stored view only when none is held, and merge into whatever is held once it arrives: a patch applied
+  // during that read stays.
+  const stored = router.view ? null : await readView($, router);
+  router.view = { ...(router.view ?? stored), ...patch };
   await $.state.set(VIEW, router.view);
 }
 
