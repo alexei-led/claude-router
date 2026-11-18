@@ -113,7 +113,7 @@ test('while routing is unavailable the header says why and offers no on/off or p
     assert.ok(!lines.some((line) => /Jev ready|keeping the model/.test(line)), reason);
     assert.ok(lines.includes('needs routing'), reason);
     const keys = controls(tree).map((c) => c.key);
-    for (const key of ['auto', 'manual', 'pin-low']) assert.ok(!keys.includes(key), `${reason}: ${key}`);
+    for (const key of ['auto', 'manual', 'pin']) assert.ok(!keys.includes(key), `${reason}: ${key}`);
   }
 });
 

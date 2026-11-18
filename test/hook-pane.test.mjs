@@ -460,13 +460,13 @@ test('an unsaved routing draft shows on every tab, Discard drops it, and a new s
   assert.equal(h.view().routeDraft, null);
 });
 
-test('Manual mode shows no pin buttons', async () => {
+test('Manual mode shows no pin dropdown', async () => {
   const h = harness();
   await start(h);
-  assert.ok(controls(await h.render()).some((node) => node.key === 'pin-high'));
+  assert.ok(controls(await h.render()).some((node) => node.key === 'pin'));
   await press(h, 'manual');
   const pane = await h.render();
-  assert.ok(!controls(pane).some((node) => node.key.startsWith('pin-')));
+  assert.ok(!controls(pane).some((node) => node.key === 'pin'));
   assert.ok(texts(pane).includes('needs routing on (o)'));
 });
 
@@ -556,10 +556,10 @@ test('a switch clears the previous classifier readings, so no label claims them'
   const pane = await h.render();
   assert.ok(texts(pane).some((line) => /^Clef ready/.test(line)));
   assert.ok(!texts(pane).some((line) => /Clef gave/.test(line)));
-  const pins = controls(pane).filter((c) => c.key.startsWith('pin-'));
+  const pin = controls(pane).find((c) => c.key === 'pin');
   assert.deepEqual(
-    pins.map((c) => c.label),
-    ['▂ Haiku·medium —', '▂▄ Haiku·high —', '▂▄▆ Opus·medium —', '▶ ▂▄▆█ Opus·xhigh —'],
+    pin.options.map((o) => o.label),
+    ['Pin to a tier', '▂ Haiku·medium —', '▂▄ Haiku·high —', '▂▄▆ Opus·medium —', '▶ ▂▄▆█ Opus·xhigh —'],
   );
 });
 

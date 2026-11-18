@@ -62,21 +62,7 @@ Box flexDirection="column"
     Box
       Text
         "    "
-      Button key="pin-micro" label="▂ MiMo Flash —" variant="secondary"
-      Text
-        " "
-      Button key="pin-low" label="▂▄ MiMo Flash 3%" variant="secondary"
-      Text
-        " "
-    Box
-      Text
-        "    "
-      Button key="pin-medium" label="▂▄▆ MiMo Pro 7%" variant="secondary"
-      Text
-        " "
-      Button key="pin-high" label="▶ ▂▄▆█ MiMo Pro 88%" variant="secondary"
-      Text
-        " "
+      Select key="pin" options=[{"value":"none","label":"Pin to a tier"},{"value":"micro","label":"▂ MiMo Flash —"},{"value":"low","label":"▂▄ MiMo Flash 3%"},{"value":"medium","label":"▂▄▆ MiMo Pro 7%"},{"value":"high","label":"▶ ▂▄▆█ MiMo Pro 88%"}] value="none"
     Text dimColor=true
       "    other models: /model, with routing off"
   Box borderColor="subtle" borderStyle="single" flexDirection="column" paddingX=1

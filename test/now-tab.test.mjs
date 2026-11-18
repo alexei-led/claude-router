@@ -51,47 +51,60 @@ const PLAN = {
   ],
 };
 
-test('next turn names the tier meter, the route and why, then one pin per tier low to high with its support; a pending pin is shown on its button, which unpins it', () => {
-  const { calls, actions } = recording();
+test('next turn names the tier meter, the route and why, then pins from one dropdown under what it offers', () => {
   const probabilities = { high: 0.88, medium: 0.07, low: 0.03 };
-  const tree = render({ probabilities, reason: 'upgrade', pendingPin: 'medium' }, { actions });
-  assert.deepEqual(after(unboxed(screen(tree)), 'NEXT TURN', 8), [
+  assert.deepEqual(after(lines({ probabilities, reason: 'upgrade' }), 'NEXT TURN', 7), [
     'NEXT TURN',
     '  ▂▄▆█  Opus 5.5 · xhigh',
     '  why   ↑ needs stronger',
     '  pin next turn to a tier · now Opus 5.5 · xhigh',
-    '    [ ▂ Haiku·medium — ] [ ▂▄ Haiku·high 3% ]',
-    '    [ ▂▄▆ Opus·medium 7% ] [ ▶ ▂▄▆█ Opus·xhigh 88% ]',
+    '    none ▾',
     '    other models: /model, with routing off',
     '',
   ]);
-  const pins = controls(tree).filter((c) => c.key.startsWith('pin-'));
-  assert.deepEqual(
-    pins.map((c) => [c.key, c.variant]),
-    [
-      ['pin-micro', 'secondary'],
-      ['pin-low', 'secondary'],
-      ['pin-medium', 'primary'],
-      ['pin-high', 'secondary'],
-    ],
-  );
-  assert.ok(!controls(tree).some((c) => c.key === 'unpin'));
-  pins[0].onPress();
-  pins[2].onPress();
-  assert.deepEqual(calls, [['pin', 'micro'], ['unpin']]);
 });
 
-test('a narrow pane puts one pin on each row, and a turn without a reason shows no why', () => {
-  const narrow = lines({}, { columns: 60 });
-  assert.deepEqual(after(narrow, 'NEXT TURN', 8), [
+const pinSelect = (props, actions) => controls(render(props, { actions })).find((c) => c.key === 'pin');
+test('the pin dropdown offers no pin, then each tier low to high with its route and support, the running tier marked', () => {
+  const pin = pinSelect({ probabilities: { high: 0.88, medium: 0.07, low: 0.03 } });
+  assert.equal(pin.value, 'none');
+  assert.deepEqual(
+    pin.options.map((o) => [o.value, o.label]),
+    [
+      ['none', 'Pin to a tier'],
+      ['micro', '▂ Haiku·medium —'],
+      ['low', '▂▄ Haiku·high 3%'],
+      ['medium', '▂▄▆ Opus·medium 7%'],
+      ['high', '▶ ▂▄▆█ Opus·xhigh 88%'],
+    ],
+  );
+});
+
+test('a pending pin is the dropdown’s value, and its no-pin choice reads No pin', () => {
+  const pin = pinSelect({ pendingPin: 'medium' });
+  assert.equal(pin.value, 'medium');
+  assert.equal(pin.options[0].label, 'No pin');
+});
+
+for (const [value, call] of [
+  ['high', ['pin', 'high']],
+  ['micro', ['pin', 'micro']],
+  ['none', ['unpin']],
+])
+  test(`picking ${value} in the pin dropdown asks for ${call.join(' ')}`, () => {
+    const { calls, actions } = recording();
+    pinSelect({ pendingPin: 'medium' }, actions).onSelect(value);
+    assert.deepEqual(calls, [call]);
+  });
+
+test('a narrow pane keeps the pin dropdown on one line, and a turn without a reason shows no why', () => {
+  assert.deepEqual(after(lines({}, { columns: 60 }), 'NEXT TURN', 6), [
     'NEXT TURN',
     '  ▂▄▆█  Opus 5.5 · xhigh',
     '  pin next turn to a tier · now Opus 5.5 · xhigh',
-    '    [ ▂ Haiku·medium — ]',
-    '    [ ▂▄ Haiku·high — ]',
-    '    [ ▂▄▆ Opus·medium — ]',
-    '    [ ▶ ▂▄▆█ Opus·xhigh — ]',
+    '    none ▾',
     '    other models: /model, with routing off',
+    '',
   ]);
 });
 
@@ -106,7 +119,7 @@ test('with routing off or unavailable the next turn says which model runs, and o
     // A reason, an activity and a classifier reading from an earlier routed turn no longer apply.
     const stale = { ...props, reason: 'upgrade', activity: 'code', activityChoice: 'code', probabilities: { high: 1 } };
     assert.deepEqual(after(lines(stale), 'NEXT TURN', 4).slice(1), [...expected, '']);
-    assert.ok(!controls(render(props)).some((c) => c.key.startsWith('pin-')));
+    assert.ok(!controls(render(props)).some((c) => c.key === 'pin' || c.key.startsWith('pin-')));
   }
 });
 

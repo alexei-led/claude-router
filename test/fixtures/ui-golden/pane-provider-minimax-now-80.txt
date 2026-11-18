@@ -62,21 +62,7 @@ Box flexDirection="column"
     Box
       Text
         "    "
-      Button key="pin-micro" label="▂ MiniMax Flash·low —" variant="secondary"
-      Text
-        " "
-      Button key="pin-low" label="▂▄ MiniMax Flash·medium 3%" variant="secondary"
-      Text
-        " "
-    Box
-      Text
-        "    "
-      Button key="pin-medium" label="▂▄▆ MiniMax Flash·high 7%" variant="secondary"
-      Text
-        " "
-      Button key="pin-high" label="▶ ▂▄▆█ MiniMax Flash·max 88%" variant="secondary"
-      Text
-        " "
+      Select key="pin" options=[{"value":"none","label":"Pin to a tier"},{"value":"micro","label":"▂ MiniMax Flash·low —"},{"value":"low","label":"▂▄ MiniMax Flash·medium 3%"},{"value":"medium","label":"▂▄▆ MiniMax Flash·high 7%"},{"value":"high","label":"▶ ▂▄▆█ MiniMax Flash·max 88%"}] value="none"
     Text dimColor=true
       "    other models: /model, with routing off"
   Box borderColor="subtle" borderStyle="single" flexDirection="column" paddingX=1

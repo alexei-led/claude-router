@@ -271,11 +271,13 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
     expect(view.mode).toBe('manual');
     await pane.press({ key: 'auto' });
     expect(view.mode).toBe('auto');
-    await pane.press({ key: 'pin-high' });
+    // The terminal pins from one dropdown, where No pin unpins; the desktop presses a tier's pin, and again to unpin.
+    if (terminal) await pane.select({ key: 'pin', value: 'high' });
+    else await pane.press({ key: 'pin-high' });
     expect(view.pendingPin).toBe('high');
-    // Pressing the pending pin again unpins it.
     await pane.redraw();
-    await pane.press({ key: 'pin-high' });
+    if (terminal) await pane.select({ key: 'pin', value: 'none' });
+    else await pane.press({ key: 'pin-high' });
     expect(view.pendingPin).toBeNull();
     await pane.unmount();
   }
