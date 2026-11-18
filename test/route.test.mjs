@@ -712,3 +712,22 @@ for (const [name, until, expected] of [
     }).decision;
     assert.deepEqual([continued.tier, continued.model], expected);
   });
+
+test('an escalation a hold turned away still escalates on the same failure once the hold ends', () => {
+  const failure = "not ok 1 - login\n  error: 'unauthorized'\n";
+  const messages = [
+    user('fix the tests'),
+    assistant('running', ['Bash']),
+    toolResult(failure, { isError: true }),
+    assistant('editing', ['Edit']),
+    toolResult(failure, { isError: true }),
+    user('continue'),
+  ];
+  const failing = (loop, at) =>
+    input(loop, { facts: nativeFacts(DEFAULTS, loop, { ...context, messages }), advice: null, now: at });
+  const loop = holdOpusUntil(emptyLoop(DEFAULTS, model), now + 300_000);
+  const during = chooseRoute(DEFAULTS, loop, failing(loop, now));
+  assert.deepEqual([during.decision.tier, during.decision.model, during.decision.reason], ['low', model, 'model-held']);
+  const after = chooseRoute(DEFAULTS, during, failing(during, now + 300_000));
+  assert.deepEqual([after.decision.tier, after.decision.model, after.decision.reason], ['medium', OPUS, 'escalation']);
+});
