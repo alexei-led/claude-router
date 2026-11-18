@@ -205,6 +205,9 @@ const PANE = 'jev-router';
 const PANE_TITLE = 'Router';
 const BAND_DETAIL = 'band:detail';
 const MODE_PREFIX = 'mode:';
+// When the toast for one reason routing cannot run last showed; the reason is appended.
+const UNAVAILABLE_NOTICE_PREFIX = 'notice:unavailable:';
+const UNAVAILABLE_NOTICE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // The session's routing mode override (lib/modes.mjs), apart from its auto|manual MODE_PREFIX.
 const ROUTING_MODE_PREFIX = 'routing-mode:';
 const isSet = (value) => /^(1|true|yes|on)$/i.test(String(value ?? '').trim());
@@ -3029,6 +3032,29 @@ async function initializeSession($, router) {
   }
 }
 
+// What made routing unavailable, as the notice keys it: an old Claude Code, the v0.8 gateway settings, or a router.json
+// that did not load.
+function unavailableCause(error) {
+  if (error?.startsWith('requires Claude Code')) return 'version';
+  return error === GATEWAY_SETTINGS ? 'gateway' : 'config';
+}
+
+// One toast when a session starts with routing unavailable, at most once a day per cause: the band says it too, but not
+// once it is collapsed or scrolled away. Not for a headless run, which has no one to read it. The day is recorded before
+// the toast, so a toast no surface draws is not retried until tomorrow.
+async function noticeUnavailable($, router, e) {
+  const view = router.view;
+  if (view?.phase !== 'unavailable' || !e.isInteractive || !e.surface) return;
+  try {
+    const key = `${UNAVAILABLE_NOTICE_PREFIX}${unavailableCause(view.error)}`;
+    const last = await $.store.get(key);
+    const now = Date.now();
+    if (Number.isFinite(last) && now - last >= 0 && now - last < UNAVAILABLE_NOTICE_INTERVAL_MS) return;
+    await $.store.set(key, now);
+    $.ui.toast(`Routing off: ${unavailableReason(view)}. Claude’s model is kept.`);
+  } catch {}
+}
+
 async function ensureInitialized($, router) {
   if (router.initialized) return true;
   router.initializing ??= initializeSession($, router).finally(() => {
@@ -3049,6 +3075,7 @@ export function register(on, options) {
     router.traceOperations.clear();
     router.initialized = false;
     await ensureInitialized($, router);
+    await noticeUnavailable($, router, e);
     return next(e);
   });
 
