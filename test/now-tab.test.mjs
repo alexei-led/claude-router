@@ -3,7 +3,7 @@ import test from 'node:test';
 import { DEFAULTS } from '../lib/config.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { emptyUsage, recordUsage } from '../lib/usage.mjs';
-import { controls, ELEMENTS, screen } from './harness.mjs';
+import { controls, ELEMENTS, find, screen, texts, unboxed } from './harness.mjs';
 import { at, NOW, reply, SESSION, STORE } from './usage-fixtures.mjs';
 
 const view = (props = {}) => ({
@@ -35,7 +35,7 @@ const recording = () => {
 };
 const render = (props = {}, { columns = 100, actions = recording().actions, usage = null } = {}) =>
   renderPanel(ELEMENTS, DEFAULTS, view(props), usage, actions, { columns, now: NOW });
-const lines = (props, options) => screen(render(props, options)).map((line) => line.trimEnd());
+const lines = (props, options) => unboxed(screen(render(props, options)));
 const after = (all, head, count) => all.slice(all.indexOf(head), all.indexOf(head) + count);
 const block = (all, head) => {
   const from = all.findIndex((line) => line.startsWith(head));
@@ -55,23 +55,16 @@ test('next turn names the tier meter, the route and why, then one pin per tier l
   const { calls, actions } = recording();
   const probabilities = { high: 0.88, medium: 0.07, low: 0.03 };
   const tree = render({ probabilities, reason: 'upgrade', pendingPin: 'medium' }, { actions });
-  assert.deepEqual(
-    after(
-      screen(tree).map((l) => l.trimEnd()),
-      'NEXT TURN',
-      8,
-    ),
-    [
-      'NEXT TURN',
-      '  ▂▄▆█  Opus 5.5 · xhigh',
-      '  why   ↑ needs stronger',
-      '  pin next turn to a tier · now Opus 5.5 · xhigh',
-      '    [ ▂ Haiku·medium — ] [ ▂▄ Haiku·high 3% ]',
-      '    [ ▂▄▆ Opus·medium 7% ] [ ▶ ▂▄▆█ Opus·xhigh 88% ]',
-      '    other models: /model, with routing off',
-      '',
-    ],
-  );
+  assert.deepEqual(after(unboxed(screen(tree)), 'NEXT TURN', 8), [
+    'NEXT TURN',
+    '  ▂▄▆█  Opus 5.5 · xhigh',
+    '  why   ↑ needs stronger',
+    '  pin next turn to a tier · now Opus 5.5 · xhigh',
+    '    [ ▂ Haiku·medium — ] [ ▂▄ Haiku·high 3% ]',
+    '    [ ▂▄▆ Opus·medium 7% ] [ ▶ ▂▄▆█ Opus·xhigh 88% ]',
+    '    other models: /model, with routing off',
+    '',
+  ]);
   const pins = controls(tree).filter((c) => c.key.startsWith('pin-'));
   assert.deepEqual(
     pins.map((c) => [c.key, c.variant]),
@@ -120,20 +113,14 @@ test('with routing off or unavailable the next turn says which model runs, and o
 test('the session leads with its total and how it is paid, then the difference against no routing and the parts', () => {
   const { calls, actions } = recording();
   const tree = render({}, { actions });
-  assert.deepEqual(
-    block(
-      screen(tree).map((l) => l.trimEnd()),
-      'SESSION',
-    ),
-    [
-      SESSION_HEAD,
-      '  ≈$4.30  API estimate · configured rates, not an invoice  [ Usage ]',
-      '  −$4.70 (−52%) vs Opus 5.5 ≈$9.00',
-      '  main   ≈$4.30  ████████████████  −$4.70 vs Opus 5.5',
-      '  tiers ███·',
-      '        ▂▄ 3   ▂▄▆ 1   ▂▄▆█ 1   · not routed 1',
-    ],
-  );
+  assert.deepEqual(block(unboxed(screen(tree)), 'SESSION'), [
+    SESSION_HEAD,
+    '  ≈$4.30  API estimate · configured rates, not an invoice  [ Usage ]',
+    '  −$4.70 (−52%) vs Opus 5.5 ≈$9.00',
+    '  main   ≈$4.30  ████████████████  −$4.70 vs Opus 5.5',
+    '  tiers ███·',
+    '        ▂▄ 3   ▂▄▆ 1   ▂▄▆█ 1   · not routed 1',
+  ]);
   controls(tree)
     .find((c) => c.key === 'usage-session')
     .onPress();
@@ -190,7 +177,7 @@ test('the session counts the running turn’s replies and warns when the switche
     '  +$1.00 (+100%) vs Opus 5.5 ≈$1.00',
   ]);
   const warned = render({ usageSession: emptyUsage(), usageLive: Array(10).fill(lost) }, { actions });
-  assert.ok(screen(warned).includes('  ▲ switches cost more than they saved  [ Policy ]'));
+  assert.ok(unboxed(screen(warned)).includes('  ▲ switches cost more than they saved  [ Policy ]'));
   controls(warned)
     .find((c) => c.key === 'session-policy')
     .onPress();
@@ -235,3 +222,35 @@ test('context shows the window fill once Claude Code reports it, and the cache r
   assert.match(ctx, /^ {2}ctx {4}▰{5}▱{15} {2}25% {3}/);
   assert.equal(cache, '  cache  90% last reply · 73% session   [ details ]');
 });
+
+// The pane draws each Now section in a box from 72 columns and with no width; narrower, the plain lines.
+const bordered = (tree) => find(tree, (node) => node.type === 'Box' && node.props.borderStyle !== undefined);
+for (const [columns, heads] of [
+  [60, []],
+  [64, []],
+  [71, []],
+  [72, ['NEXT TURN', 'PLAN', 'SESSION', 'CONTEXT']],
+  [80, ['NEXT TURN', 'PLAN', 'SESSION', 'CONTEXT']],
+  [88, ['NEXT TURN', 'PLAN', 'SESSION', 'CONTEXT']],
+  [null, ['NEXT TURN', 'PLAN', 'SESSION', 'CONTEXT']],
+])
+  test(`at ${columns ?? 'no'} columns the Now sections draw in ${heads.length ? 'single-line boxes' : 'no box'}`, () => {
+    const tree = render({}, { columns, usage: PLAN });
+    const boxes = bordered(tree);
+    assert.deepEqual(
+      boxes.map((box) => texts(box)[0]),
+      heads,
+    );
+    assert.ok(boxes.every((box) => box.props.borderStyle === 'single'));
+    if (columns === null || !heads.length) return;
+    const wide = screen(tree).filter((line) => [...line].length > columns);
+    assert.deepEqual(wide, [], `${columns} columns`);
+  });
+
+for (const [columns, main] of [
+  [60, '  main   ≈$4.30  ████████████████  −$4.70 vs Opus 5.5'],
+  [52, '  main   ≈$4.30  ████████████████'],
+])
+  test(`at ${columns} columns the main cost bar ${main.includes(' vs ') ? 'keeps' : 'drops'} its note against no routing`, () => {
+    assert.ok(lines({}, { columns }).includes(main));
+  });

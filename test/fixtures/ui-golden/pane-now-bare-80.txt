@@ -31,63 +31,62 @@ Box flexDirection="column"
     Button key="help" label="?" variant="secondary"
   Text
     " "
-  Text color="suggestion" weight="semibold"
-    "NEXT TURN"
-  Box
-    Text
-      "  "
-    Text dimColor=true
-      "○"
-    Text
-      "  "
-    Text weight="semibold"
-      "no response yet"
-  Text dimColor=true
-    "  pin next turn to a tier"
-  Box
-    Text
-      "    "
-    Button key="pin-micro" label="▂ Haiku·medium —" variant="secondary"
-    Text
-      " "
-    Button key="pin-low" label="▂▄ Haiku·high —" variant="secondary"
-    Text
-      " "
-  Box
-    Text
-      "    "
-    Button key="pin-medium" label="▂▄▆ Opus·medium —" variant="secondary"
-    Text
-      " "
-    Button key="pin-high" label="▂▄▆█ Opus·xhigh —" variant="secondary"
-    Text
-      " "
-  Text dimColor=true
-    "    other models: /model, with routing off"
-  Text
-    " "
-  Box
+  Box borderColor="subtle" borderStyle="single" flexDirection="column" paddingX=1
     Text color="suggestion" weight="semibold"
-      "SESSION"
-    Text
-      "  "
-    Button key="band-detail-toggle" label="band: 2 rows"
-  Text dimColor=true
-    "  no replies yet"
-  Text
-    " "
-  Text color="suggestion" weight="semibold"
-    "CONTEXT"
-  Box
-    Text
-      "  ctx    "
+      "NEXT TURN"
+    Box
+      Text
+        "  "
+      Text dimColor=true
+        "○"
+      Text
+        "  "
+      Text weight="semibold"
+        "no response yet"
     Text dimColor=true
-      "no reading yet"
-  Box
-    Text
-      "  cache  "
+      "  pin next turn to a tier"
+    Box
+      Text
+        "    "
+      Button key="pin-micro" label="▂ Haiku·medium —" variant="secondary"
+      Text
+        " "
+      Button key="pin-low" label="▂▄ Haiku·high —" variant="secondary"
+      Text
+        " "
+    Box
+      Text
+        "    "
+      Button key="pin-medium" label="▂▄▆ Opus·medium —" variant="secondary"
+      Text
+        " "
+      Button key="pin-high" label="▂▄▆█ Opus·xhigh —" variant="secondary"
+      Text
+        " "
     Text dimColor=true
-      "no reply yet"
-    Text
-      "   "
-    Button key="usage-detail" label="details" variant="secondary"
+      "    other models: /model, with routing off"
+  Box borderColor="subtle" borderStyle="single" flexDirection="column" paddingX=1
+    Box
+      Text color="suggestion" weight="semibold"
+        "SESSION"
+      Text
+        "  "
+      Button key="band-detail-toggle" label="band: 2 rows"
+    Text dimColor=true
+      "  no replies yet"
+  Box borderColor="subtle" borderStyle="single" flexDirection="column" paddingX=1
+    Text color="suggestion" weight="semibold"
+      "CONTEXT"
+    Box
+      Text
+        "  ctx    "
+      Text dimColor=true
+        "no reading yet"
+    Box
+      Text
+        "  cache  "
+      Text dimColor=true
+        "no reply yet"
+      Text
+        "   "
+      Button key="usage-detail" label="details" variant="secondary"

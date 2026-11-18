@@ -7,7 +7,7 @@ import { isSameModel } from '../lib/route.mjs';
 import { bandSegments } from '../lib/ui/model/band.mjs';
 import { routeDraftOf, routingChanges } from '../lib/ui/model/draft.mjs';
 import { TIER_COLOR } from '../lib/ui/tokens.mjs';
-import { controls, ELEMENTS, quiet, screen, texts } from './harness.mjs';
+import { controls, ELEMENTS, quiet, screen, texts, unboxed } from './harness.mjs';
 
 const KEYS_SET = { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null };
 const view = (props = {}) => ({ mode: 'auto', phase: 'routed', credentials: KEYS_SET, tab: 'now', ...props });
@@ -98,7 +98,7 @@ test('five tabs take the digits 1 to 5, and a draft marks the tab whose settings
     '3 Policy ●',
   ]);
   // A tab saved by an older version falls back to Now.
-  assert.equal(screen(pane({ tab: 'routing' }))[3], 'NEXT TURN');
+  assert.equal(unboxed(screen(pane({ tab: 'routing' })))[3], 'NEXT TURN');
 });
 
 test('while routing is unavailable the header says why and offers no on/off or pins', () => {
@@ -137,15 +137,15 @@ test('help explains what the numbers are and that savings are not measured', () 
 test('the Now tab says what runs next turn and why: the tier, the model, the support it weighed and the switch cost', () => {
   const estimate = { threshold: 0.82, upgradeMass: 0.88, taxUsd: 0.476 };
   const routed = { tier: 'high', selectedModel: 'claude-opus-5-5', effort: 'xhigh', reason: 'jump', estimate };
-  assert.deepEqual(screen(pane(routed)).slice(3, 6), [
+  assert.deepEqual(unboxed(screen(pane(routed))).slice(3, 6), [
     'NEXT TURN',
     '  ▂▄▆█  Opus 5.5 · xhigh',
     '  why   ↑ clearly stronger   Jev 88% ≥ 82% · switch ≈ $0.48',
   ]);
   const down = { ...routed, reason: 'downgrade', estimate: { threshold: 0.9, downgradeMass: 0.93 } };
-  assert.equal(screen(pane(down))[5], '  why   ↓ cheaper fits   Jev 93% ≥ 90%');
+  assert.equal(unboxed(screen(pane(down)))[5], '  why   ↓ cheaper fits   Jev 93% ≥ 90%');
   // Routing off: the /model choice runs, no support line, and the pins say what they need.
-  const off = screen(pane({ ...routed, mode: 'manual', selectedModel: null, nativeModel: 'claude-opus-5-5' }));
+  const off = unboxed(screen(pane({ ...routed, mode: 'manual', selectedModel: null, nativeModel: 'claude-opus-5-5' })));
   assert.deepEqual(off.slice(4, 6), [
     '  ○ Opus 5.5 · xhigh   routing off · /model choice',
     '  pin   needs routing on (o)',
@@ -184,12 +184,14 @@ test('the Now tab names the activity with its share and marks an override with t
     ['off', haikuLow, '  ▂▄  Haiku 5.5 · high', null],
   ]) {
     const config = { ...DEFAULTS, activityRouting: mode };
-    const lines = screen(renderPanel(ELEMENTS, config, view({ ...props, ...reading }), null, quiet));
+    const lines = unboxed(screen(renderPanel(ELEMENTS, config, view({ ...props, ...reading }), null, quiet)));
     const name = `${mode} ${JSON.stringify(props)}`;
     assert.equal(lines[4], first, name);
     assert.equal(lines.includes(override), override !== null, name);
   }
-  const why = screen(renderPanel(ELEMENTS, DEFAULTS, view({ ...sonnetLow, reason: 'activity-up' }), null, quiet));
+  const why = unboxed(
+    screen(renderPanel(ELEMENTS, DEFAULTS, view({ ...sonnetLow, reason: 'activity-up' }), null, quiet)),
+  );
   assert.ok(why.includes('  why   ↑ code'));
   const unsure = { activityChoice: 'uncertain', activityProbabilities: { uncertain: 0.94, explore: 0.03 } };
   const nodes = [];
@@ -515,7 +517,7 @@ test('the draft lists activity edits and the mode in the router.json diff on Rou
 test('the Policy tab puts each control in its sentence and names the default beside a changed value', () => {
   const policy = (props = {}, config = DEFAULTS, paneActions = quiet) =>
     renderPanel(ELEMENTS, config, view({ tab: 'policy', ...props }), null, paneActions);
-  const lines = screen(policy());
+  const lines = unboxed(screen(policy()));
   const at = lines.indexOf('POLICY · how readily the router changes models · edit, then Save');
   assert.deepEqual(lines.slice(at + 2, at + 14), [
     'Mode         balanced ▾  saved at once',
@@ -531,18 +533,20 @@ test('the Policy tab puts each control in its sentence and names the default bes
     '             no model in router.json bills credits, so this has no effect',
     '',
   ]);
-  const changed = screen(
-    policy({ tuning: { downgradeVotes: 3 }, routeDraft: { ...routeDraftOf(DEFAULTS, {}), baselineTier: 'micro' } }),
+  const changed = unboxed(
+    screen(
+      policy({ tuning: { downgradeVotes: 3 }, routeDraft: { ...routeDraftOf(DEFAULTS, {}), baselineTier: 'micro' } }),
+    ),
   );
   assert.ok(changed.includes('Start        at micro ▾ ● default low'));
-  const overridden = screen(policy({ routingMode: { mode: 'cost', source: 'session' } }));
+  const overridden = unboxed(screen(policy({ routingMode: { mode: 'cost', source: 'session' } })));
   assert.ok(overridden.includes('             this session runs cost (session)'));
   assert.ok(changed.includes('Going down   after 3 ▾ agreeing turns ● default 2'));
   const credits = {
     ...DEFAULTS,
     models: { ...DEFAULTS.models, opus: { ...DEFAULTS.models.opus, billing: 'credits' } },
   };
-  assert.ok(screen(policy({}, credits)).includes('             on a model that bills credits'));
+  assert.ok(unboxed(screen(policy({}, credits))).includes('             on a model that bills credits'));
   const { calls, actions: recorded } = recording();
   const found = (key) => controls(policy({}, DEFAULTS, recorded)).find((c) => c.key === key);
   found('baseline').onSelect('medium');
@@ -592,7 +596,7 @@ test('the Now tab keeps Claude’s readings on one line, and details show them w
     inputTokens: 1000,
   };
   const usage = { context: { tokens: 400_000 }, cost: { usd: 18.003 } };
-  const folded = screen(renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'now', ...props }), usage, quiet));
+  const folded = unboxed(screen(renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'now', ...props }), usage, quiet)));
   assert.ok(folded.includes('  cache  90% last reply   [ details ]'), folded.join('\n'));
   assert.ok(!folded.some((line) => line.startsWith('Compared tiers') || line.startsWith('INPUT PER REPLY')));
   const { calls, actions: recorded } = recording();
@@ -632,7 +636,7 @@ test('the Usage tab shows no plan quota and no Claude readings: the status line 
 
 // The wide layout's lines: a pane under 80 columns, or one with no width, puts each classifier on two lines.
 const classifierLines = (props, config = { ...DEFAULTS, activityRouting: 'on' }) =>
-  screen(renderPanel(ELEMENTS, config, view({ tab: 'classifier', ...props }), null, quiet, { columns: 100 }));
+  unboxed(screen(renderPanel(ELEMENTS, config, view({ tab: 'classifier', ...props }), null, quiet, { columns: 100 })));
 
 test('the Classifier tab shows the counts across sessions when there are any', () => {
   for (const [name, activityStore, expected] of [

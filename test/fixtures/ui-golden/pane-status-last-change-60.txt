@@ -155,13 +155,6 @@ Box flexDirection="column"
       "████████████████"
     Text dimColor=true
       ""
-    Box
-      Text
-        "  "
-      Text color="success"
-        "−$4.70"
-      Text dimColor=true
-        " vs Opus 5.5 · xhigh"
   Box
     Text
       "  agents"

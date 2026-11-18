@@ -11,6 +11,19 @@ const SIZE = /^(width|height|flexGrow|flexShrink)$/;
 const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value);
 const isPercent = (value) => typeof value === 'string' && /^\d+(\.\d+)?%$/.test(value);
 const REQUIRED = { Select: { value: 'string', options: 'array', onSelect: 'function' } };
+// The documented Box border names: the engine draws no border for any other, and says nothing.
+export const BORDER_STYLES = [
+  'single',
+  'double',
+  'round',
+  'bold',
+  'singleDouble',
+  'doubleSingle',
+  'classic',
+  'arrow',
+  'dashed',
+  'quote',
+];
 
 export function validateProps(type, props) {
   assert.ok(props && typeof props === 'object', `${type} takes a props object`);
@@ -26,6 +39,8 @@ export function validateProps(type, props) {
         isFiniteNumber(value) || (name === 'width' && isPercent(value)),
         `${type} ${name}: ${JSON.stringify(value)} is not a finite number`,
       );
+    if (name === 'borderStyle')
+      assert.ok(BORDER_STYLES.includes(value), `${type} borderStyle: ${JSON.stringify(value)} draws no border`);
   }
   if (type === 'Button')
     assert.ok(typeof props.label === 'string' || props.children !== undefined, 'Button needs a label or children');
@@ -396,8 +411,23 @@ export function texts(tree) {
   return out;
 }
 
+// A bordered Box's corners; any other border is drawn as single.
+const CORNERS = { single: '┌┐└┘', round: '╭╮╰╯' };
+// `lines` inside a border, `padding` cells from it on each side, as wide as the widest line.
+function bordered(lines, style, padding) {
+  const [tl, tr, bl, br] = CORNERS[style] ?? CORNERS.single;
+  const w = Math.max(0, ...lines.map((line) => [...line].length)) + 2 * padding;
+  const space = ' '.repeat(padding);
+  return [
+    `${tl}${'─'.repeat(w)}${tr}`,
+    ...lines.map((line) => `│${space}${line.padEnd(w - 2 * padding)}${space}│`),
+    `${bl}${'─'.repeat(w)}${br}`,
+  ];
+}
+
 // The tree as the lines a terminal shows, trailing spaces trimmed: Text and Button as their words, a row Box side by
-// side, a column Box stacked, a `width` padded. Hidden boxes (`display: none`) are left out.
+// side, a column Box stacked, a `width` padded, a `borderStyle` drawn around its padding (at its content's width, where
+// the terminal stretches it to the pane's). Hidden boxes (`display: none`) are left out.
 export function screen(tree) {
   const width = (line) => [...line].length;
   function lay(node) {
@@ -418,10 +448,24 @@ export function screen(tree) {
         lines = lines.map((line, i) => line + (block[i] ?? '').padEnd(w));
       }
     }
+    if (props.borderStyle) {
+      const padding = props.paddingX ?? props.padding;
+      lines = bordered(lines, props.borderStyle, isFiniteNumber(padding) ? padding : 0);
+    }
     return props.width ? lines.map((line) => line.padEnd(props.width)) : lines;
   }
   return lay(tree).map((line) => line.trimEnd());
 }
+
+// Screen lines with the boxes taken away: a top border goes, a bottom border becomes the blank line an unboxed section
+// ends with, and a side bar and its padding go from each line inside.
+export const unboxed = (lines) =>
+  lines.flatMap((line) => {
+    if (/^[┌╭]─*[┐╮]$/.test(line)) return [];
+    if (/^[└╰]─*[┘╯]$/.test(line)) return [''];
+    const inside = /^│ (.*) │$/.exec(line);
+    return [inside ? (inside[1] ?? '').trimEnd() : line];
+  });
 
 // The element tree as plain JSON for golden files: function props (handlers) dropped, every other prop kept, children
 // serialized in place. Two trees that draw and answer alike serialize alike; a changed key, label, variant, hotkey or

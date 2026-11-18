@@ -49,7 +49,9 @@ function overlay(line, at, runs) {
   const end = at + width(runs);
   return [...pad([cut(0, at)], at)[0], ...runs, ...cut(end, Number.POSITIVE_INFINITY)];
 }
-function lay(node, { hover }) {
+// `columns` is the pane's width, which a bordered Box stretches to as the terminal draws it.
+function lay(node, opts) {
+  const { hover } = opts;
   if (!node) return [];
   const { type, props } = node;
   if (type === 'Text') {
@@ -81,9 +83,9 @@ function lay(node, { hover }) {
   const all = (Array.isArray(props.children) ? props.children : [props.children]).filter(Boolean);
   const children = all.filter((child) => child.props?.position !== 'absolute');
   let lines;
-  if (props.flexDirection === 'column') lines = children.flatMap((child) => lay(child, { hover }));
+  if (props.flexDirection === 'column') lines = children.flatMap((child) => lay(child, opts));
   else {
-    const blocks = children.map((child) => lay(child, { hover })).filter((b) => b.length);
+    const blocks = children.map((child) => lay(child, opts)).filter((b) => b.length);
     const height = Math.max(1, ...blocks.map((b) => b.length));
     lines = Array.from({ length: height }, () => []);
     for (const block of blocks) {
@@ -93,11 +95,26 @@ function lay(node, { hover }) {
     }
   }
   for (const child of all.filter((one) => one.props?.position === 'absolute')) {
-    const [runs] = lay(child, { hover });
+    const [runs] = lay(child, opts);
     if (runs && lines[child.props.top ?? 0])
       lines[child.props.top ?? 0] = overlay(lines[child.props.top ?? 0], child.props.left ?? 0, runs);
   }
+  if (props.borderStyle) lines = bordered(lines, props, opts.columns);
   return props.width ? pad(lines, props.width) : lines;
+}
+
+// A bordered Box: its lines inside a single line in the border's colour, its paddingX from it on each side, as wide as
+// the pane (or its widest line, with no width).
+function bordered(lines, { borderColor, paddingX = 0 }, columns) {
+  const fill = COLORS[borderColor] ?? borderColor ?? DIM;
+  const inner = Math.max(Number.isFinite(columns) ? columns - 2 : 0, ...lines.map(width).map((w) => w + 2 * paddingX));
+  const side = (glyph) => ({ text: glyph, fill });
+  const space = { text: ' '.repeat(paddingX) };
+  return [
+    [side(`┌${'─'.repeat(inner)}┐`)],
+    ...pad(lines, inner - 2 * paddingX).map((line) => [side('│'), space, ...line, space, side('│')]),
+    [side(`└${'─'.repeat(inner)}┘`)],
+  ];
 }
 
 const CW = 7.8;
@@ -171,7 +188,7 @@ function pane(view, title, desc, file, paneConfig = config, columns = COLUMNS) {
     columns,
     now: NOW,
   });
-  const lines = lay(tree, { hover: false }).filter((line, i, all) => i < all.length - 1 || width(line) > 0);
+  const lines = lay(tree, { hover: false, columns }).filter((line, i, all) => i < all.length - 1 || width(line) > 0);
   const cols = Math.max(...lines.map(width), 70);
   const w = Math.ceil(cols * CW + 48);
   const h = lines.length * LH + 40;
