@@ -21,6 +21,7 @@ Needs Node 22 or newer (`engines`; CI runs 24.15.0) and `claude` on `PATH` for `
 | `npm run validate`     | `claude plugin validate` on the plugin and marketplace manifests                        | Before pushing                |
 | `npm run format`       | Rewrites formatting with Biome                                                          | When `check` reports format   |
 | `npm run docs:images`  | Redraws `docs/*.svg` from the real renderers                                            | Only when the terminal UI changed |
+| `npm run docs:desktop-images` | Redraws `docs/images/*.png` (desktop, VS Code and mobile band and pane) through headless Chrome | Only when the graphical UI changed |
 | `npm run pack:dry`     | `npm pack --dry-run`: what the package would ship                                       | Before pushing                |
 
 `scripts/git-hooks/` holds `pre-commit` (staged Biome, ShellCheck, gitleaks) and `pre-push` (`check`, `typecheck`, `test`, `pack:dry`, `validate`, `test:plugin`, gitleaks). Enable them with `git config core.hooksPath scripts/git-hooks`; they need `gitleaks` installed.
@@ -91,7 +92,7 @@ Rules that keep the layers apart:
 - Before pushing run `npm run check`, `typecheck`, `test` and `test:plugin`.
 - A user-visible change adds a line to `CHANGELOG.md` under `## Unreleased` (create it if absent), in the user's words. Do not bump the version; the maintainer cuts releases.
 - Update the docs your change makes stale: [user guide](docs/user-guide.md), [configuration](docs/configuration.md), [architecture](docs/architecture.md).
-- Run `npm run docs:images` only when the terminal UI changed, and commit the changed `docs/*.svg`.
+- Run `npm run docs:images` only when the terminal UI changed, and commit the changed `docs/*.svg`. Run `npm run docs:desktop-images` only when the graphical UI changed (`lib/ui/graphical/`, `lib/ui/model/`), and commit the changed `docs/images/*.png`; it needs Chrome (`CHROME` names the binary) and ImageMagick to shrink the PNGs.
 - CI runs four jobs, each with annotations on the changed lines: `Lint (biome)`, `Types (tsc)`, `Unit tests (node --test)`, `Plugin (validate and engine tests)`. Fork PRs need a maintainer to approve the first run. A maintainer may add the `ai-review` label.
 - Never commit secrets, keys or a root lockfile. Never push to `main`.
 

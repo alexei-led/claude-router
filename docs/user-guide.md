@@ -31,6 +31,11 @@ In Claude Code:
 
 The desktop app, VS Code and mobile cannot open the `/plugin configure` dialog, so their **Set up** and **Credentials → Edit** show a card with a line to run in a terminal: it asks for the key without showing it or keeping it in your shell history and saves it with `claude plugin configure <id> --values-stdin`; **Copy command** copies it, then run `/reload-plugins`. Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers settings and migrations.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/desktop-key-card-dark.png">
+  <img src="images/desktop-key-card-light.png" alt="The Set up card: a command to run in a terminal that saves the classifier key without showing it, with Copy command and Done buttons." width="560">
+</picture>
+
 In this guide, `router.json` means the selected router file. For example, with `CLAUDE_ROUTER_PROVIDER=zai`, edits go to `zai-router.json`.
 The pane shows its provider and file path.
 
@@ -38,7 +43,14 @@ The pane shows its provider and file path.
 
 ### In the desktop app, VS Code and mobile
 
-<!-- TODO: capture desktop screenshots: band, Now, Routes, Policy, Classifier, Usage, key card (dark and light) -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/desktop-band-routed-dark.png">
+  <img src="images/desktop-band-routed-light.png" alt="The desktop band in one row: a tier meter, Opus 5.5 xhigh, the code activity and the reason "clearly stronger" on the left; context and cache readings, the Pin next turn dropdown and the Router button on the right.">
+</picture>
+
+*Rendered from the real component tree with a browser's layout and approximate theme colours; not a screenshot of the Claude app.*
+
+
 
 The band above the prompt is drawn natively as one fixed row. Nothing appears on hover: every control is on the row itself. Colours come from the app's theme, so the band reads in light and dark.
 
@@ -48,6 +60,21 @@ The band above the prompt is drawn natively as one fixed row. Nothing appears on
 - **Session row**: the second row (plan windows and the session's cost against no routing) is no longer a band button. Turn it on with **Show session row in band** on the pane's Now tab; Router remembers the choice across sessions.
 
 While subagents run, a row of buttons under the band lists them, one per agent with the model, type and task (`agents 2  ▸ ■ Haiku 5.5 Explore · retry usages ●`). Press one to open that agent's transcript in the main view. The row lists three agents and then `+N`, and keeps the first agent and the count when the window narrows. It shows only while an agent runs, and never a teammate. In an agent's transcript the band has a **Back** button (`◂ main` in the terminal, **← Main** on these surfaces) that returns to the main conversation. The agent's model and who picked it are described under the terminal band.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/desktop-band-agents-dark.png">
+  <img src="images/desktop-band-agents-light.png" alt="The desktop band with a second row listing two running subagents as buttons, one moved to Haiku 5.5 and one on Sonnet 5.5.">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/desktop-band-setup-dark.png">
+  <img src="images/desktop-band-setup-light.png" alt="The desktop band with a missing classifier key: a warning "Jev: no API key", the model kept, and a Set up button beside Router.">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="images/desktop-band-off-dark.png">
+  <img src="images/desktop-band-off-light.png" alt="The desktop band with routing off: Sonnet 5.5, "routing off", and a Turn on button beside Router.">
+</picture>
 
 ### In the terminal
 
@@ -120,12 +147,46 @@ The pane is drawn natively. From the top it has:
 What each tab shows:
 
 - **Now**: cards for Next turn (the route, the reason, a pin button per tier, named by route or, with `auto`, by tier), Plan usage (on a Claude plan), Context, This session and, once the session has any, Recent decisions. The Next turn and This session cards carry the same facts as the terminal blocks below. The tab also holds the **Show session row in band** setting.
+
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/desktop-pane-now-dark.png">
+    <img src="images/desktop-pane-now-light.png" alt="The Now tab of the pane: the next turn route with a pin button per tier, plan usage bars, context and cache, and this session's cost against no routing with a strip of replies by tier." width="560">
+  </picture>
+
 - **Routes**: a grid of tiers by activities, with an edit card under it for the selected cell.
+
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/desktop-pane-routes-dark.png">
+    <img src="images/desktop-pane-routes-light.png" alt="The Routes tab: a grid of tiers by activities with the models they run, an editor card for code at High, and an Unsaved changes table with Discard and Save." width="560">
+  </picture>
+
 - **Policy**: form cards for Routing mode, Switching down, Switching up, Activities and Credits, and a Settings file card with the `router.json` path.
+
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/desktop-pane-policy-dark.png">
+    <img src="images/desktop-pane-policy-light.png" alt="The Policy tab: cards for routing mode, switching down and up, activities and credits, each with a dropdown and one line of help, and the settings file path." width="560">
+  </picture>
+
 - **Classifier**: a full card for the active classifier (deadline, wait, health, credentials) and compact rows for the others under **Other classifiers**, then **Across sessions**.
+
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/desktop-pane-classifier-dark.png">
+    <img src="images/desktop-pane-classifier-light.png" alt="The Classifier tab: a card for the active classifier with its host, deadline and health, a row per other classifier with Set up and Use buttons, and the agreement counts across sessions." width="560">
+  </picture>
+
 - **Usage**: period buttons, then Summary, Trend, Breakdown, Worth a look, Subagents, About these numbers and **Delete history**.
 
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="images/desktop-pane-usage-dark.png">
+    <img src="images/desktop-pane-usage-light.png" alt="The Usage tab: period buttons, a summary of cost against no routing, a breakdown by activity, a worth-a-look note, and a subagents table." width="560">
+  </picture>
+
+
 Unsaved Routes and Policy changes sit in an **Unsaved changes** card at the bottom, a table of each setting before and after with **Discard** and **Save**; the last save and **Undo** follow it. **?** opens an **About the router** card. When the classifier needs attention, the header says so and the warning under the tabs says what to do. Saving, undoing and the numbers behind each card follow the terminal descriptions below.
+
+At a phone's width the same trees narrow: the band shortens its route to fit and the cards truncate their notes.
+
+<img src="images/mobile-band-and-now-dark.png" alt="The band and the Now tab at a phone width of 390 pixels: the band shortens its route to fit, and the cards stack with shorter text." width="300">
 
 ### The pane in the terminal
 
