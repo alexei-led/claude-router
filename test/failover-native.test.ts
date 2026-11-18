@@ -1,9 +1,11 @@
 import { expect, mock, test } from 'claude-code/testing';
 import { jevResponse, user } from './helpers.mjs';
 
-// The engine raises classic.StopFailure for a main turn that ended on an API error: an overloaded model is held out, so
-// the next turn runs another; a billing error holds nothing.
-test('a turn that ends on an overloaded model routes the next turn to another model', async ($, on) => {
+type Engine = Parameters<Parameters<typeof test>[1]>;
+
+// An Opus session whose classifier answers medium: the models each step sent, the toasts, the loop's holds, and one
+// whole turn.
+function session($: Engine[0], on: Engine[1]) {
   mock.store(on);
   const state = new Map<string, { value: unknown; version: number }>();
   on('state.get', (_$, e) => ({ value: state.get(`${e.key}:${e.id ?? ''}`) ?? { value: undefined, version: 0 } }));
@@ -70,10 +72,17 @@ test('a turn that ends on an overloaded model routes the next turn to another mo
     while (!result.done) result = await stream.next();
     await $.turn.complete({ turnId, answer: 'ok', durationMs: 1, isAborted: false, reason: 'answer' });
   };
+  const held = () => (state.get('loops:main')?.value as { held?: object } | undefined)?.held;
+  return { sent, toasts, held, request };
+}
+
+// The engine raises classic.StopFailure for a main turn that ended on an API error: an overloaded model is held out, so
+// the next turn runs another; a billing error holds nothing.
+test('a turn that ends on an overloaded model routes the next turn to another model', async ($, on) => {
+  const { sent, toasts, held, request } = session($, on);
   await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
   await request('t1');
   expect(sent.at(-1)).toBe('claude-opus-5-5');
-  const held = () => (state.get('loops:main')?.value as { held?: object } | undefined)?.held;
   await $.classic.StopFailure({ error: 'billing_error' });
   expect(held()).toBeUndefined();
   await $.classic.StopFailure({ error: 'overloaded' });
@@ -81,4 +90,14 @@ test('a turn that ends on an overloaded model routes the next turn to another mo
   expect(toasts.at(-1)).toBe('Opus 5.5 held out of routing: overloaded, 5 min');
   await request('t2');
   expect(sent.at(-1)).toBe('claude-haiku-5-5');
+});
+
+test('the hold is on the model the failed request ran, not on the session’s model', async ($, on) => {
+  const { sent, held, request } = session($, on);
+  await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
+  await $.command.run({ command: 'router', args: 'pin low' });
+  await request('t1');
+  expect(sent.at(-1)).toBe('claude-haiku-5-5');
+  await $.classic.StopFailure({ error: 'overloaded' });
+  expect(Object.keys(held() ?? {})).toEqual(['claude-haiku-5-5']);
 });
