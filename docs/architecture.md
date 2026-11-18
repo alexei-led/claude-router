@@ -64,13 +64,36 @@ Claude Code builds each request for the model the Mod selects, so no request rew
 | [Prices](../lib/prices.mjs)                           | Built-in list prices with each vendor's page and check date; rewritten by `scripts/check-prices.mjs`.            |
 | [Router view](../lib/view.mjs)                        | The view's initial shape and the usage readings each reply adds to it.                                           |
 | [Config file](../lib/config-file.mjs)                 | Pane writes to `router.json`: the validated rewrite and what Undo restores.                                      |
-| [Panel](../lib/panel.mjs)                             | Tabbed pane: route status, tier pins, the route editor, tuning, and usage.                                       |
-| [Router band](../lib/band.mjs)                        | Status band segments fitted to the band's width, and route-change toasts.                                        |
+| [Panel](../lib/panel.mjs)                             | The tab table (id, hotkey, label, model, renderers) and `renderPanel`, which draws the pane for the surface.     |
+| [Router band](../lib/band.mjs)                        | `renderBand` and `renderRouteLine`, which draw the band and the route line for the surface, and route-change toasts. |
+| [UI](../lib/ui/)                                      | What the band and the pane show: models (plain data), one renderer per surface kind, and every colour. See [UI layout](#ui-layout). |
 | Claude Code                                           | API requests, tools, authentication, stream output, and usage ledger.                                            |
 
 Every function that takes the engine interface `$` lives in the hooks module: the engine does not follow `$` across an import, so the modules in `lib/` stay pure.
 
 Node.js is not part of routing. It is used for development, the optional configuration migration, and the classifier probe.
+
+## UI layout
+
+The band, the pane and the route line are built in three steps: the router state becomes a model, a renderer turns the model into elements, and the host draws them. All of it is under `lib/ui/`, with two entry points, `renderPanel` in `lib/panel.mjs` and `renderBand` (and `renderRouteLine`) in `lib/band.mjs`.
+
+```
+lib/ui/tokens.mjs        every colour, by tone, and the surface helpers (isGraphical, toneColor)
+lib/ui/fallback.mjs      orTerminal: the terminal tree when a graphical renderer throws
+lib/ui/model/            plain data, no elements and no widths: now, routes, policy, classifier, usage (with
+                         usage-breakdown, usage-agents, usage-shared), frame (notices, save bar, help, key help),
+                         draft (the Routes and Policy draft), band (segments, fitting, agent rows), format
+lib/ui/terminal/         kit.mjs, frame.mjs, band.mjs, wrap.mjs and one renderer per tab
+lib/ui/graphical/        kit.mjs, frame.mjs, band.mjs, charts.mjs, meter.mjs, squares.mjs and one renderer per tab
+```
+
+**Surface dispatch.** Every `ui.render` event carries `e.surface`, which the hook passes on. `terminal`, or no surface, picks the terminal tree. `desktop`, `vscode` and `mobile` pick the graphical tree, which is one tree for all three. If a graphical renderer throws, `orTerminal` draws the terminal tree and reports the error to a callback that tests set to fail the test, so a broken renderer cannot pass as the terminal. The terminal's own throw is never caught.
+
+**Data flow.** `renderPanel` builds a context from the config, the stored view, the usage readings and `e.surface`. The selected tab's `modelOf` turns it into a model in which every condition, word and number format is already decided; where the words differ by surface the model holds a `{ terminal, graphical }` pair. The renderer only lays the model out with its kit. A tab renderer never reads `view` or the config; if it needs a fact, the model carries it. The frame (header, tabs, notices slot, save bar) has its own model, `frameOf`, and its own renderer per surface kind. The band follows the same idea with less separation: `lib/ui/model/band.mjs` returns segments of parts with a priority (`bandSegments`, `sessionSegments`, `agentSegments`, `routeLineSegments`), and `fitSegments` drops them by priority to fit `columns`. The terminal band draws the segments, adds the hover controls as absolutely placed Boxes, and still takes `config` and `view` for those controls; the graphical band splits the segments into a left group that shrinks and a right group that never does. A graphical band never adds anything on hover.
+
+**State.** `lib/ui/` keeps no module state. A function takes the elements it draws with (`$.ui.resolve(e)` in the hook), the model, and the actions it binds to a `Button` or `Select`; the hook owns the view, the config and every host call.
+
+**Colour.** `lib/ui/tokens.mjs` is the one place a colour is written. A model names a tone (`primary`, `muted`, `accent`, `success`, `warning`, `danger`, `activity`, `tier:<tier>` or `model:<family>`); the kit turns it into a colour with `toneColor(tone, surface)`. The terminal and the graphical surfaces draw the six theme tones as Claude Code theme keys (`text`, `subtle`, `suggestion`, `success`, `warning`, `error`), so the person's theme, light or dark, decides them. Tiers, model families and the activity have no theme key and are hexes, with a mid-lightness set on a graphical surface so each reads on a white and a dark ground. An `Svg` cannot take a theme key, so its colours are hexes from the same file (`svgColor`). A renderer that wrote its own colour would escape the theme and the contrast checks in `test/ui-tokens.test.mjs`.
 
 ## Decision and context
 
