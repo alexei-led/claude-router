@@ -1698,8 +1698,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       resolveCredentials(activeClassifier(cfg), (name) => settingOf($, router.options, name)),
       $.session.messages({ as: 'api' }),
     ]);
-    job.observedUpTo = messages.length;
-    job.prefix = historySignature(messages);
+    Object.assign(job, { observedUpTo: messages.length, prefix: historySignature(messages) });
     const facts = stepFacts(cfg, router, loop, e, messages, context);
     clientOf(router, cfg.classifier)
       .ask({
@@ -1990,7 +1989,8 @@ async function submitPrompt(router, e, next) {
       router.origins = queueOrigin(router.origins, { kind: entry.kind, text: result.text, at: Date.now() });
     return result;
   } finally {
-    router.submitting = outer;
+    // Only the submission still current restores: a later one that started meanwhile keeps its entry.
+    if (router.submitting === entry) router.submitting = outer;
   }
 }
 
@@ -2591,11 +2591,11 @@ function paneActions($, router, view) {
           router.ledgers[kind] = { own: null, others: LEDGERS[kind].empty(), othersResetAt: resetAt };
         return true;
       };
-      const cleared = await clearRecords().catch(() => false);
       router.trace = null;
       router.traceFreshSession = null;
       router.traceClearSession = null;
       router.traceOperations.clear();
+      const cleared = await clearRecords().catch(() => false);
       // The store kept the history: this session's records start over, and its next write replaces the stored one.
       if (!cleared)
         for (const kind of LEDGER_KINDS) {

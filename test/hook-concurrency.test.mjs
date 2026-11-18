@@ -66,3 +66,30 @@ test('turns that end while the decision record is being read all keep their rows
   const rows = h.preferences.get(`${DECISIONS_PREFIX}s1`).rows;
   assert.equal(rows.filter((row) => row.kind === 'end').length, 2);
 });
+
+test('a submission that finishes first leaves the later one its origin', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, jevResponse('high', { micro: 0, low: 0, medium: 0.05, high: 0.95, uncertain: 0 }, 0.2));
+  await h.event('session.start', { cwd: '/fixture' });
+  let releaseFirst;
+  let releaseSecond;
+  const firstGate = new Promise((resolve) => {
+    releaseFirst = resolve;
+  });
+  const secondGate = new Promise((resolve) => {
+    releaseSecond = resolve;
+  });
+  const first = h.submit({ text: 'First.', origin: { kind: 'peer' }, wait: false }, () => firstGate);
+  const second = h.submit({ text: 'Second.', origin: { kind: 'composer' }, wait: false }, async () => {
+    await secondGate;
+    await h.event('turn.start', { turnId: 't2', text: 'Second.' });
+  });
+  releaseFirst();
+  await first;
+  releaseSecond();
+  await second;
+  h.messages(async () => [user('Second.')]);
+  await drain(h.step({ ...step, turnId: 't2', messageCount: 1 }));
+  await h.event('turn.complete', { turnId: 't2' });
+  assert.equal(h.preferences.get(`${DECISIONS_PREFIX}s1`).rows[0].origin, 'composer');
+});
