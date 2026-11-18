@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { controls, harness } from './harness.mjs';
+import { DECISIONS_PREFIX } from '../lib/decisions.mjs';
+import { answering, controls, drain, harness, JEV_KEY, step } from './harness.mjs';
+import { assistant, jevResponse, user } from './helpers.mjs';
 
 const control = (tree, key) => {
   const found = controls(tree).find((node) => node.key === key);
@@ -31,4 +33,36 @@ test('two patches applied while the first view read is pending both stay in the 
   await Promise.all([first, second]);
   assert.equal(h.view().tab, 'usage');
   assert.equal(h.view().help, true);
+});
+
+test('turns that end while the decision record is being read all keep their rows', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, jevResponse('high', { micro: 0, low: 0, medium: 0.05, high: 0.95, uncertain: 0 }, 0.2));
+  await h.event('session.start', { cwd: '/fixture' });
+  const ids = ['t1', 't2'];
+  for (const turnId of ids) {
+    const text = `Task ${turnId}.`;
+    await h.submit({ text, origin: { kind: 'composer' }, wait: false }, () => h.event('turn.start', { turnId, text }));
+    h.messages(async () => [user(text)]);
+    await drain(h.step({ ...step, turnId, messageCount: 1 }));
+  }
+  h.messages(async () => [user('Task.'), assistant('done')]);
+  const read = h.$.store.get;
+  let releaseReads;
+  const gate = new Promise((resolve) => {
+    releaseReads = resolve;
+  });
+  let pending = 0;
+  h.$.store.get = async (key) => {
+    if (!key.startsWith(DECISIONS_PREFIX)) return read(key);
+    pending += 1;
+    await gate;
+    return read(key);
+  };
+  const ended = ids.map((turnId) => h.event('turn.complete', { turnId }));
+  while (pending < 2) await new Promise((resolve) => setImmediate(resolve));
+  releaseReads();
+  await Promise.all(ended);
+  const rows = h.preferences.get(`${DECISIONS_PREFIX}s1`).rows;
+  assert.equal(rows.filter((row) => row.kind === 'end').length, 2);
 });

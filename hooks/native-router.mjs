@@ -2027,8 +2027,11 @@ async function flushDecisions($, router, turnId, turn) {
     if (turn && turn.sessionId !== sessionId) return;
     const key = `${DECISIONS_PREFIX}${sessionId}`;
     const resetAt = await $.store.get(SAVINGS_RESET_KEY);
-    if (router.decisionRecord?.sessionId !== sessionId)
-      router.decisionRecord = { sessionId, record: readDecisions(await $.store.get(key)) };
+    if (router.decisionRecord?.sessionId !== sessionId) {
+      const record = readDecisions(await $.store.get(key));
+      // Another flush may have read it meanwhile and added its rows to it: that one stands.
+      if (router.decisionRecord?.sessionId !== sessionId) router.decisionRecord = { sessionId, record };
+    }
     const held = router.decisionRecord;
     const now = Date.now();
     const end = turn
