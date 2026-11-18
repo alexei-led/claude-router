@@ -361,6 +361,12 @@ These agents always keep their model:
 
 The values above are the defaults.
 
+To route workflow agents too, list their type. The key is the engine's own name for them, `workflow-subagent`; its value is a models key, `classify`, or `null`:
+
+```json
+{ "subagents": { "types": { "workflow-subagent": "classify" } } }
+```
+
 - `types` overrides the rule for an agent type: a models key, `classify`, or `null` to never route it. A user file adds to the defaults. A key without a colon matches only Claude Code's built-in of that name, such as `Explore`; a project agent named `Explore` replaces the built-in and follows its own definition. A `plugin:name` key matches only that plugin's agent. A listed type is routed even if its definition pins a model.
 - `classify` asks the active classifier, once, with the task's description and prompt. It sends no history and no tool results. The task runs on `heavy` when the classifier gives `high` at least `heavyMass`. It runs on `light` for exploration (the `explore` activity above `policy.activityMass`) or the `micro` tier. Everything else runs on `standard`. Every routed agent not listed in `types` is classified. In `on` the spawn waits up to the classifier's `timeoutMs`, at most 3 seconds.
 - A classifier failure or a missing key keeps the model Claude Code gives the agent, and so does a model that `availableModels` blocks, or settings the router cannot read. So does routing off: `/router off`, or a `/model` choice.

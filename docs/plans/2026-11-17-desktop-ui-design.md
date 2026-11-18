@@ -1,6 +1,8 @@
 # Router UI redesign: desktop-first, terminal-safe
 
-Status: built. This note records the design as it shipped.
+Status: built. This note records the design as it shipped. Where the shipped code differs from what was first
+decided, the paragraph says "Shipped:" and what changed. Work added after the design (the band's agent rows and Back,
+the route line, the unavailable toast, the key card) has its own paragraphs under Design.
 
 Checked on screen: on desktop in dark mode, the band, the pane frame and the Now, Routes, Policy, Classifier and
 Usage tabs (the Usage tab's empty states only); in the terminal, the band hover, the header and the five tabs. Not
@@ -62,7 +64,8 @@ diagnosis and add specifics:
 - No app theme (`$.theme.set`): a router should not restyle the person's app.
 - No `Client` surface module: it has no `Svg` and does not run in VS Code or on mobile.
 - No new metrics. This reorganizes what `RouterView` already holds.
-- No change to when toasts fire.
+- No change to when toasts fire. Shipped: two toasts were added later, one for a pane the surface cannot draw and one
+  for a session that starts with routing unavailable. Neither changes an existing toast.
 - No layout for a pane placed as a desktop `widget`; it draws as the docked pane does.
 
 ## Anti-goals
@@ -79,8 +82,9 @@ diagnosis and add specifics:
   leaves out a missing context reading and no longer shows the list-price line. The hover jump, the padding, the
   colours and the pane layout are unchanged.
 - The render hook receives `e.surface`; it is passed to `renderPanel` and `renderBand`.
-- Element tables: every surface has `Box`, `Text`, `Button`, `Input`, `Select`, `Link`, `Code`, `Markdown`,
-  `Progress`. Desktop, VS Code and mobile add `Svg`; the terminal does not. A level such as usage against a limit is
+- Element tables: every surface has `Box`, `Text`, `Button`, `Input`, `Select`, `Link`, `Code` and `Markdown`.
+  Desktop, VS Code and mobile add `Svg`; the terminal does not. `Progress` needs Claude Code 2.1.327, above the
+  router's 2.1.321 floor, so no tree uses it yet. A level such as usage against a limit is
   drawn as a bar of Boxes. A mobile app may be sent an empty Box for `Input` or `Select`.
 - A render hook cannot read whether the app is in light or dark mode, and `Svg` markup cannot use theme keys.
 - An absolutely positioned Box is clipped to the band's own region, so a hover card cannot float above the band.
@@ -108,12 +112,14 @@ builds one model and each surface draws it with its own code.
 
 ```
 lib/panel.mjs                  the tab table (id, key, label, model, terminal, graphical) and renderPanel
-lib/band.mjs                   renderBand: the surface dispatch, and the switch toast
+lib/band.mjs                   renderBand and renderRouteLine: the surface dispatch, and the switch toast
+lib/route-line.mjs             the route line's record and when a turn leaves one (not UI code)
 lib/ui/tokens.mjs              every colour: tones, tier and model hex, theme keys, Svg hex
-lib/ui/fallback.mjs            orTerminal: a graphical throw draws the terminal tree and tells a reporter
+lib/ui/fallback.mjs            orTerminal: with an onFallback, a graphical throw draws the terminal tree and reports it
 lib/ui/model/                  plain data, no elements and no layout by width: now, routes, policy, classifier,
                                usage (+ usage-breakdown, usage-agents, usage-shared), frame (notices, save bar,
-                               help, key help), draft (the Routes and Policy draft), band (segments), format
+                               help, key help), draft (the Routes and Policy draft), band (segments, fitting,
+                               agent rows), format
 lib/ui/terminal/               kit.mjs, frame.mjs, band.mjs, wrap.mjs, one renderer per tab
 lib/ui/graphical/              kit.mjs (standalone), frame.mjs, band.mjs, charts.mjs, meter.mjs, squares.mjs, one
                                renderer per tab
@@ -123,11 +129,14 @@ lib/ui/graphical/              kit.mjs (standalone), frame.mjs, band.mjs, charts
 Each tab has a model: plain data in which conditions, wording and number formatting are decided once. Where the words
 differ by surface the model holds a `{ terminal, graphical }` pair. A renderer only lays the model out. `renderPanel`
 passes `e.surface` through: `terminal` (or none) picks the terminal renderer, anything else the graphical one. If a
-graphical renderer throws, `orTerminal` in `lib/ui/fallback.mjs` draws the terminal tree instead, and tells a reporter
-that tests set to fail on any unexpected fallback.
+graphical renderer throws, `orTerminal` in `lib/ui/fallback.mjs` draws the terminal tree instead when the caller passed `onFallback`, and reports the error to it (the hook writes it
+to the debug log). Shipped: without `onFallback` the throw propagates, so a test sees a broken renderer rather than the
+terminal tree standing in for it.
 
-The band keeps its data form (`bandSegments` returns segments of parts). `lib/band.mjs` draws it for the terminal and
-`lib/ui/graphical/band.mjs` for the other surfaces.
+The band keeps its data form (`bandSegments` returns segments of parts, and `fitSegments` in
+`lib/ui/model/band.mjs` drops them by priority). `lib/band.mjs` chooses `lib/ui/terminal/band.mjs` for the terminal and
+`lib/ui/graphical/band.mjs` for the other surfaces. Shipped: a tab renderer takes only its model, but the band renderers
+still take `config` and `view`: the terminal band for its hover controls, the graphical band for the pin Select.
 
 The graphical kit (`lib/ui/graphical/kit.mjs`, with `charts.mjs`) offers these methods:
 
@@ -141,6 +150,9 @@ The graphical kit (`lib/ui/graphical/kit.mjs`, with `charts.mjs`) offers these m
 - `strip`: the tier strip as coloured Box cells.
 - `trend`: an `Svg` line chart with an `alt` that states the numbers.
 - `stat`: a headline figure with a delta and a caption.
+
+The terminal kit (`lib/ui/terminal/kit.mjs`) has its own, smaller set. Neither kit falls back to the other's elements:
+a graphical kit that needs `Svg` or `Select` assumes it is there, because only graphical surfaces reach it.
 
 ### Band
 
@@ -175,9 +187,24 @@ off       ○ Fable 5.2 · medium  routing off                                  
 | classifier warning | meter + route | what is missing | Set up |
 | unavailable | ✕ + Claude's model | why | Fix |
 | off | ○ + Claude's model | "routing off" | Turn on |
-| subagent view | "agent" + its model | how it was chosen | none |
+| subagent view | "agent" + its model | how it was chosen | **← Main**, where the caller can go back |
 
 `Router` is last in every state except the subagent view.
+
+Shipped: on mobile a pending pin also keeps its `⏵ next` text and ✕ beside the Select, because an app that did not name
+`Select` in `draws` is sent an empty Box for it and a hook cannot tell. A narrow band drops the pin's words and keeps
+the ✕.
+
+**Agent rows** (added after the design). While subagents run, one more row sits under the band: `agents 2`, then one
+plain Button per agent (`▸ ■ Haiku 5.5 Explore · retry usages ●`), up to three and then `+N`. A press opens that
+agent's transcript in the main view (`$.ui.view`). A row too wide for the window says less (the model, then the type),
+then lists one agent and the count, then only the count. The row exists only while an agent runs, and only for agents
+the router has a spawn record for. The terminal draws the same row, and its Back control is `◂ main`; the graphical
+band's is **← Main**. The rows are not toned by model on the desktop, where a Button takes no colour.
+
+**Route line** (added after the design). After a routed turn the hook places one footnote row at the end of the
+transcript, in the band's words: the tier meter, route, reason and activity. `/router line off|moves|all` sets when
+(default `moves`). The terminal draws it dim, the graphical surfaces with the same `Svg` meter as the band.
 
 Terminal: the band keeps its one row (two with the session row) and its hover controls, but they no longer add a row.
 They are absolutely placed Boxes on the first row, revealed on hover, that cover none of the row's Buttons. The row has
@@ -200,13 +227,18 @@ Now   Routes ●   Policy   Classifier   Usage                           ?
 ────────────────────────────────────────────────────────────────────────
 <cards>
 ────────────────────────────────────────────────────────────────────────
-● 2 unsaved changes                               [ Discard ]  [ Save ]
+Unsaved changes: Setting | Before | After                 [ Discard ]  [ Save ]
 ```
 
 - Title, classifier status and the on/off control on one row; tabs below; hotkeys keep working but leave the labels.
 - One notices slot directly under the tabs holds every warning (ignored project config, native fallback, missing
   key). Warnings stop appearing mid-card.
-- The save bar keeps its place at the bottom; its diff opens as a card above it.
+- The save bar keeps its place at the bottom. Shipped: it is one **Unsaved changes** card (a table of each setting
+  before and after, **Discard**, **Save**), with the last write's **Undo** under it.
+- Shipped: **Set up** and **Edit credentials** cannot open the plugin dialog on these surfaces, so they open a key-help
+  card in the notices slot: a copyable zsh line that saves the key with `claude plugin configure … --values-stdin`.
+  The card closes when the key is present, or with **Done**.
+- Shipped: **?** opens an **About the router** card.
 
 ### Now tab (graphical)
 
@@ -216,11 +248,11 @@ Now   Routes ●   Policy   Classifier   Usage                           ?
 │ ↑ clearly stronger · Jev 88% ≥ 82% · switch ≈ $0.48     │
 │ Pin next turn  [ Haiku·med 2% | Haiku·high 3% | Opus·med 7% | Opus·xhigh 88% ]
 └────────────────────────────────────────────────────────┘
-┌ Plan ─────────────────────┐ ┌ Context ──────────────────┐
+┌ Plan usage ───────────────┐ ┌ Context ──────────────────┐
 │ 5h  ████████░░░░  48%  18:00│ │ ████░░░░░░  40%  403K / 1M │
 │ 7d  ███████░░░░░  43%  Fri  │ │ cache 100% last · 90% session│
 └───────────────────────────┘ └───────────────────────────┘
-┌ Session ───────────────────────────────────────────────┐
+┌ This session ──────────────────────────────────────────┐
 │ ≈ $8.97     −$4.09 (−31%) vs unrouted                   │
 │ main ███████████████  agents █████     since 14:18      │
 │ tier strip ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇  low 41 · medium 12 · high 33 │
@@ -229,15 +261,17 @@ Now   Routes ●   Policy   Classifier   Usage                           ?
 ```
 
 - The pin control always occupies its row; a pending pin highlights its option instead of adding a line.
+- Shipped: Recent decisions is a card only when the session has decisions, and Plan usage only on a Claude plan.
+- Shipped: a setting on this tab, **Show session row in band**, turns the band's second row on.
 - The mode and override lines fold into the "why" line as chips, so the card's height is constant.
 - Plan and Context sit side by side when the pane is wide and stack when narrow.
 
 ### Other tabs (graphical)
 
 - **Routes**: a real grid (activity × tier) with aligned columns; the selected cell's editor opens in a card under the
-  grid rather than between rows.
-- **Policy**: a form. Label, control, one caption line of help per row, grouped under "Switching down", "Switching
-  up", "Activities", "Credits".
+  grid rather than between rows. A **Prompt caches** card closes the tab.
+- **Policy**: a form. Label, control, one caption line of help per row, grouped under "Routing mode", "Switching
+  down", "Switching up", "Activities", "Credits", then a **Settings file** card with the `router.json` path.
 - **Classifier**: a full card for the active classifier (deadline, wait, health, credentials) and compact rows for the
   others under "Other classifiers", then "Across sessions".
 - **Usage**: period buttons, Summary with a headline stat and delta, Trend as an `Svg` line, Breakdown with inline
@@ -261,7 +295,12 @@ The terminal's output is byte-identical to before the redesign except in these p
 7. where its widest row (Set up included) does not fit, or with no width, the Classifier tab draws each classifier
    on two lines (name, status, **Set up**; then host and probe result, muted) with no row of column titles;
 8. the Now tab's SESSION line ends with `[ band: 1 row ]` / `[ band: 2 rows ]`, the band's second-row toggle;
-9. the `?` help draws whole paragraphs that wrap to the pane, instead of lines cut for 68 columns.
+9. the `?` help draws whole paragraphs that wrap to the pane, instead of lines cut for 68 columns;
+10. text, secondary text, accents, success, warning and error are Claude Code theme keys (`text`, `subtle`,
+    `suggestion`, `success`, `warning`, `error`) instead of ANSI names, so a light theme reads; tiers, models and the
+    activity keep their hex colours;
+11. while subagents run, an agents row sits under the band, and in an agent's transcript the band has `◂ main`;
+12. a route line may follow a routed turn (`/router line`).
 
 Any other terminal difference is a regression. Doc images are regenerated with `scripts/render-doc-images.mjs`.
 
@@ -278,8 +317,8 @@ warnings keep words. Hotkeys are unchanged. Dark mode has been checked on deskto
   `test/ui-painter.test.mjs`, `test/ui-tokens.test.mjs`).
 - Engine mount tests on desktop, VS Code and mobile that act by key (`test/ui-*.test.ts`).
 - A walk over every graphical tab that fails on a duplicate key or hotkey (`test/ui-keys-graphical.test.mjs`).
-- A fallback reporter that fails any test in which a graphical renderer threw and the terminal tree was drawn
-  unexpectedly (`test/ui-fallback.test.mjs`).
+- A fallback test: with `onFallback` a throwing graphical renderer draws the terminal tree and reports the error, and
+  the test harness fails any other fallback (`test/ui-fallback.test.mjs`).
 - A band test asserts the graphical band has no hover-revealed element and is one row (two with the session row).
 - A person checks the look on screen; tests do not paint.
 

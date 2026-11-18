@@ -57,7 +57,7 @@
 <text x="328.2" y="140" fill="#7c7c7c" xml:space="preserve">session </text>
 <text x="390.6" y="140" fill="#d0d0d0" font-weight="700" xml:space="preserve">≈$6.40</text>
 <text x="437.4" y="140" fill="#7c7c7c" xml:space="preserve"> API estimate</text>
-<text x="562.2" y="140" fill="#6fcf97" font-weight="700" xml:space="preserve">−$1.84 (−22%)</text>
+<text x="562.2" y="140" fill="#87d787" font-weight="700" xml:space="preserve">−$1.84 (−22%)</text>
 <text x="663.6" y="140" fill="#7c7c7c" xml:space="preserve"> vs Opus 5.5</text>
 <text x="780.6" y="140" fill="#7c7c7c" xml:space="preserve">64 replies</text>
 <text class="cap" x="20" y="179">Two rows on an API key: the session as a configured-rate API estimate, not an invoice, against your model</text>
@@ -81,7 +81,7 @@
 <text x="24.0" y="224" fill="#7c7c7c" xml:space="preserve">session </text>
 <text x="86.4" y="224" fill="#d0d0d0" font-weight="700" xml:space="preserve">≈$6.40</text>
 <text x="133.2" y="224" fill="#7c7c7c" xml:space="preserve"> API estimate</text>
-<text x="258.0" y="224" fill="#6fcf97" font-weight="700" xml:space="preserve">−$1.84 (−22%)</text>
+<text x="258.0" y="224" fill="#87d787" font-weight="700" xml:space="preserve">−$1.84 (−22%)</text>
 <text x="359.4" y="224" fill="#7c7c7c" xml:space="preserve"> vs Opus 5.5</text>
 <text x="476.4" y="224" fill="#7c7c7c" xml:space="preserve">64 replies</text>
 <text class="cap" x="20" y="263">A pin waits for the next turn; ✕ cancels it</text>
@@ -93,7 +93,7 @@
 <text x="63.0" y="289" fill="#d0d0d0" font-weight="700" xml:space="preserve">Haiku 5.5</text>
 <text x="133.2" y="289" fill="#d0d0d0" xml:space="preserve"> · high</text>
 <text x="211.2" y="289" fill="#d77757" font-style="italic" xml:space="preserve">ops</text>
-<text x="258.0" y="289" fill="#7c9cff" xml:space="preserve">⏵ next </text>
+<text x="258.0" y="289" fill="#5fafd7" xml:space="preserve">⏵ next </text>
 <text x="312.6" y="289" fill="#d7af5f" xml:space="preserve">▂▄▆</text>
 <text x="336.0" y="289" fill="#d7af5f" xml:space="preserve"> Opus·medium</text>
 <text x="437.4" y="289" fill="#d0d0d0" xml:space="preserve">✕</text>
@@ -108,7 +108,7 @@
 <text x="850.8" y="289" fill="#d0d0d0" xml:space="preserve">Router</text>
 <text class="cap" x="20" y="328">No classifier key: routing keeps the model and offers Set up</text>
 <rect x="12" y="336" width="897.6" height="29" rx="5" fill="#232323"/>
-<text x="24.0" y="354" fill="#f0b429" xml:space="preserve">⚠ Jev: no API key</text>
+<text x="24.0" y="354" fill="#d7af5f" xml:space="preserve">⚠ Jev: no API key</text>
 <rect x="180.0" y="340" width="78.0" height="18" rx="4" fill="#87afff"/>
 <text x="180.0" y="354" fill="#0d1016" font-weight="700" xml:space="preserve">[ Set up ]</text>
 <text x="281.4" y="354" fill="#5f9fe0" xml:space="preserve">▂</text>
@@ -155,7 +155,7 @@
 <text x="203.4" y="549" fill="#d77757" font-style="italic" xml:space="preserve">code</text>
 <text x="258.0" y="549" fill="#7c7c7c" xml:space="preserve">= fits</text>
 <rect x="328.2" y="535" width="46.8" height="18" rx="4" fill="#2a3040"/>
-<text x="328.2" y="549" fill="#8b93a7" xml:space="preserve"> cost </text>
+<text x="328.2" y="549" fill="#7c7c7c" xml:space="preserve"> cost </text>
 <text x="375.0" y="549" fill="#7c7c7c" xml:space="preserve"> effort only</text>
 <text x="593.4" y="549" fill="#7c7c7c" xml:space="preserve">ctx </text>
 <text x="624.6" y="549" fill="#87d787" xml:space="preserve">▰▰</text>

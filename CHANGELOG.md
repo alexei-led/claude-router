@@ -2,50 +2,54 @@
 
 ## Unreleased
 
-### Changed: subagents
-
-- A workflow `agent()` can now be routed: Claude Code 2.1.321 applies a model rewrite to it (checked live). List `workflow-subagent` under `subagents.types` to opt in; by default workflow agents still keep Claude Code's pick. An `agent({ model })` call keeps the script's model.
-- A resumed subagent is left alone: Claude Code lets a hook only refuse a resume, so its model and its record stay those of its first spawn.
-- A subagent's `turn.start` no longer takes over the main turn's goal. Claude Code 2.1.321 raises that event for subagent loops too.
-
-### Changed: requirements
+### Requirements
 
 - The router needs Claude Code 2.1.321 or newer (was 2.1.289). Older builds refuse the desktop, VS Code and mobile pane and band; on them routing stays off and the band says why.
 
-### Changed: terminal
+### Added
 
-- Colours follow your Claude Code theme: text, secondary text, accents, success, warning and error are the theme's own colours instead of fixed ANSI names, so light themes read. Tiers, models and activities keep their colours.
+- The desktop app, VS Code and mobile draw the band and all five pane tabs (Now, Routes, Policy, Classifier, Usage) natively instead of as terminal text.
+  - The band is one fixed row, and nothing is revealed on hover. A tier meter icon, the route, activity and reason are on the left; readings, a **Pin next turn** dropdown and **Router** are on the right. Each state has one control: **Turn on** when routing is off, **Set up** for missing classifier credentials, **Fix** when routing is unavailable.
+  - The pane has a header (`Router`, classifier status, **On** / **Off**), tabs without digits in their labels (hotkeys 1 to 5 still work), one warnings slot and an **Unsaved changes** card last. Now has the cards Next turn, Plan usage, Context, This session and Recent decisions. Routes is a tier by activity grid with an edit card under it. Policy has grouped form cards and a Settings file card. Classifier has a full card for the active classifier and compact rows under **Other classifiers**. Usage has period buttons, Summary, Trend, Breakdown, Worth a look, Subagents, About these numbers and **Delete history**.
+  - The second "session" row is the **Show session row in band** setting on the Now tab, not a band button.
+  - **Set up** and **Edit credentials** show how to add the classifier's key from a terminal (one copyable zsh line that saves it with `claude plugin configure … --values-stdin`, or `/plugin configure` in a terminal's Claude Code), because these surfaces cannot open the plugin settings dialog. The card closes once the key is there, or with **Done**.
+  - Figures that change as you work (counts, times, percentages, costs) draw in digits of one width, so a value changing does not shift its neighbours.
+- While subagents run, a row under the band lists them (model, type and task, three at most and then `+N`), and pressing one opens its transcript in the main view. In an agent's transcript the band has a way back: `◂ main` in the terminal, **← Main** on the desktop app, VS Code and mobile. Teammates are not listed.
+- A route line after a turn: one quiet row at the end of the transcript with the model, effort and why, such as `▂▄▆█ Sonnet 5.5 · high  ↓ cheaper fits  code`. By default it appears only when the route moved; `/router line all` shows it after every routed turn and `/router line off` hides it. Not for interrupted turns, subagents or while routing is off; not restored by `--resume`. Drawn on every surface.
+- `/router` completes in the prompt: type `/router a` and the words that start with it appear under Claude Code's own rows (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `line <off|moves|all>`, `decisions [n]`, `trace export`), then the values after `pin `, `mode `, `activities ` or `line `. The `/router` argument hint lists the same words.
+- A session that starts with routing unavailable (Claude Code older than 2.1.321, v0.8 gateway settings still set, or a `router.json` that does not load) shows one toast with the reason, at most once a day for each cause. Not under `claude -p`.
+- A **Router** press that opens a pane the surface cannot draw (no surface places panes, or the terminal is too narrow) says why in a toast instead of showing nothing.
+- A workflow `agent()` can be routed: Claude Code 2.1.321 applies a model rewrite to it (checked live). List `workflow-subagent` under `subagents.types` to opt in; by default workflow agents still keep Claude Code's pick. An `agent({ model })` call keeps the script's model. See [subagent routing](docs/configuration.md#subagent-routing).
+
+### Changed
+
+- Terminal colours follow your Claude Code theme: text, secondary text, accents, success, warning and error are the theme's own colours instead of fixed ANSI names, so light themes read. Tiers, models and activities keep their colours.
+- A resumed subagent is left alone: Claude Code lets a hook only refuse a resume, so its model and its record stay those of its first spawn.
 - The warnings for an ignored project config, a native fallback and missing classifier credentials moved out of the Now tab's NEXT TURN block into one slot directly under the tab row, shown on every tab.
 - A pending pin is shown on its pin button, and the separate `⏵ next turn … [unpin]` row is gone. Pressing the pinned button again unpins.
-- The band's hover controls (pins, **Turn off**, **2 rows** / **1 row**) appear on the band's own row, over its readings and after **Router**, instead of on an extra line, so hovering moves nothing. The meter and model, the band's own **Set up**, **Details** and ✕, and **Router** stay uncovered. While two rows show, **1 row** is the last control to go. A band with no 12 free columns shows none.
+- The terminal band's hover controls (pins, **Turn off**, **2 rows** / **1 row**) appear on the band's own row, over its readings and after **Router**, instead of on an extra line, so hovering moves nothing. The meter and model, the band's own **Set up**, **Details** and ✕, and **Router** stay uncovered. While two rows show, **1 row** is the last control to go. A band with no 12 free columns shows none.
 - The Now tab's SESSION line ends with **band: 1 row** / **band: 2 rows**, which toggles the band's second row at any band width.
 - The **?** help's paragraphs wrap to the pane instead of being cut into lines for 68 columns.
 - While the warnings under the tab row name missing classifier credentials, the header's classifier status reads `see below` instead of repeating them. On the Classifier tab that warning has no **Set up** of its own; the Credentials row's **Edit** (`k`) is the one control.
 - A tab row too wide for the pane drops the digits from its labels (the hotkeys still work), then moves **?** to the header line's end, instead of squeezing the tabs together.
 - Policy's help lines, and the active classifier's in a narrow pane, wrap inside their column instead of falling back to the pane's edge.
 - In a pane too narrow for its widest row (about 80 columns), the Classifier tab draws each classifier on two lines, name, status and **Set up**, then where the prompt goes and its probe result, instead of columns whose status wrapped a word per line.
+- Contributing: CI runs the checks as separate jobs (Lint, Types, Unit tests, Plugin) and annotates failures on the changed lines; `npm run test:ci` is the same test run. Biome warnings and `tsc` strict null checks now fail the check. A maintainer can request an AI review with the `ai-review` label. See the README's Contributing section.
 
-### Added: terminal
+### Fixed
 
-- A route line after a turn: one dim row at the end of the transcript with the model, effort and why, such as `▂▄▆█ Sonnet 5.5 · high  ↓ cheaper fits  code`. By default it appears only when the route moved; `/router line all` shows it after every routed turn and `/router line off` hides it. Not for interrupted turns, subagents or while routing is off; not restored by `--resume`. Also drawn on the desktop app, VS Code and mobile.
-- While subagents run, a row under the band lists them (model, type and task, three at most and then `+N`), and pressing one opens its transcript in the main view. In an agent's transcript the band has a **Back** control to return. Teammates are not listed. The same row and a **← Main** button are drawn on the desktop app, VS Code and mobile.
-- `/router` completes in the prompt: type `/router a` and the words that start with it appear under Claude Code's own rows (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `line <off|moves|all>`, `decisions [n]`, `trace export`), then the values after `pin `, `mode `, `activities ` or `line `. The `/router` argument hint lists the same words.
-- A session that starts with routing unavailable (Claude Code older than 2.1.321, v0.8 gateway settings still set, or a `router.json` that does not load) shows one toast with the reason, at most once a day for each cause. Not under `claude -p`.
-
-### Changed: desktop app, VS Code and mobile
-
-- A **Router** press that opens a pane the surface cannot draw (no surface places panes, or the terminal is too narrow) says why in a toast instead of showing nothing.
-- Figures that change as you work (counts, times, percentages, costs) draw in digits of one width, so a value changing does not shift its neighbours.
-- The band above the prompt and all five pane tabs (Now, Routes, Policy, Classifier, Usage) are drawn natively.
-- The band is one fixed row, and nothing is revealed on hover. A tier meter icon, the route, activity and reason are on the left; readings, a **Pin next turn** dropdown and **Router** are on the right. Each state has one control: **Turn on** when routing is off, **Set up** for missing classifier credentials, **Fix** when routing is unavailable.
-- The second "session" row is now the **Show session row in band** setting on the Now tab, not a band button.
-- **Set up** and **Edit credentials** show how to add the classifier's key from a terminal (one copyable zsh line that saves it with `claude plugin configure … --values-stdin`, or `/plugin configure` in a terminal's Claude Code), instead of doing nothing: these surfaces cannot open the plugin settings dialog. The card closes once the key is there, or with **Done**.
-- The pane has a header (`Router`, classifier status, **On** / **Off**), tabs without digits in their labels (hotkeys 1 to 5 still work), one warnings slot and the save bar last. Now has the cards Next turn, Plan usage, Context and This session. Routes is a tier by activity grid with an edit card under it. Policy has grouped form cards and a Settings file card. Classifier has a full card for the active classifier and compact rows under **Other classifiers**. Usage has period buttons, Summary, Trend, Breakdown, Worth a look, Subagents, About these numbers and **Delete history**.
+- A pin button named the route the routing mode had adjusted, but on the `table` engine a pin runs its tier's configured route. The pin dropdown, the pending-pin label, the Now tab's pins, the terminal hover pins and `/router pin` completion now show the route the press runs.
+- A subagent's `turn.start` no longer takes over the main turn's goal. Claude Code 2.1.321 raises that event for subagent loops too.
+- Two turns that end together no longer lose each other's decision rows.
+- Two view updates arriving as a session starts no longer drop one another.
+- A prompt that finished after a later one had started no longer makes the later turn read its origin as `unknown`, and a trace started while the router's state is being reset is no longer wiped by the reset.
+- A resumed subagent shows in the band's agent rows before its first reply.
+- A graphical render failure reaches the debug log instead of disappearing, and the pane no longer writes state while it draws.
 
 ### Notes
 
 - Not yet checked by a person on screen: light mode, VS Code, mobile, and the Usage tab's data views (trend line, breakdown bars, subagent squares). Desktop screenshots are not yet in the docs.
-- The Classifier pane picture was regenerated to match earlier wording changes.
+- The pictures in the docs show the terminal. They were regenerated for the new theme-key colours.
 
 ## 1.24.0 (2026-11-17)
 

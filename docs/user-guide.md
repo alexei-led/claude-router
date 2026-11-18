@@ -2,7 +2,7 @@
 
 ## Start a session
 
-Install the plugin from its marketplace, or load a checkout with `--plugin-dir /path/to/claude-router`:
+The router needs Claude Code 2.1.321 or newer. Install the plugin from its marketplace, or load a checkout with `--plugin-dir /path/to/claude-router`:
 
 ```sh
 claude plugin marketplace add alexei-led/claude-router
@@ -38,9 +38,9 @@ The pane shows its provider and file path.
 
 ### In the desktop app, VS Code and mobile
 
-<!-- TODO: desktop screenshots (band, Now, Routes, Policy, Classifier, Usage) -->
+<!-- TODO: capture desktop screenshots: band, Now, Routes, Policy, Classifier, Usage, key card (dark and light) -->
 
-The band above the prompt is drawn natively as one fixed row. Nothing appears on hover: every control is on the row itself.
+The band above the prompt is drawn natively as one fixed row. Nothing appears on hover: every control is on the row itself. Colours come from the app's theme, so the band reads in light and dark.
 
 - **Left**: a small tier meter icon, then the route (the model and effort for this turn), the activity, the reason, the classifier's support and the switch cost, in the words of the [terminal band](#in-the-terminal). When the window narrows, the left side gives way first.
 - **Right**: the context and cache readings, a **Pin next turn** dropdown and the **Router** button, which opens the pane. The dropdown lists one entry per tier, each named by what it runs; a pin forces that tier for the next turn only. On mobile a pending pin also keeps its own `⏵ next` text and **✕** beside the dropdown, since an app may not draw the dropdown.
@@ -51,7 +51,7 @@ While subagents run, a row of buttons under the band lists them, one per agent w
 
 ### In the terminal
 
-The terminal band is one line above the prompt. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures and the switch cost, then context and cache, then the activity, then the reason. The meter and the model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
+The terminal band is one line above the prompt. Its text, secondary text, accents, success, warning and error colours are your Claude Code theme's own, so a light theme reads as well as a dark one; tiers, models and activities keep their own colours. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures and the switch cost, then context and cache, then the activity, then the reason. The meter and the model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
 
 ![Eight band states: routed to high, two rows on a Claude plan with the hover controls shown, two rows on an API key, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode](router-band.svg)
 
@@ -100,7 +100,7 @@ When the row is short, the reset time, the counts and the words drop first; the 
 
 The band steps aside while a survey needs the space.
 
-Inside a turn the router checks the route again as the work changes; see [Changes during a task](#changes-during-a-task). A subagent gets at most one model, when it starts, and keeps it for every step: For the Anthropic profile, these are Haiku for exploration, Opus for clearly hard tasks, and Sonnet for the rest. Other profiles have [their own defaults](providers.md#activity-overrides). An agent that pins a model in its definition keeps it, unless it sets `modelRouting: auto`. The Usage tab's **SUBAGENTS** section shows what each agent type ran on and cost, and the Now tab adds this session's agents to its total. See [Subagent routing](configuration.md#subagent-routing).
+Inside a turn the router checks the route again as the work changes; see [Changes during a task](#changes-during-a-task). A subagent gets at most one model, when it starts, and keeps it for every step: For the Anthropic profile, these are Haiku for exploration, Opus for clearly hard tasks, and Sonnet for the rest. Other profiles have [their own defaults](providers.md#activity-overrides). An agent that pins a model in its definition keeps it, unless it sets `modelRouting: auto`. An agent started by a workflow script keeps Claude Code's pick, and so does a resumed agent (it runs on the model of its first start); to route workflow agents, list `workflow-subagent` under `subagents.types`, as in [Subagent routing](configuration.md#subagent-routing). The Usage tab's **SUBAGENTS** section shows what each agent type ran on and cost, and the Now tab adds this session's agents to its total. See [Subagent routing](configuration.md#subagent-routing).
 
 In a subagent's transcript the band names the model the agent runs on and who picked it. `agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)` means the router chose a cheaper model than Claude Code would have; `↑` means a higher declared strength rank. When ranks are unknown, a model change has no strength direction. A hollow `□` means the agent ran on Claude Code's pick, because the router agreed or did not route it, and says why: `agent □ Opus 5.5  = Claude Code’s pick: the workflow sets it`. A narrow band drops the comparison first. The band falls back to `agent · model chosen at spawn` when the router has no record of the agent, such as after a plugin reload, and to `agent · keeps its own model (subagent routing off)`.
 
@@ -109,8 +109,6 @@ In a subagent's transcript the band names the model the agent runs on and who pi
 Run `/router` or select **Router** above the prompt. Without a UI surface, as in `claude -p`, `/router` prints a short status instead. The pane has five tabs. Select a tab or press its digit (1 to 5) while the pane has focus.
 
 ### The pane in the desktop app, VS Code and mobile
-
-<!-- TODO: desktop screenshots (band, Now, Routes, Policy, Classifier, Usage) -->
 
 The pane is drawn natively. From the top it has:
 
@@ -121,7 +119,7 @@ The pane is drawn natively. From the top it has:
 
 What each tab shows:
 
-- **Now**: cards for Next turn (the route, the reason, a pin button per tier), Plan usage, Context and This session. The Next turn and This session cards carry the same facts as the terminal blocks below. The tab also holds the **Show session row in band** setting.
+- **Now**: cards for Next turn (the route, the reason, a pin button per tier), Plan usage (on a Claude plan), Context, This session and, once the session has any, Recent decisions. The Next turn and This session cards carry the same facts as the terminal blocks below. The tab also holds the **Show session row in band** setting.
 - **Routes**: a grid of tiers by activities, with an edit card under it for the selected cell.
 - **Policy**: form cards for Routing mode, Switching down, Switching up, Activities and Credits, and a Settings file card with the `router.json` path.
 - **Classifier**: a full card for the active classifier (deadline, wait, health, credentials) and compact rows for the others under **Other classifiers**, then **Across sessions**.
@@ -351,7 +349,7 @@ On the running task:
 
 These thresholds are starting values. They are not tuned on data yet.
 
-On Claude Code 2.1.322 an effort that the router changed inside a turn was not sent in the 6 cases found, while a changed model was, so the band and the decision record can name an effort that did not run. See [What we do not know yet](activity-routing.md#what-we-do-not-know-yet).
+On Claude Code 2.1.322 an effort that the router changed inside a turn was not sent in the 6 cases found, while a changed model was, so the band and the decision record can name an effort that did not run. Claude Code sends an effort change on a tool-result step only when `CLAUDE_CODE_MODEL_CAPABILITIES=per_turn_effort` is set in its environment; the router does not set it. See [What we do not know yet](activity-routing.md#what-we-do-not-know-yet).
 
 ### Read the activity on the pane
 
