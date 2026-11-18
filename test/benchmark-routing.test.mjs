@@ -20,6 +20,10 @@ import {
   verifyProfile,
 } from '../scripts/benchmark-routing.mjs';
 
+// A real node child's start-up alone can pass a second on a loaded machine; these children end themselves or are
+// stopped as soon as their first line arrives, so a long deadline costs nothing when the machine is idle.
+const SPAWN_MS = 5000;
+
 const manifest = validateManifest(JSON.parse(await readFile(MANIFEST, 'utf8')));
 const result = (answer, cost = 0.1) =>
   JSON.stringify({
@@ -182,7 +186,7 @@ test('inspector failure, malformed metadata and interrupt restore active environ
     await restoreActiveEnv(path, async () => {
       await writeFile(path, 'changed');
       const child = await runProcess(process.execPath, ['-e', 'console.log("init");setInterval(() => {}, 1000)'], {
-        timeoutMs: 1000,
+        timeoutMs: SPAWN_MS,
         inspectLine: () => {
           throw new Error('bad inspector');
         },
@@ -194,7 +198,7 @@ test('inspector failure, malformed metadata and interrupt restore active environ
     await restoreActiveEnv(path, async () => {
       await writeFile(path, 'changed');
       const child = await runProcess(process.execPath, ['-e', 'console.log("ready");setInterval(() => {}, 1000)'], {
-        timeoutMs: 1000,
+        timeoutMs: SPAWN_MS,
         inspectLine: () => {
           process.emit('SIGINT');
           return null;
@@ -215,14 +219,14 @@ test('UTF-8 chunks survive decoding, oversized output and spawn errors fail clos
       '-e',
       'const b=Buffer.from("é🙂");process.stdout.write(b.subarray(0,1));setTimeout(()=>process.stdout.write(b.subarray(1)),10);',
     ],
-    { timeoutMs: 1000 },
+    { timeoutMs: SPAWN_MS },
   );
   assert.equal(child.stdout, 'é🙂');
   const large = await runProcess(process.execPath, ['-e', 'process.stdout.write("x".repeat(2*1024*1024))'], {
-    timeoutMs: 1000,
+    timeoutMs: SPAWN_MS,
   });
   assert.equal(large.reason, 'output-limit');
-  const missing = await runProcess('/not-a-real-benchmark-executable', [], { timeoutMs: 1000 });
+  const missing = await runProcess('/not-a-real-benchmark-executable', [], { timeoutMs: SPAWN_MS });
   assert.equal(missing.reason, 'spawn-error');
 });
 
@@ -245,7 +249,7 @@ test('unpriced model usage and overspending stop later attempts and retain repor
       root,
       budgetUsd: 1.2,
       reservationUsd: 0.4,
-      timeoutMs: 1000,
+      timeoutMs: SPAWN_MS,
       launcher: async () => ({ exitCode: 0, stdout: missingPrices, wallMs: 1 }),
     });
     assert.equal(unpriced.rows.length, 1);
@@ -255,7 +259,7 @@ test('unpriced model usage and overspending stop later attempts and retain repor
       root,
       budgetUsd: 1.2,
       reservationUsd: 0.4,
-      timeoutMs: 1000,
+      timeoutMs: SPAWN_MS,
       launcher: async () => ({ exitCode: 0, stdout: result('[1,2,3]', 0.41), wallMs: 1 }),
     });
     assert.equal(overspend.rows.length, 1);
@@ -273,7 +277,7 @@ test('post-execution profile read failure preserves spent attempt accounting', a
       root,
       budgetUsd: 1.2,
       reservationUsd: 0.4,
-      timeoutMs: 1000,
+      timeoutMs: SPAWN_MS,
       launcher: async (_item, cwd, timeoutMs) => {
         const outcome = await runProcess(
           process.execPath,
@@ -318,7 +322,9 @@ test('paired matrix reports both-repeat heldout regressions; rerun duplicates ca
 
 test('proposal split is hash-frozen before tuning; full live matrix refuses without launching', async () => {
   assert.equal(hash(await readFile(MANIFEST)), '2efac9527b671d5240441bae0430d89e35829356cde9abb1dfc54f5d5efcb97c');
-  const child = await runProcess(process.execPath, ['scripts/benchmark-routing.mjs', '--live'], { timeoutMs: 1000 });
+  const child = await runProcess(process.execPath, ['scripts/benchmark-routing.mjs', '--live'], {
+    timeoutMs: SPAWN_MS,
+  });
   assert.equal(child.exitCode, 1);
   assert.equal(child.stdout, '');
   await assert.rejects(cli(['--live']), /checkout\/profile isolation is not implemented; approval is required/);
@@ -356,7 +362,7 @@ test('malformed usage retains partial cost in attempt report and stops further l
       root,
       budgetUsd: 1.2,
       reservationUsd: 0.4,
-      timeoutMs: 1000,
+      timeoutMs: SPAWN_MS,
       launcher: async () => ({ stdout, exitCode: 0, wallMs: 1 }),
     });
     assert.equal(actual.rows.length, 1);
