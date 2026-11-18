@@ -342,7 +342,8 @@ These agents always keep their model:
 - a fork;
 - an Agent call that names a `model`;
 - a teammate;
-- a workflow `agent()`: Claude Code ignores a rewrite of its model, so workflow agents get only `CLAUDE_CODE_SUBAGENT_MODEL`;
+- a workflow `agent({ model })`: the script chose it. A workflow `agent()` without a model keeps Claude Code's pick unless you list `workflow-subagent` under `subagents.types` (a models key, or `classify`); then the router picks its model like any other agent's;
+- a resumed subagent: it runs on the model of its first spawn, and Claude Code lets a hook only refuse a resume;
 - a built-in agent other than Explore, Plan and general-purpose: its definition is not on disk.
 
 ```json

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Changed: subagents
+
+- A workflow `agent()` can now be routed: Claude Code 2.1.321 applies a model rewrite to it (checked live). List `workflow-subagent` under `subagents.types` to opt in; by default workflow agents still keep Claude Code's pick. An `agent({ model })` call keeps the script's model.
+- A resumed subagent is left alone: Claude Code lets a hook only refuse a resume, so its model and its record stay those of its first spawn.
+- A subagent's `turn.start` no longer takes over the main turn's goal. Claude Code 2.1.321 raises that event for subagent loops too.
+
 ### Changed: requirements
 
 - The router needs Claude Code 2.1.321 or newer (was 2.1.289). Older builds refuse the desktop, VS Code and mobile pane and band; on them routing stays off and the band says why.

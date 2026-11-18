@@ -366,3 +366,35 @@ test('Usage and Now show the session’s agents by model, who picked it, and wha
   assert.match(open, /■ Haiku 5\.5 +1 moved down/);
   assert.match(open, /1\.0 requests per agent · none respawned within 10 min/);
 });
+
+test('a workflow agent runs on the router’s pick once its type is listed, and keeps its own model otherwise', async () => {
+  const input = (extra = {}) =>
+    spawnInput({ subagentType: 'workflow-subagent', workflow: { runId: 'wf_1', agentIndex: 1 }, ...extra });
+  const listed = await started({ subagents: { types: { 'workflow-subagent': 'haiku' } } });
+  assert.equal((await listed.spawn(input())).sent.model, 'claude-haiku-5-5');
+  const own = input({ model: 'sonnet' });
+  assert.equal((await listed.spawn(own, { agentId: 'w2' })).sent, own);
+  const unlisted = await started();
+  const plain = input();
+  assert.equal((await unlisted.spawn(plain)).sent, plain);
+});
+
+test('resuming a subagent leaves its spawn and its record alone', async () => {
+  const h = await started({ subagents: { types: { 'general-purpose': 'haiku' } } });
+  const first = spawnInput({ subagentType: 'general-purpose' });
+  await h.spawn(first, { model: 'claude-haiku-5-5', agentId: 'r1' });
+  await finish(h, 'r1', 'claude-haiku-5-5');
+  const before = kept(h);
+  const routedBefore = routedOf(h, 'general-purpose').agents;
+  const resume = spawnInput({
+    subagentType: 'general-purpose',
+    model: 'claude-haiku-5-5',
+    background: true,
+    resume: { agentId: 'r1' },
+  });
+  const { sent } = await h.spawn(resume, { model: 'claude-haiku-5-5', agentId: 'r1' });
+  assert.equal(sent, resume);
+  await finish(h, 'r1', 'claude-haiku-5-5');
+  assert.equal(routedOf(h, 'general-purpose').agents, routedBefore);
+  assert.deepEqual(kept(h).passed, before.passed);
+});

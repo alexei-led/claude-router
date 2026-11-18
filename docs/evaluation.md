@@ -427,7 +427,7 @@ Method:
 Checks:
 
 - `test/subagents.test.mjs` covers each pass reason, the pin rule, the classify mapping, core's model estimate, the router's move, the subagent lifetime, Haiku's long-context price, and the store's days, merge, reset, bad values and records from before 1.14.0. `test/hook-subagents.test.mjs` covers `on` (the routed model), a fork, an explicit model, a teammate, a workflow agent and a pinned project agent (each passes), a classifier failure (core's model), parallel spawns, a spawn-path pause that leaves main routing alone, respawns, session end, Delete history, and the Usage and Now tabs. `test/usage-view.test.mjs` covers the block by period, an open row, a narrow pane and undated records; `test/hook-band.test.mjs` the band in a subagent's transcript.
-- `experiments/mod-router/results/agent-spawn-probe.json` records what Claude Code 2.1.296 does with a spawn's model, frontmatter and workflow agents.
+- `experiments/mod-router/results/agent-spawn-probe.json` records what Claude Code 2.1.296 does with a spawn's model, frontmatter and workflow agents. On 2.1.321 a live probe showed that a model rewrite applies to workflow agents, and that a resumed subagent raises `agent.spawn` with `e.resume` and keeps its first model.
 - `experiments/mod-router/results/subagent-routing-live.json` is a live `on` run on 2026-10-10 with Sonnet as the parent. Explore was sent Haiku and ran on it. general-purpose was classified `standard`. A pinned project agent and an explicit `opus` call passed through. The store counted each one.
 
 When to turn it `on`:
@@ -441,7 +441,7 @@ Keep it if requests per agent and respawns per type stay no higher than before y
 Limits:
 
 - Answer quality is not measured.
-- Workflow agents cannot be routed. In the maintainer's sessions they were 22 of 24 Opus subagents (`workflow-subagent-models.json`), so most inherited Opus spend there is out of reach. `CLAUDE_CODE_SUBAGENT_MODEL` is the lever for them.
+- Workflow agents are routed only when `subagents.types` lists `workflow-subagent`. In the maintainer's sessions they were 22 of 24 Opus subagents (`workflow-subagent-models.json`), so that listing reaches most of the inherited Opus spend. The routed effect is not measured yet.
 - `on` estimates core's model. It does not apply the family-alias rule or the `availableModels` substitution.
 - Respawns are a proxy. A parent may spawn the same type twice on purpose.
 - Records follow the savings records' storage, with the same gaps.

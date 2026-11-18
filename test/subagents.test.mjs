@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULTS, loadConfig } from '../lib/config.mjs';
+import { CLASSIFY, DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { requestUsd, subagentCacheTtl } from '../lib/savings.mjs';
 import {
   addAgentReply,
@@ -335,4 +335,14 @@ test('a record from before 1.14.0 reads as undated totals that only a whole-reco
   const next = recordAgent(read, record(), AT(13));
   assert.deepEqual(next.undated, { agents: 5, usd: 2.5 });
   assert.deepEqual(mergeSubagentStores([saved, next]).undated, { agents: 10, usd: 5 });
+});
+
+test('a workflow agent is routed only when router.json lists its type, and its own model choice always stands', () => {
+  const agent = (extra = {}) =>
+    spawn({ subagentType: 'workflow-subagent', workflow: { runId: 'wf_1', agentIndex: 1 }, ...extra });
+  const listed = withTypes({ 'workflow-subagent': CLASSIFY });
+  assert.equal(passReason(DEFAULTS, agent(), null), 'workflow');
+  assert.equal(passReason(listed, agent(), null), null);
+  assert.equal(passReason(listed, agent({ model: 'sonnet' }), null), 'workflow');
+  assert.equal(passReason(withTypes({ 'workflow-subagent': null }), agent(), null), 'unlisted');
 });
