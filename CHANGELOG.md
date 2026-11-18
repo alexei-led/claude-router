@@ -4,7 +4,7 @@
 
 ### Summary
 
-The router now routes around a model that fails, turns routing off when you pick a model in the picker, and draws the terminal pane in boxes with one pin dropdown. The pin row says it pins a tier, and the Now tab names the model you chose. No upgrade steps; Claude Code 2.1.321 or newer is still required.
+The router now routes around a model that fails, turns routing off when you pick a model in the picker, and draws the terminal pane in boxes with one pin dropdown. The pin row says it pins a tier, and the Now tab names the model you chose. 1.25.1 already shipped these changes, by accident, as a patch release; 1.26.0 is the same code under the version number that fits it. No upgrade steps; Claude Code 2.1.321 or newer is still required.
 
 ### Added
 
@@ -22,6 +22,17 @@ The router now routes around a model that fails, turns routing off when you pick
 - After you switch models with `/model` or the picker, the Now tab names the model you chose instead of the last routed one.
 - The pin row no longer reads like a model picker: the Now tab's pin row and the band's pin dropdown are named for pinning the next turn to a tier, show the model that runs now, and point to `/model` (with routing off) for models no tier routes to, such as Sonnet. Closes #91.
 
+### Notes
+
+- Not yet checked live: the 2.1.321 floor itself (CI runs the engine tests on it), the pin dropdown, panes under 72 columns, API failover and the late-attach toast. They are listed in `BACKLOG.md`.
+- The debug-log `ZodError` after routed subagent spawns and the `/router` transcript echo that drops its arguments were investigated and are unchanged; the findings are in `BACKLOG.md`.
+
+## 1.25.1 (2026-11-18)
+
+### Summary
+
+Documentation and developer-guide work, and one fewer CI workflow. Pictures of the band and pane, drawn from the real component tree, now sit in the README and the user guide; CONTRIBUTING.md, AGENTS.md and CLAUDE.md describe how to work on the router. This release also carried the routing and pane changes listed under 1.26.0, which merged just before it was cut, so it is a minor release published as a patch. Use 1.26.0 or newer for the same code with matching notes.
+
 ### Removed
 
 - The `ai-review` label and its GitHub workflow, which 1.25.0 added for maintainer-started AI reviews of pull requests. CI keeps its four checks.
@@ -29,11 +40,6 @@ The router now routes around a model that fails, turns routing off when you pick
 ### Docs
 
 - Pictures of the desktop, VS Code and mobile band and pane (every tab, the Set up card, dark and light) in the README and the user guide, drawn from the real component tree by `npm run docs:desktop-images`. They approximate the Claude app's layout and colours.
-
-### Notes
-
-- Not yet checked live: the 2.1.321 floor itself (CI runs the engine tests on it), the pin dropdown, panes under 72 columns, API failover and the late-attach toast. They are listed in `BACKLOG.md`.
-- The debug-log `ZodError` after routed subagent spawns and the `/router` transcript echo that drops its arguments were investigated and are unchanged; the findings are in `BACKLOG.md`.
 
 ## 1.25.0 (2026-11-18)
 
