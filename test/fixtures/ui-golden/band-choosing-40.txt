@@ -16,4 +16,4 @@ Box flexDirection="column" key="router-band"
       "Jev ≤ 1.5 s"
     Text
       "  "
-    Button key="details" label="Router" plain=false
+    Button key="details" label="Router"

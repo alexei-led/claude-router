@@ -42,8 +42,11 @@ export function validateProps(type, props) {
     if (name === 'borderStyle')
       assert.ok(BORDER_STYLES.includes(value), `${type} borderStyle: ${JSON.stringify(value)} draws no border`);
   }
-  if (type === 'Button')
+  if (type === 'Button') {
     assert.ok(typeof props.label === 'string' || props.children !== undefined, 'Button needs a label or children');
+    // The engine types `plain` as `true`: a Button that is not plain leaves it out.
+    assert.ok(props.plain === undefined || props.plain === true, `Button ${props.key}: plain is true or absent`);
+  }
   for (const [name, kind] of Object.entries(REQUIRED[type] ?? {})) {
     const value = props[name];
     const ok = kind === 'array' ? Array.isArray(value) : typeof value === kind;

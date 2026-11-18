@@ -22,7 +22,7 @@ Box flexDirection="column" key="router-band"
       "! fallback"
     Text
       "  "
-    Button key="details" label="Router" plain=false
+    Button key="details" label="Router"
     Box display="none" hover={"display":"flex"} left=59 position="absolute" top=0
       Button key="band-manual" label="Turn off"
       Text

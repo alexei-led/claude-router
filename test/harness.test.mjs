@@ -11,6 +11,7 @@ const REFUSED = [
   ['Box', { height: '50%' }, 'a percentage height'],
   ['Box', { flexGrow: '1' }, 'a flex factor that is a string'],
   ['Button', { onPress() {} }, 'a Button with no label or children'],
+  ['Button', { label: 'Router', plain: false }, 'a Button whose plain is false rather than left out'],
   ['Select', { value: 'a', options: [] }, 'a Select with no onSelect'],
   ['Select', { value: 'a', onSelect() {} }, 'a Select with no options'],
   ['Box', { borderStyle: 'rounded' }, 'a border name the engine does not know, which draws no border'],

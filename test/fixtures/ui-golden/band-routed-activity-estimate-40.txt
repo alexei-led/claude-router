@@ -16,4 +16,4 @@ Box flexDirection="column" key="router-band"
       " · high"
     Text
       "  "
-    Button key="details" label="Router" plain=false
+    Button key="details" label="Router"

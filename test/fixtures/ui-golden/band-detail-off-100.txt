@@ -13,7 +13,7 @@ Box flexDirection="column" key="router-band"
       "routing off"
     Text
       "  "
-    Button key="details" label="Router" plain=false
+    Button key="details" label="Router"
     Box display="none" hover={"display":"flex"} left=52 position="absolute" top=0
       Button key="band-detail" label="1 row"
       Text

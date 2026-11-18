@@ -30,7 +30,7 @@ Box flexDirection="column" key="router-band"
       " 12%"
     Text
       "  "
-    Button key="details" label="Router" plain=false
+    Button key="details" label="Router"
     Box display="none" hover={"display":"flex"} left=24 position="absolute" top=0
       Text dimColor=true
         "pin "
