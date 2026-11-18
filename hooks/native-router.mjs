@@ -23,7 +23,7 @@ import {
 } from '../lib/activity-stats.mjs';
 import { advanceDemand, assessCandidates, initialAutoState, selectTarget } from '../lib/auto-engine.mjs';
 import { autoRoute, observeAutoFallback } from '../lib/auto-route.mjs';
-import { renderBand, switchToast } from '../lib/band.mjs';
+import { renderBand, renderRouteLine, switchToast } from '../lib/band.mjs';
 import { ClassifierClient } from '../lib/classifier-client.mjs';
 import { resolveCredentials } from '../lib/classifier-contract.mjs';
 import {
@@ -39,6 +39,7 @@ import {
   MIGRATION_HINT,
   MIN_CLAUDE_CODE,
   ROUTING_MODES,
+  resolveRoute,
   supportedVersion,
   TIERS,
   tuningOf,
@@ -71,6 +72,7 @@ import {
 } from '../lib/decisions.mjs';
 import {
   activityDetailLines,
+  cardRoute,
   classifierStatus,
   classifierTimed,
   GATEWAY_CLEANUP,
@@ -79,6 +81,7 @@ import {
   NOT_A_TIER_REASON,
   pluginIdOf,
   savingsLine,
+  shownConfig,
   storeAgreementLine,
   unavailableReason,
   unpricedLine,
@@ -134,6 +137,7 @@ import {
   prepareLoop,
   resetHistory,
 } from '../lib/route.mjs';
+import { LINE_MODES, lineId, lineModeOf, lineOf, routeOf, showsLine } from '../lib/route-line.mjs';
 import {
   afterReset,
   compareModels,
@@ -168,6 +172,7 @@ import {
   subagentsAfterReset,
   typeRoute,
 } from '../lib/subagents.mjs';
+import { argumentHint, routerSuggestions } from '../lib/subcommands.mjs';
 import { routeDraftOf, routingChanges } from '../lib/ui/model/draft.mjs';
 import { keyHelpOf } from '../lib/ui/model/frame.mjs';
 import { isGraphical } from '../lib/ui/tokens.mjs';
@@ -197,10 +202,17 @@ import {
 
 const VIEW = { plugin: 'router', key: 'view' };
 const LOOP = { plugin: 'router', key: 'loops' };
+// One record per route line placed, by its `$.ui.place` id: what its `Placed` row draws.
+const LINES = { plugin: 'router', key: 'lines' };
 const PANE = 'jev-router';
 const PANE_TITLE = 'Router';
 const BAND_DETAIL = 'band:detail';
+// Whether and when a turn leaves a route line (lib/route-line.mjs), kept across sessions.
+const ROUTE_LINE = 'route:line';
 const MODE_PREFIX = 'mode:';
+// When the toast for one reason routing cannot run last showed; the reason is appended.
+const UNAVAILABLE_NOTICE_PREFIX = 'notice:unavailable:';
+const UNAVAILABLE_NOTICE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // The session's routing mode override (lib/modes.mjs), apart from its auto|manual MODE_PREFIX.
 const ROUTING_MODE_PREFIX = 'routing-mode:';
 const isSet = (value) => /^(1|true|yes|on)$/i.test(String(value ?? '').trim());
@@ -303,6 +315,8 @@ function createRouter(options) {
     // Each turn's decision rows until turn.complete writes them, with the turn's end, to the session's record, held as
     // `{ sessionId, record }` once read (`decisionRecord`).
     turnDecisions: new Map(),
+    // The route the last routed turn ran, to tell whether the next one moved it; null at a session's start.
+    lastRoute: null,
     decisionRecord: null,
     trace: /** @type {TraceHold | null} */ (null),
     traceFreshSession: null,
@@ -975,32 +989,67 @@ async function setPin($, router, tier) {
   return `${tier} pinned for the next turn and its tool continuations.`;
 }
 
-// `/router [auto|off|pin <tier>|activities <mode>|mode <mode>]`; with no action, the pane, or the status text without
-// a surface.
+// What each word of the SUBCOMMANDS table does: a switch, since the engine reads `$` only where it is passed to a
+// function it can name. A word with no case, or one that answers nothing, leaves the command to open the pane.
+async function runSubcommand($, router, action, value) {
+  switch (action) {
+    case 'auto':
+      return switchRouting($, router, 'auto');
+    case 'off':
+      return switchRouting($, router, 'manual');
+    case 'trace':
+      return value === 'export' ? { text: await exportTraces($, router) } : undefined;
+    case 'line':
+      return {
+        text: LINE_MODES.includes(value) ? await setRouteLine($, value) : `Choose line ${LINE_MODES.join(', ')}.`,
+      };
+    case 'decisions':
+      return { text: await decisionsText($, router, value) };
+    case 'pin':
+      return { text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.` };
+    case 'mode':
+      return {
+        text: [...ROUTING_MODES, 'default'].includes(value)
+          ? await setRoutingMode($, router, value)
+          : `Choose mode ${[...ROUTING_MODES, 'default'].join(', ')}.`,
+      };
+    case 'activities':
+      return {
+        text: ACTIVITY_MODES.includes(value)
+          ? await setActivityRouting($, router, value)
+          : `Choose activities ${ACTIVITY_MODES.join(', ')}.`,
+      };
+    default:
+      return undefined;
+  }
+}
+
+// `/router line <mode>`: a preference like the band's second row, kept across sessions and never in router.json.
+async function setRouteLine($, mode) {
+  const saved = await $.store.set(ROUTE_LINE, mode).then(
+    () => true,
+    () => false,
+  );
+  const says = {
+    off: 'no route line after a turn',
+    moves: 'a route line after a turn that ran another model or effort than the last',
+    all: 'a route line after every turn',
+  };
+  return `Route line ${mode}: ${says[mode]}.${saved ? '' : ' It could not be saved for later sessions.'}`;
+}
+
+async function switchRouting($, router, mode) {
+  const view = router.view ?? (await readView($, router));
+  if (view.phase === 'unavailable') return { text: unavailableText(view) };
+  await changeMode($, router, mode);
+  return { text: mode === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
+}
+
+// `/router [word [value]]`, the words of SUBCOMMANDS; with none, the pane, or the status text without a surface.
 async function routerCommand($, router, args) {
   const [action, value] = args.trim().split(/\s+/);
-  if (action === 'auto' || action === 'off') {
-    const view = router.view ?? (await readView($, router));
-    if (view.phase === 'unavailable') return { text: unavailableText(view) };
-    await changeMode($, router, action === 'auto' ? 'auto' : 'manual');
-    return { text: action === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
-  }
-  if (action === 'trace' && value === 'export') return { text: await exportTraces($, router) };
-  if (action === 'decisions') return { text: await decisionsText($, router, value) };
-  if (action === 'pin')
-    return { text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.` };
-  if (action === 'mode')
-    return {
-      text: [...ROUTING_MODES, 'default'].includes(value)
-        ? await setRoutingMode($, router, value)
-        : `Choose mode ${[...ROUTING_MODES, 'default'].join(', ')}.`,
-    };
-  if (action === 'activities')
-    return {
-      text: ACTIVITY_MODES.includes(value)
-        ? await setActivityRouting($, router, value)
-        : `Choose activities ${ACTIVITY_MODES.join(', ')}.`,
-    };
+  const answer = await runSubcommand($, router, action, value);
+  if (answer) return answer;
   const storedView = await readView($, router);
   const view = { ...storedView, mode: await modeOf($, router, storedView.mode) };
   if (!(await $.session.surfaces()).length)
@@ -2041,6 +2090,26 @@ function originOfTurn(router, text) {
   return taken.kind;
 }
 
+// A routed turn's route line: one record in `$.state`, one row placed at the transcript's end. Not for an interrupted
+// turn, a subagent's, or a turn with routing off, which has no route of its own to say. Display only, so a failure
+// here never breaks the turn, and a surface that cannot draw the row now is logged, not told.
+async function placeRouteLine($, router, e, turn) {
+  try {
+    const view = router.view;
+    const route = routeOf(view);
+    if (!turn || e.isAborted || !route || !view || view.phase === 'unavailable') return;
+    if ((await modeOf($, router, view.mode)) === 'manual') return;
+    const previous = router.lastRoute;
+    router.lastRoute = route;
+    const mode = lineModeOf(await $.store.get(ROUTE_LINE).catch(() => undefined));
+    if (!showsLine(mode, previous, route)) return;
+    const id = lineId(e.turnId);
+    await $.state.set({ ...LINES, id }, lineOf(view, route));
+    const placed = await $.ui.place({ id });
+    if (!placed.isPlaced) $.ui.log(`router route line not drawn: ${placed.reason}`, { to: 'debug' });
+  } catch {}
+}
+
 // A finished turn's decision rows and its end row, added to this session's record. Telemetry never breaks a turn: a
 // failed read or write loses this turn's rows. A record from before the last reset reads as empty, and rows read
 // before a Reset in this session are not written back.
@@ -2340,11 +2409,32 @@ async function noteSpawn($, router, { cfg, e, pass, decision, routed, result, de
   await showRunning($, router);
 }
 
-// How many of the agents with a record are between their start or a step and their turn's end, in the view when it
-// changes. An agent spawned with routing off has no record and is not counted.
+// Which of the agents with a record are between their start or a step and their turn's end, and how many, in the view
+// when the set changes: the band draws a row for each. An agent spawned with routing off has no record and is not
+// listed.
 async function showRunning($, router) {
-  const running = [...router.agents.values()].filter((agent) => agent.running).length;
-  if ((router.view?.subagentsRunning ?? 0) !== running) await updateView($, router, { subagentsRunning: running });
+  const ids = [...router.agents].filter(([, agent]) => agent.running).map(([id]) => id);
+  if ((router.view?.subagentIds ?? []).join(' ') !== ids.join(' '))
+    await updateView($, router, { subagentsRunning: ids.length, subagentIds: ids });
+}
+
+// The band's rows: the agents with a record that Claude Code still lists as running, never a teammate, whose own
+// session the person opens from the tasks list. The list names the type and the task; the record the model.
+async function runningAgents($, router) {
+  const listed = await $.agent.list().catch(() => []);
+  return listed.flatMap((agent) => {
+    const record = router.agents.get(agent.id);
+    return record?.running && !agent.teammateId && ['running', 'waiting'].includes(agent.status)
+      ? [{ id: agent.id, type: agent.type, description: agent.description, record }]
+      : [];
+  });
+}
+
+// A press on an agent's row, or on Back, shows that transcript in the main view. Claude Code allows it only while the
+// call answers the person's own input, so a press is the one place to ask; a refusal is told.
+async function showView($, view) {
+  const shown = await $.ui.view(view).catch(() => ({ deny: 'Could not switch the view.' }));
+  if (shown.deny) $.ui.toast(shown.deny);
 }
 
 // A subagent's prompt-cache lifetime, by Claude Code's rule for requests outside the main conversation.
@@ -2959,9 +3049,8 @@ async function initializeSession($, router) {
   await $.command.register({
     name: 'router',
     description:
-      'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>; decisions [n] lists the last routing decisions.',
-    argumentHint:
-      '[auto|off|pin <tier>|activities off|on|mode cost|balanced|quality|default|decisions [n]|trace export]',
+      'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>, line <mode>; decisions [n] lists the last routing decisions.',
+    argumentHint: argumentHint(),
     immediate: true,
   });
   const model = await $.session.model();
@@ -3020,6 +3109,29 @@ async function initializeSession($, router) {
   }
 }
 
+// What made routing unavailable, as the notice keys it: an old Claude Code, the v0.8 gateway settings, or a router.json
+// that did not load.
+function unavailableCause(error) {
+  if (error?.startsWith('requires Claude Code')) return 'version';
+  return error === GATEWAY_SETTINGS ? 'gateway' : 'config';
+}
+
+// One toast when a session starts with routing unavailable, at most once a day per cause: the band says it too, but not
+// once it is collapsed or scrolled away. Not for a headless run, which has no one to read it. The day is recorded before
+// the toast, so a toast no surface draws is not retried until tomorrow.
+async function noticeUnavailable($, router, e) {
+  const view = router.view;
+  if (view?.phase !== 'unavailable' || !e.isInteractive || !e.surface) return;
+  try {
+    const key = `${UNAVAILABLE_NOTICE_PREFIX}${unavailableCause(view.error)}`;
+    const last = await $.store.get(key);
+    const now = Date.now();
+    if (Number.isFinite(last) && now - last >= 0 && now - last < UNAVAILABLE_NOTICE_INTERVAL_MS) return;
+    await $.store.set(key, now);
+    $.ui.toast(`Routing off: ${unavailableReason(view)}. Claude’s model is kept.`);
+  } catch {}
+}
+
 async function ensureInitialized($, router) {
   if (router.initialized) return true;
   router.initializing ??= initializeSession($, router).finally(() => {
@@ -3038,8 +3150,10 @@ export function register(on, options) {
     router.traceStartedSession = sessionId;
     router.trace = null;
     router.traceOperations.clear();
+    router.lastRoute = null;
     router.initialized = false;
     await ensureInitialized($, router);
+    await noticeUnavailable($, router, e);
     return next(e);
   });
 
@@ -3062,6 +3176,19 @@ export function register(on, options) {
   });
 
   on('command.run', { command: 'router' }, ($, e) => routerCommand($, router, e.args));
+
+  // The words after `/router `, once one character is typed (the token is never empty). A matcher tests the token
+  // alone, so the hook reads the text before it. Nothing is read or written but the router's own view.
+  on('prompt.autocomplete', async (_$, e, next) => {
+    const mine = routerSuggestions(e, {
+      describe: (name, value) =>
+        name === 'pin' && router.view
+          ? cardRoute(router.config, resolveRoute(shownConfig(router.config, router.view), value), { short: true })
+          : undefined,
+    });
+    if (!mine.length) return next(e);
+    return { suggestions: [...(await next(e)).suggestions, ...mine] };
+  });
 
   // Since 2.1.321 a subagent's loop raises turn.start too, with its agentId; the goal and prompt state is the main loop's.
   on('turn.start', async ($, e, next) => {
@@ -3100,6 +3227,7 @@ export function register(on, options) {
     // `off` asks nothing, so it records nothing; it only ends the watch after a cheaper activity move.
     const turn = router.turnActivities.get(e.turnId);
     router.turnActivities.delete(e.turnId);
+    await placeRouteLine($, router, e, turn);
     if (turn?.mode === 'off') {
       if ((await $.session.id()) === turn.sessionId) router.afterDown = advanceDown(router.afterDown, turn).after;
     } else if (turn) await recordActivity($, router, turn);
@@ -3170,6 +3298,17 @@ export function register(on, options) {
     return label ? next({ ...e, props: { ...e.props, modes: [...e.props.modes, label] } }) : next(e);
   });
 
+  // A route line: drawn from the record the turn's end kept under the row's id. Rows other plugins placed pass.
+  on('ui.render', { component: 'Placed' }, async ($, e, next) => {
+    if (e.props.plugin !== $.plugin.name) return next(e);
+    const { value: line } = await $.state.get({ ...LINES, id: e.props.id });
+    if (!line) return next(e);
+    return renderRouteLine($.ui.resolve(e), router.config, line, {
+      surface: e.surface,
+      onFallback: logFallback($, 'route line'),
+    });
+  });
+
   on('ui.render', { component: ['AbovePrompt', 'Pane'] }, async ($, e, next) => {
     if (e.component === 'Pane' && e.requestId !== PANE) return next(e);
     const storedView = await readView($, router);
@@ -3194,9 +3333,13 @@ export function register(on, options) {
               onFallback: logFallback($, 'band'),
               agentId: e.props.view?.agentId,
               agent: router.agents.get(e.props.view?.agentId) ?? null,
+              agents: e.props.view?.agentId ? [] : await runningAgents($, router),
+              back: true,
             },
             {
               open: () => openPane($, router),
+              viewAgent: (agentId) => showView($, { agentId }),
+              back: () => showView($, {}),
               mode: (mode) => changeMode($, router, mode),
               pin: async (tier) => $.ui.toast(await setPin($, router, tier)),
               unpin: () => updateView($, router, { pendingPin: null }),

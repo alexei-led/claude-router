@@ -28,13 +28,13 @@ test('the band yields to a survey and says how a subagent got its model', async 
   const h = harness();
   await start(h);
   assert.equal((await band(h, { hasSurvey: true })).tree.component, 'AbovePrompt');
-  assert.match((await band(h, { view: { agentId: 'a1' } })).line, /^agent · model chosen at spawn/);
+  assert.match((await band(h, { view: { agentId: 'a1' } })).line, /^ *agent · model chosen at spawn/);
   const off = harness();
   off.files.set(CONFIG, JSON.stringify({ subagentRouting: 'off' }));
   await start(off);
   assert.match(
     (await band(off, { view: { agentId: 'a1' } })).line,
-    /^agent · keeps its own model \(subagent routing off\)/,
+    /^ *agent · keeps its own model \(subagent routing off\)/,
   );
 });
 
@@ -53,10 +53,10 @@ test('in a subagent’s transcript the band names its model and who picked it', 
   await h.spawn(spawn(), { model: 'claude-haiku-5-5', agentId: 'a1' });
   await h.spawn(spawn({ workflow: { runId: 'wf_1', agentIndex: 1 } }), { model: 'claude-opus-5-5', agentId: 'w1' });
   const routed = (columns) => band(h, { view: { agentId: 'a1' }, bodyColumns: columns });
-  assert.equal((await routed(120)).line, 'agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)');
-  assert.equal((await routed(30)).line, 'agent ■ Haiku 5.5');
+  assert.equal((await routed(120)).line.trim(), 'agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)');
+  assert.equal((await routed(30)).line.trim(), 'agent ■ Haiku 5.5');
   assert.equal(
-    (await band(h, { view: { agentId: 'w1' } })).line,
+    (await band(h, { view: { agentId: 'w1' } })).line.trim(),
     'agent □ Opus 5.5  = Claude Code’s pick: the workflow sets it',
   );
 });

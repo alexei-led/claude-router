@@ -1,0 +1,8 @@
+Box
+  Button key="band-back" label="◂ main" plain=true
+  Text
+    "   "
+  Text dimColor=true
+    "agent "
+  Text color="#c3e88d" weight="semibold"
+    "■ Haiku 5.5"

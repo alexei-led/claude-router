@@ -1,0 +1,17 @@
+Box
+  Text
+    "  "
+  Text color="#d7af5f"
+    "▂"
+  Text color="#d7af5f"
+    "▄"
+  Text color="#d7af5f"
+    "▆"
+  Text dimColor=true
+    "█"
+  Text
+    " "
+  Text weight="semibold"
+    "Sonnet 5.5"
+  Text
+    " · high"

@@ -47,7 +47,7 @@ The band above the prompt is drawn natively as one fixed row. Nothing appears on
 - **One control per state**: **Turn on** when routing is off, **Set up** when the active classifier lacks credentials, **Fix** when routing is unavailable. While routing is on, turn it off from the pane's header (**On** / **Off**) or with `/router off`.
 - **Session row**: the second row (plan windows and the session's cost against no routing) is no longer a band button. Turn it on with **Show session row in band** on the pane's Now tab; Router remembers the choice across sessions.
 
-In a subagent's transcript the band names the agent's model and who picked it, as described under the terminal band.
+While subagents run, a row of buttons under the band lists them, one per agent with the model, type and task (`agents 2  ▸ ■ Haiku 5.5 Explore · retry usages ●`). Press one to open that agent's transcript in the main view. The row lists three agents and then `+N`, and keeps the first agent and the count when the window narrows. It shows only while an agent runs, and never a teammate. In an agent's transcript the band has a **Back** button (`◂ main` in the terminal, **← Main** on these surfaces) that returns to the main conversation. The agent's model and who picked it are described under the terminal band.
 
 ### In the terminal
 
@@ -376,12 +376,24 @@ On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the
 | `/router mode <cost\|balanced\|quality>`  | Set this session's [routing mode](routing-modes.md) from the next turn. A resume keeps it.               |
 | `/router mode default`                   | Clear the session's mode: the project's or the profile's applies again.                                  |
 | `/router decisions [n]`                  | Print this session's last `n` routing decisions, 20 by default. See [Routing decisions](#routing-decisions). |
+| `/router line <off\|moves\|all>`          | Choose when a turn leaves a [route line](#the-route-line) in the transcript. `moves` is the default. Kept across sessions. |
 | `/model <name>`                          | Select a model and turn routing off. Use `/router auto` to turn it back on.                               |
 | **Turn on** / **Turn off** on the band   | The same as `/router auto` and `/router off`.                                                             |
 | **on** / **off** on the pane (`o` / `f`) | The same as `/router auto` and `/router off`.                                                             |
 | **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.                                      |
 
+Type `/router` and a space, then a letter, and the prompt offers the words that start with it (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `line <off|moves|all>`, `decisions [n]`, `trace export`). After `pin `, `mode `, `activities ` or `line ` it offers the values; `pin` names the model each tier runs. The rows come after Claude Code's own. They are drawn by the surface's prompt box, so a surface that does not raise the typeahead shows none.
+
 With `table` or `shadow`, a routing mode moves each tier's route one step toward cost or quality; pins and `micro` turns are not moved. With opt-in `auto`, the mode changes the demand margin instead, and a tier pin uses exact demand without a margin. The band and the Now tab show the mode and where it comes from, such as `cost (session)`. When the mode kept the cell's model and changed only its effort, as `cost` does for Opus at `high`, the band adds `effort only`: the cost estimates price the same tokens on both routes, so that change shows no difference there, though real output length can differ. A change applies from the next turn, and the route in use moves only through the usual checks, so on a running task a cheaper route can wait a few requests and for a checkpoint. **Mode** on the Policy tab sets the profile's mode. See [Routing modes](routing-modes.md).
+
+### The route line
+
+After a routed turn, Router can add one dim row at the end of the transcript that says which model and effort ran and why, in the band's words: `▂▄▆█ Sonnet 5.5 · high  ↓ cheaper fits  code`. A narrow window drops the classifier's support, then the activity, then the reason; the route stays.
+
+- `/router line moves` (the default) adds the row only when the turn ran another model or effort than the last routed turn, and on a session's first routed turn.
+- `/router line all` adds it after every routed turn, and `/router line off` never.
+
+No row is added for an interrupted turn, a subagent's turn, or a turn while routing is off. The row is for you: the model never reads it, `claude --resume` does not bring earlier rows back, and a compaction ends the rows above it. The setting has no control in the pane; it is kept in the plugin's store across sessions, not in `router.json`.
 
 ### Routing decisions
 
@@ -509,5 +521,7 @@ To stop routing for a session, run `/router off`. To keep tier routing but stop 
 | Router controls are unavailable             | Claude Code is older than 2.1.321.                                                                    | Update Claude Code.                                                                                                                                                          |
 | Pane reads `ROUTER  unavailable`            | Old gateway settings, an old Claude Code, or an invalid `router.json`. The line under it names which. | Fix the cause it names and restart. Until then every turn keeps Claude's model, and `/router auto`, `off`, `pin`, and `activities` reply with the reason and change nothing. |
 | Context reads as unknown                    | The router lacks a reliable local estimate or current-history measurement.                            | Keep using the current model, or start a new history with a supported context estimate.                                                                                      |
+
+When a session starts with the router unavailable, a toast says why (`Routing off: requires Claude Code 2.1.321 or newer. Claude’s model is kept.`). It shows once a day for each cause (old Claude Code, v0.8 gateway settings, a `router.json` that does not load) and never under `claude -p`. The band and the pane keep saying it.
 
 For the internal event flow and network deadline behavior, see [Architecture](architecture.md). For what the test traces do and do not show, see [Evaluation](evaluation.md).

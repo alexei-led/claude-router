@@ -1,0 +1,29 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="#e0708a"
+      "▂"
+    Text color="#e0708a"
+      "▄"
+    Text color="#e0708a"
+      "▆"
+    Text color="#e0708a"
+      "█"
+    Text
+      " "
+    Text weight="semibold"
+      "Opus 5.5"
+    Text
+      " · xhigh"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+  Box
+    Text dimColor=true
+      "agents 2"
+    Text
+      "   "
+    Button key="band-agent-a1" label="▸ ■ Haiku 5.5 Explore ●" plain=true
+    Text
+      "   "
+    Text dimColor=true
+      "+1"

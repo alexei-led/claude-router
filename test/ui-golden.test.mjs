@@ -9,7 +9,7 @@ import test, { after } from 'node:test';
 // Times print through toLocaleTimeString: fix the zone before any module builds a date.
 process.env.TZ = 'UTC';
 
-const { renderBand } = await import('../lib/band.mjs');
+const { renderBand, renderRouteLine } = await import('../lib/band.mjs');
 const { DEFAULTS, editActivity, loadConfig } = await import('../lib/config.mjs');
 const { GATEWAY_SETTINGS, NOT_A_TIER_REASON } = await import('../lib/display.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
@@ -180,6 +180,75 @@ for (const [name, { agent, config = { ...DEFAULTS, subagentRouting: 'on' } }] of
         renderBand(ELEMENTS, config, ROUTED, null, { columns, agentId: 'a1', agent, now: NOW }, quiet),
       );
     });
+
+// The main thread's band lists the agents running under it: two, then five (three rows and a count); and an agent's
+// own band, which has a way back.
+const RUNNING = [
+  { id: 'a1', type: 'Explore', description: 'retry usages', record: AGENT },
+  {
+    id: 'a2',
+    type: 'general-purpose',
+    description: 'run tests',
+    record: { ...AGENT, routedModel: 'claude-sonnet-5-5', coreModel: 'claude-sonnet-5-5', move: null },
+  },
+];
+const MORE_RUNNING = [...RUNNING, ...['a3', 'a4', 'a5'].map((id) => ({ ...RUNNING[0], id }))];
+for (const columns of [100, 40]) {
+  test(`band agents at ${columns} columns`, () => {
+    golden(
+      `band-agents-${columns}`,
+      renderBand(ELEMENTS, DEFAULTS, ROUTED, null, { columns, agents: RUNNING, now: NOW }, quiet),
+    );
+  });
+  test(`band agents with more than three at ${columns} columns`, () => {
+    golden(
+      `band-agents-more-${columns}`,
+      renderBand(ELEMENTS, DEFAULTS, ROUTED, null, { columns, agents: MORE_RUNNING, now: NOW }, quiet),
+    );
+  });
+  test(`band agent view with back at ${columns} columns`, () => {
+    golden(
+      `band-agent-back-${columns}`,
+      renderBand(
+        ELEMENTS,
+        { ...DEFAULTS, subagentRouting: 'on' },
+        ROUTED,
+        null,
+        { columns, agentId: 'a1', agent: AGENT, back: true, now: NOW },
+        quiet,
+      ),
+    );
+  });
+}
+
+// The route line placed under a turn: a move down with its activity and the classifier's support, and a pinned turn.
+const ROUTE_LINES = {
+  moved: {
+    model: 'claude-sonnet-5-5',
+    effort: 'high',
+    tier: 'medium',
+    reason: 'downgrade',
+    activity: 'code',
+    estimate: { threshold: 0.9, downgradeMass: 0.93 },
+  },
+  pinned: {
+    model: 'claude-haiku-5-5',
+    effort: 'medium',
+    tier: 'micro',
+    reason: 'pinned',
+    activity: null,
+    estimate: null,
+  },
+};
+for (const [name, line] of Object.entries(ROUTE_LINES))
+  for (const [surface, label] of [
+    ['terminal', ''],
+    ['desktop', 'desktop-'],
+  ])
+    for (const columns of [100, 40])
+      test(`route line ${name} on ${surface} at ${columns} columns`, () => {
+        golden(`line-${name}-${label}${columns}`, renderRouteLine(ELEMENTS, DEFAULTS, line, { columns, surface }));
+      });
 
 // ---- the pane ---------------------------------------------------------------------------------------------------
 

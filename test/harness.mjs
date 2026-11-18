@@ -69,6 +69,11 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   let opened = {};
   const copied = [];
   const toasts = [];
+  const views = [];
+  const places = [];
+  let placeResult = { isPlaced: true, requestId: 'placed-1' };
+  let agents = [];
+  let viewResult = {};
   let version = '2.1.321';
   let settings = {};
   let sessionId = 's1';
@@ -147,6 +152,8 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
         }),
     },
     http: { fetch: (...args) => http(...args) },
+    // `agents` as `$.agent.list()` lists them.
+    agent: { list: async () => agents },
     ui: {
       // A graphical renderer that falls back to the terminal tree is a failure in a test.
       log: (text) => {
@@ -154,6 +161,14 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       },
       copy: async (args) => copied.push(args),
       toast: (text) => toasts.push(text),
+      place: async (args) => {
+        places.push(args);
+        return placeResult;
+      },
+      view: async (view) => {
+        views.push(view);
+        return viewResult;
+      },
       open: async () => opened,
       close: async () => {},
       resolve: () => ELEMENTS,
@@ -215,6 +230,21 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     commandCalls: () => commandCalls,
     copied,
     toasts,
+    // The calls of `$.ui.place`, in order; `placeAnswer` is what it resolves to next (`{ isPlaced: false, reason }` where
+    // no surface is attached).
+    places,
+    placeAnswer: (value) => {
+      placeResult = value;
+    },
+    // The calls of `$.ui.view`, in order; `viewAnswer` is what it resolves to next (`{}` or `{ deny }`).
+    views,
+    viewAnswer: (value) => {
+      viewResult = value;
+    },
+    // What `$.agent.list()` returns: `{ id, type, description, status }` each.
+    agents: (value) => {
+      agents = value;
+    },
     // What `$.ui.open` resolves: `{ isPlaced: true }`, or `{ isPlaced: false, reason }` where the pane waits undrawn.
     opens: (value) => {
       opened = value;
@@ -252,6 +282,12 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       snapshot = new Map();
       const event = { component, requestId: component, props, ...(surface ? { surface } : {}) };
       return handler('ui.render', { component })($, event, next);
+    },
+    // A prompt.autocomplete dispatch: `engine` is what core's typeahead already holds. Returns the rows after the hook.
+    autocomplete: async (input, engine = []) => {
+      snapshot = new Map();
+      const core = async () => ({ suggestions: engine });
+      return (await handler('prompt.autocomplete', input)($, input, core)).suggestions;
     },
     step: (input, response = {}, signal = new AbortController().signal) => {
       snapshot = new Map();

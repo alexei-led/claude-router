@@ -17,9 +17,13 @@ Ideas and minor issues that can wait for the next release. Add an item when you 
 - **Spinner shows the route** while the turn runs (`word`, `message`, `suffix` props).
 - **Retry on higher** button and an inline `~high` pin (`$.prompt.fill` and a `prompt.submit` strip).
 - **Dynamic `/router` description** with `command.describe`.
-- **Re-render on `session.attach`** so a desktop that attaches late gets the notice.
+- **Re-render on `session.attach`** so a desktop that attaches late gets the notice. The unavailable toast has the same gap: it is raised at `session.start` and recorded for the day, so a surface that attaches after it never shows it.
 - **Agent tool row "Open" button** through the `ToolUse` render component.
 - **Progress element.** Once the floor passes 2.1.327, `Progress` replaces the Svg meter in `lib/ui/graphical/meter.mjs`. `session.info()`, per-plugin band rows (`AbovePromptRow`), `session.stop` and `agent.limits` need 2.1.327 too.
+- **Route line extras.** The line shows the route and why. Not built: the turn's cost and saving against your model (`≈$0.04 · −$0.11 vs Opus 5.5`), a "was Sonnet 5.5 · high" form for a move, a click that opens a card, and a **Line** control on the pane's Policy tab. The setting is `/router line` only. `$.state` has no delete, so `router.lines` keeps one small record per placed row until the session ends.
+- **Agent rows without a record.** The band lists only agents the router has a spawn record for, since those are the ones whose start and end it hears. An agent spawned while routing was off, or one a plugin started, gets no row. Listing them needs `agent.spawn` and `turn.complete` bookkeeping that does not depend on a record. The rows are not toned by model on the desktop, where a Button takes no colour.
+- **Live check of the press.** `$.ui.view` works only while the call answers the person's own input. The test engine has no core for `ui.view`, so no test shows that a band press counts as one; confirm it in a live session on the terminal and the desktop app, and that `deny` toasts read well.
+- **`/router` typeahead on the desktop.** The types do not say whether a desktop prompt box raises `prompt.autocomplete`; check it live. The typeahead also offers nothing until one character follows `/router `, because the engine's token is never empty.
 
 ## Docs
 
