@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { renderBand } from '../lib/band.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
-import { TIER_COLOR } from '../lib/display.mjs';
 import { paintersOf } from '../lib/ui/painter.mjs';
 import {
   GRAPHICAL_MODEL,
@@ -10,6 +9,7 @@ import {
   GRAPHICAL_TONE,
   isGraphical,
   svgColor,
+  TIER_COLOR,
   toneColor,
 } from '../lib/ui/tokens.mjs';
 import { ELEMENTS, goldenText } from './harness.mjs';

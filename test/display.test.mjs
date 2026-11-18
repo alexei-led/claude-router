@@ -59,7 +59,7 @@ test('a small-window model is measured against its own window, not the native se
   assert.equal(metrics.window, 200_000);
   assert.equal(metrics.contextBar.percent, 75);
   assert.equal(metrics.cacheBar.percent, 80);
-  assert.equal(metrics.cacheBar.color, 'green');
+  assert.equal(metrics.cacheBar.tone, 'success');
   assert.equal(metrics.cacheBenefit, 0.108);
 });
 
@@ -103,16 +103,16 @@ test('token counts switch unit at a thousand and a million', () => {
 
 test('a bar turns yellow above 60% and red above 80%, clamps its fill and knows no reading', () => {
   for (const [value, maximum, width, expected] of [
-    [0, 1, 4, { text: '░░░░', percent: 0, color: 'green' }],
-    [0.6, 1, 10, { text: '██████░░░░', percent: 60, color: 'green' }],
-    [0.61, 1, 10, { text: '██████░░░░', percent: 61, color: 'yellow' }],
-    [0.8, 1, 10, { text: '████████░░', percent: 80, color: 'yellow' }],
-    [0.81, 1, 10, { text: '████████░░', percent: 81, color: 'red' }],
-    [3, 2, 4, { text: '████', percent: 150, color: 'red' }],
-    [-1, 1, 4, { text: '░░░░', percent: 0, color: 'green' }],
-    [1, 0, 4, { text: 'unknown', percent: null, color: 'gray' }],
-    [Number.NaN, 1, 4, { text: 'unknown', percent: null, color: 'gray' }],
-    [null, 1, 4, { text: 'unknown', percent: null, color: 'gray' }],
+    [0, 1, 4, { text: '░░░░', percent: 0, tone: 'success' }],
+    [0.6, 1, 10, { text: '██████░░░░', percent: 60, tone: 'success' }],
+    [0.61, 1, 10, { text: '██████░░░░', percent: 61, tone: 'warning' }],
+    [0.8, 1, 10, { text: '████████░░', percent: 80, tone: 'warning' }],
+    [0.81, 1, 10, { text: '████████░░', percent: 81, tone: 'danger' }],
+    [3, 2, 4, { text: '████', percent: 150, tone: 'danger' }],
+    [-1, 1, 4, { text: '░░░░', percent: 0, tone: 'success' }],
+    [1, 0, 4, { text: 'unknown', percent: null, tone: 'muted' }],
+    [Number.NaN, 1, 4, { text: 'unknown', percent: null, tone: 'muted' }],
+    [null, 1, 4, { text: 'unknown', percent: null, tone: 'muted' }],
   ])
     assert.deepEqual(bar(value, maximum, width), expected, `${value} of ${maximum}`);
 });
