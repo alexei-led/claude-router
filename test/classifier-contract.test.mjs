@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { buildRequest, parseAnswers } from '../lib/classifier-apis.mjs';
-import { ACTIVITY_CRITERIA, ACTIVITY_INSTRUCTIONS, resolveCredentials } from '../lib/classifier-contract.mjs';
+import {
+  ACTIVITY_CRITERIA,
+  ACTIVITY_INSTRUCTIONS,
+  isTransientStatus,
+  resolveCredentials,
+  retryDelayMs,
+} from '../lib/classifier-contract.mjs';
 import { ACTIVITIES, ACTIVITY_VALUES, DEFAULTS, loadConfig } from '../lib/config.mjs';
 
 const config = loadConfig();
@@ -116,3 +122,34 @@ test('the activity probe set holds ten synthetic prompts per activity', () => {
     for (const turn of dialogue) assert.ok(['user', 'assistant'].includes(turn.role) && typeof turn.text === 'string');
   }
 });
+
+const NOW = Date.parse('2026-11-03T12:00:00Z');
+for (const [name, header, expected] of [
+  ['whole seconds', '3', 3000],
+  ['fractional seconds', '0.2', 200],
+  ['zero seconds', '0', 0],
+  ['surrounding spaces', ' 5 ', 5000],
+  ['an HTTP date ahead', 'Tue, 03 Nov 2026 12:00:07 GMT', 7000],
+  ['an HTTP date that passed', 'Tue, 03 Nov 2026 11:00:00 GMT', 0],
+  ['negative seconds', '-1', null],
+  ['an empty header', '  ', null],
+  ['a missing header', null, null],
+  ['text that is neither seconds nor a date', 'soon', null],
+])
+  test(`Retry-After ${name} waits ${expected === null ? 'the default' : `${expected} ms`}`, () => {
+    assert.equal(retryDelayMs(header ?? undefined, NOW), expected);
+  });
+
+for (const [status, transient] of [
+  [408, true],
+  [429, true],
+  [500, true],
+  [503, true],
+  [400, false],
+  [401, false],
+  [404, false],
+  [200, false],
+])
+  test(`HTTP ${status} is ${transient ? 'retried' : 'not retried'}`, () => {
+    assert.equal(isTransientStatus(status), transient);
+  });

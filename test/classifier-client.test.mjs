@@ -197,6 +197,40 @@ test('abort does not count as an outage or allow an overlapping request', async 
   await flush();
 });
 
+test('an already aborted signal asks nothing and counts no failure', async () => {
+  const timing = clock();
+  const jev = new ClassifierClient({ now: timing.now });
+  let requests = 0;
+  const controller = new AbortController();
+  controller.abort();
+  const result = await jev.ask({ ...input(timing, () => requests++), signal: controller.signal });
+  assert.deepEqual(result, { advice: null, error: 'cancelled' });
+  assert.deepEqual([requests, jev.snapshot().failures], [0, 0]);
+});
+
+for (const [name, response, error] of [
+  ['an answer that arrives after the deadline', () => ok(), 'timeout'],
+  ['an answer that is not text', () => ({ ok: true, status: 200, text: null, headers: {} }), 'malformed'],
+  [
+    'an answer over the size cap',
+    () => ({ ok: true, status: 200, text: ' '.repeat(16_385), headers: {} }),
+    'malformed',
+  ],
+  ['an answer that is not JSON', () => ({ ok: true, status: 200, text: 'not json', headers: {} }), 'malformed'],
+])
+  test(`${name} fails as ${error} and counts one failure`, async () => {
+    let at = 0;
+    const timing = { ...clock(), now: () => at };
+    const jev = new ClassifierClient({ now: timing.now });
+    const late = name.includes('deadline');
+    const request = async () => {
+      if (late) at += DEFAULTS.classifiers.jev.timeoutMs + 1;
+      return response();
+    };
+    assert.equal((await jev.ask(input(timing, request))).error, error);
+    assert.equal(jev.snapshot().failures, 1);
+  });
+
 test('three failed attempts pause Jev, then one success resumes it', async () => {
   const timing = clock();
   const jev = new ClassifierClient({ now: timing.now });
