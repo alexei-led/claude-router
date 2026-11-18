@@ -9,7 +9,44 @@ setFallbackReporter((error) => {
   throw error;
 });
 
-const element = (type) => (props) => ({ type, props });
+// The engine refuses a prop it cannot read, and the whole pane with it, so the stubs refuse the same cheap cases: a
+// spacing that is neither a finite number nor a named step, a size that is not a finite number, a missing required
+// prop. The step names are the ones the router draws with; add a name here once an engine accepts it.
+export const SPACING_STEPS = ['xs', 'sm', 'md', 'lg'];
+const SPACING = /^(gap|rowGap|columnGap|padding[A-Za-z]*|margin[A-Za-z]*)$/;
+const SIZE = /^(width|height|flexGrow|flexShrink)$/;
+const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value);
+const isPercent = (value) => typeof value === 'string' && /^\d+(\.\d+)?%$/.test(value);
+const REQUIRED = { Select: { value: 'string', options: 'array', onSelect: 'function' } };
+
+export function validateProps(type, props) {
+  assert.ok(props && typeof props === 'object', `${type} takes a props object`);
+  for (const [name, value] of Object.entries(props)) {
+    if (value === undefined) continue;
+    if (SPACING.test(name))
+      assert.ok(
+        isFiniteNumber(value) || SPACING_STEPS.includes(value),
+        `${type} ${name}: ${JSON.stringify(value)} is neither a number nor one of ${SPACING_STEPS.join(', ')}`,
+      );
+    if (SIZE.test(name))
+      assert.ok(
+        isFiniteNumber(value) || (name === 'width' && isPercent(value)),
+        `${type} ${name}: ${JSON.stringify(value)} is not a finite number`,
+      );
+  }
+  if (type === 'Button')
+    assert.ok(typeof props.label === 'string' || props.children !== undefined, 'Button needs a label or children');
+  for (const [name, kind] of Object.entries(REQUIRED[type] ?? {})) {
+    const value = props[name];
+    const ok = kind === 'array' ? Array.isArray(value) : typeof value === kind;
+    assert.ok(ok, `${type} needs ${name} as a ${kind}, got ${JSON.stringify(value)}`);
+  }
+}
+
+const element = (type) => (props) => {
+  validateProps(type, props);
+  return { type, props };
+};
 export const ELEMENTS = {
   Box: element('Box'),
   Text: element('Text'),
