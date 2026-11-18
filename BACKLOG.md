@@ -13,6 +13,7 @@ Ideas and minor issues that can wait for the next release. Add an item when you 
 
 ## Terminal and desktop
 
+- The transcript echoes `/router pin high` and the other `/router` commands as `❯ /router `, dropping the arguments; the reply line is right. Probably the engine's echo of a command with a typeahead hint; check whether `argumentHint` changes it.
 - **Spinner shows the route** while the turn runs (`word`, `message`, `suffix` props).
 - **Retry on higher** button and an inline `~high` pin (`$.prompt.fill` and a `prompt.submit` strip).
 - **Dynamic `/router` description** with `command.describe`.
@@ -27,6 +28,11 @@ Ideas and minor issues that can wait for the next release. Add an item when you 
 ## Docs
 
 - Desktop screenshots: the README and the user guide carry a maintainer note where images belong. Shots to take: band, Now, Routes, Policy, Classifier, Usage and the key card, each in dark and light.
+
+## Subagents
+
+- On Claude Code 2.1.321 the debug log shows a `ZodError` (`path model`, expected `sonnet|opus|haiku|fable`) after every routed spawn: the engine's Agent schema accepts aliases only and the router sends the configured full model id on purpose (a family alias resolves to the parent's exact model). The route applies anyway. Check whether the alias form is safe when the parent's family differs.
+- The `+N` form of the band's agent rows has not been seen live with two or more concurrent agents.
 
 ## Packaging
 
