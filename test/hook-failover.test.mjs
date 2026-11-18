@@ -38,6 +38,41 @@ test('an overloaded model is held out: the next turn runs the nearest tier on an
   assert.equal(h.state.get('lines:rl-t2').value.reason, 'model-held');
 });
 
+const LOW = jevResponse('low', { micro: 0, low: 0.97, medium: 0.03, high: 0, uncertain: 0 });
+
+test('the hold is on the model the failed request ran, not on the session’s model', async (t) => {
+  const h = await started(t);
+  answering(h, LOW);
+  assert.equal((await turn(h, 't1', { error: 'overloaded' })).model, HAIKU);
+  assert.deepEqual(Object.keys(h.loop().held), [HAIKU]);
+  assert.equal(h.toasts.at(-1), 'Haiku 5.5 held out of routing: overloaded, 5 min');
+});
+
+test('a request routing passed on unchanged is the one a failure holds', async (t) => {
+  const h = await started(t);
+  answering(h, LOW);
+  assert.equal((await turn(h, 't1')).model, HAIKU);
+  const step2 = new AbortController();
+  h.http(async () => {
+    step2.abort();
+    return { ok: true, status: 200, text: JSON.stringify(LOW), headers: {} };
+  });
+  await h.event('turn.start', { turnId: 't2', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't2', model: OPUS }, {}, step2.signal));
+  assert.equal(h.requests.at(-1).model, OPUS);
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded' });
+  assert.deepEqual(Object.keys(h.loop().held), [OPUS]);
+});
+
+test('a new session start forgets the last session’s request: a failure before any holds the session’s model', async (t) => {
+  const h = await started(t);
+  answering(h, LOW);
+  assert.equal((await turn(h, 't1')).model, HAIKU);
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded' });
+  assert.deepEqual(Object.keys(h.loop().held), [OPUS]);
+});
+
 test('once the hold ends the next turn runs the held model again', async (t) => {
   const h = await started(t);
   await turn(h, 't1', { error: 'server_error' });

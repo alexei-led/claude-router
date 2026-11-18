@@ -1285,8 +1285,6 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
   const sessionId = await $.session.id();
   if (turn.config.routingEngine === 'shadow')
     traceRequest(router, e, turn, e, reason === 'manual' ? 'manual' : 'auto', loop);
-  // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
-  router.lastRequested = e.model;
   const response = yield* next(e);
   if (!next.signal.aborted && (await $.session.id()) === sessionId) {
     const at = Date.now();
@@ -2969,6 +2967,10 @@ async function traceContinuation($, router, cfg, loop, e, traceInput) {
 async function* stepMain($, router, e, next) {
   if (!(await ensureInitialized($, router))) return yield* next(e);
   if (e.agentId) return yield* stepAgent($, router, e, next);
+  // A main request goes out as Claude Code built it unless sendRouted routes it, so its model is the one a failure
+  // holds (holdFailedModel) until sendRouted names another.
+  // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
+  router.lastRequested = e.model;
   const turn = router.turnConfigs.get(e.turnId) ?? (await turnConfigOf($, router));
   const cfg = turn.config;
   const [sessionId, nativeModel, view] = await Promise.all([$.session.id(), $.session.model(), readView($, router)]);
@@ -3210,6 +3212,7 @@ export function register(on, options) {
     router.trace = null;
     router.traceOperations.clear();
     router.lastRoute = null;
+    router.lastRequested = null;
     router.initialized = false;
     router.noticeSurfaces.clear();
     await ensureInitialized($, router);
