@@ -425,7 +425,7 @@ When a turn ends on an API error that is the model's fault, the router holds tha
 
 A billing error, a rejected key or request, a cut-off answer and an unknown error hold nothing: another model would not help. Claude Code reports no retry-after, so the times are fixed.
 
-While a model is held out, a turn whose route runs it, a pinned turn too, runs the nearest tier's route on another model at the turn's activity; of two tiers as near, the stronger. The switch toast, the band and the route line show `! held out`. The turn's own tool calls do not move it onto a held model either. When the hold ends, the next turn returns to the route it held out without waiting for votes or a checkpoint. The failed request is not sent again: Claude Code reports the error after the turn has ended. A subagent's failure holds nothing. A compaction keeps the holds; a new session starts without them. The `auto` engine does not use them.
+While a model is held out, a turn whose route runs it, a pinned turn too, runs the nearest tier's route on another model at the turn's activity; of two tiers as near, the stronger. The switch toast, the band and the route line show `! held out`. The turn's own tool calls do not move it onto a held model either. When the hold ends, the next turn returns to the route it held out without waiting for votes or a checkpoint. The failed request is not sent again: Claude Code reports the error after the turn has ended. A subagent's failure holds nothing. A compaction keeps the holds; a new session starts without them. With `"routingEngine": "auto"` no model is held and no toast shows: that engine does not route around holds.
 
 ### Read the activity on the pane
 

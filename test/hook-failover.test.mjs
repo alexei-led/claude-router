@@ -1,15 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { answering, drain, harness, JEV_KEY, step } from './harness.mjs';
+import { answering, CONFIG, drain, harness, JEV_KEY, step } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
 const OPUS = 'claude-opus-5-5';
 const HAIKU = 'claude-haiku-5-5';
 const MEDIUM = jevResponse('medium', { micro: 0, low: 0, medium: 0.97, high: 0.03, uncertain: 0 });
 
-async function started(t) {
+// `router` is the router.json the session loads, if any.
+async function started(t, router = null) {
   t.mock.timers.enable({ apis: ['Date'], now: 1_000_000 });
   const h = harness(JEV_KEY);
+  if (router) h.files.set(CONFIG, JSON.stringify(router));
   h.model(OPUS);
   answering(h, MEDIUM);
   await h.event('session.start', { cwd: '/fixture' });
@@ -74,6 +76,25 @@ test('a turn whose own tool calls edit code does not move up onto the held-out m
     ['claude-haiku-5-5@high', 'claude-haiku-5-5@high'],
   );
   assert.equal(h.loop().decision.activity, 'ops');
+});
+
+test('the shadow engine routes as the table does, so it holds the model and says so', async (t) => {
+  const h = await started(t, { routingEngine: 'shadow' });
+  await turn(h, 't1', { error: 'overloaded' });
+  assert.deepEqual(Object.keys(h.loop().held), [OPUS]);
+  assert.deepEqual(h.toasts, ['Opus 5.5 held out of routing: overloaded, 5 min']);
+});
+
+test('the auto engine does not route around holds, so it holds nothing and says nothing', async (t) => {
+  const capability = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
+  const h = await started(t, { routingEngine: 'auto', models: { opus: { capability } } });
+  await turn(h, 't1', { error: 'overloaded' });
+  assert.ok(h.loop());
+  assert.equal(h.loop().held, undefined);
+  assert.deepEqual(
+    h.toasts.filter((text) => text.includes('held out')),
+    [],
+  );
 });
 
 for (const [name, failure] of [

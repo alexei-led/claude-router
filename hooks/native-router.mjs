@@ -3166,11 +3166,13 @@ async function keepChosenModel($, router, reason) {
 
 // A main turn ended on an API error (`StopFailure`): the request is lost, and Claude Code reports neither the model nor
 // a retry-after. An error that is the model's holds the model the last request ran out of routing for a while
-// (lib/failover.mjs), so the next turn runs another; the hold lives in the loop, which routing reads.
+// (lib/failover.mjs), so the next turn runs another; the hold lives in the loop, which the table and shadow engines
+// read. The `auto` engine routes without holds, so it gets none and no toast claims one.
 async function holdFailedModel($, router, error) {
   // A failed hold changes no route; the turn's result stands.
   try {
     if (holdMs(error) === null || !(await ensureInitialized($, router))) return;
+    if (router.config.routingEngine === 'auto') return;
     const model = router.lastRequested ?? (await $.session.model());
     const ref = { ...LOOP, id: 'main' };
     // A write that lost to a step's own write reads the loop again.

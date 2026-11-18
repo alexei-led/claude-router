@@ -4,7 +4,7 @@
 
 ### Added
 
-- **API failover:** when a turn ends because the model is overloaded, rate limited, failing on the server or not found, the router holds that model out for a few minutes (an hour when not found) and runs the next turns on the nearest tier's route on another model, pinned turns too. A toast and the route line (`! held out`) say so; when the hold ends, routing returns to the held route.
+- **API failover:** when a turn ends because the model is overloaded, rate limited, failing on the server or not found, the router holds that model out for a few minutes (an hour when not found) and runs the next turns on the nearest tier's route on another model, pinned turns too. A toast and the route line (`! held out`) say so; when the hold ends, routing returns to the held route. The `auto` routing engine holds no model.
 
 ### Changed
 
