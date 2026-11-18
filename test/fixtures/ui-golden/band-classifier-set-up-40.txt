@@ -1,0 +1,10 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="warning"
+      "⚠ Jev: no API key"
+    Text
+      "   "
+    Button key="band-key" label="Set up" variant="primary"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true

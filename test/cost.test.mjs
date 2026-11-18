@@ -86,6 +86,22 @@ test('every default model is checked against the shared-cache list', () => {
     assert.equal(native.effortSharesCache(DEFAULTS, id), true, `${alias} ${id}`);
 });
 
+for (const [name, cache, id, shares] of [
+  ['shared scope shares a model the list does not know', { effortScope: 'shared' }, 'claude-haiku-4-5', true],
+  ['separate scope splits a model the list shares', { effortScope: 'separate' }, 'claude-opus-5-5', false],
+  ['unknown scope splits a model the list shares', { effortScope: 'unknown' }, 'claude-opus-5-5', false],
+  [
+    'a disabled cache shares nothing, whatever the scope',
+    { mode: 'disabled', effortScope: 'shared' },
+    'claude-opus-5-5',
+    false,
+  ],
+])
+  test(`${name}`, () => {
+    const config = { ...DEFAULTS, cache: { ...DEFAULTS.cache, ...cache } };
+    assert.equal(native.effortSharesCache(config, id), shares);
+  });
+
 test('bounds distinguish observed cached prefix from generated and uncached tokens', () => {
   const bounds = native.inputBounds(SONNET_MEDIUM, resolveRoute(SONNET_MEDIUM, 'medium'), 151_500, facts, now);
   near(bounds.min, 0.0218);

@@ -1,0 +1,26 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="error"
+      "✕ "
+    Text weight="semibold"
+      "Opus 5.5"
+    Text
+      " · xhigh"
+    Text
+      " "
+    Button key="band-fix" label="Fix"
+    Text
+      "   "
+    Text color="error"
+      "routing unavailable"
+    Text
+      "   "
+    Text color="error" dimColor=true
+      "v0.8 gateway settings remain"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+    Box display="none" hover={"display":"flex"} left=29 position="absolute" top=0
+      Button key="band-detail" label="2 rows"
+      Text
+        "                                        "

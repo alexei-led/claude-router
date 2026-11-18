@@ -397,7 +397,7 @@ Method, per main reply that routing chose:
 
 Checks:
 
-- Unit tests (`test/savings.test.mjs`) cover a session that saves, one that costs more with Haiku as your model, equal routes at exactly 0, cache expiry at 5m and 1h, a compaction, a change of your model or effort, the 100K surcharge, an unpriced model, and a corrupted store. `test/hook-routing.test.mjs` covers two sessions finishing turns at the same moment, a `/model` change mid-session that keeps each reply against its own model, and a running turn's replies counted once before and after the turn is recorded. `test/usage.test.mjs` covers calendar days across month ends and daylight saving changes, the periods, the record cap and expiry, the trend buckets and what is worth a look; `test/usage-view.test.mjs` covers the Usage tab.
+- Unit tests (`test/savings.test.mjs`) cover a session that saves, one that costs more with Haiku as your model, equal routes at exactly 0, cache expiry at 5m and 1h, a compaction, a change of your model or effort, the 100K surcharge, an unpriced model, and a corrupted store. `test/hook-usage.test.mjs` covers two sessions finishing turns at the same moment, a `/model` change mid-session that keeps each reply against its own model, and a running turn's replies counted once before and after the turn is recorded. `test/usage.test.mjs` covers calendar days across month ends and daylight saving changes, the periods, the record cap and expiry, the trend buckets and what is worth a look; `test/usage-view.test.mjs` covers the Usage tab.
 - A one-off replay, not checked in, of this machine's main-conversation transcripts from 2026-10-01 to 2026-10-10 (nine sessions with 10 or more replies) gave $0.00 for every session that ran only on the model it was compared with: three on Opus 5.5, one on Haiku 5.5. Every main-conversation cache write in them was a one-hour write, which is what the lifetime rule gives on this Max plan.
 - A live Claude Code 2.1.296 session on 2026-10-10, Opus 5.5 at `high` with turns pinned to Haiku 5.5, showed **Routed replies $0.48** beside **Cost $0.480 reported by Claude** for the same 16 replies; its last Haiku reply had a 114K-token prompt, which agrees only at the 5x rate. A Haiku 5.5 session with a pinned Opus turn showed $0.45 routed against $0.446 reported.
 
@@ -427,7 +427,7 @@ Method:
 Checks:
 
 - `test/subagents.test.mjs` covers each pass reason, the pin rule, the classify mapping, core's model estimate, the router's move, the subagent lifetime, Haiku's long-context price, and the store's days, merge, reset, bad values and records from before 1.14.0. `test/hook-subagents.test.mjs` covers `on` (the routed model), a fork, an explicit model, a teammate, a workflow agent and a pinned project agent (each passes), a classifier failure (core's model), parallel spawns, a spawn-path pause that leaves main routing alone, respawns, session end, Delete history, and the Usage and Now tabs. `test/usage-view.test.mjs` covers the block by period, an open row, a narrow pane and undated records; `test/hook-band.test.mjs` the band in a subagent's transcript.
-- `experiments/mod-router/results/agent-spawn-probe.json` records what Claude Code 2.1.296 does with a spawn's model, frontmatter and workflow agents.
+- `experiments/mod-router/results/agent-spawn-probe.json` records what Claude Code 2.1.296 does with a spawn's model, frontmatter and workflow agents. On 2.1.321 a live probe showed that a model rewrite applies to workflow agents, and that a resumed subagent raises `agent.spawn` with `e.resume` and keeps its first model.
 - `experiments/mod-router/results/subagent-routing-live.json` is a live `on` run on 2026-10-10 with Sonnet as the parent. Explore was sent Haiku and ran on it. general-purpose was classified `standard`. A pinned project agent and an explicit `opus` call passed through. The store counted each one.
 
 When to turn it `on`:
@@ -441,7 +441,7 @@ Keep it if requests per agent and respawns per type stay no higher than before y
 Limits:
 
 - Answer quality is not measured.
-- Workflow agents cannot be routed. In the maintainer's sessions they were 22 of 24 Opus subagents (`workflow-subagent-models.json`), so most inherited Opus spend there is out of reach. `CLAUDE_CODE_SUBAGENT_MODEL` is the lever for them.
+- Workflow agents are classified by default (`subagents.types['workflow-subagent']`). In the maintainer's sessions they were 22 of 24 Opus subagents (`workflow-subagent-models.json`), so this reaches most of the inherited Opus spend. The routed effect is not measured yet, and answer quality is not either.
 - `on` estimates core's model. It does not apply the family-alias rule or the `availableModels` substitution.
 - Respawns are a proxy. A parent may spawn the same type twice on purpose.
 - Records follow the savings records' storage, with the same gaps.

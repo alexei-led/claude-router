@@ -1,0 +1,38 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="#e0708a"
+      "▂"
+    Text color="#e0708a"
+      "▄"
+    Text color="#e0708a"
+      "▆"
+    Text color="#e0708a"
+      "█"
+    Text
+      " "
+    Text weight="semibold"
+      "Opus 5.5"
+    Text
+      " · xhigh"
+    Text
+      "   "
+    Text color="suggestion"
+      "⏵ next "
+    Text color="#5f9fe0"
+      "▂▄"
+    Text color="#5f9fe0"
+      " Haiku·high"
+    Text
+      " "
+    Button key="band-unpin" label="✕" plain=true
+    Text
+      "   "
+    Text dimColor=true
+      "↑ clearly stronger"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+    Box display="none" hover={"display":"flex"} left=77 position="absolute" top=0
+      Button key="band-manual" label="Turn off"
+      Text
+        "           "

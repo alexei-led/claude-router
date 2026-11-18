@@ -264,6 +264,9 @@ declare module 'claude-code' {
     usageDetail?: boolean;
     help?: boolean;
     bandDetail?: boolean;
+    // The subagents with a record that are running, by `$.agent.list()` id, and how many: a change redraws the band's rows.
+    subagentIds?: string[];
+    subagentsRunning?: number;
     notice?: string | null;
   }
   interface RouterPolicyState {
@@ -317,10 +320,22 @@ declare module 'claude-code' {
     engineModel?: string;
     suspended?: boolean;
   }
+  // What a route line records, under the id `$.ui.place` was given: the route that ran, its tier and why, the activity,
+  // and the policy's estimate (lib/route-line.mjs).
+  interface RouterLine {
+    model: string;
+    effort: string | number | null;
+    tier: RouterTier | null;
+    reason: string;
+    activity: RouterActivity | null;
+    reasonActivity: RouterActivity | null;
+    estimate: RouterEstimate | null;
+  }
   interface PluginState {
     router: {
       view: RouterView;
       loops: StateFamily<RouterLoop>;
+      lines: StateFamily<RouterLine>;
     };
   }
 }

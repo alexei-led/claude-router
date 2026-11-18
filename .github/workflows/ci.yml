@@ -12,16 +12,60 @@ permissions:
   contents: read
 
 env:
-  CLAUDE_CODE_VERSION: 2.1.289
+  CLAUDE_CODE_VERSION: 2.1.321
   DISABLE_AUTOUPDATER: 1
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# Every job runs on fork pull requests with a read-only token and no secrets, and none of them needs one.
+# Each check is its own job so the failing check name says what failed; all of them run even when one fails.
 jobs:
-  verify:
-    name: Verify
+  lint:
+    name: Lint (biome)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: tools/package-lock.json
+      - name: Install dependencies
+        run: npm ci --prefix tools --ignore-scripts
+      - name: Biome check
+        run: npm run check -- --reporter=github
+
+  types:
+    name: Types (tsc)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: tools/package-lock.json
+      - name: Install dependencies
+        run: npm ci --prefix tools --ignore-scripts
+      - name: Typecheck
+        run: |
+          echo "::add-matcher::.github/tsc-matcher.json"
+          npm run typecheck -- --pretty false
+
+  test:
+    name: Unit tests (node --test)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -30,26 +74,43 @@ jobs:
         with:
           persist-credentials: false
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.15.0
           cache: npm
           cache-dependency-path: tools/package-lock.json
       - name: Install dependencies
         run: npm ci --prefix tools --ignore-scripts
-      - name: Lint, formatting, imports, and typecheck
-        run: |
-          npm run check
-          npm run typecheck
-      - name: Test
-        run: npm test
+      - name: Run tests
+        # The reporter flags sit before the file globs in the script, where Node reads them as options.
+        run: npm run test:ci
       - name: Package dry run
+        if: ${{ !cancelled() }}
         run: npm run pack:dry
+
+  plugin:
+    name: Plugin (validate and engine tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.15.0
+          cache: npm
+          cache-dependency-path: tools/package-lock.json
+      - name: Install dependencies
+        run: npm ci --prefix tools --ignore-scripts
       # The engine loads the hooks module the way a session does and refuses what lint and unit tests miss,
       # such as a binding that shadows the hook's `next`. The version is the oldest one the router supports.
       - name: Install Claude Code
         run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
-      - name: Validate plugin and marketplace
+      - name: Plugin validate
         run: npm run validate
-      - name: Mod tests in the Claude Code engine
+      - name: Engine tests (claude plugin test)
+        if: ${{ !cancelled() }}
         run: npm run test:plugin

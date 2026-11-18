@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
   "files": {
     "includes": [
       "lib/**/*.mjs",
@@ -15,27 +15,105 @@
       "hooks/*.mjs"
     ]
   },
-  "formatter": { "indentStyle": "space", "indentWidth": 2, "lineWidth": 120 },
-  "javascript": { "formatter": { "quoteStyle": "single" } },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single"
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "correctness": { "noUnusedVariables": "error", "noUnusedFunctionParameters": "error" },
-      "nursery": { "noFloatingPromises": "error", "noMisusedPromises": "error", "noIdenticalTestTitle": "error" },
-      "style": { "useNodejsImportProtocol": "error", "useConsistentArrayType": "error", "noParameterAssign": "error" },
-      "suspicious": { "noImportCycles": "error" }
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedFunctionParameters": "error",
+        "noUndeclaredVariables": "error",
+        "noUnusedImports": "error",
+        "noUnusedPrivateClassMembers": "error",
+        "noGlobalDirnameFilename": "error",
+        "useParseIntRadix": "error"
+      },
+      "nursery": {
+        "noFloatingPromises": "error",
+        "noMisusedPromises": "error",
+        "useExhaustiveSwitchCases": "error",
+        "useAwaitThenable": "error",
+        "noMissingThrow": "error",
+        "noConstantComparisons": "error",
+        "noUnsafePlusOperands": "error",
+        "noBaseToString": "error",
+        "noMismatchedMapKey": "error",
+        "noRedundantTypeConstituents": "error",
+        "noDuplicateTypeConstituents": "error",
+        "noUselessRecursion": "error",
+        "noSelfImport": "error",
+        "noImpliedEval": "error",
+        "noUnmodifiedLoopCondition": "error",
+        "usePromiseRejectErrors": "error",
+        "noNumberArgumentOutOfRange": "error",
+        "noObjectLiteralComparison": "error",
+        "useAtomicUpdates": "warn",
+        "noUselessAssignment": "warn",
+        "noDynamicDelete": "warn"
+      },
+      "style": {
+        "useNodejsImportProtocol": "error",
+        "useConsistentArrayType": "error",
+        "noParameterAssign": "error",
+        "useThrowOnlyError": "error",
+        "useThrowNewError": "error",
+        "noNonNullAssertion": "error",
+        "useNumberNamespace": "error",
+        "noUselessElse": "error",
+        "useErrorCause": "warn"
+      },
+      "suspicious": {
+        "noImportCycles": "error",
+        "noIdenticalTestTitle": "error",
+        "noConstantBinaryExpressions": "error",
+        "noDeprecatedImports": "error",
+        "noMisrefactoredShorthandAssign": "error",
+        "noNestedPromises": "error",
+        "noTemplateCurlyInString": "error",
+        "noUnassignedVariables": "error",
+        "useErrorMessage": "error",
+        "useGuardForIn": "error",
+        "useIterableCallbackReturn": "error",
+        "noShadow": "warn",
+        "noUnnecessaryConditions": "warn"
+      }
     }
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "overrides": [
     {
       "includes": ["lib/**"],
       "linter": {
         "rules": {
           "complexity": {
-            "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 71 } },
-            "noExcessiveLinesPerFunction": { "level": "error", "options": { "maxLines": 93 } }
+            "noExcessiveCognitiveComplexity": {
+              "level": "error",
+              "options": {
+                "maxAllowedComplexity": 71
+              }
+            },
+            "noExcessiveLinesPerFunction": {
+              "level": "error",
+              "options": {
+                "maxLines": 93
+              }
+            }
           }
         }
       }
@@ -45,8 +123,41 @@
       "linter": {
         "rules": {
           "complexity": {
-            "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 45 } },
-            "noExcessiveLinesPerFunction": { "level": "error", "options": { "maxLines": 240 } }
+            "noExcessiveCognitiveComplexity": {
+              "level": "error",
+              "options": {
+                "maxAllowedComplexity": 45
+              }
+            },
+            "noExcessiveLinesPerFunction": {
+              "level": "error",
+              "options": {
+                "maxLines": 240
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["test/**", "scripts/**"],
+      "linter": {
+        "rules": {
+          "nursery": {
+            "noBaseToString": "off",
+            "noUnmodifiedLoopCondition": "off",
+            "noImpliedEval": "off",
+            "noDynamicDelete": "off",
+            "useAtomicUpdates": "off"
+          },
+          "suspicious": {
+            "useErrorMessage": "off",
+            "noUnnecessaryConditions": "off",
+            "noShadow": "off"
+          },
+          "style": {
+            "useNumberNamespace": "off",
+            "useErrorCause": "off"
           }
         }
       }

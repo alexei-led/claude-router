@@ -1,0 +1,244 @@
+Box flexDirection="column"
+  Box
+    Text color="suggestion" weight="semibold"
+      "ROUTER"
+    Text
+      "  "
+    Button hotkey="o" key="auto" label="◉ on" variant="primary"
+    Text
+      " "
+    Button hotkey="f" key="manual" label="○ off" variant="secondary"
+    Text
+      "  "
+    Text color="success"
+      "Jev ready · 347 ms"
+  Box
+    Button hotkey="1" key="tab-now" label="1 Now" variant="primary"
+    Text
+      " "
+    Button hotkey="2" key="tab-routes" label="2 Routes ●" variant="secondary"
+    Text
+      " "
+    Button hotkey="3" key="tab-policy" label="3 Policy ●" variant="secondary"
+    Text
+      " "
+    Button hotkey="4" key="tab-classifier" label="4 Classifier" variant="secondary"
+    Text
+      " "
+    Button hotkey="5" key="tab-usage" label="5 Usage" variant="secondary"
+    Text
+      " "
+    Button key="help" label="?" variant="secondary"
+  Text
+    " "
+  Text color="suggestion" weight="semibold"
+    "NEXT TURN"
+  Box
+    Text
+      "  "
+    Text color="#e0708a"
+      "▂▄▆█"
+    Text
+      "  "
+    Text weight="semibold"
+      "Opus 5.5 · xhigh"
+    Box
+      Text
+        "   "
+      Text color="#d77757" italic=true
+        "code"
+  Box
+    Text dimColor=true
+      "  why   "
+    Text
+      "↑ clearly stronger"
+    Text dimColor=true
+      "   Jev 88% ≥ 82% · switch ≈ $0.48"
+  Box
+    Text dimColor=true
+      "  pin   "
+    Button key="pin-micro" label="▂ Haiku·medium —" variant="secondary"
+    Text
+      " "
+    Button key="pin-low" label="▂▄ Haiku·high 3%" variant="secondary"
+    Text
+      " "
+  Box
+    Text
+      "        "
+    Button key="pin-medium" label="▂▄▆ Opus·medium 7%" variant="secondary"
+    Text
+      " "
+    Button key="pin-high" label="▶ ▂▄▆█ Opus·xhigh 88%" variant="secondary"
+    Text
+      " "
+  Text
+    " "
+  Text color="suggestion" weight="semibold"
+    "RECENT DECISIONS"
+  Text
+    "15:50:00  start     composer  asked code 91% code 80%  new task  -> medium code claude-sonnet-5-5@high  (jump)"
+  Text
+    "15:55:00  start     composer  asked timeout  -> medium claude-sonnet-5-5@high  (no-advice)"
+  Text
+    " "
+  Box
+    Text color="suggestion" weight="semibold"
+      "PLAN"
+    Text dimColor=true
+      "  Claude plan usage"
+  Box
+    Text
+      "  5h    "
+    Text color="success"
+      "▰▰▰▰▰▰▰"
+    Text dimColor=true
+      "▱▱▱▱▱▱▱▱▱▱▱▱▱"
+    Text color="success"
+      "  37%"
+    Text dimColor=true
+      "   resets 17:00"
+  Box
+    Text
+      "  7d    "
+    Text color="warning"
+      "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰"
+    Text dimColor=true
+      "▱▱▱▱"
+    Text color="warning"
+      "  81%"
+  Text
+    " "
+  Box
+    Text color="suggestion" weight="semibold"
+      "SESSION"
+    Text dimColor=true
+      "  since 09:00 · 20 replies · 7 agents · 4 switches"
+    Text
+      "  "
+    Button key="band-detail-toggle" label="band: 2 rows"
+  Box
+    Text
+      "  "
+    Text weight="semibold"
+      "≈$5.80"
+    Text dimColor=true
+      "  API estimate · plan quota, not a charge  "
+    Button key="usage-session" label="Usage"
+  Box
+    Text
+      "  "
+    Text color="success" weight="semibold"
+      "−$5.70 (−50%)"
+    Text
+      " vs unrouted"
+    Text dimColor=true
+      " ≈$11.50"
+  Box
+    Text
+      "  main  "
+    Text
+      " ≈$4.30"
+    Text
+      "  "
+    Text color="suggestion"
+      "████████████████"
+    Text dimColor=true
+      ""
+    Box
+      Text
+        "  "
+      Text color="success"
+        "−$4.70"
+      Text dimColor=true
+        " vs Opus 5.5 · xhigh"
+  Box
+    Text
+      "  agents"
+    Text
+      " ≈$1.50"
+    Text
+      "  "
+    Text color="suggestion"
+      "██████"
+    Text dimColor=true
+      "░░░░░░░░░░"
+    Box
+      Text
+        "  "
+      Text color="success"
+        "−$1.00"
+      Text dimColor=true
+        " vs their picks"
+  Box
+    Text dimColor=true
+      "  tiers "
+    Text color="#5f9fe0" weight="semibold"
+      "█"
+    Text color="#d7af5f" weight="semibold"
+      "█"
+    Text color="#e0708a" weight="semibold"
+      "█"
+    Text dimColor=true
+      "·"
+  Box
+    Text
+      "        "
+    Text color="#5f9fe0"
+      "▂▄"
+    Text dimColor=true
+      " 3   "
+    Text color="#d7af5f"
+      "▂▄▆"
+    Text dimColor=true
+      " 1   "
+    Text color="#e0708a"
+      "▂▄▆█"
+    Text dimColor=true
+      " 1   "
+    Text dimColor=true
+      "· not routed 1"
+  Text
+    " "
+  Text color="suggestion" weight="semibold"
+    "CONTEXT"
+  Box
+    Text
+      "  ctx    "
+    Text color="success"
+      "▰▰"
+    Text dimColor=true
+      "▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱"
+    Text
+      "  12%"
+    Text dimColor=true
+      "   ~120.3K / 1.00M"
+  Box
+    Text
+      "  cache  "
+    Box
+      Text color="success"
+        "90%"
+      Text dimColor=true
+        " last reply"
+    Box
+      Text dimColor=true
+        " · "
+      Text
+        "73%"
+      Text dimColor=true
+        " session"
+    Text
+      "   "
+    Button key="usage-detail" label="details" variant="secondary"
+  Text
+    " "
+  Box
+    Text color="warning"
+      "● 5 unsaved routing changes  "
+    Button hotkey="s" key="save-routing" label="Save" variant="primary"
+    Text
+      " "
+    Button hotkey="d" key="discard-routing" label="Discard"
+    Text dimColor=true
+      "  listed on Routes and Policy"

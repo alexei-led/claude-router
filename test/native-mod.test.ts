@@ -207,15 +207,29 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
         view: {},
       },
     });
-    expect(await pane.find({ type: 'Text', text: / 15%$/ })).toBeDefined();
+    // The terminal writes padded rows; the desktop draws cards with the figure beside each bar.
+    const terminal = surface === 'terminal';
+    expect(await pane.find({ type: 'Text', text: terminal ? / 15%$/ : '15%' })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /~150\.5K \/ 1\.00M/ })).toBeDefined();
+    // The desktop sets the figure apart from its words, in the cache's tone.
     expect(await pane.find({ type: 'Text', text: '80%' })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /no priced replies: cost unknown/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: ' 2   ' })).toBeDefined();
+    if (!terminal) expect(await pane.find({ type: 'Text', text: 'last reply' })).toBeDefined();
+    expect(
+      await pane.find({
+        type: 'Text',
+        text: terminal ? /no priced replies: cost unknown/ : 'No priced replies: cost unknown',
+      }),
+    ).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: terminal ? ' 2   ' : 'Low 2' })).toBeDefined();
     expect(await pane.find({ type: 'Text', text: /\/cost|0\.25/ })).toBeUndefined();
     await pane.press({ key: 'usage-detail' });
     await pane.redraw();
-    expect(await pane.find({ type: 'Text', text: /Next-turn difference\s+−\$0.02 to \+\$0.03/ })).toBeDefined();
+    expect(
+      await pane.find({
+        type: 'Text',
+        text: terminal ? /Next-turn difference\s+−\$0.02 to \+\$0.03/ : '−$0.02 to +$0.03',
+      }),
+    ).toBeDefined();
     await pane.press({ key: 'usage-detail' });
     await pane.redraw();
     expect(await pane.find({ type: 'Text', text: /Next-turn difference/ })).toBeUndefined();
@@ -236,7 +250,12 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
     expect(await pane.find({ key: 'classifier-clef-flash' })).toBeDefined();
     expect(await pane.find({ key: 'key-clef' })).toBeDefined();
     expect(await pane.find({ key: 'timeoutMs' })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: /no account ID/ })).toBeDefined();
+    // A card's status line starts with a capital.
+    expect(await pane.find({ type: 'Text', text: terminal ? /no account ID/ : 'No account ID' })).toBeDefined();
+    if (!terminal) {
+      expect(await pane.find({ type: 'Button', text: 'Use' })).toBeDefined();
+      expect(await pane.find({ type: 'Text', text: 'Across sessions' })).toBeUndefined();
+    }
     await pane.press({ key: 'tab-routes' });
     await pane.redraw();
     await pane.press({ key: 'cell-tier-medium' });
@@ -254,6 +273,10 @@ test('terminal and desktop panes show observed usage, cost scenarios and native 
     expect(view.mode).toBe('auto');
     await pane.press({ key: 'pin-high' });
     expect(view.pendingPin).toBe('high');
+    // Pressing the pending pin again unpins it.
+    await pane.redraw();
+    await pane.press({ key: 'pin-high' });
+    expect(view.pendingPin).toBeNull();
     await pane.unmount();
   }
 });
@@ -282,9 +305,12 @@ test('unknown readings remain unknown and the band preserves other Mods', async 
         view: {},
       },
     });
-    expect(await pane.find({ type: 'Text', text: /no replies yet/ })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: 'no reading yet' })).toBeDefined();
-    expect(await pane.find({ type: 'Text', text: 'no reply yet' })).toBeDefined();
+    const terminal = surface === 'terminal';
+    expect(
+      await pane.find({ type: 'Text', text: terminal ? /no replies yet/ : 'No routed replies yet' }),
+    ).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: terminal ? 'no reading yet' : 'No reading yet' })).toBeDefined();
+    expect(await pane.find({ type: 'Text', text: terminal ? 'no reply yet' : 'No reply yet' })).toBeDefined();
     await pane.unmount();
     const band = await $.ui.mount({
       plugin: 'router',
@@ -303,7 +329,9 @@ test('unknown readings remain unknown and the band preserves other Mods', async 
     });
     expect(await band.find({ type: 'Text', text: 'other mod' })).toBeDefined();
     expect(await band.find({ key: 'details' })).toBeDefined();
-    expect(await band.find({ key: 'band-manual' })).toBeDefined();
+    // The terminal band has the hover row's Turn off; the graphical band keeps it in the pane header only.
+    if (surface === 'terminal') expect(await band.find({ key: 'band-manual' })).toBeDefined();
+    else expect(await band.find({ key: 'band-manual' })).toBeUndefined();
     await band.unmount();
   }
 });

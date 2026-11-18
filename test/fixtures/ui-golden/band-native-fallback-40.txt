@@ -1,0 +1,21 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="#e0708a"
+      "▂"
+    Text color="#e0708a"
+      "▄"
+    Text color="#e0708a"
+      "▆"
+    Text color="#e0708a"
+      "█"
+    Text
+      " "
+    Text weight="semibold"
+      "Sonnet 5.5"
+    Text
+      " · xhigh"
+    Text color="warning"
+      " fallback"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true

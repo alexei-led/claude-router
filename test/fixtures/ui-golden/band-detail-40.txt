@@ -1,0 +1,34 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="#e0708a"
+      "▂"
+    Text color="#e0708a"
+      "▄"
+    Text color="#e0708a"
+      "▆"
+    Text color="#e0708a"
+      "█"
+    Text
+      " "
+    Text weight="semibold"
+      "Opus 5.5"
+    Text
+      " · xhigh"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+  Box
+    Text dimColor=true
+      "plan 5h "
+    Text color="success"
+      "▰▰▰"
+    Text dimColor=true
+      "▱▱▱▱▱"
+    Text color="success"
+      " 37%"
+    Text
+      "   "
+    Text dimColor=true
+      "session "
+    Text weight="semibold"
+      "≈$4.30"

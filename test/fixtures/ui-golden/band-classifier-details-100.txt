@@ -1,0 +1,34 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="warning"
+      "⚠ Jev timed out"
+    Text
+      "   "
+    Button key="band-fix" label="Details"
+    Text
+      "   "
+    Text color="#e0708a"
+      "▂"
+    Text color="#e0708a"
+      "▄"
+    Text color="#e0708a"
+      "▆"
+    Text color="#e0708a"
+      "█"
+    Text
+      " "
+    Text weight="semibold"
+      "Opus 5.5"
+    Text
+      " · xhigh"
+    Text
+      "   "
+    Text dimColor=true
+      "= no advice"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+    Box display="none" hover={"display":"flex"} left=32 position="absolute" top=0
+      Button key="band-manual" label="Turn off"
+      Text
+        "                       "

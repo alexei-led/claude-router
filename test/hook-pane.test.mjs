@@ -3,6 +3,7 @@ import test from 'node:test';
 import { emptyStore, STORE_KEY, STORE_PREFIX } from '../lib/activity-stats.mjs';
 import { readUsage, summarize } from '../lib/usage.mjs';
 import {
+  band,
   CLEF_FLASH_ANSWER,
   CLOUDFLARE_KEYS,
   CONFIG,
@@ -629,7 +630,7 @@ test('a classifier switch that cannot write leaves the classifier and router.jso
   assert.match(h.view().notice, /Not saved: router\.json is a symlink/);
   assert.equal(h.files.get(CONFIG), '{}');
   assert.equal(controls(await h.render()).find((node) => node.key === 'classifier-jev').label, '◉ Jev       ');
-  assert.ok(texts(await h.render()).some((line) => /^Jev: no API key/.test(line)));
+  assert.ok(texts(await h.render()).some((line) => /^ {2}Jev: no API key, keeping the model/.test(line)));
 });
 
 test('two presses on one drawn pane open and close help again', async () => {
@@ -907,4 +908,16 @@ test('Reset routes keeps pending activity edits and the mode', async () => {
     activities: { code: { low: { model: 'opus', effort: 'high' } } },
     activityRouting: 'off',
   });
+});
+
+test('a pane the surface leaves undrawn says why in a toast, and a placed one says nothing', async () => {
+  const h = harness();
+  await start(h);
+  const open = async () => (await band(h)).controls.find((node) => node.key === 'details').onPress();
+  h.opens({ isPlaced: true });
+  await open();
+  assert.equal(h.toasts.length, 0);
+  h.opens({ isPlaced: false, reason: 'the terminal is 100 columns wide; the floor is 144' });
+  await open();
+  assert.equal(h.toasts.at(-1), 'The Router pane is not shown: the terminal is 100 columns wide; the floor is 144');
 });

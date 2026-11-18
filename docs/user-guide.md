@@ -2,7 +2,7 @@
 
 ## Start a session
 
-Install the plugin from its marketplace, or load a checkout with `--plugin-dir /path/to/claude-router`:
+The router needs Claude Code 2.1.321 or newer. Install the plugin from its marketplace, or load a checkout with `--plugin-dir /path/to/claude-router`:
 
 ```sh
 claude plugin marketplace add alexei-led/claude-router
@@ -29,16 +29,31 @@ In Claude Code:
 3. To use another classifier, open the pane's **Classifier** tab and select its row. See [Choose the classifier](#choose-the-classifier).
 4. Check the band above the prompt: `Routing on · ready`. With `table` or `shadow`, a model not used by any tier or enabled activity override starts with routing off; the band says why. With `auto`, any model in the selected profile's catalog can start with routing on. `/router auto` turns routing on for the current engine if it is off. In `table`, classifier votes and cache economics gate tier changes; in `auto`, the capability target, routed demand and move gates govern changes. See [routing engine settings](configuration.md#routing-engine).
 
-Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers settings and migrations.
+The desktop app, VS Code and mobile cannot open the `/plugin configure` dialog, so their **Set up** and **Credentials → Edit** show a card with a line to run in a terminal: it asks for the key without showing it or keeping it in your shell history and saves it with `claude plugin configure <id> --values-stdin`; **Copy command** copies it, then run `/reload-plugins`. Keys are stored as sensitive plugin options. Do not paste them into a model conversation. The [configuration guide](configuration.md) covers settings and migrations.
 
 In this guide, `router.json` means the selected router file. For example, with `CLAUDE_ROUTER_PROVIDER=zai`, edits go to `zai-router.json`.
 The pane shows its provider and file path.
 
 ## Read the status band
 
-Router draws one line above the prompt. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures and the switch cost, then context and cache, then the activity, then the reason. The meter and the model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
+### In the desktop app, VS Code and mobile
 
-![Eight band states: routed to high, two rows on a Claude plan with the hover row, two rows on an API key, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode](router-band.svg)
+<!-- TODO: capture desktop screenshots: band, Now, Routes, Policy, Classifier, Usage, key card (dark and light) -->
+
+The band above the prompt is drawn natively as one fixed row. Nothing appears on hover: every control is on the row itself. Colours come from the app's theme, so the band reads in light and dark.
+
+- **Left**: a small tier meter icon, then the route (the model and effort for this turn), the activity, the reason, the classifier's support and the switch cost, in the words of the [terminal band](#in-the-terminal). When the window narrows, the left side gives way first.
+- **Right**: the context and cache readings, a **Pin next turn** dropdown and the **Router** button, which opens the pane. The dropdown lists one entry per tier. With `table` or `shadow` each entry names the route that tier runs, whatever the routing mode; with `auto` it names the tier (`Low tier`), because Auto picks the cheapest capable model when the turn runs. A pin forces that tier for the next turn only. On mobile a pending pin also keeps its own `⏵ next` text and **✕** beside the dropdown, since an app may not draw the dropdown.
+- **One control per state**: **Turn on** when routing is off, **Set up** when the active classifier lacks credentials, **Fix** when routing is unavailable. While routing is on, turn it off from the pane's header (**On** / **Off**) or with `/router off`.
+- **Session row**: the second row (plan windows and the session's cost against no routing) is no longer a band button. Turn it on with **Show session row in band** on the pane's Now tab; Router remembers the choice across sessions.
+
+While subagents run, a row of buttons under the band lists them, one per agent with the model, type and task (`agents 2  ▸ ■ Haiku 5.5 Explore · retry usages ●`). Press one to open that agent's transcript in the main view. The row lists three agents and then `+N`, and keeps the first agent and the count when the window narrows. It shows only while an agent runs, and never a teammate. In an agent's transcript the band has a **Back** button (`◂ main` in the terminal, **← Main** on these surfaces) that returns to the main conversation. The agent's model and who picked it are described under the terminal band.
+
+### In the terminal
+
+The terminal band is one line above the prompt. Its text, secondary text, accents, success, warning and error colours are your Claude Code theme's own, so a light theme reads as well as a dark one; tiers, models and activities keep their own colours. The line ends with a **Router** button that opens the pane. When the band is narrow, the less important parts drop first: classifier figures and the switch cost, then context and cache, then the activity, then the reason. The meter and the model always stay, except behind a classifier warning: the warning and its **Set up** button come first, and the route gives way to them.
+
+![Eight band states: routed to high, two rows on a Claude plan with the hover controls shown, two rows on an API key, a pending pin, a missing classifier key, routing off, an activity move with activity routing on, and cost mode](router-band.svg)
 
 Read the first line from left to right:
 
@@ -64,9 +79,9 @@ Read the first line from left to right:
 
 **Turn on** and **Fix** sit next to the model and stay at any width.
 
-### The hover row and two rows
+#### The hover controls and two rows
 
-While routing is on, hover over the band for a second row: a pin per tier, low to high, each named by what it runs (`▂▄ Haiku·high`); **Turn off**; and **2 rows** or **1 row**. A pin forces that tier for the next turn only. On a narrow band the pins lose their model names first; **Turn off** and the row choice stay. The hover row needs a pointer: from the keyboard, run `/router off`, or open the pane and press `f`.
+While routing is on, hover over the band and its controls appear on the same row, in the room it has free, over its readings or after **Router**, and in both when one stretch is too small: a pin per tier, low to high, each named by what it runs (`▂▄ Haiku·high`); **Turn off**; and **2 rows** or **1 row**. Nothing moves: the meter and model, any **Set up**, **Details** or ✕ on the band, and **Router** stay where they are. A pin forces that tier for the next turn only. On a narrow band the pins lose their model names first. With one row, **2 rows** goes next, then the pins, and **Turn off** stays longest. With two rows, the pins go, then **Turn off**, and **1 row** stays longest. A band with no room for even one control shows none on hover; the pane's Now tab always has **band: 1 row** or **band: 2 rows** on its SESSION line, which does the same as the band's button. The hover controls need a pointer: from the keyboard, run `/router off`, or open the pane and press `f`; the SESSION line's toggle also takes a press.
 
 **2 rows** adds the session under the route, in the same numbers as the pane's SESSION block. On a Claude plan it leads with the plan windows Claude Code reports:
 
@@ -85,13 +100,35 @@ When the row is short, the reset time, the counts and the words drop first; the 
 
 The band steps aside while a survey needs the space.
 
-Inside a turn the router checks the route again as the work changes; see [Changes during a task](#changes-during-a-task). A subagent gets at most one model, when it starts, and keeps it for every step: For the Anthropic profile, these are Haiku for exploration, Opus for clearly hard tasks, and Sonnet for the rest. Other profiles have [their own defaults](providers.md#activity-overrides). An agent that pins a model in its definition keeps it, unless it sets `modelRouting: auto`. The Usage tab's **SUBAGENTS** section shows what each agent type ran on and cost, and the Now tab adds this session's agents to its total. See [Subagent routing](configuration.md#subagent-routing).
+Inside a turn the router checks the route again as the work changes; see [Changes during a task](#changes-during-a-task). A subagent gets at most one model, when it starts, and keeps it for every step: For the Anthropic profile, these are Haiku for exploration, Opus for clearly hard tasks, and Sonnet for the rest. Other profiles have [their own defaults](providers.md#activity-overrides). An agent that pins a model in its definition keeps it, unless it sets `modelRouting: auto`. An agent started by a workflow script is routed like any other, unless it sets its own model or you set `workflow-subagent` to `null` under `subagents.types`, as in [Subagent routing](configuration.md#subagent-routing). A resumed agent keeps the model of its first start. The Usage tab's **SUBAGENTS** section shows what each agent type ran on and cost, and the Now tab adds this session's agents to its total. See [Subagent routing](configuration.md#subagent-routing).
 
 In a subagent's transcript the band names the model the agent runs on and who picked it. `agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)` means the router chose a cheaper model than Claude Code would have; `↑` means a higher declared strength rank. When ranks are unknown, a model change has no strength direction. A hollow `□` means the agent ran on Claude Code's pick, because the router agreed or did not route it, and says why: `agent □ Opus 5.5  = Claude Code’s pick: the workflow sets it`. A narrow band drops the comparison first. The band falls back to `agent · model chosen at spawn` when the router has no record of the agent, such as after a plugin reload, and to `agent · keeps its own model (subagent routing off)`.
 
 ## Open the router pane
 
-Run `/router` or select **Router** above the prompt. Without a UI surface, as in `claude -p`, `/router` prints a short status instead. The pane has five tabs. Select a tab or press its digit while the pane has focus.
+Run `/router` or select **Router** above the prompt. Without a UI surface, as in `claude -p`, `/router` prints a short status instead. The pane has five tabs. Select a tab or press its digit (1 to 5) while the pane has focus.
+
+### The pane in the desktop app, VS Code and mobile
+
+The pane is drawn natively. From the top it has:
+
+- a **header**: `Router`, the classifier's status, and an **On** / **Off** switch for routing;
+- the **tabs**: Now, Routes, Policy, Classifier and Usage, without digits in their labels (the hotkeys 1 to 5 still work);
+- one **warnings** slot under the tabs, shown on every tab: an ignored project config, a native fallback, or missing classifier credentials;
+- the tab's content, then the **save bar** last.
+
+What each tab shows:
+
+- **Now**: cards for Next turn (the route, the reason, a pin button per tier, named by route or, with `auto`, by tier), Plan usage (on a Claude plan), Context, This session and, once the session has any, Recent decisions. The Next turn and This session cards carry the same facts as the terminal blocks below. The tab also holds the **Show session row in band** setting.
+- **Routes**: a grid of tiers by activities, with an edit card under it for the selected cell.
+- **Policy**: form cards for Routing mode, Switching down, Switching up, Activities and Credits, and a Settings file card with the `router.json` path.
+- **Classifier**: a full card for the active classifier (deadline, wait, health, credentials) and compact rows for the others under **Other classifiers**, then **Across sessions**.
+- **Usage**: period buttons, then Summary, Trend, Breakdown, Worth a look, Subagents, About these numbers and **Delete history**.
+
+Unsaved Routes and Policy changes sit in an **Unsaved changes** card at the bottom, a table of each setting before and after with **Discard** and **Save**; the last save and **Undo** follow it. **?** opens an **About the router** card. When the classifier needs attention, the header says so and the warning under the tabs says what to do. Saving, undoing and the numbers behind each card follow the terminal descriptions below.
+
+### The pane in the terminal
+
 
 | Tab          | What it answers                                                                                                                                             |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -101,20 +138,22 @@ Run `/router` or select **Router** above the prompt. Without a UI surface, as in
 | 4 Classifier | Which classifier to ask: one row per classifier to compare, the active one's deadline, wait, health and credentials, and the counts kept across sessions.   |
 | 5 Usage      | What routing cost against no routing this session, today, over 7 or 30 days, this month or in all: by activity, model or tier, and what is worth a look.    |
 
-The top line of every tab, `ROUTER  [ ◉ on ] [ ○ off ]  Jev ready · 347 ms`, shows the routing mode, switches it, and says whether the classifier is ready. Press `o` or `f` while the pane has focus. The tabs under it carry their digits, `[ 1 Now ] [ 2 Routes ] …`, and **?** shows what the numbers mean above the tab. When routing is unavailable, the top line reads `ROUTER  unavailable  Claude’s model is kept` with the reason under it, and offers no on or off: see [Troubleshooting](#troubleshooting).
+Under the tab row, one slot shows the warnings on every tab: a project config that was ignored, a native fallback, and missing classifier credentials. They no longer sit inside the Now tab's NEXT TURN block.
+
+The top line of every tab, `ROUTER  [ ◉ on ] [ ○ off ]  Jev ready · 347 ms`, shows the routing mode, switches it, and says whether the classifier is ready. Press `o` or `f` while the pane has focus. The tabs under it carry their digits, `[ 1 Now ] [ 2 Routes ] …`, and **?** shows what the numbers mean above the tab. In a pane too narrow for them, the tabs drop the digits (the keys still work), and then **?** moves to the end of the top line. While the warnings under the tabs name missing classifier credentials, the top line says `see below` instead of repeating them. When routing is unavailable, the top line reads `ROUTER  unavailable  Claude’s model is kept` with the reason under it, and offers no on or off: see [Troubleshooting](#troubleshooting).
 
 ![The Now tab in four blocks. NEXT TURN: the tier meter, model and activity, the reason with the classifier support and the switch cost, one pin per tier. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total with one running subagent as an API estimate, the difference against unrouted, the main thread and the subagents as bars, and a strip of every reply colored by tier. CONTEXT: the window fill and the cache reuse](router-pane-now.svg)
 
 The **Now** tab has four blocks, each with its name in capitals.
 
-**NEXT TURN** answers "what runs next turn, and why". The first line is the tier meter, the model and effort, and the classifier's activity with its share, such as `code 84%  debug 8%`. When an activity override runs, a line under it names the tier's own route. **why** gives the reason in the band's words and, beside it, the classifier's support against the bar the policy set and the switch cost: `↑ clearly stronger   Jev 88% ≥ 82% · switch ≈ $0.48`. **pin** has one button per tier, low to high, each named by what it runs, such as `▂▄ Haiku·high 3%`, with the support the classifier gave it on the last turn; `▶` marks the tier that runs now. A press forces that tier for the next turn only, and `⏵ next turn ▂▄▆ Opus·medium [ unpin ]` shows the pin until it applies. With routing off, the block names Claude's model, `routing off · /model choice`, and the pins say they need routing on; nothing from an earlier routed turn stays.
+**NEXT TURN** answers "what runs next turn, and why". The first line is the tier meter, the model and effort, and the classifier's activity with its share, such as `code 84%  debug 8%`. When an activity override runs, a line under it names the tier's own route. **why** gives the reason in the band's words and, beside it, the classifier's support against the bar the policy set and the switch cost: `↑ clearly stronger   Jev 88% ≥ 82% · switch ≈ $0.48`. **pin** has one button per tier, low to high, each named by what it runs, such as `▂▄ Haiku·high 3%`, with the support the classifier gave it on the last turn; `▶` marks the tier that runs now. A press forces that tier for the next turn only; the pinned button stays highlighted until the pin applies, and pressing it again unpins. With routing off, the block names Claude's model, `routing off · /model choice`, and the pins say they need routing on; nothing from an earlier routed turn stays.
 
 **PLAN** appears on a Claude plan: Claude Code's 5-hour and 7-day windows as gauges, with when each resets. They turn yellow at 75% and red at 90%.
 
 **SESSION** sums this session, the main thread and its subagents: `since 14:18 · 86 replies · 6 agents · 9 switches`, and `● 1 running` while a subagent is in the middle of a turn (an agent that waits on its own background command is not counted until it resumes). The counts include the replies of the turn still running.
 
 ```text
-SESSION  since 14:18 · 86 replies · 6 agents · 9 switches  ● 1 running
+SESSION  since 14:18 · 86 replies · 6 agents · 9 switches  ● 1 running  [ band: 2 rows ]
   ≈$8.97  API estimate · plan quota, not a charge  [ Usage ]
   −$4.09 (−31%) vs unrouted ≈$13.06
   main   ≈$6.45  ████████████████  −$4.17 vs Opus 5.5 · xhigh
@@ -310,7 +349,7 @@ On the running task:
 
 These thresholds are starting values. They are not tuned on data yet.
 
-On Claude Code 2.1.322 an effort that the router changed inside a turn was not sent in the 6 cases found, while a changed model was, so the band and the decision record can name an effort that did not run. See [What we do not know yet](activity-routing.md#what-we-do-not-know-yet).
+On Claude Code 2.1.322 an effort that the router changed inside a turn was not sent in the 6 cases found, while a changed model was, so the band and the decision record can name an effort that did not run. Claude Code sends an effort change on a tool-result step only when `CLAUDE_CODE_MODEL_CAPABILITIES=per_turn_effort` is set in its environment; the router does not set it. See [What we do not know yet](activity-routing.md#what-we-do-not-know-yet).
 
 ### Read the activity on the pane
 
@@ -335,12 +374,24 @@ On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the
 | `/router mode <cost\|balanced\|quality>`  | Set this session's [routing mode](routing-modes.md) from the next turn. A resume keeps it.               |
 | `/router mode default`                   | Clear the session's mode: the project's or the profile's applies again.                                  |
 | `/router decisions [n]`                  | Print this session's last `n` routing decisions, 20 by default. See [Routing decisions](#routing-decisions). |
+| `/router line <off\|moves\|all>`          | Choose when a turn leaves a [route line](#the-route-line) in the transcript. `moves` is the default. Kept across sessions. |
 | `/model <name>`                          | Select a model and turn routing off. Use `/router auto` to turn it back on.                               |
 | **Turn on** / **Turn off** on the band   | The same as `/router auto` and `/router off`.                                                             |
 | **on** / **off** on the pane (`o` / `f`) | The same as `/router auto` and `/router off`.                                                             |
 | **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.                                      |
 
+Type `/router` and a space, then a letter, and the prompt offers the words that start with it (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `line <off|moves|all>`, `decisions [n]`, `trace export`). After `pin `, `mode `, `activities ` or `line ` it offers the values; `pin` names the model each tier runs. The rows come after Claude Code's own. They are drawn by the surface's prompt box, so a surface that does not raise the typeahead shows none.
+
 With `table` or `shadow`, a routing mode moves each tier's route one step toward cost or quality; pins and `micro` turns are not moved. With opt-in `auto`, the mode changes the demand margin instead, and a tier pin uses exact demand without a margin. The band and the Now tab show the mode and where it comes from, such as `cost (session)`. When the mode kept the cell's model and changed only its effort, as `cost` does for Opus at `high`, the band adds `effort only`: the cost estimates price the same tokens on both routes, so that change shows no difference there, though real output length can differ. A change applies from the next turn, and the route in use moves only through the usual checks, so on a running task a cheaper route can wait a few requests and for a checkpoint. **Mode** on the Policy tab sets the profile's mode. See [Routing modes](routing-modes.md).
+
+### The route line
+
+After a routed turn, Router can add one dim row at the end of the transcript that says which model and effort ran and why, in the band's words: `▂▄▆█ Sonnet 5.5 · high  ↓ cheaper fits  code`. A narrow window drops the classifier's support, then the activity, then the reason; the route stays.
+
+- `/router line moves` (the default) adds the row only when the turn ran another model or effort than the last routed turn, and on a session's first routed turn.
+- `/router line all` adds it after every routed turn, and `/router line off` never.
+
+No row is added for an interrupted turn, a subagent's turn, or a turn while routing is off. The row is for you: the model never reads it, `claude --resume` does not bring earlier rows back, and a compaction ends the rows above it. The setting has no control in the pane; it is kept in the plugin's store across sessions, not in `router.json`.
 
 ### Routing decisions
 
@@ -405,7 +456,7 @@ The three Clef models take the same request and the same Cloudflare credentials,
 
 ![The Classifier tab: one row per classifier with where the prompt goes, its activity probe, its p95 wait and its status, a missing Jev API key with Set up; the active classifier's deadline against its wait, the host that receives the prompt, health and credentials; the agreement with tools across sessions; and Undo after a switch](router-pane-classifier.svg)
 
-You can save credentials for all of them; only the active one is asked. The **Classifier** tab has one row per classifier, as columns to compare: `◉` marks the active one; then where the prompt goes (`this machine` for Ollama); its last checked-in [activity probe](evaluation.md#activity-probe-set), the test prompts with a known activity it answered right, such as `70/70`, and their p95 wait; and whether its credentials are complete. A row that lacks one names it, such as `○ no API token`, and has its own **Set up** button. The probe columns read `—` when you configured a model other than the probed one.
+You can save credentials for all of them; only the active one is asked. The **Classifier** tab has one row per classifier, as columns to compare: `◉` marks the active one; then where the prompt goes (`this machine` for Ollama); its last checked-in [activity probe](evaluation.md#activity-probe-set), the test prompts with a known activity it answered right, such as `70/70`, and their p95 wait; and whether its credentials are complete. A row that lacks one names it, such as `○ no API token`, and has its own **Set up** button. In a pane too narrow for the widest row, about 80 columns, each classifier takes two lines instead: its name, status and **Set up**, then where the prompt goes and its probe result, such as `api.cloudflare.com · 69/70 · p95 883 ms`. The probe columns read `—` when you configured a model other than the probed one.
 
 Select a row to switch. The choice is written to `router.json` at once and applies from the next turn. **Undo** in the status bar returns to the previous classifier. A turn that is already being classified finishes with the classifier it started with. The new classifier starts with a clean failure count.
 
@@ -413,7 +464,7 @@ Under the rows, a block for the active classifier:
 
 - **Deadline:** 500, 1,000, 1,500, 3,000, or 5,000 ms for the active classifier's total advice attempt, including any retry. Each classifier keeps its own deadline, saved at once, with **Undo**. Beside it is the classifier's p95 wait: across sessions, such as `p95 ≤ 400 ms over 15 turns`, or from its probe before any turn. It turns yellow when the wait is slower than the deadline. Past the deadline the turn keeps its model.
 - **Sends** names the service that receives prompt text. **Health** shows a pause, recent failures, and the last wait.
-- **Credentials**: **Edit** opens Claude Code's secure plugin configuration, where you enter them.
+- **Credentials**: **Edit** opens Claude Code's secure plugin configuration, where you enter them. On the desktop app, VS Code and mobile it shows the card with the command to run in a terminal instead.
 
 With activity routing `on`, the activity question goes in the same request as the tier question (Ollama makes a second call), with the same text and nothing more. **Sends** names the service that receives the prompt and recent dialogue. With Clef, Clef Flash or Clef Omni that is Cloudflare, not typesafe.ai; with OpenAI it is OpenAI; with Ollama it stays on this machine. Give the Cloudflare token Workers AI permissions only.
 
@@ -465,8 +516,10 @@ To stop routing for a session, run `/router off`. To keep tier routing but stop 
 | `⚠ Ollama timed out`        | The model is loading after an idle period, or the machine is slow.                                    | Wait for one more turn. If it recurs, raise `classifiers.ollama.timeoutMs` in `router.json`.                                                                                 |
 | `⚠ Ollama request failed`   | The tag in `model` is not pulled, or Ollama rejected a request setting.                               | Run `ollama pull <model>` for the tag in `model`, or choose another model.                                                                                                   |
 | Band reads `v0.8 gateway settings remain`   | The `jev-router[1m]` model or the `127.0.0.1:43170` base URL is still set.                            | Run `/router`: it lists the keys. Remove them as in the [migration checklist](configuration.md#convert-a-v08-configuration) and restart.                                     |
-| Router controls are unavailable             | Claude Code is older than 2.1.289.                                                                    | Update Claude Code.                                                                                                                                                          |
+| Router controls are unavailable             | Claude Code is older than 2.1.321.                                                                    | Update Claude Code.                                                                                                                                                          |
 | Pane reads `ROUTER  unavailable`            | Old gateway settings, an old Claude Code, or an invalid `router.json`. The line under it names which. | Fix the cause it names and restart. Until then every turn keeps Claude's model, and `/router auto`, `off`, `pin`, and `activities` reply with the reason and change nothing. |
 | Context reads as unknown                    | The router lacks a reliable local estimate or current-history measurement.                            | Keep using the current model, or start a new history with a supported context estimate.                                                                                      |
+
+When a session starts with the router unavailable, a toast says why (`Routing off: requires Claude Code 2.1.321 or newer. Claude’s model is kept.`). It shows once a day for each cause (old Claude Code, v0.8 gateway settings, a `router.json` that does not load) and never under `claude -p`. The band and the pane keep saying it.
 
 For the internal event flow and network deadline behavior, see [Architecture](architecture.md). For what the test traces do and do not show, see [Evaluation](evaluation.md).

@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { loadConfig, resolveRoute, routeSpec, TIERS } from '../lib/config.mjs';
+import { cardRoute } from '../lib/display.mjs';
+import { pinOf } from '../lib/ui/model/band.mjs';
 import { answering, CONFIG, drain, harness, JEV_KEY, press, start, step } from './harness.mjs';
 import { jevResponse } from './helpers.mjs';
 
@@ -227,4 +230,42 @@ test('a symlinked project file is refused, and the home directory has no project
   home.files.set(PROJECT, JSON.stringify({ routes: {} }));
   await start(home);
   assert.equal(home.view().projectError, null);
+});
+
+test('a table pin runs its tier’s configured route in every mode and its label names it; an Auto pin’s label names no model', async () => {
+  const config = loadConfig({});
+  for (const engine of ['table', 'auto']) {
+    for (const mode of ['cost', 'balanced', 'quality']) {
+      for (const tier of TIERS) {
+        const where = `${engine} ${mode} ${tier}`;
+        const route = resolveRoute(config, tier);
+        const h = harness(JEV_KEY);
+        h.files.set(CONFIG, JSON.stringify({ routingEngine: engine, mode }));
+        await start(h);
+        await command(h, `pin ${tier}`);
+        await routed(h);
+        assert.deepEqual(sent(h), [`${routeSpec(config, route).id}@${route.effort}`], where);
+        const view = { mode: 'auto', phase: 'routed', routingMode: { mode, source: 'session' } };
+        const option = pinOf({ ...config, routingEngine: engine }, view)?.options.find((item) => item.value === tier);
+        const named = cardRoute(config, route, { short: true });
+        assert.equal(
+          option?.label,
+          engine === 'table' ? named : `${tier[0]?.toUpperCase()}${tier.slice(1)} tier`,
+          where,
+        );
+      }
+    }
+  }
+});
+
+test('an Auto pin’s label names no model, however the routes and capabilities are customised', () => {
+  const view = { mode: 'auto', phase: 'routed' };
+  for (const userFile of [
+    { routingEngine: 'auto', routes: { low: { model: 'sonnet', effort: 'medium' } } },
+    { routingEngine: 'auto', models: { sonnet: { capability: { high: 2 } } } },
+  ]) {
+    const labels = pinOf(loadConfig({ userFile }), view)?.options.map((item) => item.label) ?? [];
+    assert.ok(labels.length > 0);
+    for (const label of labels) assert.doesNotMatch(label, /Haiku|Sonnet|Opus|Fable/, label);
+  }
 });

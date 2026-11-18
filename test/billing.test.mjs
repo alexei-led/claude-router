@@ -5,7 +5,7 @@ import { renderBand } from '../lib/band.mjs';
 import { loadConfig } from '../lib/config.mjs';
 import { savingsLine } from '../lib/display.mjs';
 import { renderPanel } from '../lib/panel.mjs';
-import { ELEMENTS, screen } from './harness.mjs';
+import { ELEMENTS, quiet, screen } from './harness.mjs';
 
 const PROXY = loadConfig({
   provider: 'model-proxy',
@@ -14,7 +14,6 @@ const PROXY = loadConfig({
 const DEEPSEEK = 'deepseek-flash[1m]';
 const OPUS = 'claude-opus-5-5';
 const NOW = Date.parse('2026-11-03T12:00:00Z');
-const actions = new Proxy({}, { get: () => () => {} });
 
 // A session record: `cells` as { 'tier|model@effort': [replies, routed, yours, cheaper, stronger, switch] }, every
 // reply priced against `yours` ({ model id: replies }).
@@ -45,7 +44,7 @@ const view = (props) => ({
   ...props,
 });
 const band = (props, usage = null) =>
-  screen(renderBand(ELEMENTS, PROXY, view(props), usage, { columns: 160, now: NOW }, actions))[1];
+  screen(renderBand(ELEMENTS, PROXY, view(props), usage, { columns: 160, now: NOW }, quiet))[1];
 // Claude Code's session usage on a plan: its windows show the plan; DeepSeek runs on provider credits.
 const PLAN = {
   rateLimits: [
@@ -110,11 +109,11 @@ test('Now and Usage identify configured-rate estimates for every billing product
       usageSession: record({ [`low|${model}@high`]: [10, 24.1, 30, -5.9, 0, 0] }, { [model]: 10 }),
     });
     const now = screen(
-      renderPanel(ELEMENTS, config, { ...props, tab: 'now' }, usage, actions, { columns: 140, now: NOW }),
+      renderPanel(ELEMENTS, config, { ...props, tab: 'now' }, usage, quiet, { columns: 140, now: NOW }),
     );
     assert.ok(now.includes(`  ≈$24.10  ${note}  [ Usage ]`), note);
     const shown = screen(
-      renderPanel(ELEMENTS, config, { ...props, tab: 'usage', usagePeriod: 'session', help: true }, usage, actions, {
+      renderPanel(ELEMENTS, config, { ...props, tab: 'usage', usagePeriod: 'session', help: true }, usage, quiet, {
         columns: 140,
         now: NOW,
       }),
@@ -131,7 +130,8 @@ test('Now and Usage identify configured-rate estimates for every billing product
 test('a plan window shows its reset only while it is ahead', () => {
   const props = STARTS['started on Opus: DeepSeek turns are cheaper'];
   const ahead = { ...PLAN, rateLimits: [{ kind: 'five_hour', percentUsed: 37, resetsAt: '2026-11-03T13:30:00Z' }] };
-  assert.match(band(props, ahead), /^plan 5h ▰▰▰▱▱▱▱▱ 37% ↻\d\d:30 /);
+  const reset = new Date('2026-11-03T13:30:00Z').toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  assert.ok(band(props, ahead).startsWith(`plan 5h ▰▰▰▱▱▱▱▱ 37% ↻${reset} `));
   assert.match(band(props, PLAN), /^plan 5h ▰▰▰▱▱▱▱▱ 37% {3}7d/);
 });
 
@@ -154,7 +154,7 @@ test('after /model moved between plan and credits models, /router still compares
 
 test('the Usage tab labels mixed totals and credits as API estimates', () => {
   const props = { ...STARTS['started on Opus: DeepSeek turns are cheaper'], tab: 'usage', usagePeriod: 'session' };
-  const lines = screen(renderPanel(ELEMENTS, PROXY, view(props), PLAN, actions, { columns: 100, now: NOW }));
+  const lines = screen(renderPanel(ELEMENTS, PROXY, view(props), PLAN, quiet, { columns: 100, now: NOW }));
   const at = lines.findIndex((line) => line.startsWith('session · API estimate'));
   assert.deepEqual(lines.slice(at, at + 2), [
     'session · API estimate     ≈$24.10        −$45.90     ≈$70.00',

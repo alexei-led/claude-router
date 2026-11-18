@@ -138,7 +138,11 @@ test('a missing account warns in the band and the pane and offers the key dialog
   assert.match(view.line, /^⚠ Clef: no account ID .*▂▄▆█ Haiku 5\.5 · high {3}= no advice/);
   await view.controls.find((node) => node.key === 'band-key').onPress();
   assert.equal(h.commandCalls(), 1);
-  assert.ok(texts(await h.render()).includes('Clef: no account ID'));
+  // The pane says it once, under the tab row; the header points there.
+  const pane = texts(await h.render());
+  assert.ok(pane.includes('  Clef: no account ID, keeping the model  '));
+  assert.ok(pane.includes('see below'));
+  assert.ok(!pane.includes('Clef: no account ID'));
 });
 
 test('a classifier without credentials names the missing setting and offers Set up on its own row', async () => {

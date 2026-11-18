@@ -1,0 +1,191 @@
+Box flexDirection="column"
+  Box
+    Text color="suggestion" weight="semibold"
+      "ROUTER"
+    Text
+      "  "
+    Button hotkey="o" key="auto" label="◉ on" variant="primary"
+    Text
+      " "
+    Button hotkey="f" key="manual" label="○ off" variant="secondary"
+    Text
+      "  "
+    Text color="success"
+      "Jev ready · 347 ms"
+  Box
+    Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
+    Text
+      " "
+    Button hotkey="2" key="tab-routes" label="2 Routes" variant="primary"
+    Text
+      " "
+    Button hotkey="3" key="tab-policy" label="3 Policy" variant="secondary"
+    Text
+      " "
+    Button hotkey="4" key="tab-classifier" label="4 Classifier" variant="secondary"
+    Text
+      " "
+    Button hotkey="5" key="tab-usage" label="5 Usage" variant="secondary"
+    Text
+      " "
+    Button key="help" label="?" variant="secondary"
+  Text
+    " "
+  Text dimColor=true
+    "profile kimi · /fixture/team/router.json"
+  Box
+    Text color="suggestion" weight="semibold"
+      "ROUTES"
+    Text dimColor=true
+      " · which model runs, by tier and activity · edit, then Save"
+  Box
+    Box flexShrink=0 width=26
+      Select key="activity-mode" label="Activity routing" options=[{"value":"off","label":"off"},{"value":"on","label":"on"}] value="on"
+    Box flexShrink=0 width=2
+      Text
+        ""
+    Text dimColor=true
+      "an activity can change its tier’s model"
+  Text
+    " "
+  Box
+    Box flexShrink=0 width=13
+      Text
+        ""
+    Box flexShrink=0 width=16
+      Text color="#5fd7af" weight="semibold"
+        " micro"
+    Box flexShrink=0 width=16
+      Text color="#5f9fe0" weight="semibold"
+        " low"
+    Box flexShrink=0 width=16
+      Text color="#d7af5f" weight="semibold"
+        " medium"
+    Box flexShrink=0 width=16
+      Text color="#e0708a" weight="semibold"
+        " high"
+  Box
+    Box flexShrink=0 width=13
+      Text weight="semibold"
+        "every turn"
+    Box flexShrink=0 width=16
+      Button key="cell-tier-micro" label="▸k3·low" plain=true
+    Box flexShrink=0 width=16
+      Button key="cell-tier-low" label=" k3·high" plain=true
+    Box flexShrink=0 width=16
+      Button key="cell-tier-medium" label=" k3·high" plain=true
+    Box flexShrink=0 width=16
+      Button key="cell-tier-high" label=" k3·max" plain=true
+  Box
+    Box flexShrink=0 width=13
+      Text color="#d77757" italic=true
+        "code"
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-code-micro" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-code-low" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button key="cell-code-medium" label=" k3·max°" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-code-high" label=" ·" plain=true
+  Box
+    Box flexShrink=0 width=13
+      Text color="#d77757" italic=true
+        "debug"
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-debug-micro" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-debug-low" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button key="cell-debug-medium" label=" k3·max°" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-debug-high" label=" ·" plain=true
+  Box
+    Box flexShrink=0 width=13
+      Text color="#d77757" italic=true
+        "explore"
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-explore-micro" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-explore-low" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-explore-medium" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-explore-high" label=" ·" plain=true
+  Box
+    Box flexShrink=0 width=13
+      Text color="#d77757" italic=true
+        "plan"
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-plan-micro" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-plan-low" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button key="cell-plan-medium" label=" k3·max°" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-plan-high" label=" ·" plain=true
+  Box
+    Box flexShrink=0 width=13
+      Text color="#d77757" italic=true
+        "review"
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-review-micro" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-review-low" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button key="cell-review-medium" label=" k3·max°" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-review-high" label=" ·" plain=true
+  Box
+    Box flexShrink=0 width=13
+      Text color="#d77757" italic=true
+        "ops"
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-ops-micro" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-ops-low" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-ops-medium" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-ops-high" label=" ·" plain=true
+  Box
+    Box flexShrink=0 width=13
+      Text color="#d77757" italic=true
+        "docs"
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-docs-micro" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-docs-low" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-docs-medium" label=" ·" plain=true
+    Box flexShrink=0 width=16
+      Button dimColor=true key="cell-docs-high" label=" ·" plain=true
+  Text dimColor=true
+    "  · runs the tier’s model   ° built-in default   ● unsaved"
+  Text
+    " "
+  Box
+    Box flexShrink=0 width=22
+      Box
+        Text color="#5fd7af" weight="semibold"
+          "micro"
+        Text dimColor=true
+          " · every turn"
+    Box flexShrink=0 width=14
+      Select key="route-micro-model" options=[{"value":"k3","label":"Kimi K3.1 Pro"}] value="k3"
+    Box flexShrink=0 width=12
+      Select key="route-micro-effort" options=[{"value":"session","label":"inherit"},{"value":"low","label":"low"},{"value":"high","label":"high"},{"value":"max","label":"max"}] value="low"
+    Box flexShrink=0 width=2
+      Text
+        ""
+  Text dimColor=true
+    "                      $2 in · $10 out per M tokens · 1.048576M window"
+  Text
+    " "
+  Text dimColor=true
+    "Automatic prefix cache: hits are observed; lifetime and sharing across efforts are unknown. No cache-write premium."
+  Text color="warning"
+    "! low and medium run the same model and effort: that step changes nothing"
+  Button hotkey="r" key="reset-routes" label="Reset routes to defaults"
+  Text dimColor=true
+    "A new model ID needs the active file → models: price, window, efforts."

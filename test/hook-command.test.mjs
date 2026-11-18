@@ -1,0 +1,89 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { argumentHint, SUBCOMMANDS } from '../lib/subcommands.mjs';
+import { CONFIG, harness, JEV_KEY } from './harness.mjs';
+
+async function started() {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({}));
+  await h.event('session.start', { cwd: '/fixture' });
+  return h;
+}
+
+// What typing `text` leaves at the cursor: the token before it and where that begins.
+const typed = (text) => {
+  const start = text.lastIndexOf(' ') + 1;
+  return { text, cursor: text.length, token: text.slice(start), start };
+};
+const labels = async (h, text, engine) => (await h.autocomplete(typed(text), engine)).map((row) => row.label);
+
+test('typeahead after /router offers the words that start with what is typed', async () => {
+  const h = await started();
+  const cases = [
+    ['/router a', ['auto', 'activities <off|on>']],
+    ['/router p', ['pin <tier>']],
+    ['/router d', ['decisions [n]']],
+    ['/router t', ['trace export']],
+    ['/router m', ['mode <mode>']],
+    ['/router  o', ['off']],
+    ['/router O', ['off']],
+    ['/router z', []],
+    ['/router pin h', ['high']],
+    ['/router pin m', ['micro', 'medium']],
+    ['/router pin x', []],
+    ['/router mode b', ['balanced']],
+    ['/router activities o', ['off', 'on']],
+    ['/router trace e', ['export']],
+    ['/router decisions 5', []],
+    ['/router pin high m', []],
+  ];
+  for (const [text, expected] of cases) assert.deepEqual(await labels(h, text), expected, text);
+});
+
+test('typeahead stays out of every other prompt', async () => {
+  const h = await started();
+  for (const text of ['a', 'auto', 'please /router a', '/routerx a', '/model a', '/router']) {
+    assert.deepEqual(await h.autocomplete(typed(text)), [], text);
+  }
+});
+
+test('typeahead rows follow the engine’s own and say what taking them writes', async () => {
+  const h = await started();
+  const engine = [{ text: '/router-help' }];
+  const rows = await h.autocomplete(typed('/router p'), engine);
+  assert.deepEqual(rows, [
+    engine[0],
+    { text: 'pin ', label: 'pin <tier>', description: 'Pin the next turn to a tier' },
+  ]);
+  assert.deepEqual(await h.autocomplete(typed('/router z'), engine), engine);
+});
+
+test('typeahead names the model each tier runs', async () => {
+  const h = await started();
+  const rows = await h.autocomplete(typed('/router pin me'));
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].text, 'medium');
+  assert.match(rows[0].description, /\S/);
+});
+
+test('every word and value in the table runs a command, not the pane', async () => {
+  const h = await started();
+  const run = (args) => h.event('command.run', { command: 'router', args });
+  const pane = await run('');
+  for (const sub of SUBCOMMANDS) {
+    for (const value of sub.values ?? ['']) {
+      const args = `${sub.name} ${value}`.trim();
+      assert.equal(typeof (await run(args)).text, 'string', args);
+    }
+    if (sub.hint === '[n]') assert.equal(typeof (await run(`${sub.name} 3`)).text, 'string');
+  }
+  assert.deepEqual(pane, {});
+  assert.deepEqual(await run('nonsense'), {});
+});
+
+test('the argument hint names every word of the table', () => {
+  const hint = argumentHint();
+  for (const sub of SUBCOMMANDS) assert.ok(hint.includes(sub.name), sub.name);
+  assert.equal(hint.startsWith('['), true);
+  assert.equal(hint.endsWith(']'), true);
+});

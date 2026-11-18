@@ -1,0 +1,14 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="error"
+      "✕ "
+    Text weight="semibold"
+      "Opus 5.5"
+    Text
+      " · xhigh"
+    Text
+      " "
+    Button key="band-fix" label="Fix"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true

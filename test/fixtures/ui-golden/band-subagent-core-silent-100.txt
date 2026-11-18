@@ -1,0 +1,7 @@
+Box
+  Text dimColor=true
+    "agent "
+  Text color="#c3e88d" weight="semibold"
+    "□ Haiku 5.5"
+  Text dimColor=true
+    "  = Claude Code’s pick: the router sent no model"

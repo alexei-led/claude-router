@@ -1,0 +1,5 @@
+Box
+  Text dimColor=true
+    "agent "
+  Text color="#c792ea" weight="semibold"
+    "■ Opus 5.5"

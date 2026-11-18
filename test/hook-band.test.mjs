@@ -28,13 +28,13 @@ test('the band yields to a survey and says how a subagent got its model', async 
   const h = harness();
   await start(h);
   assert.equal((await band(h, { hasSurvey: true })).tree.component, 'AbovePrompt');
-  assert.match((await band(h, { view: { agentId: 'a1' } })).line, /^agent · model chosen at spawn/);
+  assert.match((await band(h, { view: { agentId: 'a1' } })).line, /^ *agent · model chosen at spawn/);
   const off = harness();
   off.files.set(CONFIG, JSON.stringify({ subagentRouting: 'off' }));
   await start(off);
   assert.match(
     (await band(off, { view: { agentId: 'a1' } })).line,
-    /^agent · keeps its own model \(subagent routing off\)/,
+    /^ *agent · keeps its own model \(subagent routing off\)/,
   );
 });
 
@@ -51,12 +51,15 @@ test('in a subagent’s transcript the band names its model and who picked it', 
     ...extra,
   });
   await h.spawn(spawn(), { model: 'claude-haiku-5-5', agentId: 'a1' });
-  await h.spawn(spawn({ workflow: { runId: 'wf_1', agentIndex: 1 } }), { model: 'claude-opus-5-5', agentId: 'w1' });
+  await h.spawn(spawn({ workflow: { runId: 'wf_1', agentIndex: 1 }, model: 'opus' }), {
+    model: 'claude-opus-5-5',
+    agentId: 'w1',
+  });
   const routed = (columns) => band(h, { view: { agentId: 'a1' }, bodyColumns: columns });
-  assert.equal((await routed(120)).line, 'agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)');
-  assert.equal((await routed(30)).line, 'agent ■ Haiku 5.5');
+  assert.equal((await routed(120)).line.trim(), 'agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)');
+  assert.equal((await routed(30)).line.trim(), 'agent ■ Haiku 5.5');
   assert.equal(
-    (await band(h, { view: { agentId: 'w1' } })).line,
+    (await band(h, { view: { agentId: 'w1' } })).line.trim(),
     'agent □ Opus 5.5  = Claude Code’s pick: the workflow sets it',
   );
 });
@@ -142,7 +145,12 @@ test('a narrow band never exceeds its width: optional parts drop, then the route
     [30, /⚠ Jev: no API key/],
   ]) {
     const { tree } = await band(h, { bodyColumns: columns });
-    const row = tree.props.children[1].props.children[0];
+    const first = tree.props.children[1].props.children[0];
+    // The row as drawn at rest: the hover controls over it are hidden.
+    const row = {
+      ...first,
+      props: { ...first.props, children: first.props.children.filter((c) => c?.props.position !== 'absolute') },
+    };
     const line = texts(row).join('');
     const buttons = controls(row)
       .map((node) => (node.plain ? node.label : `[ ${node.label} ]`))
@@ -161,4 +169,37 @@ test('two presses on one drawn band toggle two rows on and off again', async () 
   await detail.onPress();
   assert.equal(h.view().bandDetail, false);
   assert.equal(preferences.get('band:detail'), false);
+});
+
+test('the pane’s session row setting and the band share one toggle that is remembered', async () => {
+  const preferences = new Map();
+  const h = harness({}, preferences);
+  await start(h);
+  const toggle = async () => {
+    const tree = await h.render(undefined, 'desktop');
+    return controls(tree).find((node) => node.key === 'band-detail-toggle');
+  };
+  assert.equal((await toggle()).label, 'Show session row in band');
+  await (await toggle()).onPress();
+  assert.equal(h.view().bandDetail, true);
+  assert.equal(preferences.get('band:detail'), true);
+  assert.equal((await toggle()).label, 'Hide session row in band');
+  // The terminal's SESSION line has the same toggle, named by the band's rows.
+  assert.equal(controls(await h.render()).find((node) => node.key === 'band-detail-toggle').label, 'band: 1 row');
+});
+
+test('another mod’s row and the band stack with nothing between them on every surface', async () => {
+  const h = harness();
+  await start(h);
+  const row = { type: 'Text', props: { children: 'other mod' } };
+  for (const surface of [undefined, 'terminal', 'desktop', 'vscode', 'mobile']) {
+    const tree = await h.component(
+      'AbovePrompt',
+      { hasSurvey: false, isWorking: false, maxRows: 4, bodyColumns: 120, view: {} },
+      { next: async () => row, ...(surface ? { surface } : {}) },
+    );
+    assert.equal(tree.props.children.length, 2, `${surface}`);
+    assert.equal(tree.props.children[0], row, `${surface}`);
+    assert.equal(tree.props.children[1].props.key, 'router-band', `${surface}`);
+  }
 });

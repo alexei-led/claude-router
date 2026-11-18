@@ -98,7 +98,10 @@ test('a fork, a workflow agent, an explicit model, a teammate, a pinned agent an
     ['fork', spawnInput({ fork: true, subagentType: 'fork' })],
     ['explicit', spawnInput({ model: 'opus' })],
     ['teammate', spawnInput({ isTeammate: true, background: true })],
-    ['workflow', spawnInput({ subagentType: 'workflow-subagent', workflow: { runId: 'wf_1', agentIndex: 1 } })],
+    [
+      'workflow',
+      spawnInput({ subagentType: 'workflow-subagent', workflow: { runId: 'wf_1', agentIndex: 1 }, model: 'sonnet' }),
+    ],
     ['pinned', spawnInput({ provider: { plugin: 'project', tier: 'user' } })],
     ['pinned', ccThingz('discovery:runner')],
     ['unknown', ccThingz('dev-flow:reviewer')],
@@ -330,12 +333,12 @@ test('Usage and Now show the session’s agents by model, who picked it, and wha
   );
   await h.event('turn.complete', { turnId: 'a1-t', agentId: 'a1' });
   assert.equal(h.view().subagentsRunning, 0);
-  await h.spawn(spawnInput({ workflow: { runId: 'wf_1', agentIndex: 1 } }), {
+  await h.spawn(spawnInput({ workflow: { runId: 'wf_1', agentIndex: 1 }, model: 'opus' }), {
     model: 'claude-opus-5-5',
     agentId: 'w1',
   });
   const now = screen(await h.render()).join('\n');
-  assert.match(now, /^SESSION {2}1 agent {2}● 1 running$/m);
+  assert.match(now, /^SESSION {2}1 agent {2}● 1 running {2}\[ band: 2 rows \]$/m);
   assert.match(now, /^ {2}−\$0\.49 \(−86%\) vs unrouted ≈\$0\.57$/m);
   assert.match(now, /^ {2}main {3}≈\$0\.00 {2}░+$/m);
   assert.match(now, /^ {2}agents ≈\$0\.08 {2}█+ {2}−\$0\.49 vs their picks$/m);
@@ -365,4 +368,43 @@ test('Usage and Now show the session’s agents by model, who picked it, and wha
   assert.match(open, /▾ Explore/);
   assert.match(open, /■ Haiku 5\.5 +1 moved down/);
   assert.match(open, /1\.0 requests per agent · none respawned within 10 min/);
+});
+
+test('a workflow agent is classified by default, and keeps its own model, or Claude Code’s pick when opted out', async () => {
+  const input = (extra = {}) =>
+    spawnInput({ subagentType: 'workflow-subagent', workflow: { runId: 'wf_1', agentIndex: 1 }, ...extra });
+  const on = await started();
+  const bodies = answering(on, HARD);
+  assert.equal((await on.spawn(input({ prompt: 'Audit the cache layer.' }))).sent.model, 'claude-opus-5-5');
+  assert.equal(bodies.length, 1);
+  const own = input({ model: 'sonnet' });
+  assert.equal((await on.spawn(own, { agentId: 'w2' })).sent, own);
+  const optedOut = await started({ subagents: { types: { 'workflow-subagent': null } } });
+  const plain = input();
+  assert.equal((await optedOut.spawn(plain)).sent, plain);
+  const named = await started({ subagents: { types: { 'workflow-subagent': 'haiku' } } });
+  assert.equal((await named.spawn(input())).sent.model, 'claude-haiku-5-5');
+});
+
+test('resuming a subagent leaves its spawn and its record alone', async () => {
+  const h = await started({ subagents: { types: { 'general-purpose': 'haiku' } } });
+  const first = spawnInput({ subagentType: 'general-purpose' });
+  await h.spawn(first, { model: 'claude-haiku-5-5', agentId: 'r1' });
+  await finish(h, 'r1', 'claude-haiku-5-5');
+  const before = kept(h);
+  const routedBefore = routedOf(h, 'general-purpose').agents;
+  const resume = spawnInput({
+    subagentType: 'general-purpose',
+    model: 'claude-haiku-5-5',
+    background: true,
+    resume: { agentId: 'r1' },
+  });
+  assert.equal(h.view().subagentsRunning, 0);
+  const { sent } = await h.spawn(resume, { model: 'claude-haiku-5-5', agentId: 'r1' });
+  assert.equal(sent, resume);
+  assert.equal(h.view().subagentsRunning, 1, 'a resumed agent shows as running before its first reply');
+  await finish(h, 'r1', 'claude-haiku-5-5');
+  assert.equal(h.view().subagentsRunning, 0);
+  assert.equal(routedOf(h, 'general-purpose').agents, routedBefore);
+  assert.deepEqual(kept(h).passed, before.passed);
 });

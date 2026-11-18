@@ -41,7 +41,8 @@ const block = (all, head) => {
   const from = all.findIndex((line) => line.startsWith(head));
   return all.slice(from, all.indexOf('', from));
 };
-const SESSION_HEAD = 'SESSION  since 09:00 · 20 replies · 4 switches';
+// The SESSION line ends with the band's second-row toggle.
+const SESSION_HEAD = 'SESSION  since 09:00 · 20 replies · 4 switches  [ band: 2 rows ]';
 // Claude Code's usage on a plan: the 5h window resets in an hour, the 7d window reports no reset.
 const PLAN = {
   rateLimits: [
@@ -50,7 +51,7 @@ const PLAN = {
   ],
 };
 
-test('next turn names the tier meter, the route and why, then one pin per tier low to high with its support', () => {
+test('next turn names the tier meter, the route and why, then one pin per tier low to high with its support; a pending pin is shown on its button, which unpins it', () => {
   const { calls, actions } = recording();
   const probabilities = { high: 0.88, medium: 0.07, low: 0.03 };
   const tree = render({ probabilities, reason: 'upgrade', pendingPin: 'medium' }, { actions });
@@ -66,7 +67,7 @@ test('next turn names the tier meter, the route and why, then one pin per tier l
       '  why   ↑ needs stronger',
       '  pin   [ ▂ Haiku·medium — ] [ ▂▄ Haiku·high 3% ]',
       '        [ ▂▄▆ Opus·medium 7% ] [ ▶ ▂▄▆█ Opus·xhigh 88% ]',
-      '        ⏵ next turn ▂▄▆ Opus·medium  [ unpin ]',
+      '',
     ],
   );
   const pins = controls(tree).filter((c) => c.key.startsWith('pin-'));
@@ -79,10 +80,9 @@ test('next turn names the tier meter, the route and why, then one pin per tier l
       ['pin-high', 'secondary'],
     ],
   );
+  assert.ok(!controls(tree).some((c) => c.key === 'unpin'));
   pins[0].onPress();
-  controls(tree)
-    .find((c) => c.key === 'unpin')
-    .onPress();
+  pins[2].onPress();
   assert.deepEqual(calls, [['pin', 'micro'], ['unpin']]);
 });
 
@@ -153,11 +153,11 @@ test('on a plan the pane shows the plan windows and the session as API estimate 
 
 test('a session without replies says so, and replies without a list price keep their tiers but no cost', () => {
   assert.deepEqual(block(lines({ usageSession: null, usageStore: null, strip: null }), 'SESSION'), [
-    'SESSION',
+    'SESSION  [ band: 2 rows ]',
     '  no replies yet',
   ]);
   assert.deepEqual(block(lines({ usageSession: null, usageStore: null }), 'SESSION'), [
-    'SESSION',
+    'SESSION  [ band: 2 rows ]',
     '  no priced replies: cost unknown',
     '  tiers ███·',
     '        ▂▄ 3   ▂▄▆ 1   ▂▄▆█ 1   · not routed 1',
@@ -181,7 +181,7 @@ test('the session counts the running turn’s replies and warns when the switche
   const { calls, actions } = recording();
   const lost = { ...reply(at(2026, 10, 13, 10), 'code'), sums: [1, 1, 0.5, -0.1, 0, 0.6, 0, 0, 0] };
   assert.deepEqual(block(lines({ usageSession: emptyUsage(), usageLive: [lost, lost] }), 'SESSION').slice(0, 3), [
-    'SESSION  2 replies',
+    'SESSION  2 replies  [ band: 2 rows ]',
     '  ≈$2.00  API estimate · configured rates, not an invoice  [ Usage ]',
     '  +$1.00 (+100%) vs Opus 5.5 ≈$1.00',
   ]);

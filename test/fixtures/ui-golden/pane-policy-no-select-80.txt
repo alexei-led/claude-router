@@ -1,0 +1,181 @@
+Box flexDirection="column"
+  Box
+    Text color="suggestion" weight="semibold"
+      "ROUTER"
+    Text
+      "  "
+    Button hotkey="o" key="auto" label="◉ on" variant="primary"
+    Text
+      " "
+    Button hotkey="f" key="manual" label="○ off" variant="secondary"
+    Text
+      "  "
+    Text color="success"
+      "Jev ready · 347 ms"
+  Box
+    Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
+    Text
+      " "
+    Button hotkey="2" key="tab-routes" label="2 Routes ●" variant="secondary"
+    Text
+      " "
+    Button hotkey="3" key="tab-policy" label="3 Policy ●" variant="primary"
+    Text
+      " "
+    Button hotkey="4" key="tab-classifier" label="4 Classifier" variant="secondary"
+    Text
+      " "
+    Button hotkey="5" key="tab-usage" label="5 Usage" variant="secondary"
+    Text
+      " "
+    Button key="help" label="?" variant="secondary"
+  Text
+    " "
+  Box
+    Text color="suggestion" weight="semibold"
+      "POLICY"
+    Text dimColor=true
+      " · how readily the router changes models · edit, then Save"
+  Text
+    " "
+  Box
+    Box flexShrink=0 width=13
+      Text weight="semibold"
+        "Mode"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Box
+        Text
+          "balanced"
+        Text dimColor=true
+          "  saved at once"
+      Text dimColor=true wrap="wrap"
+        "each tier runs its route as configured"
+  Box
+    Box flexShrink=0 width=13
+      Text weight="semibold"
+        "Start"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Box
+        Text
+          "at "
+        Text
+          "micro"
+        Text
+          " "
+        Box flexShrink=0 width=2
+          Text color="warning"
+            "●"
+        Text dimColor=true
+          "default low"
+      Text dimColor=true wrap="wrap"
+        "when the session’s model is no tier’s model"
+  Box
+    Box flexShrink=0 width=13
+      Text weight="semibold"
+        "Going down"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Box
+        Text
+          "after "
+        Text
+          "2"
+        Text
+          " agreeing turns "
+        Box flexShrink=0 width=2
+          Text
+            ""
+      Box
+        Text
+          "if a cache write pays back within "
+        Text
+          "5 turns"
+        Text
+          " "
+        Box flexShrink=0 width=2
+          Text
+            ""
+  Box
+    Box flexShrink=0 width=13
+      Text weight="semibold"
+        "Going up"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Text dimColor=true wrap="wrap"
+        "needs Jev support of 75%, up to 90% as the switch costs more"
+  Box
+    Box flexShrink=0 width=13
+      Text weight="semibold"
+        "Activities"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Box
+        Text
+          "apply at "
+        Text
+          "60%"
+        Text
+          " certainty or more "
+        Box flexShrink=0 width=2
+          Text
+            ""
+      Text dimColor=true wrap="wrap"
+        "else a new task runs its tier’s model; a continuation keeps it"
+  Box
+    Box flexShrink=0 width=13
+      Text weight="semibold"
+        "Credits"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Box
+        Text
+          "cap one cold cache write at "
+        Text
+          "$2.00"
+        Text
+          " "
+        Box flexShrink=0 width=2
+          Text
+            ""
+      Text dimColor=true wrap="wrap"
+        "no model in router.json bills credits, so this has no effect"
+  Text
+    " "
+  Button key="reset-policy" label="Reset policy to defaults"
+  Text
+    " "
+  Box
+    Text color="suggestion" weight="semibold"
+      "FILE"
+    Text
+      "  /fixture/team/router.json  "
+    Button key="copy-path" label="copy"
+  Text dimColor=true
+    "Subagents: on. Agents that pin no model get one at spawn, kept for every step."
+  Text
+    " "
+  Text dimColor=true
+    "router.json changes:"
+  Text color="error"
+    "- routes.micro                   Haiku 5.5 · medium"
+  Text color="success"
+    "+ routes.micro                   Sonnet 5.5 · high"
+  Text color="error"
+    "- baselineTier                   low"
+  Text color="success"
+    "+ baselineTier                   micro"
+  Text color="error"
+    "- activities.code.low            Sonnet 5.5 · high"
+  Text color="success"
+    "+ activities.code.low            no override"
+  Text color="error"
+    "- activities.code.high           no override"
+  Text color="success"
+    "+ activities.code.high           Opus 5.5 · max"
+  Text color="error"
+    "- activityRouting                on"
+  Text color="success"
+    "+ activityRouting                off"
+  Box
+    Text color="warning"
+      "● 5 unsaved routing changes  "
+    Button hotkey="s" key="save-routing" label="Save" variant="primary"
+    Text
+      " "
+    Button hotkey="d" key="discard-routing" label="Discard"

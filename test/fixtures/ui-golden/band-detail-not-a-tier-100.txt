@@ -1,0 +1,41 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text dimColor=true
+      "○ "
+    Text weight="semibold"
+      "Sonnet 5.5"
+    Text
+      " "
+    Button key="band-auto" label="Turn on" variant="primary"
+    Text
+      "   "
+    Text dimColor=true
+      "routing off"
+    Text
+      "   "
+    Text dimColor=true
+      "not a routing tier"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+    Box display="none" hover={"display":"flex"} left=27 position="absolute" top=0
+      Button key="band-detail" label="1 row"
+      Text
+        "                       "
+  Box
+    Text dimColor=true
+      "plan 5h "
+    Text color="success"
+      "▰▰▰"
+    Text dimColor=true
+      "▱▱▱▱▱"
+    Text color="success"
+      " 37%"
+    Text dimColor=true
+      " ↻17:00"
+    Text
+      "   "
+    Text dimColor=true
+      "7d "
+    Text color="warning"
+      "81%"

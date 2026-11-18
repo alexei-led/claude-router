@@ -1,0 +1,44 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text dimColor=true
+      "▂"
+    Text dimColor=true
+      "▄"
+    Text dimColor=true
+      "▆"
+    Text dimColor=true
+      "█"
+    Text
+      " "
+    Text weight="semibold"
+      "Opus 5.5"
+    Text
+      " · xhigh"
+    Text
+      "   "
+    Text dimColor=true
+      "ready"
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+    Box display="none" hover={"display":"flex"} left=39 position="absolute" top=0
+      Text dimColor=true
+        "pin "
+      Button key="band-pin-micro" label="▂"
+      Text
+        " "
+      Button key="band-pin-low" label="▂▄"
+      Text
+        " "
+      Button key="band-pin-medium" label="▂▄▆"
+      Text
+        " "
+      Button key="band-pin-high" label="▂▄▆█"
+      Text
+        "  "
+      Button key="band-manual" label="Turn off"
+      Text
+        "  "
+      Button key="band-detail" label="2 rows"
+      Text
+        "  "

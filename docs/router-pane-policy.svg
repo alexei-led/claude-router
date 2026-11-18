@@ -30,11 +30,11 @@
 <text x="24.0" y="129" fill="#d0d0d0" font-weight="700" xml:space="preserve">Mode</text>
 <text x="125.4" y="129" fill="#d0d0d0" xml:space="preserve">balanced ▾</text>
 <text x="203.4" y="129" fill="#7c7c7c" xml:space="preserve">  saved at once</text>
-<text x="24.0" y="148" fill="#7c7c7c" xml:space="preserve">             each tier runs its route as configured</text>
+<text x="125.4" y="148" fill="#7c7c7c" xml:space="preserve">each tier runs its route as configured</text>
 <text x="24.0" y="167" fill="#d0d0d0" font-weight="700" xml:space="preserve">Start</text>
 <text x="125.4" y="167" fill="#d0d0d0" xml:space="preserve">at </text>
 <text x="148.8" y="167" fill="#d0d0d0" xml:space="preserve">low ▾</text>
-<text x="24.0" y="186" fill="#7c7c7c" xml:space="preserve">             when the session’s model is no tier’s model</text>
+<text x="125.4" y="186" fill="#7c7c7c" xml:space="preserve">when the session’s model is no tier’s model</text>
 <text x="24.0" y="205" fill="#d0d0d0" font-weight="700" xml:space="preserve">Going down</text>
 <text x="125.4" y="205" fill="#d0d0d0" xml:space="preserve">after </text>
 <text x="172.2" y="205" fill="#d0d0d0" xml:space="preserve">3 ▾</text>
@@ -49,11 +49,11 @@
 <text x="125.4" y="262" fill="#d0d0d0" xml:space="preserve">apply at </text>
 <text x="195.6" y="262" fill="#d0d0d0" xml:space="preserve">60% ▾</text>
 <text x="234.6" y="262" fill="#d0d0d0" xml:space="preserve"> certainty or more </text>
-<text x="24.0" y="281" fill="#7c7c7c" xml:space="preserve">             else a new task runs its tier’s model; a continuation keeps it</text>
+<text x="125.4" y="281" fill="#7c7c7c" xml:space="preserve">else a new task runs its tier’s model; a continuation keeps it</text>
 <text x="24.0" y="300" fill="#d0d0d0" font-weight="700" xml:space="preserve">Credits</text>
 <text x="125.4" y="300" fill="#d0d0d0" xml:space="preserve">cap one cold cache write at </text>
 <text x="343.8" y="300" fill="#d0d0d0" xml:space="preserve">$2.00 ▾</text>
-<text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">             no model in router.json bills credits, so this has no effect</text>
+<text x="125.4" y="319" fill="#7c7c7c" xml:space="preserve">no model in router.json bills credits, so this has no effect</text>
 <rect x="24.0" y="343" width="218.4" height="18" rx="4" fill="#2e3340"/>
 <text x="24.0" y="357" fill="#d0d0d0" xml:space="preserve">[ Reset policy to defaults ]</text>
 <text x="24.0" y="395" fill="#5fafd7" font-weight="700" xml:space="preserve">FILE</text>

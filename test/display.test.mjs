@@ -4,6 +4,7 @@ import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import {
   activityDetailLines,
   bar,
+  cardRoute,
   classifierStatus,
   formatTokens,
   missingCredentials,
@@ -11,13 +12,16 @@ import {
   modeLever,
   modelName,
   percentPair,
+  reasonNamesActivity,
   routeLabel,
+  shortRoute,
   sparkline,
   storeAgreementLine,
   unpricedLine,
   usageMetrics,
   whyText,
 } from '../lib/display.mjs';
+import { limitTone } from '../lib/ui/tokens.mjs';
 
 test('unknown metrics stay unknown and zero is a real reading', () => {
   assert.equal(formatTokens(null), 'unknown');
@@ -58,7 +62,7 @@ test('a small-window model is measured against its own window, not the native se
   assert.equal(metrics.window, 200_000);
   assert.equal(metrics.contextBar.percent, 75);
   assert.equal(metrics.cacheBar.percent, 80);
-  assert.equal(metrics.cacheBar.color, 'green');
+  assert.equal(metrics.cacheBar.tone, 'success');
   assert.equal(metrics.cacheBenefit, 0.108);
 });
 
@@ -102,16 +106,16 @@ test('token counts switch unit at a thousand and a million', () => {
 
 test('a bar turns yellow above 60% and red above 80%, clamps its fill and knows no reading', () => {
   for (const [value, maximum, width, expected] of [
-    [0, 1, 4, { text: '░░░░', percent: 0, color: 'green' }],
-    [0.6, 1, 10, { text: '██████░░░░', percent: 60, color: 'green' }],
-    [0.61, 1, 10, { text: '██████░░░░', percent: 61, color: 'yellow' }],
-    [0.8, 1, 10, { text: '████████░░', percent: 80, color: 'yellow' }],
-    [0.81, 1, 10, { text: '████████░░', percent: 81, color: 'red' }],
-    [3, 2, 4, { text: '████', percent: 150, color: 'red' }],
-    [-1, 1, 4, { text: '░░░░', percent: 0, color: 'green' }],
-    [1, 0, 4, { text: 'unknown', percent: null, color: 'gray' }],
-    [Number.NaN, 1, 4, { text: 'unknown', percent: null, color: 'gray' }],
-    [null, 1, 4, { text: 'unknown', percent: null, color: 'gray' }],
+    [0, 1, 4, { text: '░░░░', percent: 0, tone: 'success' }],
+    [0.6, 1, 10, { text: '██████░░░░', percent: 60, tone: 'success' }],
+    [0.61, 1, 10, { text: '██████░░░░', percent: 61, tone: 'warning' }],
+    [0.8, 1, 10, { text: '████████░░', percent: 80, tone: 'warning' }],
+    [0.81, 1, 10, { text: '████████░░', percent: 81, tone: 'danger' }],
+    [3, 2, 4, { text: '████', percent: 150, tone: 'danger' }],
+    [-1, 1, 4, { text: '░░░░', percent: 0, tone: 'success' }],
+    [1, 0, 4, { text: 'unknown', percent: null, tone: 'muted' }],
+    [Number.NaN, 1, 4, { text: 'unknown', percent: null, tone: 'muted' }],
+    [null, 1, 4, { text: 'unknown', percent: null, tone: 'muted' }],
   ])
     assert.deepEqual(bar(value, maximum, width), expected, `${value} of ${maximum}`);
 });
@@ -353,4 +357,77 @@ test('modelName reads Claude and provider ids as names, without the context suff
     [null, 'no response yet'],
   ])
     assert.equal(modelName(id), expected, id);
+});
+
+test('cardRoute names a route as a card does, and as a pin does with short', () => {
+  const route = (model, effort) => ({ model, effort });
+  assert.equal(cardRoute(DEFAULTS, route('opus', 'medium')), 'Opus 5.5 · medium');
+  assert.equal(cardRoute(DEFAULTS, route('opus', 'medium'), { short: true }), 'Opus · medium');
+  assert.equal(cardRoute(DEFAULTS, route('haiku', null)), 'Haiku 5.5 · inherit');
+  assert.equal(cardRoute(DEFAULTS, route('haiku', null), { short: true }), 'Haiku · inherit');
+  const models = {
+    ...DEFAULTS.models,
+    plain: { ...DEFAULTS.models.haiku, id: 'local/plain-model', efforts: [] },
+    custom: { ...DEFAULTS.models.haiku, id: 'deepseek-v4.1-flash' },
+    numbers: { ...DEFAULTS.models.haiku, id: '5.5' },
+  };
+  const config = { ...DEFAULTS, models };
+  // A model without efforts shows its name alone, with no trailing dot.
+  assert.doesNotMatch(cardRoute(config, route('plain', 'high')), / · /);
+  assert.equal(
+    cardRoute(config, route('plain', 'high'), { short: true }),
+    cardRoute(config, route('plain', 'high'), { short: true }).trim(),
+  );
+  // A provider's model reads as modelName names it.
+  assert.equal(cardRoute(config, route('custom', 'high')), `${modelName('deepseek-v4.1-flash')} · high`);
+  assert.match(cardRoute(config, route('custom', 'high'), { short: true }), /^\S.* · high$/);
+  // A name that is all version keeps it, rather than an empty family.
+  assert.equal(cardRoute(config, route('numbers', 'high'), { short: true }), `${modelName('5.5')} · high`);
+  assert.notEqual(cardRoute(config, route('numbers', 'high'), { short: true }).split(' · ')[0], '');
+  // A route to a model the config lacks names the alias.
+  assert.equal(cardRoute(config, route('missing', 'high')), 'missing');
+});
+
+for (const [percent, tone] of [
+  [0, 'success'],
+  [74.9, 'success'],
+  [75, 'warning'],
+  [89.9, 'warning'],
+  [90, 'danger'],
+  [140, 'danger'],
+])
+  test(`a plan window at ${percent}% reads ${tone}`, () => {
+    assert.equal(limitTone(percent), tone);
+  });
+
+for (const [name, route, expected] of [
+  ['a model with efforts and a chosen effort', { model: 'opus', effort: 'xhigh' }, 'Opus·xhigh'],
+  ['a model with efforts and the session effort', { model: 'opus', effort: null }, 'Opus·session'],
+  ['an alias that is not a model', { model: 'gpt', effort: 'high' }, 'gpt'],
+])
+  test(`a pin labels ${name} as ${expected}`, () => {
+    assert.equal(shortRoute(DEFAULTS, route), expected);
+  });
+
+test('a pin labels a model without efforts by its name alone', () => {
+  const config = loadConfig({ userFile: { models: { haiku: { efforts: [] } } } });
+  assert.equal(shortRoute(config, { model: 'haiku', effort: 'high' }), 'Haiku');
+});
+
+test('only a reason with an activity slot names the activity', () => {
+  assert.equal(reasonNamesActivity('upgrade'), false);
+  assert.equal(reasonNamesActivity('not-a-reason'), false);
+  assert.equal(reasonNamesActivity('activity-up'), true);
+});
+
+test('unpricedLine says reply for one and replies for several unavailable comparisons', () => {
+  const metrics = (comparison) => ({
+    version: 1,
+    since: 1,
+    latency: {},
+    downMoves: { moves: 0, escalations: 0 },
+    unpriced: { usage: 0, model: 0, ttl: 0, error: 0, comparison },
+  });
+  assert.match(unpricedLine(metrics(1)), /^Comparison unavailable: 1 routed reply;/);
+  assert.match(unpricedLine(metrics(2)), /^Comparison unavailable: 2 routed replies;/);
 });

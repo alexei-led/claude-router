@@ -168,11 +168,24 @@ for (const [name, userFile, message] of [
   ['a long context that is not an object', { models: { haiku: { longContext: 5 } } }, /longContext must be/],
   ['a fractional long-context threshold', { models: { haiku: { longContext: { above: 1.5 } } } }, /above/],
   ['a zero long-context multiplier', { models: { haiku: { longContext: { multiplier: 0 } } } }, /multiplier/],
+  ['a negative strength', { models: { haiku: { strength: -1 } } }, /models\.haiku\.strength/],
+  ['an imageInput that is not a boolean', { models: { haiku: { imageInput: 'yes' } } }, /models\.haiku\.imageInput/],
+  ['a negative output price', { models: { haiku: { output: -1 } } }, /models\.haiku\.output/],
+  ['an empty model id', { models: { haiku: { id: '' } } }, /models\.haiku\.id is required/],
+  ['an unknown billing', { models: { haiku: { billing: 'free' } } }, /models\.haiku\.billing must be plan or credits/],
 ]) {
   test(`strict router.json rejects ${name} instead of ignoring it`, () => {
     assert.throws(() => loadConfig({ userFile }), message);
   });
 }
+
+for (const provider of ['kimi', 'deepseek', 'mimo'])
+  test(`${provider}: choosing explicit cache needs the 5m and 1h prices its automatic cache does not have`, () => {
+    assert.throws(
+      () => loadConfig({ provider, userFile: { cache: { mode: 'explicit' } } }),
+      /explicit cache requires 5m and 1h/,
+    );
+  });
 
 for (const [name, userFile] of [
   ['an array', []],
@@ -685,16 +698,17 @@ test('a draft edits only the activity cells it changed and follows the saved con
   );
 });
 
-test('supportedVersion accepts Claude Code 2.1.289 and newer, with or without a prerelease', () => {
+test('supportedVersion accepts Claude Code 2.1.321 and newer, with or without a prerelease', () => {
   for (const [version, supported] of [
-    ['2.1.289', true],
-    ['2.1.290-beta.1', true],
+    ['2.1.321', true],
+    ['2.1.322-beta.1', true],
     ['2.2.0', true],
     ['3.0.0', true],
-    ['2.1.288', false],
+    ['2.1.320', false],
+    ['2.1.289', false],
     ['2.0.999', false],
     ['1.9.400', false],
-    ['2.1.289.1', false],
+    ['2.1.321.1', false],
     ['2.1', false],
     ['', false],
     [undefined, false],

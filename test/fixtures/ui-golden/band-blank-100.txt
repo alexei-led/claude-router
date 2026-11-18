@@ -1,0 +1,42 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="#5f9fe0"
+      "▂"
+    Text color="#5f9fe0"
+      "▄"
+    Text dimColor=true
+      "▆"
+    Text dimColor=true
+      "█"
+    Text
+      " "
+    Text weight="semibold"
+      "no response yet"
+    Text
+      "   "
+    Text dimColor=true
+      ""
+    Text
+      "  "
+    Button key="details" label="Router" plain=true
+    Box display="none" hover={"display":"flex"} left=33 position="absolute" top=0
+      Text dimColor=true
+        "pin "
+      Button key="band-pin-micro" label="▂"
+      Text
+        " "
+      Button key="band-pin-low" label="▂▄"
+      Text
+        " "
+      Button key="band-pin-medium" label="▂▄▆"
+      Text
+        " "
+      Button key="band-pin-high" label="▂▄▆█"
+      Text
+        "  "
+      Button key="band-manual" label="Turn off"
+      Text
+        "  "
+      Button key="band-detail" label="2 rows"
+      Text
+        "        "

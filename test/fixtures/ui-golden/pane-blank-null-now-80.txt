@@ -1,0 +1,89 @@
+Box flexDirection="column"
+  Box
+    Text color="suggestion" weight="semibold"
+      "ROUTER"
+    Text
+      "  "
+    Button hotkey="o" key="auto" label="◉ on" variant="primary"
+    Text
+      " "
+    Button hotkey="f" key="manual" label="○ off" variant="secondary"
+    Text
+      "  "
+    Text color="success"
+      "Jev ready"
+  Box
+    Button hotkey="1" key="tab-now" label="1 Now" variant="primary"
+    Text
+      " "
+    Button hotkey="2" key="tab-routes" label="2 Routes" variant="secondary"
+    Text
+      " "
+    Button hotkey="3" key="tab-policy" label="3 Policy" variant="secondary"
+    Text
+      " "
+    Button hotkey="4" key="tab-classifier" label="4 Classifier" variant="secondary"
+    Text
+      " "
+    Button hotkey="5" key="tab-usage" label="5 Usage" variant="secondary"
+    Text
+      " "
+    Button key="help" label="?" variant="secondary"
+  Text
+    " "
+  Text color="suggestion" weight="semibold"
+    "NEXT TURN"
+  Box
+    Text
+      "  "
+    Text color="#5f9fe0"
+      "▂▄"
+    Text
+      "  "
+    Text weight="semibold"
+      "no response yet"
+  Box
+    Text dimColor=true
+      "  pin   "
+    Button key="pin-micro" label="▂ Haiku·medium —" variant="secondary"
+    Text
+      " "
+    Button key="pin-low" label="▶ ▂▄ Haiku·high —" variant="secondary"
+    Text
+      " "
+  Box
+    Text
+      "        "
+    Button key="pin-medium" label="▂▄▆ Opus·medium —" variant="secondary"
+    Text
+      " "
+    Button key="pin-high" label="▂▄▆█ Opus·xhigh —" variant="secondary"
+    Text
+      " "
+  Text
+    " "
+  Box
+    Text color="suggestion" weight="semibold"
+      "SESSION"
+    Text
+      "  "
+    Button key="band-detail-toggle" label="band: 2 rows"
+  Text dimColor=true
+    "  no replies yet"
+  Text
+    " "
+  Text color="suggestion" weight="semibold"
+    "CONTEXT"
+  Box
+    Text
+      "  ctx    "
+    Text dimColor=true
+      "no reading yet"
+  Box
+    Text
+      "  cache  "
+    Text dimColor=true
+      "no reply yet"
+    Text
+      "   "
+    Button key="usage-detail" label="details" variant="secondary"

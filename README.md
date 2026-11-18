@@ -52,7 +52,15 @@ Jev 1.14 is the default; a configured model override stays in force. [Configurat
 
 The band above the prompt shows the tier, activity, model, and reason for each turn. `/router` opens a pane to pin a tier, edit the model and effort of each tier, and tune the policy. See the [user guide](docs/user-guide.md#read-the-status-band).
 
-The router needs Claude Code 2.1.289 or newer. Savings are not measured. The pane's Usage tab estimates what routing cost against no routing (your own model on the main thread, Claude Code's pick for each subagent) for the same tokens at configured list prices, for this session, today, 7 or 30 days, this month or all; it is not a bill and does not judge answer quality. See the [evaluation](docs/evaluation.md).
+In the desktop app, VS Code and mobile, the band is one fixed row with nothing revealed on hover: a tier meter icon, the route, activity and reason on the left; the readings, a **Pin next turn** dropdown and **Router** on the right. The pane has a header, five tabs (Now, Routes, Policy, Classifier, Usage), one warnings slot and a save bar. Colours follow the app's theme. These surfaces cannot open the plugin settings dialog, so **Set up** shows a card with the command that saves the classifier's key from a terminal.
+
+<!-- TODO: capture desktop screenshots: band, Now, Routes, Policy, Classifier, Usage, key card (dark and light) -->
+
+In the terminal, the picture above shows the band, whose controls appear on its own row on hover; the colours follow your Claude Code theme. The pane's warnings share one slot under the tab row, and a pending pin shows on its pin button (press it again to unpin).
+
+On every surface, a row under the band lists running subagents (press one to open its transcript; **Back** returns), `/router` completes its words as you type where the prompt box offers completions, and a quiet route line after a turn says which model ran and why (`/router line off|moves|all`; by default only when the route moved). A session that starts with routing unavailable shows one toast with the reason, at most once a day.
+
+The router needs Claude Code 2.1.321 or newer. Savings are not measured. The pane's Usage tab estimates what routing cost against no routing (your own model on the main thread, Claude Code's pick for each subagent) for the same tokens at configured list prices, for this session, today, 7 or 30 days, this month or all; it is not a bill and does not judge answer quality. See the [evaluation](docs/evaluation.md).
 
 ## How it works
 
@@ -121,7 +129,7 @@ For mixed Anthropic and DeepSeek sessions, use the explicit [model-proxy profile
 
 ## Install
 
-You need Claude Code 2.1.289 or newer and credentials for one [supported classifier](#supported-classifiers).
+You need Claude Code 2.1.321 or newer and credentials for one [supported classifier](#supported-classifiers).
 
 ```sh
 claude plugin marketplace add alexei-led/claude-router
@@ -152,6 +160,22 @@ Before a push, run the same checks as CI. `npm run setup` installs Biome and Typ
 npm run setup
 npm run check && npm run typecheck && npm test && npm run validate && npm run test:plugin
 ```
+
+## Contributing
+
+Pull requests from forks run CI automatically (a maintainer may have to approve the first run). Each check is its own job, and failures show as annotations on the changed lines: `Lint (biome)`, `Types (tsc)`, `Unit tests (node --test)`, and `Plugin (validate and engine tests)`. Run them locally before pushing:
+
+```sh
+npm run setup
+npm run check && npm run typecheck && npm test && npm run validate && npm run test:plugin
+```
+
+`npm test` runs the unit tests; CI runs the same files as `npm run test:ci`, which adds a reporter that annotates failures on the changed lines. `npm run format` fixes biome formatting. A maintainer can request an AI review by adding the `ai-review` label.
+
+### Code quality
+
+- `npm run check` is Biome with `--error-on-warnings`, so a warning fails like an error. Besides the recommended rules it catches unawaited or misused promises, an `await` on a non-promise, an incomplete `switch` over a union, unused imports and variables, import cycles, throws of non-Error values, a lost `cause` when an error is rethrown, shadowed bindings, conditions the types prove constant, and read-modify-write updates split by an `await` (`useAtomicUpdates`). Use `biome-ignore` only with a one-line reason for code that is deliberate.
+- `npm run typecheck` is `tsc` over `lib` and `hooks` with `strictNullChecks`, `noUncheckedIndexedAccess`, `useUnknownInCatchVariables`, `strictFunctionTypes`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals`/`noUnusedParameters`, `verbatimModuleSyntax` and `erasableSyntaxOnly`.
 
 ## Documentation
 

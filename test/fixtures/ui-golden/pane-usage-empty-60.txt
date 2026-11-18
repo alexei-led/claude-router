@@ -1,0 +1,83 @@
+Box flexDirection="column"
+  Box
+    Text color="suggestion" weight="semibold"
+      "ROUTER"
+    Text
+      "  "
+    Button hotkey="o" key="auto" label="◉ on" variant="primary"
+    Text
+      " "
+    Button hotkey="f" key="manual" label="○ off" variant="secondary"
+    Text
+      "  "
+    Text color="success"
+      "Jev ready · 347 ms"
+  Box
+    Button hotkey="1" key="tab-now" label="Now" variant="secondary"
+    Text
+      " "
+    Button hotkey="2" key="tab-routes" label="Routes" variant="secondary"
+    Text
+      " "
+    Button hotkey="3" key="tab-policy" label="Policy" variant="secondary"
+    Text
+      " "
+    Button hotkey="4" key="tab-classifier" label="Classifier" variant="secondary"
+    Text
+      " "
+    Button hotkey="5" key="tab-usage" label="Usage" variant="primary"
+    Text
+      " "
+    Button key="help" label="?" variant="secondary"
+  Text
+    " "
+  Box
+    Button key="period-session" label="Session" variant="primary"
+    Text
+      " "
+    Button hotkey="p" key="period-today" label="Today" variant="secondary"
+    Text
+      " "
+    Button key="period-7d" label="7d" variant="secondary"
+    Text
+      " "
+    Button key="period-30d" label="30d" variant="secondary"
+    Text
+      " "
+    Button key="period-month" label="Month" variant="secondary"
+    Text
+      " "
+    Button key="period-all" label="All" variant="secondary"
+    Text
+      " "
+    Text dimColor=true
+      "  p next"
+  Box
+    Text dimColor=true
+      "this session · your model "
+    Text color="#e0708a" weight="semibold"
+      "Opus 5.5 · xhigh"
+  Text
+    " "
+  Text dimColor=true
+    "No routed replies this session."
+  Text
+    " "
+  Box
+    Text color="suggestion" weight="semibold"
+      "SUBAGENTS"
+    Text dimColor=true
+      " · this session   subagent routing on"
+  Text dimColor=true
+    "  No subagents this session."
+  Text
+    " "
+  Text dimColor=true
+    "  ≈$ = tokens × configured API rates (list/custom)"
+  Text dimColor=true
+    "  not invoices or measured quota savings"
+  Text dimColor=true
+    "  answer quality not measured"
+  Text
+    " "
+  Button dimColor=true key="delete-history" label="Delete history"

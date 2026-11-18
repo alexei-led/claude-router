@@ -23,7 +23,7 @@ import {
 } from '../lib/activity-stats.mjs';
 import { advanceDemand, assessCandidates, initialAutoState, selectTarget } from '../lib/auto-engine.mjs';
 import { autoRoute, observeAutoFallback } from '../lib/auto-route.mjs';
-import { renderBand, switchToast } from '../lib/band.mjs';
+import { renderBand, renderRouteLine, switchToast } from '../lib/band.mjs';
 import { ClassifierClient } from '../lib/classifier-client.mjs';
 import { resolveCredentials } from '../lib/classifier-contract.mjs';
 import {
@@ -37,6 +37,7 @@ import {
   effectiveRoutes,
   loadConfig,
   MIGRATION_HINT,
+  MIN_CLAUDE_CODE,
   ROUTING_MODES,
   supportedVersion,
   TIERS,
@@ -76,6 +77,8 @@ import {
   GATEWAY_SETTINGS,
   missingCredentials,
   NOT_A_TIER_REASON,
+  pinCard,
+  pluginIdOf,
   savingsLine,
   storeAgreementLine,
   unavailableReason,
@@ -93,7 +96,7 @@ import {
   stripReminders,
 } from '../lib/facts.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
-import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
+import { renderPanel } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
 import { providerFile, providerName } from '../lib/providers.mjs';
 import {
@@ -132,6 +135,7 @@ import {
   prepareLoop,
   resetHistory,
 } from '../lib/route.mjs';
+import { LINE_MODES, lineId, lineModeOf, lineOf, routeOf, showsLine } from '../lib/route-line.mjs';
 import {
   afterReset,
   compareModels,
@@ -166,6 +170,10 @@ import {
   subagentsAfterReset,
   typeRoute,
 } from '../lib/subagents.mjs';
+import { argumentHint, routerSuggestions } from '../lib/subcommands.mjs';
+import { routeDraftOf, routingChanges } from '../lib/ui/model/draft.mjs';
+import { keyHelpOf } from '../lib/ui/model/frame.mjs';
+import { isGraphical } from '../lib/ui/tokens.mjs';
 import {
   emptyUsage,
   mergeUsage,
@@ -192,10 +200,17 @@ import {
 
 const VIEW = { plugin: 'router', key: 'view' };
 const LOOP = { plugin: 'router', key: 'loops' };
+// One record per route line placed, by its `$.ui.place` id: what its `Placed` row draws.
+const LINES = { plugin: 'router', key: 'lines' };
 const PANE = 'jev-router';
 const PANE_TITLE = 'Router';
 const BAND_DETAIL = 'band:detail';
+// Whether and when a turn leaves a route line (lib/route-line.mjs), kept across sessions.
+const ROUTE_LINE = 'route:line';
 const MODE_PREFIX = 'mode:';
+// When the toast for one reason routing cannot run last showed; the reason is appended.
+const UNAVAILABLE_NOTICE_PREFIX = 'notice:unavailable:';
+const UNAVAILABLE_NOTICE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 // The session's routing mode override (lib/modes.mjs), apart from its auto|manual MODE_PREFIX.
 const ROUTING_MODE_PREFIX = 'routing-mode:';
 const isSet = (value) => /^(1|true|yes|on)$/i.test(String(value ?? '').trim());
@@ -254,6 +269,20 @@ const LEDGERS = {
 };
 const LEDGER_KINDS = Object.keys(LEDGERS);
 
+/** @typedef {ReturnType<typeof readTrace> | ReturnType<typeof newTrace>} TraceRecord */
+/**
+ * @typedef {object} TraceHold
+ * @property {string} sessionId
+ * @property {TraceRecord | null} record
+ * @property {unknown} persisted
+ * @property {number} lostWrites
+ * @property {Set<string>} reasons
+ * @property {Map<string, any>} turns
+ * @property {number} nextTurn
+ * @property {string | null} config
+ * @property {{ events: object[], excludedEvents?: number } | null} controls
+ */
+
 // Everything the hooks change between events, in one object `register()` creates and passes to its helpers. Module
 // variables, not $.state: a reload starts them over, and the view is written through to $.state as it changes.
 function createRouter(options) {
@@ -284,8 +313,10 @@ function createRouter(options) {
     // Each turn's decision rows until turn.complete writes them, with the turn's end, to the session's record, held as
     // `{ sessionId, record }` once read (`decisionRecord`).
     turnDecisions: new Map(),
+    // The route the last routed turn ran, to tell whether the next one moved it; null at a session's start.
+    lastRoute: null,
     decisionRecord: null,
-    trace: null,
+    trace: /** @type {TraceHold | null} */ (null),
     traceFreshSession: null,
     traceClearSession: null,
     traceStartedSession: null,
@@ -293,7 +324,7 @@ function createRouter(options) {
     traceOperations: new Map(),
     controllers: new Set(),
     turnControllers: new Map(),
-    view: null,
+    view: /** @type {Record<string, unknown> | null} */ (null),
     modes: new Map(),
     // Each session's routing mode override (null: none), as read from or written to the store.
     routingModes: new Map(),
@@ -352,6 +383,7 @@ async function ensureTrace($, router, e, turn, loop, loaded, fresh) {
     if (router.trace?.sessionId === sessionId && router.trace.record) return;
     const previous = router.trace?.sessionId === sessionId ? router.trace : null;
     const at = Date.now();
+    /** @type {TraceHold} */
     const held = {
       sessionId,
       record: null,
@@ -534,7 +566,7 @@ async function flushTrace($, router, turnId = null, ending = false) {
     try {
       const at = Date.now();
       const keys = await $.store.keys();
-      let entries = await Promise.all(keys.map(async (key) => [key, await $.store.get(key)]));
+      let entries = await Promise.all(keys.map(async (name) => [name, await $.store.get(name)]));
       if (entries.some(([, value]) => value === undefined)) throw new Error('store-guard');
       if (traceBytes(Object.fromEntries(entries)) > TRACE_STORE_BYTES) throw new Error('store-guard');
       const resetAt = entries.find(([name]) => name === SAVINGS_RESET_KEY)?.[1];
@@ -597,9 +629,8 @@ async function flushTrace($, router, turnId = null, ending = false) {
       if (ending) held.controls = null;
     } catch (error) {
       held.lostWrites++;
-      held.reasons.add(
-        error.message === 'conflict' ? 'conflict' : error.message === 'store-guard' ? 'store-guard' : 'lost-write',
-      );
+      const message = /** @type {Error} */ (error).message;
+      held.reasons.add(message === 'conflict' ? 'conflict' : message === 'store-guard' ? 'store-guard' : 'lost-write');
     }
   } catch {
     traceFailed(router);
@@ -641,7 +672,7 @@ async function readView($, router) {
 
 // Only a saved mode is cached: the engine can draw the band before session.start, and a cached fallback from that
 // render would override the start rule.
-async function modeOf($, router, fallback = 'auto') {
+async function modeOf($, router, fallback = /** @type {string | null} */ ('auto')) {
   const sessionId = await $.session.id();
   if (router.modes.has(sessionId)) return router.modes.get(sessionId);
   try {
@@ -775,15 +806,17 @@ async function readProject($, profilePath) {
 }
 
 async function updateView($, router, patch) {
-  const value = router.view ?? (await readView($, router));
-  router.view = { ...value, ...patch };
+  // Read the stored view only when none is held, and merge into whatever is held once it arrives: a patch applied
+  // during that read stays.
+  const stored = router.view ? null : await readView($, router);
+  router.view = { ...(router.view ?? stored), ...patch };
   await $.state.set(VIEW, router.view);
 }
 
 // This session's record of `kind`, read from the store once per session, and the last reset (ms) from any session,
 // read each time: a Reset in another session empties a record held from before it.
 async function ownRecord($, router, kind) {
-  const { prefix, read, afterReset } = LEDGERS[kind];
+  const { prefix, read, afterReset: resetRecord } = LEDGERS[kind];
   const held = router.ledgers[kind];
   const sessionId = await $.session.id();
   const resetAt = await $.store.get(SAVINGS_RESET_KEY);
@@ -792,7 +825,7 @@ async function ownRecord($, router, kind) {
     // Another call may have read it meanwhile and a turn added to it: that one stands.
     if (held.own?.sessionId !== sessionId) held.own = { sessionId, record };
   }
-  held.own.record = afterReset(held.own.record, resetAt);
+  held.own.record = resetRecord(held.own.record, resetAt);
   return { own: held.own, resetAt };
 }
 
@@ -893,7 +926,10 @@ async function storeView($, router) {
 // status bar.
 async function openPane($, router) {
   await updateView($, router, { notice: null, confirmDelete: false, ...(await storeView($, router)) });
-  await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
+  const opened = await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
+  // The pane is open but undrawn, as where no surface places panes or the terminal is too narrow for it; saying why beats
+  // a press that shows nothing.
+  if (opened?.isPlaced === false) $.ui.toast(`The Router pane is not shown: ${opened.reason}`);
 }
 
 async function changeMode($, router, mode) {
@@ -951,32 +987,67 @@ async function setPin($, router, tier) {
   return `${tier} pinned for the next turn and its tool continuations.`;
 }
 
-// `/router [auto|off|pin <tier>|activities <mode>|mode <mode>]`; with no action, the pane, or the status text without
-// a surface.
+// What each word of the SUBCOMMANDS table does: a switch, since the engine reads `$` only where it is passed to a
+// function it can name. A word with no case, or one that answers nothing, leaves the command to open the pane.
+async function runSubcommand($, router, action, value) {
+  switch (action) {
+    case 'auto':
+      return switchRouting($, router, 'auto');
+    case 'off':
+      return switchRouting($, router, 'manual');
+    case 'trace':
+      return value === 'export' ? { text: await exportTraces($, router) } : undefined;
+    case 'line':
+      return {
+        text: LINE_MODES.includes(value) ? await setRouteLine($, value) : `Choose line ${LINE_MODES.join(', ')}.`,
+      };
+    case 'decisions':
+      return { text: await decisionsText($, router, value) };
+    case 'pin':
+      return { text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.` };
+    case 'mode':
+      return {
+        text: [...ROUTING_MODES, 'default'].includes(value)
+          ? await setRoutingMode($, router, value)
+          : `Choose mode ${[...ROUTING_MODES, 'default'].join(', ')}.`,
+      };
+    case 'activities':
+      return {
+        text: ACTIVITY_MODES.includes(value)
+          ? await setActivityRouting($, router, value)
+          : `Choose activities ${ACTIVITY_MODES.join(', ')}.`,
+      };
+    default:
+      return undefined;
+  }
+}
+
+// `/router line <mode>`: a preference like the band's second row, kept across sessions and never in router.json.
+async function setRouteLine($, mode) {
+  const saved = await $.store.set(ROUTE_LINE, mode).then(
+    () => true,
+    () => false,
+  );
+  const says = {
+    off: 'no route line after a turn',
+    moves: 'a route line after a turn that ran another model or effort than the last',
+    all: 'a route line after every turn',
+  };
+  return `Route line ${mode}: ${says[mode]}.${saved ? '' : ' It could not be saved for later sessions.'}`;
+}
+
+async function switchRouting($, router, mode) {
+  const view = router.view ?? (await readView($, router));
+  if (view.phase === 'unavailable') return { text: unavailableText(view) };
+  await changeMode($, router, mode);
+  return { text: mode === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
+}
+
+// `/router [word [value]]`, the words of SUBCOMMANDS; with none, the pane, or the status text without a surface.
 async function routerCommand($, router, args) {
   const [action, value] = args.trim().split(/\s+/);
-  if (action === 'auto' || action === 'off') {
-    const view = router.view ?? (await readView($, router));
-    if (view.phase === 'unavailable') return { text: unavailableText(view) };
-    await changeMode($, router, action === 'auto' ? 'auto' : 'manual');
-    return { text: action === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
-  }
-  if (action === 'trace' && value === 'export') return { text: await exportTraces($, router) };
-  if (action === 'decisions') return { text: await decisionsText($, router, value) };
-  if (action === 'pin')
-    return { text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.` };
-  if (action === 'mode')
-    return {
-      text: [...ROUTING_MODES, 'default'].includes(value)
-        ? await setRoutingMode($, router, value)
-        : `Choose mode ${[...ROUTING_MODES, 'default'].join(', ')}.`,
-    };
-  if (action === 'activities')
-    return {
-      text: ACTIVITY_MODES.includes(value)
-        ? await setActivityRouting($, router, value)
-        : `Choose activities ${ACTIVITY_MODES.join(', ')}.`,
-    };
+  const answer = await runSubcommand($, router, action, value);
+  if (answer) return answer;
   const storedView = await readView($, router);
   const view = { ...storedView, mode: await modeOf($, router, storedView.mode) };
   if (!(await $.session.surfaces()).length)
@@ -1033,6 +1104,51 @@ async function credentialsOf($, options, config) {
       ]),
     ),
   );
+}
+
+// A Set up or Edit press: in the terminal, the secure key dialog of `/plugin configure`; a graphical surface, which
+// has no such dialog (the command does nothing there), shows how to add the credentials from a terminal instead, in
+// the pane, for classifier `id`.
+async function keySetup($, router, press, id) {
+  if (!isGraphical(press?.surface)) {
+    openKeySettings($);
+    return $.ui.close({ id: PANE });
+  }
+  await updateView($, router, { keyHelp: keyHelpFor(router, id ?? router.config.classifier), notice: null });
+}
+
+// A graphical band or pane that throws draws the terminal tree; the error goes to the debug log, never the transcript.
+const logFallback = ($, what) => (error) =>
+  $.ui.log(`graphical ${what} failed, drew the terminal one: ${error instanceof Error ? error.message : error}`, {
+    to: 'debug',
+  });
+
+// The key help to open for classifier `id`: an Edit, when nothing is missing, stays open until Done.
+const keyHelpFor = (router, id) => ({
+  id,
+  edit: !missingCredentials(router.config, router.view ?? {}, id),
+});
+
+// The plugin's id for `claude plugin configure`: from its install path, else settings' enabledPlugins.
+async function pluginIdFor($) {
+  const plugin = { name: $.plugin.name, root: $.plugin.root };
+  const settings = await $.settings.read().catch(() => ({}));
+  return pluginIdOf(plugin, settings?.enabledPlugins ?? null);
+}
+
+// The pane's credential handlers: Set up or Edit, and the key help's Copy command and Done.
+function keyActions($, router, view) {
+  return {
+    key: (press, id) => keySetup($, router, press, id),
+    copyKeyHelp: async (press) => {
+      const open = (router.view ?? view).keyHelp;
+      const help = open && keyHelpOf(router.config, open.id, await pluginIdFor($), { edit: open.edit });
+      if (!help) return;
+      await $.ui.copy({ text: help.command, surface: press?.surface });
+      await updateView($, router, { notice: 'Copied' });
+    },
+    keyHelpDone: () => updateView($, router, { keyHelp: null, notice: null }),
+  };
 }
 
 // The host refuses $.command.run from a hook the turn is holding, so the secure key dialog opens from a timer.
@@ -1649,8 +1765,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       resolveCredentials(activeClassifier(cfg), (name) => settingOf($, router.options, name)),
       $.session.messages({ as: 'api' }),
     ]);
-    job.observedUpTo = messages.length;
-    job.prefix = historySignature(messages);
+    Object.assign(job, { observedUpTo: messages.length, prefix: historySignature(messages) });
     const facts = stepFacts(cfg, router, loop, e, messages, context);
     clientOf(router, cfg.classifier)
       .ask({
@@ -1679,7 +1794,17 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
 }
 
 // A routed reply's metrics in the view, with the tier that served it, and added to the turn's activity record with its list price (`routedUsd`, null when unpriced) and, when its tier served it, its route.
-async function publishReply($, router, turnId, request, response, tier, route, routedUsd, cause = null) {
+async function publishReply(
+  $,
+  router,
+  turnId,
+  request,
+  response,
+  tier,
+  route,
+  routedUsd,
+  cause = /** @type {string | null} */ (null),
+) {
   const turn = router.turnActivities.get(turnId);
   const metrics = responseMetrics(router.view, response, tier, Date.now());
   await updateView($, router, {
@@ -1936,11 +2061,13 @@ async function submitPrompt(router, e, next) {
   router.submitting = entry;
   try {
     const result = await next(e);
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: turn.start sets `started` through router.submitting, an alias Biome cannot follow
     if (!entry.started && typeof result?.text === 'string' && !result.drop)
       router.origins = queueOrigin(router.origins, { kind: entry.kind, text: result.text, at: Date.now() });
     return result;
   } finally {
-    router.submitting = outer;
+    // Only the submission still current restores: a later one that started meanwhile keeps its entry.
+    if (router.submitting === entry) router.submitting = outer;
   }
 }
 
@@ -1961,6 +2088,26 @@ function originOfTurn(router, text) {
   return taken.kind;
 }
 
+// A routed turn's route line: one record in `$.state`, one row placed at the transcript's end. Not for an interrupted
+// turn, a subagent's, or a turn with routing off, which has no route of its own to say. Display only, so a failure
+// here never breaks the turn, and a surface that cannot draw the row now is logged, not told.
+async function placeRouteLine($, router, e, turn) {
+  try {
+    const view = router.view;
+    const route = routeOf(view);
+    if (!turn || e.isAborted || !route || !view || view.phase === 'unavailable') return;
+    if ((await modeOf($, router, view.mode)) === 'manual') return;
+    const previous = router.lastRoute;
+    router.lastRoute = route;
+    const mode = lineModeOf(await $.store.get(ROUTE_LINE).catch(() => undefined));
+    if (!showsLine(mode, previous, route)) return;
+    const id = lineId(e.turnId);
+    await $.state.set({ ...LINES, id }, lineOf(router.config, view, route));
+    const placed = await $.ui.place({ id });
+    if (!placed.isPlaced) $.ui.log(`router route line not drawn: ${placed.reason}`, { to: 'debug' });
+  } catch {}
+}
+
 // A finished turn's decision rows and its end row, added to this session's record. Telemetry never breaks a turn: a
 // failed read or write loses this turn's rows. A record from before the last reset reads as empty, and rows read
 // before a Reset in this session are not written back.
@@ -1977,8 +2124,11 @@ async function flushDecisions($, router, turnId, turn) {
     if (turn && turn.sessionId !== sessionId) return;
     const key = `${DECISIONS_PREFIX}${sessionId}`;
     const resetAt = await $.store.get(SAVINGS_RESET_KEY);
-    if (router.decisionRecord?.sessionId !== sessionId)
-      router.decisionRecord = { sessionId, record: readDecisions(await $.store.get(key)) };
+    if (router.decisionRecord?.sessionId !== sessionId) {
+      const record = readDecisions(await $.store.get(key));
+      // Another flush may have read it meanwhile and added its rows to it: that one stands.
+      if (router.decisionRecord?.sessionId !== sessionId) router.decisionRecord = { sessionId, record };
+    }
     const held = router.decisionRecord;
     const now = Date.now();
     const end = turn
@@ -2065,12 +2215,12 @@ async function recordActivity($, router, turn) {
     const start = promptIndex(messages);
     if (start < 0) return;
     const observed = observedActivity(messages, start);
-    // The turn's end row reads it (flushDecisions).
-    turn.observed = observed;
     const view = router.view ?? (await readView($, router));
     const manual = (await modeOf($, router)) === 'manual';
     // The session may have changed during the reads; this turn is not the new session's.
     if ((await $.session.id()) !== turn.sessionId) return;
+    // The turn's end row reads it (flushDecisions).
+    turn.observed = observed;
     // Advanced before any further await, so a session change meanwhile cannot carry this run into the new session.
     const { run, ended } = advanceRun(router.run, turn.answer);
     router.run = run;
@@ -2212,6 +2362,17 @@ async function decideSpawn($, router, cfg, e, definition, signal) {
 // Claude Code uses in place of the Agent call's `model` and the agent's frontmatter. Routing off or unavailable keeps
 // every model Claude Code chooses, and records nothing.
 async function spawnAgent($, router, e, next) {
+  // A resumed agent keeps the model and the record of its first spawn: a hook can only refuse a resume. It runs again
+  // from here, so the band's rows show it before its first reply.
+  if (e.resume) {
+    const result = await next(e);
+    const agent = router.agents.get(e.resume.agentId);
+    if (agent && !agent.running) {
+      router.agents.set(e.resume.agentId, { ...agent, running: true });
+      await showRunning($, router);
+    }
+    return result;
+  }
   if (!(await ensureInitialized($, router))) return next(e);
   const cfg = router.config;
   if (cfg.subagentRouting === 'off') return next(e);
@@ -2221,7 +2382,7 @@ async function spawnAgent($, router, e, next) {
   const pass = passReason(cfg, e, definition);
   const decision = pass ? null : await decideSpawn($, router, cfg, e, definition, next.signal).catch(() => null);
   const routed = Boolean(decision?.model);
-  const result = await next(routed ? { ...e, model: decision.model } : e);
+  const result = await next(decision?.model ? { ...e, model: decision.model } : e);
   if (result.agentId && (pass || decision))
     await noteSpawn($, router, { cfg, e, pass, decision, routed, result, definition }).catch(() => {});
   return result;
@@ -2255,11 +2416,32 @@ async function noteSpawn($, router, { cfg, e, pass, decision, routed, result, de
   await showRunning($, router);
 }
 
-// How many of the agents with a record are between their start or a step and their turn's end, in the view when it
-// changes. An agent spawned with routing off has no record and is not counted.
+// Which of the agents with a record are between their start or a step and their turn's end, and how many, in the view
+// when the set changes: the band draws a row for each. An agent spawned with routing off has no record and is not
+// listed.
 async function showRunning($, router) {
-  const running = [...router.agents.values()].filter((agent) => agent.running).length;
-  if ((router.view?.subagentsRunning ?? 0) !== running) await updateView($, router, { subagentsRunning: running });
+  const ids = [...router.agents].filter(([, agent]) => agent.running).map(([id]) => id);
+  if ((router.view?.subagentIds ?? []).join(' ') !== ids.join(' '))
+    await updateView($, router, { subagentsRunning: ids.length, subagentIds: ids });
+}
+
+// The band's rows: the agents with a record that Claude Code still lists as running, never a teammate, whose own
+// session the person opens from the tasks list. The list names the type and the task; the record the model.
+async function runningAgents($, router) {
+  const listed = await $.agent.list().catch(() => []);
+  return listed.flatMap((agent) => {
+    const record = router.agents.get(agent.id);
+    return record?.running && !agent.teammateId && ['running', 'waiting'].includes(agent.status)
+      ? [{ id: agent.id, type: agent.type, description: agent.description, record }]
+      : [];
+  });
+}
+
+// A press on an agent's row, or on Back, shows that transcript in the main view. Claude Code allows it only while the
+// call answers the person's own input, so a press is the one place to ask; a refusal is told.
+async function showView($, view) {
+  const shown = await $.ui.view(view).catch(() => ({ deny: 'Could not switch the view.' }));
+  if (shown.deny) $.ui.toast(shown.deny);
 }
 
 // A subagent's prompt-cache lifetime, by Claude Code's rule for requests outside the main conversation.
@@ -2324,6 +2506,14 @@ function traceConfigAdopted(router, loaded) {
   } catch {
     traceFailed(router);
   }
+}
+
+// The session row under the band, on or off. The band's button and the pane's setting share it; `view` is the view the
+// caller was drawn from, and `router.view` holds any press since.
+async function toggleBandDetail($, router, view) {
+  const bandDetail = !(router.view ?? view).bandDetail;
+  await $.store.set(BAND_DETAIL, bandDetail).catch(() => {});
+  await updateView($, router, { bandDetail });
 }
 
 // The pane's handlers. `view` is the view the pane was drawn from; a handler reads `router.view` first, which holds
@@ -2426,14 +2616,12 @@ function paneActions($, router, view) {
     mode: (mode) => changeMode($, router, mode),
     tab: (tab) => updateView($, router, { tab, notice: null, confirmDelete: false }),
     help: () => updateView($, router, { help: !(router.view ?? view).help }),
+    toggleDetail: () => toggleBandDetail($, router, view),
     pin: async (tier) => {
       await updateView($, router, { notice: await setPin($, router, tier) });
     },
     unpin: () => updateView($, router, { pendingPin: null, notice: null }),
-    key: async () => {
-      openKeySettings($);
-      await $.ui.close({ id: PANE });
-    },
+    ...keyActions($, router, view),
     copyPath: async (press) => {
       await $.ui.copy({ text: router.config.nativePath, surface: press?.surface });
       await updateView($, router, { notice: 'Path copied.' });
@@ -2532,11 +2720,11 @@ function paneActions($, router, view) {
           router.ledgers[kind] = { own: null, others: LEDGERS[kind].empty(), othersResetAt: resetAt };
         return true;
       };
-      const cleared = await clearRecords().catch(() => false);
       router.trace = null;
       router.traceFreshSession = null;
       router.traceClearSession = null;
       router.traceOperations.clear();
+      const cleared = await clearRecords().catch(() => false);
       // The store kept the history: this session's records start over, and its next write replaces the stored one.
       if (!cleared)
         for (const kind of LEDGER_KINDS) {
@@ -2665,7 +2853,7 @@ async function imagesOf($, config, decision) {
 }
 
 function startError(supported, gateway) {
-  if (!supported) return 'requires Claude Code 2.1.289 or newer';
+  if (!supported) return `requires Claude Code ${MIN_CLAUDE_CODE} or newer`;
   if (gateway) return GATEWAY_SETTINGS;
   return null;
 }
@@ -2756,7 +2944,7 @@ async function traceContinuation($, router, cfg, loop, e, traceInput) {
   if (cfg.routingEngine === 'shadow') {
     // Replay's incumbent may differ from the table's: retain unconditional modality and checkpoint evidence.
     // Failure stays unknown, never a false assertion that the hypothetical route can accept this history.
-    let replayMessages = null;
+    let replayMessages;
     let actualHasImages = null;
     try {
       replayMessages = await transcript($);
@@ -2868,23 +3056,22 @@ async function initializeSession($, router) {
   await $.command.register({
     name: 'router',
     description:
-      'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>; decisions [n] lists the last routing decisions.',
-    argumentHint:
-      '[auto|off|pin <tier>|activities off|on|mode cost|balanced|quality|default|decisions [n]|trace export]',
+      'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>, line <mode>; decisions [n] lists the last routing decisions.',
+    argumentHint: argumentHint(),
     immediate: true,
   });
   const model = await $.session.model();
   try {
-    router.config = await loadNativeConfig($);
+    const config = await loadNativeConfig($);
+    const project = await readProject($, config.nativePath);
+    const existing = await readView($, router);
     // A successful reload adopts this config even for the current turn; stale jobs must not route with the old engine.
+    Object.assign(router, { config, project, view: existing });
     for (const controller of router.controllers) controller.abort();
     router.decisions.clear();
     router.turnConfigs.clear();
     for (const review of router.reviews.values()) review.controller.abort();
     router.reviews.clear();
-    router.project = await readProject($, router.config.nativePath);
-    const existing = await readView($, router);
-    router.view = existing;
     const sameClassifier = existing.health?.classifier === router.config.classifier;
     clientOf(router, router.config.classifier).restore(sameClassifier ? existing.health : null);
     const base = await $.env.get('ANTHROPIC_BASE_URL');
@@ -2917,6 +3104,7 @@ async function initializeSession($, router) {
       ...(await storeView($, router)),
     });
     await pruneDecisionRecords($);
+    // biome-ignore lint/nursery/useAtomicUpdates: ensureInitialized runs this once at a time, and the flag marks it done
     router.initialized = true;
     return true;
   } catch (error) {
@@ -2926,6 +3114,29 @@ async function initializeSession($, router) {
     });
     return false;
   }
+}
+
+// What made routing unavailable, as the notice keys it: an old Claude Code, the v0.8 gateway settings, or a router.json
+// that did not load.
+function unavailableCause(error) {
+  if (error?.startsWith('requires Claude Code')) return 'version';
+  return error === GATEWAY_SETTINGS ? 'gateway' : 'config';
+}
+
+// One toast when a session starts with routing unavailable, at most once a day per cause: the band says it too, but not
+// once it is collapsed or scrolled away. Not for a headless run, which has no one to read it. The day is recorded before
+// the toast, so a toast no surface draws is not retried until tomorrow.
+async function noticeUnavailable($, router, e) {
+  const view = router.view;
+  if (view?.phase !== 'unavailable' || !e.isInteractive || !e.surface) return;
+  try {
+    const key = `${UNAVAILABLE_NOTICE_PREFIX}${unavailableCause(view.error)}`;
+    const last = await $.store.get(key);
+    const now = Date.now();
+    if (Number.isFinite(last) && now - last >= 0 && now - last < UNAVAILABLE_NOTICE_INTERVAL_MS) return;
+    await $.store.set(key, now);
+    $.ui.toast(`Routing off: ${unavailableReason(view)}. Claude’s model is kept.`);
+  } catch {}
 }
 
 async function ensureInitialized($, router) {
@@ -2946,8 +3157,10 @@ export function register(on, options) {
     router.traceStartedSession = sessionId;
     router.trace = null;
     router.traceOperations.clear();
+    router.lastRoute = null;
     router.initialized = false;
     await ensureInitialized($, router);
+    await noticeUnavailable($, router, e);
     return next(e);
   });
 
@@ -2971,18 +3184,26 @@ export function register(on, options) {
 
   on('command.run', { command: 'router' }, ($, e) => routerCommand($, router, e.args));
 
+  // The words after `/router `, once one character is typed (the token is never empty). A matcher tests the token
+  // alone, so the hook reads the text before it. Nothing is read or written but the router's own view.
+  on('prompt.autocomplete', async (_$, e, next) => {
+    const mine = routerSuggestions(e, {
+      describe: (name, value) => (name === 'pin' && router.view ? pinCard(router.config, value) : undefined),
+    });
+    if (!mine.length) return next(e);
+    return { suggestions: [...(await next(e)).suggestions, ...mine] };
+  });
+
+  // Since 2.1.321 a subagent's loop raises turn.start too, with its agentId; the goal and prompt state is the main loop's.
   on('turn.start', async ($, e, next) => {
-    await startTurn($, router, e);
+    if (e.agentId === undefined) await startTurn($, router, e);
     return next(e);
   });
 
   on('prompt.submit', (_$, e, next) => submitPrompt(router, e, next));
 
-  // A hook failure spawns the agent as Claude Code would; next(e) replays a spawn already made. agent.spawn and a
-  // catchable on() are in the 2.1.293 build types, not checked on 2.1.289: an engine without them still loads routing.
-  try {
-    on('agent.spawn', ($, e, next) => spawnAgent($, router, e, next)).catch((_$, e, next) => next(e));
-  } catch {}
+  // A hook failure spawns the agent as Claude Code would; next(e) replays a spawn already made.
+  on('agent.spawn', ($, e, next) => spawnAgent($, router, e, next)).catch((_$, e, next) => next(e));
 
   on('turn.step', async function* ($, e, next) {
     return yield* stepMain($, router, e, next);
@@ -2998,10 +3219,11 @@ export function register(on, options) {
     router.reviews.get(e.turnId)?.controller.abort();
     router.reviews.delete(e.turnId);
     router.turnControllers.get(e.turnId)?.abort();
-    if (router.view?.activeTurnId === e.turnId && router.view.phase === 'choosing') {
-      router.view = { ...router.view, activeTurnId: null };
+    const held = router.view;
+    if (held !== null && held.activeTurnId === e.turnId && held.phase === 'choosing') {
+      router.view = { ...held, activeTurnId: null };
       const mode = await modeOf($, router);
-      if (router.view.activeTurnId === null)
+      if (router.view?.activeTurnId === null)
         await updateView($, router, { phase: mode === 'manual' ? 'manual' : 'ready', reason: 'interrupted' });
     }
     router.prompts.delete(e.turnId);
@@ -3009,6 +3231,7 @@ export function register(on, options) {
     // `off` asks nothing, so it records nothing; it only ends the watch after a cheaper activity move.
     const turn = router.turnActivities.get(e.turnId);
     router.turnActivities.delete(e.turnId);
+    await placeRouteLine($, router, e, turn);
     if (turn?.mode === 'off') {
       if ((await $.session.id()) === turn.sessionId) router.afterDown = advanceDown(router.afterDown, turn).after;
     } else if (turn) await recordActivity($, router, turn);
@@ -3026,6 +3249,7 @@ export function register(on, options) {
     const result = await next(e);
     // Only the main conversation is routed, so an agent compaction changes nothing here.
     if (!result.skip && e.trigger !== 'precompute' && !e.agentId) {
+      // biome-ignore lint/suspicious/noUnnecessaryConditions: router.trace is set by helpers that take `router`, which Biome cannot follow
       if (!router.trace) {
         router.traceFreshSession = null;
         router.traceClearSession = null;
@@ -3056,6 +3280,7 @@ export function register(on, options) {
       if (router.trace?.turns.size) router.trace.reasons.add('aborted');
       await flushTrace($, router, null, true);
     }
+    // biome-ignore lint/nursery/useAtomicUpdates: the session is over, so whatever trace the final flush held or created is dropped
     router.trace = null;
     router.traceOperations.clear();
     router.traceFreshSession = null;
@@ -3075,6 +3300,18 @@ export function register(on, options) {
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     const label = await footerLabel($, router, await readView($, router));
     return label ? next({ ...e, props: { ...e.props, modes: [...e.props.modes, label] } }) : next(e);
+  });
+
+  // A route line: drawn from the record the turn's end kept under the row's id. Rows other plugins placed pass.
+  on('ui.render', { component: 'Placed' }, async ($, e, next) => {
+    if (e.props.plugin !== $.plugin.name) return next(e);
+    const { value: line } = await $.state.get({ ...LINES, id: e.props.id });
+    if (!line) return next(e);
+    return renderRouteLine($.ui.resolve(e), router.config, line, {
+      columns: e.viewport?.columns,
+      surface: e.surface,
+      onFallback: logFallback($, 'route line'),
+    });
   });
 
   on('ui.render', { component: ['AbovePrompt', 'Pane'] }, async ($, e, next) => {
@@ -3097,33 +3334,49 @@ export function register(on, options) {
             usage,
             {
               columns: e.props.bodyColumns,
+              surface: e.surface,
+              onFallback: logFallback($, 'band'),
               agentId: e.props.view?.agentId,
               agent: router.agents.get(e.props.view?.agentId) ?? null,
+              agents: e.props.view?.agentId ? [] : await runningAgents($, router),
+              back: true,
             },
             {
               open: () => openPane($, router),
+              viewAgent: (agentId) => showView($, { agentId }),
+              back: () => showView($, {}),
               mode: (mode) => changeMode($, router, mode),
               pin: async (tier) => $.ui.toast(await setPin($, router, tier)),
               unpin: () => updateView($, router, { pendingPin: null }),
-              key: () => openKeySettings($),
-              toggleDetail: async () => {
-                const bandDetail = !(router.view ?? view).bandDetail;
-                await $.store.set(BAND_DETAIL, bandDetail).catch(() => {});
-                await updateView($, router, { bandDetail });
+              // On a graphical surface the band's Set up opens the pane on how to add the credentials.
+              key: async (press) => {
+                if (!isGraphical(press?.surface ?? e.surface)) return openKeySettings($);
+                await openPane($, router);
+                await updateView($, router, { keyHelp: keyHelpFor(router, router.config.classifier) });
               },
+              toggleDetail: () => toggleBandDetail($, router, view),
             },
           ),
         ],
       });
     }
     view.decisionRows = await paneDecisionRows($, router);
+    // A Set up's key help hides by itself once the credentials it asks for are there; an Edit's waits for Done.
+    const open = view.keyHelp;
+    const keyHelp =
+      open?.id && router.config.classifiers[open.id] && (open.edit || missingCredentials(router.config, view, open.id))
+        ? open
+        : null;
     const settings = await $.settings.read().catch(() => ({}));
     const modelOptions = Object.keys(router.config.models).filter((alias) =>
       isModelAllowed(router.config.models[alias].id, settings.availableModels, view.nativeModel),
     );
-    return renderPanel(elements, router.config, view, usage, paneActions($, router, view), {
+    return renderPanel(elements, router.config, { ...view, keyHelp }, usage, paneActions($, router, view), {
       modelOptions,
       columns: e.props.bodyColumns,
+      surface: e.surface,
+      onFallback: logFallback($, 'pane'),
+      pluginId: pluginIdOf({ name: $.plugin.name, root: $.plugin.root }, settings?.enabledPlugins ?? null),
     });
   });
 }

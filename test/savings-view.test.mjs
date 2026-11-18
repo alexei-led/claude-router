@@ -3,9 +3,8 @@ import test from 'node:test';
 import { renderBand } from '../lib/band.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
 import { savingsLine } from '../lib/display.mjs';
-import { ELEMENTS, screen } from './harness.mjs';
+import { ELEMENTS, quiet, screen } from './harness.mjs';
 
-const actions = new Proxy({}, { get: () => () => {} });
 const SINCE = Date.parse('2026-10-10T12:00:00Z');
 const STORE = {
   version: 1,
@@ -83,7 +82,7 @@ const view = (props) => ({
 
 test('the two-row band says the session against your model and the parts that add up to it, the answer kept when narrow', () => {
   const second = (props, columns = 140) =>
-    screen(renderBand(ELEMENTS, DEFAULTS, view({ bandDetail: true, ...props }), null, { columns }, actions))[1];
+    screen(renderBand(ELEMENTS, DEFAULTS, view({ bandDetail: true, ...props }), null, { columns }, quiet))[1];
   const SAME = { ...SAVES, replies: 20, routedUsd: 1, yoursUsd: 1, cheaperUsd: 0, switchUsd: 0 };
   for (const [props, columns, expected] of [
     [
@@ -115,7 +114,7 @@ test('the two-row band says the session against your model and the parts that ad
   ])
     assert.equal(second(props, columns), expected, `${columns}: ${props.usageSession ? 'record' : 'none'}`);
   const oneRow = screen(
-    renderBand(ELEMENTS, DEFAULTS, view({ ...OPUS, usageSession: record(SAVES) }), null, { columns: 140 }, actions),
+    renderBand(ELEMENTS, DEFAULTS, view({ ...OPUS, usageSession: record(SAVES) }), null, { columns: 140 }, quiet),
   );
   assert.ok(!oneRow.join('\n').includes('session'));
 });
@@ -130,7 +129,7 @@ test('the band counts the running turn’s replies before the turn is recorded',
   };
   const second = (props) =>
     screen(
-      renderBand(ELEMENTS, DEFAULTS, view({ bandDetail: true, ...OPUS, ...props }), null, { columns: 140 }, actions),
+      renderBand(ELEMENTS, DEFAULTS, view({ bandDetail: true, ...OPUS, ...props }), null, { columns: 140 }, quiet),
     )[1];
   assert.equal(
     second({ usageLive: Array(10).fill(live) }),

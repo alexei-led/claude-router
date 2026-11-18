@@ -2,12 +2,54 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { register } from '../hooks/native-router.mjs';
 
-const element = (type) => (props) => ({ type, props });
+// The engine refuses a prop it cannot read, and the whole pane with it, so the stubs refuse the same cheap cases: a
+// spacing that is neither a finite number nor a named step, a size that is not a finite number, a missing required
+// prop. The step names are the ones the router draws with; add a name here once an engine accepts it.
+export const SPACING_STEPS = ['xs', 'sm', 'md', 'lg'];
+const SPACING = /^(gap|rowGap|columnGap|padding[A-Za-z]*|margin[A-Za-z]*)$/;
+const SIZE = /^(width|height|flexGrow|flexShrink)$/;
+const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value);
+const isPercent = (value) => typeof value === 'string' && /^\d+(\.\d+)?%$/.test(value);
+const REQUIRED = { Select: { value: 'string', options: 'array', onSelect: 'function' } };
+
+export function validateProps(type, props) {
+  assert.ok(props && typeof props === 'object', `${type} takes a props object`);
+  for (const [name, value] of Object.entries(props)) {
+    if (value === undefined) continue;
+    if (SPACING.test(name))
+      assert.ok(
+        isFiniteNumber(value) || SPACING_STEPS.includes(value),
+        `${type} ${name}: ${JSON.stringify(value)} is neither a number nor one of ${SPACING_STEPS.join(', ')}`,
+      );
+    if (SIZE.test(name))
+      assert.ok(
+        isFiniteNumber(value) || (name === 'width' && isPercent(value)),
+        `${type} ${name}: ${JSON.stringify(value)} is not a finite number`,
+      );
+  }
+  if (type === 'Button')
+    assert.ok(typeof props.label === 'string' || props.children !== undefined, 'Button needs a label or children');
+  for (const [name, kind] of Object.entries(REQUIRED[type] ?? {})) {
+    const value = props[name];
+    const ok = kind === 'array' ? Array.isArray(value) : typeof value === kind;
+    assert.ok(ok, `${type} needs ${name} as a ${kind}, got ${JSON.stringify(value)}`);
+  }
+}
+
+const element = (type) => (props) => {
+  validateProps(type, props);
+  return { type, props };
+};
 export const ELEMENTS = {
   Box: element('Box'),
   Text: element('Text'),
   Button: element('Button'),
   Select: element('Select'),
+  Svg: element('Svg'),
+  Code: element('Code'),
+  Progress: element('Progress'),
+  Input: element('Input'),
+  Link: element('Link'),
 };
 
 export function harness(options = {}, preferences = new Map(), state = new Map()) {
@@ -24,9 +66,15 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   let draft = '';
   let commandCalls = 0;
   let surfaces = ['terminal'];
+  let opened = {};
   const copied = [];
   const toasts = [];
-  let version = '2.1.289';
+  const views = [];
+  const places = [];
+  let placeResult = { isPlaced: true, requestId: 'placed-1' };
+  let agents = [];
+  let viewResult = {};
+  let version = '2.1.321';
   let settings = {};
   let sessionId = 's1';
   let snapshot = new Map();
@@ -104,11 +152,24 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
         }),
     },
     http: { fetch: (...args) => http(...args) },
+    // `agents` as `$.agent.list()` lists them.
+    agent: { list: async () => agents },
     ui: {
-      log: () => {},
+      // A graphical renderer that falls back to the terminal tree is a failure in a test.
+      log: (text) => {
+        if (String(text).startsWith('graphical ')) throw new Error(text);
+      },
       copy: async (args) => copied.push(args),
       toast: (text) => toasts.push(text),
-      open: async () => ({}),
+      place: async (args) => {
+        places.push(args);
+        return placeResult;
+      },
+      view: async (view) => {
+        views.push(view);
+        return viewResult;
+      },
+      open: async () => opened,
       close: async () => {},
       resolve: () => ELEMENTS,
     },
@@ -169,6 +230,25 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     commandCalls: () => commandCalls,
     copied,
     toasts,
+    // The calls of `$.ui.place`, in order; `placeAnswer` is what it resolves to next (`{ isPlaced: false, reason }` where
+    // no surface is attached).
+    places,
+    placeAnswer: (value) => {
+      placeResult = value;
+    },
+    // The calls of `$.ui.view`, in order; `viewAnswer` is what it resolves to next (`{}` or `{ deny }`).
+    views,
+    viewAnswer: (value) => {
+      viewResult = value;
+    },
+    // What `$.agent.list()` returns: `{ id, type, description, status }` each.
+    agents: (value) => {
+      agents = value;
+    },
+    // What `$.ui.open` resolves: `{ isPlaced: true }`, or `{ isPlaced: false, reason }` where the pane waits undrawn.
+    opens: (value) => {
+      opened = value;
+    },
     surfaces: (value) => {
       surfaces = value;
     },
@@ -190,17 +270,30 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       snapshot = new Map();
       return handler(name, input)($, input, next);
     },
-    render: async (props = PANE) => {
+    render: async (props = PANE, surface = undefined) => {
       snapshot = new Map();
       return handler('ui.render', { component: 'Pane' })(
         $,
-        { component: 'Pane', requestId: 'jev-router', props },
+        { component: 'Pane', requestId: 'jev-router', props, surface },
         async () => null,
       );
     },
-    component: async (component, props = {}) => {
+    component: async (component, props = {}, { next = async (input) => input, surface, viewport } = {}) => {
       snapshot = new Map();
-      return handler('ui.render', { component })($, { component, requestId: component, props }, async (input) => input);
+      const event = {
+        component,
+        requestId: component,
+        props,
+        ...(surface ? { surface } : {}),
+        ...(viewport ? { viewport } : {}),
+      };
+      return handler('ui.render', { component })($, event, next);
+    },
+    // A prompt.autocomplete dispatch: `engine` is what core's typeahead already holds. Returns the rows after the hook.
+    autocomplete: async (input, engine = []) => {
+      snapshot = new Map();
+      const core = async () => ({ suggestions: engine });
+      return (await handler('prompt.autocomplete', input)($, input, core)).suggestions;
     },
     step: (input, response = {}, signal = new AbortController().signal) => {
       snapshot = new Map();
@@ -330,6 +423,41 @@ export function screen(tree) {
   return lay(tree).map((line) => line.trimEnd());
 }
 
+// The element tree as plain JSON for golden files: function props (handlers) dropped, every other prop kept, children
+// serialized in place. Two trees that draw and answer alike serialize alike; a changed key, label, variant, hotkey or
+// style shows as a diff.
+export function serialize(tree) {
+  if (Array.isArray(tree)) return tree.map(serialize);
+  if (tree === null || typeof tree !== 'object') return tree;
+  const entries = Object.entries(tree).filter(([, value]) => typeof value !== 'function' && value !== undefined);
+  const isElement = typeof tree.type === 'string' && tree.props && typeof tree.props === 'object';
+  if (!isElement) return Object.fromEntries(entries.map(([key, value]) => [key, serialize(value)]));
+  return { type: tree.type, props: serialize(tree.props) };
+}
+
+// The tree as indented lines for golden files, far smaller than its JSON: `Type key=value ...` with props sorted by
+// name and function props dropped, a string child as its own JSON-quoted line, `children` never a prop.
+export function goldenText(tree) {
+  const lines = [];
+  const value = (v) => JSON.stringify(v);
+  (function walk(node, depth) {
+    const pad = '  '.repeat(depth);
+    if (node === null || node === undefined || node === false) return;
+    if (Array.isArray(node)) {
+      for (const child of node) walk(child, depth);
+      return;
+    }
+    if (typeof node !== 'object') return void lines.push(`${pad}${JSON.stringify(node)}`);
+    const { children, ...props } = node.props;
+    const shown = Object.entries(serialize(props))
+      .sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))
+      .map(([key, v]) => `${key}=${value(v)}`);
+    lines.push([`${pad}${node.type}`, ...shown].join(' '));
+    walk(children, depth + 1);
+  })(tree, 0);
+  return `${lines.join('\n')}\n`;
+}
+
 export function controls(tree) {
   const nodes = [];
   function walk(node) {
@@ -375,3 +503,84 @@ export function answering(h, ...answers) {
 }
 
 export const JEV_KEY = { typesafe_api_key: 'synthetic-key' };
+
+// An element's children as a list, nulls dropped.
+export const kids = (node) =>
+  (Array.isArray(node?.props?.children) ? node.props.children : [node?.props?.children]).filter(Boolean);
+
+// Every element in the tree that `match` accepts, in document order.
+export function find(tree, match) {
+  const out = [];
+  (function walk(node) {
+    if (!node || typeof node !== 'object') return;
+    if (node.props && match(node)) out.push(node);
+    for (const child of kids(node)) walk(child);
+  })(tree);
+  return out;
+}
+
+// The first element with this key.
+export const byKey = (tree, key) => find(tree, (n) => n.props.key === key)[0];
+
+// The keys and the hotkeys the tree holds more than once: a Button with no key is addressed by its label. One owner
+// per key and per hotkey, so a press or a key always reaches the control it names.
+export function duplicates(tree) {
+  const keys = new Map();
+  const hotkeys = new Map();
+  const count = (map, name) => map.set(name, (map.get(name) ?? 0) + 1);
+  for (const node of find(tree, () => true)) {
+    const key = node.props.key ?? (node.type === 'Button' ? node.props.label : undefined);
+    if (key !== undefined) count(keys, `${node.type === 'Box' ? 'Box ' : ''}${key}`);
+    if (node.props.hotkey !== undefined) count(hotkeys, node.props.hotkey);
+  }
+  const many = (map) => [...map].filter(([, n]) => n > 1).map(([name]) => name);
+  return { keys: many(keys), hotkeys: many(hotkeys) };
+}
+
+// The tree, after failing on any key or hotkey it holds twice: a graphical test's draw passes every tree through it.
+export function unique(tree) {
+  assert.deepEqual(duplicates(tree), { keys: [], hotkeys: [] });
+  return tree;
+}
+
+// Every action a pane or band may call, doing nothing.
+export const quiet = new Proxy({}, { get: () => () => {} });
+
+// Actions that record each call as [name, ...args].
+export function recorder() {
+  const calls = [];
+  const actions = new Proxy(
+    {},
+    {
+      get:
+        (_target, name) =>
+        (...args) =>
+          calls.push([name, ...args]),
+    },
+  );
+  return { actions, calls };
+}
+
+// The element whose children include `target`.
+export const parentOf = (tree, target) => find(tree, (node) => kids(node).includes(target))[0];
+
+// The words the tree draws, in document order: a Text's string, a Button as `[ label ]`.
+export const textOf = (tree) =>
+  find(tree, () => true)
+    .map((node) =>
+      node.type === 'Text' ? String(node.props.children) : node.type === 'Button' ? `[ ${node.props.label} ]` : '',
+    )
+    .join('');
+
+// The line's Text hangs when it wraps inside the field's value column, which sits beside the fixed-width label.
+export function hangs(tree, words, labelWidth) {
+  const [text] = find(tree, (node) => node.type === 'Text' && node.props.children === words);
+  if (!text) return 'no such line';
+  if (text.props.wrap !== 'wrap') return 'does not wrap';
+  const column = parentOf(tree, text);
+  const { flexDirection, flexGrow, flexShrink } = column.props;
+  if (flexDirection !== 'column' || flexGrow !== 1 || flexShrink !== 1) return 'not in a value column';
+  const [label, value] = kids(parentOf(tree, column));
+  if (label.props.width !== labelWidth || label.props.flexShrink !== 0) return 'no fixed-width label beside it';
+  return value === column ? 'hangs' : 'not beside its label';
+}

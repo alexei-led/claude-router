@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULTS, loadConfig } from '../lib/config.mjs';
+import { CLASSIFY, DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { requestUsd, subagentCacheTtl } from '../lib/savings.mjs';
 import {
   addAgentReply,
@@ -47,7 +47,6 @@ test('a spawn passes through for a fork, a workflow agent, an explicit model, a 
     ['built-in Explore', spawn(), null, null],
     ['general-purpose', spawn({ subagentType: 'general-purpose' }), null, null],
     ['fork', spawn({ fork: true, subagentType: 'fork' }), null, 'fork'],
-    ['workflow agent', spawn({ workflow: { runId: 'wf_1', agentIndex: 1 } }), null, 'workflow'],
     [
       'workflow agent({ model })',
       spawn({ workflow: { runId: 'wf_1', agentIndex: 2 }, model: 'sonnet' }),
@@ -335,4 +334,16 @@ test('a record from before 1.14.0 reads as undated totals that only a whole-reco
   const next = recordAgent(read, record(), AT(13));
   assert.deepEqual(next.undated, { agents: 5, usd: 2.5 });
   assert.deepEqual(mergeSubagentStores([saved, next]).undated, { agents: 10, usd: 5 });
+});
+
+test('a workflow agent is classified by default, and its own model choice, or a null listing, keeps Claude Code’s pick', () => {
+  const agent = (extra = {}) =>
+    spawn({ subagentType: 'workflow-subagent', workflow: { runId: 'wf_1', agentIndex: 1 }, ...extra });
+  assert.equal(passReason(DEFAULTS, agent(), null), null);
+  assert.deepEqual(typeRoute(DEFAULTS, agent(), null), { route: CLASSIFY });
+  // Its own `subagentType` does not apply to a workflow agent: the engine's workflow-subagent entry decides.
+  assert.equal(passReason(DEFAULTS, agent({ subagentType: 'Explore' }), null), null);
+  assert.equal(passReason(DEFAULTS, agent({ model: 'sonnet' }), null), 'workflow');
+  assert.equal(passReason(withTypes({ 'workflow-subagent': null }), agent(), null), 'unlisted');
+  assert.equal(passReason(withTypes({ 'workflow-subagent': 'haiku' }), agent(), null), null);
 });

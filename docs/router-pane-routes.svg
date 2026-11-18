@@ -38,43 +38,43 @@
 <text x="250.2" y="167" fill="#d0d0d0" xml:space="preserve"> haiku·high</text>
 <text x="375.0" y="167" fill="#d0d0d0" xml:space="preserve"> sonnet·xhigh●</text>
 <text x="499.8" y="167" fill="#d0d0d0" xml:space="preserve"> opus·xhigh</text>
-<text x="24.0" y="186" fill="#d7875f" font-style="italic" xml:space="preserve">code</text>
+<text x="24.0" y="186" fill="#d77757" font-style="italic" xml:space="preserve">code</text>
 <text x="125.4" y="186" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="250.2" y="186" fill="#d0d0d0" xml:space="preserve"> sonnet·high°</text>
 <text x="375.0" y="186" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="499.8" y="186" fill="#d0d0d0" xml:space="preserve">▸opus·max●</text>
-<text x="24.0" y="205" fill="#d7875f" font-style="italic" xml:space="preserve">debug</text>
+<text x="24.0" y="205" fill="#d77757" font-style="italic" xml:space="preserve">debug</text>
 <text x="125.4" y="205" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="250.2" y="205" fill="#d0d0d0" xml:space="preserve"> sonnet·high°</text>
 <text x="375.0" y="205" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="499.8" y="205" fill="#7c7c7c" xml:space="preserve"> ·</text>
-<text x="24.0" y="224" fill="#d7875f" font-style="italic" xml:space="preserve">explore</text>
+<text x="24.0" y="224" fill="#d77757" font-style="italic" xml:space="preserve">explore</text>
 <text x="125.4" y="224" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="250.2" y="224" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="375.0" y="224" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="499.8" y="224" fill="#7c7c7c" xml:space="preserve"> ·</text>
-<text x="24.0" y="243" fill="#d7875f" font-style="italic" xml:space="preserve">plan</text>
+<text x="24.0" y="243" fill="#d77757" font-style="italic" xml:space="preserve">plan</text>
 <text x="125.4" y="243" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="250.2" y="243" fill="#d0d0d0" xml:space="preserve"> sonnet·high°</text>
 <text x="375.0" y="243" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="499.8" y="243" fill="#7c7c7c" xml:space="preserve"> ·</text>
-<text x="24.0" y="262" fill="#d7875f" font-style="italic" xml:space="preserve">review</text>
+<text x="24.0" y="262" fill="#d77757" font-style="italic" xml:space="preserve">review</text>
 <text x="125.4" y="262" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="250.2" y="262" fill="#d0d0d0" xml:space="preserve"> sonnet·high°</text>
 <text x="375.0" y="262" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="499.8" y="262" fill="#7c7c7c" xml:space="preserve"> ·</text>
-<text x="24.0" y="281" fill="#d7875f" font-style="italic" xml:space="preserve">ops</text>
+<text x="24.0" y="281" fill="#d77757" font-style="italic" xml:space="preserve">ops</text>
 <text x="125.4" y="281" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="250.2" y="281" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="375.0" y="281" fill="#d0d0d0" xml:space="preserve"> haiku·high°</text>
 <text x="499.8" y="281" fill="#7c7c7c" xml:space="preserve"> ·</text>
-<text x="24.0" y="300" fill="#d7875f" font-style="italic" xml:space="preserve">docs</text>
+<text x="24.0" y="300" fill="#d77757" font-style="italic" xml:space="preserve">docs</text>
 <text x="125.4" y="300" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="250.2" y="300" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="375.0" y="300" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="499.8" y="300" fill="#7c7c7c" xml:space="preserve"> ·</text>
 <text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">  · runs the tier’s model   ° built-in default   ● unsaved</text>
-<text x="24.0" y="357" fill="#d7875f" font-style="italic" xml:space="preserve">code</text>
+<text x="24.0" y="357" fill="#d77757" font-style="italic" xml:space="preserve">code</text>
 <text x="55.2" y="357" fill="#d0d0d0" xml:space="preserve"> at </text>
 <text x="86.4" y="357" fill="#e0708a" font-weight="700" xml:space="preserve">high</text>
 <text x="195.6" y="357" fill="#d0d0d0" xml:space="preserve">Opus 5.5 ▾</text>

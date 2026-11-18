@@ -6,7 +6,7 @@ Select a [provider profile](providers.md), then configure the key of the classif
 
 | Item                               | Where it lives                                  | How to change it                                                                                |
 | ---------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Jev API key                        | Sensitive plugin option `typesafe_api_key`      | Run `/plugin configure router`, or use **Set up** or **Credentials → Edit** in the router pane. |
+| Jev API key                        | Sensitive plugin option `typesafe_api_key`      | Run `/plugin configure router`, or use **Set up** or **Credentials → Edit** in the router pane (on the desktop app, VS Code and mobile they show the command to run in a terminal). |
 | Cloudflare API token               | Sensitive plugin option `cloudflare_api_token`  | The same dialog. Used by Clef, Clef Flash and Clef Omni.                                        |
 | Cloudflare account ID              | Plugin option `cloudflare_account_id`           | The same dialog, or the config menu row. Not a secret.                                          |
 | OpenAI API key                     | Sensitive plugin option `openai_api_key`        | The same dialog. Used only by the OpenAI classifier. Ollama needs no key.                       |
@@ -342,7 +342,8 @@ These agents always keep their model:
 - a fork;
 - an Agent call that names a `model`;
 - a teammate;
-- a workflow `agent()`: Claude Code ignores a rewrite of its model, so workflow agents get only `CLAUDE_CODE_SUBAGENT_MODEL`;
+- a workflow `agent({ model })`: the script chose it. A workflow `agent()` without a model is classified like `general-purpose`, unless you set `workflow-subagent` to `null` under `subagents.types`;
+- a resumed subagent: it runs on the model of its first spawn, and Claude Code lets a hook only refuse a resume;
 - a built-in agent other than Explore, Plan and general-purpose: its definition is not on disk.
 
 ```json
@@ -359,6 +360,12 @@ These agents always keep their model:
 ```
 
 The values above are the defaults.
+
+Workflow agents are routed by default, classified like `general-purpose`. The key is the engine's own name for them, `workflow-subagent` (whatever type the script gives an agent does not apply to it); its value is a models key, `classify`, or `null` to keep Claude Code's pick:
+
+```json
+{ "subagents": { "types": { "workflow-subagent": null } } }
+```
 
 - `types` overrides the rule for an agent type: a models key, `classify`, or `null` to never route it. A user file adds to the defaults. A key without a colon matches only Claude Code's built-in of that name, such as `Explore`; a project agent named `Explore` replaces the built-in and follows its own definition. A `plugin:name` key matches only that plugin's agent. A listed type is routed even if its definition pins a model.
 - `classify` asks the active classifier, once, with the task's description and prompt. It sends no history and no tool results. The task runs on `heavy` when the classifier gives `high` at least `heavyMass`. It runs on `light` for exploration (the `explore` activity above `policy.activityMass`) or the `micro` tier. Everything else runs on `standard`. Every routed agent not listed in `types` is classified. In `on` the spawn waits up to the classifier's `timeoutMs`, at most 3 seconds.

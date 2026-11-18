@@ -1,0 +1,3 @@
+Box
+  Text dimColor=true
+    "agent · model chosen at spawn"
