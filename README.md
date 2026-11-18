@@ -157,6 +157,17 @@ npm run setup
 npm run check && npm run typecheck && npm test && npm run validate && npm run test:plugin
 ```
 
+## Contributing
+
+Pull requests from forks run CI automatically (a maintainer may have to approve the first run). Each check is its own job, and failures show as annotations on the changed lines: `Lint (biome)`, `Types (tsc)`, `Unit tests (node --test)`, and `Plugin (validate and engine tests)`. Run them locally before pushing:
+
+```sh
+npm run setup
+npm run check && npm run typecheck && npm test && npm run validate && npm run test:plugin
+```
+
+`npm run format` fixes biome formatting. A maintainer can request an AI review by adding the `ai-review` label.
+
 ## Documentation
 
 - [User guide](docs/user-guide.md): install, use the controls, read the panel, and troubleshoot.
