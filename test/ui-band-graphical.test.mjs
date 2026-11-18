@@ -5,12 +5,12 @@ import test from 'node:test';
 
 process.env.TZ = 'UTC';
 
-const { COLOR, renderBand } = await import('../lib/band.mjs');
+const { renderBand } = await import('../lib/band.mjs');
 const { DEFAULTS } = await import('../lib/config.mjs');
 const { TIERS } = await import('../lib/config.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
 const { tierMeter } = await import('../lib/ui/graphical/meter.mjs');
-const { toneColor } = await import('../lib/ui/tokens.mjs');
+const { TERMINAL_COLOR, toneColor } = await import('../lib/ui/tokens.mjs');
 const { BAND_STATES, CLAUDE, ROUTED } = await import('./band-states.mjs');
 const { ELEMENTS, find, goldenText, kids } = await import('./harness.mjs');
 const { NOW } = await import('./usage-fixtures.mjs');
@@ -305,7 +305,8 @@ test('colours come from graphical tones, never the terminal hexes', () => {
     for (const node of everything(draw(view, usage))) if (node.type === 'Svg') svgs.push(node.props.source);
   assert.ok(svgs.length);
   for (const source of svgs)
-    for (const hex of Object.values(COLOR)) assert.ok(!source.includes(hex), `${hex} in an Svg`);
+    for (const hex of Object.values(TERMINAL_COLOR).flatMap(Object.values))
+      if (hex.startsWith('#')) assert.ok(!source.includes(hex), `${hex} in an Svg`);
   assert.ok(colours.has('subtle'));
   assert.ok(colours.has(toneColor('activity', 'graphical')));
 });

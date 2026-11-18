@@ -7,7 +7,7 @@ import test from 'node:test';
 process.env.TZ = 'UTC';
 
 const { renderBand } = await import('../lib/band.mjs');
-const { partsWidth, SEPARATOR } = await import('../lib/band-segments.mjs');
+const { partsWidth, SEPARATOR } = await import('../lib/ui/model/band.mjs');
 const { DEFAULTS } = await import('../lib/config.mjs');
 const { BAND_STATES, CLAUDE: CLAUDE_USAGE } = await import('./band-states.mjs');
 const { ELEMENTS } = await import('./harness.mjs');

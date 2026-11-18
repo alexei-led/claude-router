@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { sessionRow } from '../lib/band.mjs';
 import { loadConfig } from '../lib/config.mjs';
 import { savingsLine } from '../lib/display.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { compareModels } from '../lib/savings.mjs';
+import { sessionRow } from '../lib/ui/terminal/band.mjs';
 import {
   allTime,
   emptyUsage,
