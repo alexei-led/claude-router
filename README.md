@@ -52,7 +52,7 @@ Jev 1.14 is the default; a configured model override stays in force. [Configurat
 
 The band above the prompt shows the tier, activity, model, and reason for each turn. `/router` opens a pane to pin a tier, edit the model and effort of each tier, and tune the policy. See the [user guide](docs/user-guide.md#read-the-status-band).
 
-In the desktop app, VS Code and mobile, the band is one fixed row with nothing revealed on hover: a tier meter icon, the route, activity and reason on the left; the readings, a **Pin next turn** dropdown and **Router** on the right. The pane has a header, five tabs (Now, Routes, Policy, Classifier, Usage), one warnings slot and a save bar. Colours follow the app's theme. These surfaces cannot open the plugin settings dialog, so **Set up** shows a card with the command that saves the classifier's key from a terminal.
+In the desktop app, VS Code and mobile, the band is one fixed row with nothing revealed on hover: a tier meter icon, the route, activity and reason on the left; the readings, a **Pin to a tier** dropdown and **Router** on the right. The pane has a header, five tabs (Now, Routes, Policy, Classifier, Usage), one warnings slot and a save bar. Colours follow the app's theme. These surfaces cannot open the plugin settings dialog, so **Set up** shows a card with the command that saves the classifier's key from a terminal.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/desktop-band-routed-dark.png">

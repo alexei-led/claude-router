@@ -59,14 +59,16 @@ test('next turn names the tier meter, the route and why, then one pin per tier l
     after(
       screen(tree).map((l) => l.trimEnd()),
       'NEXT TURN',
-      6,
+      8,
     ),
     [
       'NEXT TURN',
       '  ▂▄▆█  Opus 5.5 · xhigh',
       '  why   ↑ needs stronger',
-      '  pin   [ ▂ Haiku·medium — ] [ ▂▄ Haiku·high 3% ]',
-      '        [ ▂▄▆ Opus·medium 7% ] [ ▶ ▂▄▆█ Opus·xhigh 88% ]',
+      '  pin next turn to a tier · now Opus 5.5 · xhigh',
+      '    [ ▂ Haiku·medium — ] [ ▂▄ Haiku·high 3% ]',
+      '    [ ▂▄▆ Opus·medium 7% ] [ ▶ ▂▄▆█ Opus·xhigh 88% ]',
+      '    other models: /model, with routing off',
       '',
     ],
   );
@@ -88,13 +90,15 @@ test('next turn names the tier meter, the route and why, then one pin per tier l
 
 test('a narrow pane puts one pin on each row, and a turn without a reason shows no why', () => {
   const narrow = lines({}, { columns: 60 });
-  assert.deepEqual(after(narrow, 'NEXT TURN', 6), [
+  assert.deepEqual(after(narrow, 'NEXT TURN', 8), [
     'NEXT TURN',
     '  ▂▄▆█  Opus 5.5 · xhigh',
-    '  pin   [ ▂ Haiku·medium — ]',
-    '        [ ▂▄ Haiku·high — ]',
-    '        [ ▂▄▆ Opus·medium — ]',
-    '        [ ▶ ▂▄▆█ Opus·xhigh — ]',
+    '  pin next turn to a tier · now Opus 5.5 · xhigh',
+    '    [ ▂ Haiku·medium — ]',
+    '    [ ▂▄ Haiku·high — ]',
+    '    [ ▂▄▆ Opus·medium — ]',
+    '    [ ▶ ▂▄▆█ Opus·xhigh — ]',
+    '    other models: /model, with routing off',
   ]);
 });
 

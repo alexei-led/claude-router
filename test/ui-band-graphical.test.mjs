@@ -106,7 +106,7 @@ test('readings are tabular and the right group ends with the pin Select then Rou
 test('pin Select lists a route per tier and picks call pin', () => {
   const select = keyed(draw(ROUTED), 'band-pin')[0];
   const [empty, ...tiers] = select.props.options;
-  assert.equal(empty.label, 'Pin next turn');
+  assert.equal(empty.label, 'Pin to a tier');
   assert.equal(select.props.value, empty.value);
   assert.deepEqual(
     tiers.map((o) => o.label),

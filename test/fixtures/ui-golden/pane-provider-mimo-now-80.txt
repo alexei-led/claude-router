@@ -56,9 +56,11 @@ Box flexDirection="column"
       "↑ clearly stronger"
     Text dimColor=true
       "   Jev 88% ≥ 82% · switch ≈ $0.48"
+  Text dimColor=true
+    "  pin next turn to a tier · now Opus 5.5 · xhigh"
   Box
-    Text dimColor=true
-      "  pin   "
+    Text
+      "    "
     Button key="pin-micro" label="▂ MiMo Flash —" variant="secondary"
     Text
       " "
@@ -67,13 +69,15 @@ Box flexDirection="column"
       " "
   Box
     Text
-      "        "
+      "    "
     Button key="pin-medium" label="▂▄▆ MiMo Pro 7%" variant="secondary"
     Text
       " "
     Button key="pin-high" label="▶ ▂▄▆█ MiMo Pro 88%" variant="secondary"
     Text
       " "
+  Text dimColor=true
+    "    other models: /model, with routing off"
   Text
     " "
   Text color="suggestion" weight="semibold"

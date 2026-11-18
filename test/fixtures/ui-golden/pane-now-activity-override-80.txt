@@ -58,9 +58,11 @@ Box flexDirection="column"
       "   Jev 88% ≥ 82% · switch ≈ $0.48"
   Text dimColor=true
     "        code at low runs on Sonnet 5.5 · high · tier route Haiku 5.5 · high"
+  Text dimColor=true
+    "  pin next turn to a tier · now Sonnet 5.5 · high"
   Box
-    Text dimColor=true
-      "  pin   "
+    Text
+      "    "
     Button key="pin-micro" label="▂ Haiku·medium —" variant="secondary"
     Text
       " "
@@ -69,13 +71,15 @@ Box flexDirection="column"
       " "
   Box
     Text
-      "        "
+      "    "
     Button key="pin-medium" label="▂▄▆ Opus·medium 7%" variant="secondary"
     Text
       " "
     Button key="pin-high" label="▂▄▆█ Opus·xhigh 88%" variant="secondary"
     Text
       " "
+  Text dimColor=true
+    "    other models: /model, with routing off"
   Text
     " "
   Text color="suggestion" weight="semibold"
