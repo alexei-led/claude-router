@@ -8,6 +8,7 @@
 
 ### Changed: terminal
 
+- Colours follow your Claude Code theme: text, secondary text, accents, success, warning and error are the theme's own colours instead of fixed ANSI names, so light themes read. Tiers, models and activities keep their colours.
 - The warnings for an ignored project config, a native fallback and missing classifier credentials moved out of the Now tab's NEXT TURN block into one slot directly under the tab row, shown on every tab.
 - A pending pin is shown on its pin button, and the separate `⏵ next turn … [unpin]` row is gone. Pressing the pinned button again unpins.
 - The band's hover controls (pins, **Turn off**, **2 rows** / **1 row**) appear on the band's own row, over its readings and after **Router**, instead of on an extra line, so hovering moves nothing. The meter and model, the band's own **Set up**, **Details** and ✕, and **Router** stay uncovered. While two rows show, **1 row** is the last control to go. A band with no 12 free columns shows none.
@@ -20,6 +21,8 @@
 
 ### Changed: desktop app, VS Code and mobile
 
+- A **Router** press that opens a pane the surface cannot draw (no surface places panes, or the terminal is too narrow) says why in a toast instead of showing nothing.
+- Figures that change as you work (counts, times, percentages, costs) draw in digits of one width, so a value changing does not shift its neighbours.
 - The band above the prompt and all five pane tabs (Now, Routes, Policy, Classifier, Usage) are drawn natively.
 - The band is one fixed row, and nothing is revealed on hover. A tier meter icon, the route, activity and reason are on the left; readings, a **Pin next turn** dropdown and **Router** are on the right. Each state has one control: **Turn on** when routing is off, **Set up** for missing classifier credentials, **Fix** when routing is unavailable.
 - The second "session" row is now the **Show session row in band** setting on the Now tab, not a band button.

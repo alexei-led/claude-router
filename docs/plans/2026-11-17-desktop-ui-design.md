@@ -107,29 +107,29 @@ builds one model and each surface draws it with its own code.
 ### Structure
 
 ```
-lib/panel.mjs                  models: Now, Routes, Policy, Classifier, save bar, help, notices
-lib/ui/model/usage.mjs         the Usage model
-lib/ui/model/words.mjs         shared wording helpers
-lib/ui/strip.mjs               the tier strip, fitted to a width
-lib/ui/tokens.mjs              tones and tier colours per surface
-lib/ui/painter.mjs             paintersOf(elements, surface); orTerminal; the fallback reporter
-lib/ui/terminal/               one renderer per tab (now, routes, policy, classifier, usage), kit.mjs, wrap.mjs
-lib/ui/graphical/              one renderer per tab, plus band.mjs, shell.mjs, frame.mjs, painter.mjs,
-                               charts.mjs, meter.mjs, tone.mjs, squares.mjs
-lib/band-segments.mjs          the band's segment data
-lib/band.mjs                   the terminal band
+lib/panel.mjs                  the tab table (id, key, label, model, terminal, graphical) and renderPanel
+lib/band.mjs                   renderBand: the surface dispatch, and the switch toast
+lib/ui/tokens.mjs              every colour: tones, tier and model hex, theme keys, Svg hex
+lib/ui/fallback.mjs            orTerminal: a graphical throw draws the terminal tree and tells a reporter
+lib/ui/model/                  plain data, no elements and no layout by width: now, routes, policy, classifier,
+                               usage (+ usage-breakdown, usage-agents, usage-shared), frame (notices, save bar,
+                               help, key help), draft (the Routes and Policy draft), band (segments), format
+lib/ui/terminal/               kit.mjs, frame.mjs, band.mjs, wrap.mjs, one renderer per tab
+lib/ui/graphical/              kit.mjs (standalone), frame.mjs, band.mjs, charts.mjs, meter.mjs, squares.mjs, one
+                               renderer per tab
 ```
+
 
 Each tab has a model: plain data in which conditions, wording and number formatting are decided once. Where the words
 differ by surface the model holds a `{ terminal, graphical }` pair. A renderer only lays the model out. `renderPanel`
 passes `e.surface` through: `terminal` (or none) picks the terminal renderer, anything else the graphical one. If a
-graphical renderer throws, `orTerminal` in `lib/ui/painter.mjs` draws the terminal tree instead, and tells a reporter
+graphical renderer throws, `orTerminal` in `lib/ui/fallback.mjs` draws the terminal tree instead, and tells a reporter
 that tests set to fail on any unexpected fallback.
 
 The band keeps its data form (`bandSegments` returns segments of parts). `lib/band.mjs` draws it for the terminal and
 `lib/ui/graphical/band.mjs` for the other surfaces.
 
-The graphical painter (`lib/ui/graphical/painter.mjs`, with `charts.mjs`) offers these methods:
+The graphical kit (`lib/ui/graphical/kit.mjs`, with `charts.mjs`) offers these methods:
 
 - `tierMeter`: the four-bar tier icon, with a variant for use inside a button.
 - `section`: a card with a title, an optional hint and an optional action.
