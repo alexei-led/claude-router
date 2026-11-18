@@ -3139,7 +3139,8 @@ function unavailableCause(error) {
 // One toast when a session starts with routing unavailable, at most once a day per cause: the band says it too, but not
 // once it is collapsed or scrolled away. Not for a headless run, which has no one to read it. The day is recorded before
 // the toast, so a toast no surface draws is not retried until tomorrow. A surface that attaches later (desktop, VS Code,
-// mobile) gets it too, once per surface, whatever the day record says: it was not there to see the first.
+// mobile) gets it too, once per surface, once this session has shown it: it was not there to see the first. The day
+// record still gates the session's first toast, on whichever surface asks first.
 async function noticeUnavailable($, router, e) {
   const view = router.view;
   if (view?.phase !== 'unavailable' || !e.isInteractive || !e.surface) return;
