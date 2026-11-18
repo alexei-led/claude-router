@@ -2118,12 +2118,12 @@ async function recordActivity($, router, turn) {
     const start = promptIndex(messages);
     if (start < 0) return;
     const observed = observedActivity(messages, start);
-    // The turn's end row reads it (flushDecisions).
-    turn.observed = observed;
     const view = router.view ?? (await readView($, router));
     const manual = (await modeOf($, router)) === 'manual';
     // The session may have changed during the reads; this turn is not the new session's.
     if ((await $.session.id()) !== turn.sessionId) return;
+    // The turn's end row reads it (flushDecisions).
+    turn.observed = observed;
     // Advanced before any further await, so a session change meanwhile cannot carry this run into the new session.
     const { run, ended } = advanceRun(router.run, turn.answer);
     router.run = run;
@@ -2934,16 +2934,16 @@ async function initializeSession($, router) {
   });
   const model = await $.session.model();
   try {
-    router.config = await loadNativeConfig($);
+    const config = await loadNativeConfig($);
+    const project = await readProject($, config.nativePath);
+    const existing = await readView($, router);
     // A successful reload adopts this config even for the current turn; stale jobs must not route with the old engine.
+    Object.assign(router, { config, project, view: existing });
     for (const controller of router.controllers) controller.abort();
     router.decisions.clear();
     router.turnConfigs.clear();
     for (const review of router.reviews.values()) review.controller.abort();
     router.reviews.clear();
-    router.project = await readProject($, router.config.nativePath);
-    const existing = await readView($, router);
-    router.view = existing;
     const sameClassifier = existing.health?.classifier === router.config.classifier;
     clientOf(router, router.config.classifier).restore(sameClassifier ? existing.health : null);
     const base = await $.env.get('ANTHROPIC_BASE_URL');
@@ -2976,6 +2976,7 @@ async function initializeSession($, router) {
       ...(await storeView($, router)),
     });
     await pruneDecisionRecords($);
+    // biome-ignore lint/nursery/useAtomicUpdates: ensureInitialized runs this once at a time, and the flag marks it done
     router.initialized = true;
     return true;
   } catch (error) {
@@ -3114,6 +3115,7 @@ export function register(on, options) {
       if (router.trace?.turns.size) router.trace.reasons.add('aborted');
       await flushTrace($, router, null, true);
     }
+    // biome-ignore lint/nursery/useAtomicUpdates: the session is over, so whatever trace the final flush held or created is dropped
     router.trace = null;
     router.traceOperations.clear();
     router.traceFreshSession = null;
