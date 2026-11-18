@@ -459,3 +459,57 @@ test('decision lines read as one routing step each, oldest first', () => {
   assert.equal(decisionLines(rows, 1).length, 1);
   assert.deepEqual(decisionLines([]), ['No routing decisions recorded in this session yet.']);
 });
+
+const BARE = { at: T, kind: 'start', tier: 'low', route: 'claude-haiku-5-5@high', reason: 'hold' };
+const lineOf = (row) => decisionLines([row])[0].replace(/^\d\d:\d\d:\d\d {2}/, '');
+
+for (const [name, row, expected] of [
+  [
+    'a row with no answer and no error',
+    BARE,
+    /^start {5}unknown {2}asked no answer {2}-> low claude-haiku-5-5@high {2}\(hold\)$/,
+  ],
+  ['a new task', { ...BARE, same: false }, / {2}new task {2}-> low /],
+  ['a pinned turn', { ...BARE, pinned: true }, /\(hold\) {2}pinned$/],
+  [
+    'a goal phase with its share',
+    { ...BARE, cls: 'low', p: 0.9, act: 'code', actP: 0.5, phase: 'produce', phaseP: 0.7 },
+    /asked low 90% goal code 50% {2}phase produce 70% /,
+  ],
+  ['a row with no tier', { ...BARE, tier: undefined, route: undefined, reason: undefined }, /-> - {2}\(\?\)$/],
+  [
+    'an automatic move with no cost bound',
+    {
+      ...BARE,
+      engine: 'auto',
+      auto: {
+        demand: 'high',
+        route: 'claude-opus-5-5@high',
+        capability: 7,
+        outcome: 'moved',
+        move: 'up',
+        minUsd: null,
+        maxUsd: null,
+      },
+    },
+    /demand high → target claude-opus-5-5@high cap 7; moved; move up; next-turn estimate unknown$/,
+  ],
+  [
+    'an automatic move with a cost range',
+    { ...BARE, engine: 'auto', auto: { demand: 'low', outcome: 'held', move: 'none', minUsd: 0.5, maxUsd: 1.25 } },
+    /demand low → target none cap unknown; held; move none; next-turn estimate \$0\.5000–\$1\.2500$/,
+  ],
+  [
+    'an end row of several requests',
+    { at: T, kind: 'end', requests: 3, priced: 2 },
+    /^end {7}tools \? {2}3 requests {2}2 priced$/,
+  ],
+  [
+    'an end row with an unpriced comparison',
+    { at: T, kind: 'end', observed: 'ops', requests: 1, priced: 1, unpriced: { comparison: 2, ttl: 1 } },
+    /unpriced ttl 1 {2}comparison unavailable 2$/,
+  ],
+])
+  test(`a decision line for ${name}`, () => {
+    assert.match(lineOf(row), expected);
+  });

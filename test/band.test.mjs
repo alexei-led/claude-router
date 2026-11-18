@@ -6,11 +6,10 @@ import { GATEWAY_SETTINGS } from '../lib/display.mjs';
 import { bandSegments, fitSegments } from '../lib/ui/model/band.mjs';
 import { partGlyphs } from '../lib/ui/terminal/band.mjs';
 import { toneColor } from '../lib/ui/tokens.mjs';
-import { ELEMENTS } from './harness.mjs';
+import { ELEMENTS, quiet } from './harness.mjs';
 
 const ROUTER_BUTTON_COLUMNS = 8;
 const SIXTY_COLUMNS = 60 - ROUTER_BUTTON_COLUMNS;
-const actions = new Proxy({}, { get: () => () => {} });
 const routes = [
   ['low', 'claude-sonnet-5-5', 'medium'],
   ['medium', 'claude-opus-5-5', 'medium'],
@@ -23,7 +22,7 @@ test('a 60-column band keeps the missing-credential warning and Set up beside th
     for (const error of ['missing-key', 'missing-account']) {
       for (const [tier, selectedModel, effort] of routes) {
         const view = { mode: 'auto', phase: 'routed', tier, selectedModel, effort, error };
-        const parts = fitSegments(bandSegments(config, view, null, actions), SIXTY_COLUMNS).flatMap((s) => s.parts);
+        const parts = fitSegments(bandSegments(config, view, null, quiet), SIXTY_COLUMNS).flatMap((s) => s.parts);
         const label = `${id} ${error} on ${tier}`;
         assert.ok(
           parts.some((p) => p.text?.startsWith(`⚠ ${DEFAULTS.classifiers[id].label}: no `)),
@@ -42,7 +41,7 @@ test('a wide band shows the warning, the route kept and the reason', () => {
   const config = { ...DEFAULTS, classifier: 'clef-flash' };
   const view = { mode: 'auto', phase: 'routed', tier: 'medium', selectedModel: 'claude-opus-5-5', effort: 'medium' };
   const text = (error) =>
-    fitSegments(bandSegments(config, { ...view, error, reason: 'no-advice' }, null, actions), 112)
+    fitSegments(bandSegments(config, { ...view, error, reason: 'no-advice' }, null, quiet), 112)
       .flatMap((s) => s.parts)
       .map((p) => (p.button ? `[${p.button.label}]` : partGlyphs(p)))
       .join(' ');
@@ -64,11 +63,9 @@ test('an unavailable router keeps the model it runs and Fix first, then says why
     [GATEWAY_SETTINGS, '✕ Opus 5.5 · xhigh [Fix]routing unavailablev0.8 gateway settings remain'],
     [null, '✕ Opus 5.5 · xhigh [Fix]routing unavailableunknown error'],
   ])
-    assert.equal(line(bandSegments(DEFAULTS, { ...view, error }, null, actions)), expected);
+    assert.equal(line(bandSegments(DEFAULTS, { ...view, error }, null, quiet)), expected);
 });
 
-const element = (type) => (props) => ({ type, props });
-const elements = { Box: element('Box'), Text: element('Text'), Button: element('Button') };
 const drawn = (node) => {
   if (node.type === 'Text') return node.props.children;
   if (node.type === 'Button') return node.props.plain ? node.props.label : `[ ${node.props.label} ]`;
@@ -110,7 +107,7 @@ const modeBands = {
 test('each mode draws one mode control, on one row, and the band fits at 60, 80 and 120 columns', () => {
   for (const [mode, { view, reading, control }] of Object.entries(modeBands)) {
     for (const columns of [60, 80, 120]) {
-      const tree = renderBand(elements, DEFAULTS, view, null, { columns }, actions);
+      const tree = renderBand(ELEMENTS, DEFAULTS, view, null, { columns }, quiet);
       const main = tree.props.children[0];
       const hover = hoverOf(tree);
       const name = `${mode} at ${columns}`;
@@ -140,7 +137,7 @@ test('the hover controls pin low to high by the route each runs, drop the names,
     [60, '[ Turn off ]'],
   ])
     assert.equal(
-      shownHover(renderBand(elements, DEFAULTS, view, null, { columns }, actions)),
+      shownHover(renderBand(ELEMENTS, DEFAULTS, view, null, { columns }, quiet)),
       expected,
       `${columns} columns`,
     );
@@ -153,12 +150,12 @@ test('a narrow two-row band keeps 1 row beside Turn off, the only way back to on
     [75, '[ Turn off ]  [ 1 row ]'],
   ])
     assert.equal(
-      shownHover(renderBand(elements, DEFAULTS, view, null, { columns }, actions)),
+      shownHover(renderBand(ELEMENTS, DEFAULTS, view, null, { columns }, quiet)),
       expected,
       `${columns} columns`,
     );
   // Under 12 free columns, over the reading or after Router, there is no room for the controls at all.
-  assert.equal(hoverOf(renderBand(elements, DEFAULTS, view, null, { columns: 40 }, actions)), undefined);
+  assert.equal(hoverOf(renderBand(ELEMENTS, DEFAULTS, view, null, { columns: 40 }, quiet)), undefined);
 });
 
 test('a narrow manual band drops the explanation, then cuts the model, and keeps Turn on', () => {
@@ -168,7 +165,7 @@ test('a narrow manual band drops the explanation, then cuts the model, and keeps
     [52, '○ Sonnet 5.5 [ Turn on ]  Router'],
     [30, '○ Sonnet … [ Turn on ]  Router'],
   ]) {
-    const main = renderBand(elements, DEFAULTS, view, null, { columns }, actions).props.children[0];
+    const main = renderBand(ELEMENTS, DEFAULTS, view, null, { columns }, quiet).props.children[0];
     assert.equal(drawn(main), expected, `${columns} columns`);
     assert.ok(drawn(main).length <= columns, `${columns} columns`);
     assert.ok(
@@ -179,7 +176,7 @@ test('a narrow manual band drops the explanation, then cuts the model, and keeps
 });
 
 test('a turn being classified shows an accent meter and the classifier deadline', () => {
-  const segments = bandSegments(DEFAULTS, { mode: 'auto', phase: 'choosing', tier: 'medium' }, null, actions);
+  const segments = bandSegments(DEFAULTS, { mode: 'auto', phase: 'choosing', tier: 'medium' }, null, quiet);
   assert.equal(line(segments), '▂▄▆█ choosing…Jev ≤ 1.5 s');
   assert.equal(segments[0].parts[0].meter, 'pending');
   const band = renderBand(
@@ -188,7 +185,7 @@ test('a turn being classified shows an accent meter and the classifier deadline'
     { mode: 'auto', phase: 'choosing', tier: 'medium' },
     null,
     { columns: 100 },
-    actions,
+    quiet,
   );
   const bars = band.props.children[0].props.children.slice(0, 4);
   assert.ok(bars.every((bar) => bar.props.color && !bar.props.dimColor));
@@ -256,7 +253,7 @@ test('a narrow band drops the activity before the reason and keeps the tier and 
       [44, false, false],
     ]) {
       const config = { ...DEFAULTS, activityRouting: mode };
-      const kept = fitSegments(bandSegments(config, view, null, actions), columns - ROUTER_BUTTON_COLUMNS);
+      const kept = fitSegments(bandSegments(config, view, null, quiet), columns - ROUTER_BUTTON_COLUMNS);
       const parts = kept.flatMap((s) => s.parts);
       const name = `${mode} at ${columns}`;
       assert.ok(line(kept).length <= columns - ROUTER_BUTTON_COLUMNS, name);
@@ -284,7 +281,7 @@ test('an activity move names the activity once, in its reason', () => {
     ['activity-up', '↑ code'],
     ['activity-down', '↓ code'],
   ]) {
-    const text = line(fitSegments(bandSegments(config, { ...view, reason }, null, actions), 120));
+    const text = line(fitSegments(bandSegments(config, { ...view, reason }, null, quiet), 120));
     assert.ok(text.startsWith(`▂▄▆█ Sonnet 5.5 · medium${said}`), text);
     assert.equal(text.split('code').length - 1, 1, text);
   }
@@ -292,7 +289,7 @@ test('an activity move names the activity once, in its reason', () => {
 
 test('routing off by activity shows no activity in the band', () => {
   const config = { ...DEFAULTS, activityRouting: 'off' };
-  const parts = bandSegments(config, activityBand.on.view, null, actions).flatMap((s) => s.parts);
+  const parts = bandSegments(config, activityBand.on.view, null, quiet).flatMap((s) => s.parts);
   assert.ok(!parts.some((p) => p.italic));
 });
 
@@ -300,8 +297,8 @@ test('activity moves name their activity in the band and the switch toast', () =
   const config = { ...DEFAULTS, activityRouting: 'on' };
   const routed = { mode: 'auto', phase: 'routed', tier: 'low', selectedModel: 'claude-haiku-5-5', effort: 'high' };
   const reasonOf = (view) =>
-    bandSegments(config, { ...routed, ...view }, null, actions).find((s) => s.priority === 1 && s.parts[0].text)
-      ?.parts[0].text;
+    bandSegments(config, { ...routed, ...view }, null, quiet).find((s) => s.priority === 1 && s.parts[0].text)?.parts[0]
+      .text;
   const probabilities = { ops: 0.81, code: 0.1 };
   for (const [view, expected] of [
     [{ reason: 'activity-up', activity: 'code' }, '↑ code'],
@@ -348,13 +345,13 @@ test('a held switch shows the classifier against its bar without a rounding tie,
     estimate: { taxUsd: 0.37, threshold: 0.8138, upgradeMass: 0.81 },
   };
   const at = (columns) =>
-    fitSegments(bandSegments(DEFAULTS, held, null, actions), columns)
+    fitSegments(bandSegments(DEFAULTS, held, null, quiet), columns)
       .map((s) => line([s]))
       .join(' | ');
   assert.match(at(200), /Jev 81\.0% < 81\.4% \| switch ≈ \$0\.37$/);
   assert.doesNotMatch(at(60), /Jev|≈/);
   const free = { ...held, estimate: { taxUsd: 0, threshold: 0.75, upgradeMass: 0.6 } };
-  assert.match(line(bandSegments(DEFAULTS, free, null, actions)), /Jev 60% < 75%$/);
+  assert.match(line(bandSegments(DEFAULTS, free, null, quiet)), /Jev 60% < 75%$/);
 });
 
 test('in cost, the band says when the mode changed only the effort of the route it shows', () => {
@@ -368,11 +365,11 @@ test('in cost, the band says when the mode changed only the effort of the route 
     reason: 'upgrade',
     routingMode: { mode: 'cost', source: 'profile' },
   };
-  assert.match(line(bandSegments(DEFAULTS, view, null, actions)), / cost {2}effort only/);
+  assert.match(line(bandSegments(DEFAULTS, view, null, quiet)), / cost {2}effort only/);
   const haiku = { ...view, tier: 'medium', selectedModel: 'claude-haiku-5-5', activity: null };
-  assert.doesNotMatch(line(bandSegments(DEFAULTS, haiku, null, actions)), /effort only/);
+  assert.doesNotMatch(line(bandSegments(DEFAULTS, haiku, null, quiet)), /effort only/);
   const balanced = { ...view, routingMode: { mode: 'balanced', source: 'default' } };
-  assert.doesNotMatch(line(bandSegments(DEFAULTS, balanced, null, actions)), /effort only|balanced/);
+  assert.doesNotMatch(line(bandSegments(DEFAULTS, balanced, null, quiet)), /effort only|balanced/);
 });
 
 test('fitSegments keeps every segment whole when the width is unknown', () => {

@@ -2,7 +2,44 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { register } from '../hooks/native-router.mjs';
 
-const element = (type) => (props) => ({ type, props });
+// The engine refuses a prop it cannot read, and the whole pane with it, so the stubs refuse the same cheap cases: a
+// spacing that is neither a finite number nor a named step, a size that is not a finite number, a missing required
+// prop. The step names are the ones the router draws with; add a name here once an engine accepts it.
+export const SPACING_STEPS = ['xs', 'sm', 'md', 'lg'];
+const SPACING = /^(gap|rowGap|columnGap|padding[A-Za-z]*|margin[A-Za-z]*)$/;
+const SIZE = /^(width|height|flexGrow|flexShrink)$/;
+const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value);
+const isPercent = (value) => typeof value === 'string' && /^\d+(\.\d+)?%$/.test(value);
+const REQUIRED = { Select: { value: 'string', options: 'array', onSelect: 'function' } };
+
+export function validateProps(type, props) {
+  assert.ok(props && typeof props === 'object', `${type} takes a props object`);
+  for (const [name, value] of Object.entries(props)) {
+    if (value === undefined) continue;
+    if (SPACING.test(name))
+      assert.ok(
+        isFiniteNumber(value) || SPACING_STEPS.includes(value),
+        `${type} ${name}: ${JSON.stringify(value)} is neither a number nor one of ${SPACING_STEPS.join(', ')}`,
+      );
+    if (SIZE.test(name))
+      assert.ok(
+        isFiniteNumber(value) || (name === 'width' && isPercent(value)),
+        `${type} ${name}: ${JSON.stringify(value)} is not a finite number`,
+      );
+  }
+  if (type === 'Button')
+    assert.ok(typeof props.label === 'string' || props.children !== undefined, 'Button needs a label or children');
+  for (const [name, kind] of Object.entries(REQUIRED[type] ?? {})) {
+    const value = props[name];
+    const ok = kind === 'array' ? Array.isArray(value) : typeof value === kind;
+    assert.ok(ok, `${type} needs ${name} as a ${kind}, got ${JSON.stringify(value)}`);
+  }
+}
+
+const element = (type) => (props) => {
+  validateProps(type, props);
+  return { type, props };
+};
 export const ELEMENTS = {
   Box: element('Box'),
   Text: element('Text'),
@@ -462,4 +499,46 @@ export function duplicates(tree) {
 export function unique(tree) {
   assert.deepEqual(duplicates(tree), { keys: [], hotkeys: [] });
   return tree;
+}
+
+// Every action a pane or band may call, doing nothing.
+export const quiet = new Proxy({}, { get: () => () => {} });
+
+// Actions that record each call as [name, ...args].
+export function recorder() {
+  const calls = [];
+  const actions = new Proxy(
+    {},
+    {
+      get:
+        (_target, name) =>
+        (...args) =>
+          calls.push([name, ...args]),
+    },
+  );
+  return { actions, calls };
+}
+
+// The element whose children include `target`.
+export const parentOf = (tree, target) => find(tree, (node) => kids(node).includes(target))[0];
+
+// The words the tree draws, in document order: a Text's string, a Button as `[ label ]`.
+export const textOf = (tree) =>
+  find(tree, () => true)
+    .map((node) =>
+      node.type === 'Text' ? String(node.props.children) : node.type === 'Button' ? `[ ${node.props.label} ]` : '',
+    )
+    .join('');
+
+// The line's Text hangs when it wraps inside the field's value column, which sits beside the fixed-width label.
+export function hangs(tree, words, labelWidth) {
+  const [text] = find(tree, (node) => node.type === 'Text' && node.props.children === words);
+  if (!text) return 'no such line';
+  if (text.props.wrap !== 'wrap') return 'does not wrap';
+  const column = parentOf(tree, text);
+  const { flexDirection, flexGrow, flexShrink } = column.props;
+  if (flexDirection !== 'column' || flexGrow !== 1 || flexShrink !== 1) return 'not in a value column';
+  const [label, value] = kids(parentOf(tree, column));
+  if (label.props.width !== labelWidth || label.props.flexShrink !== 0) return 'no fixed-width label beside it';
+  return value === column ? 'hangs' : 'not beside its label';
 }

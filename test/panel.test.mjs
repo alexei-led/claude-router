@@ -7,12 +7,11 @@ import { isSameModel } from '../lib/route.mjs';
 import { bandSegments } from '../lib/ui/model/band.mjs';
 import { routeDraftOf, routingChanges } from '../lib/ui/model/draft.mjs';
 import { TIER_COLOR } from '../lib/ui/tokens.mjs';
-import { controls, ELEMENTS, screen, texts } from './harness.mjs';
+import { controls, ELEMENTS, quiet, screen, texts } from './harness.mjs';
 
-const actions = new Proxy({}, { get: () => () => {} });
 const KEYS_SET = { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null };
 const view = (props = {}) => ({ mode: 'auto', phase: 'routed', credentials: KEYS_SET, tab: 'now', ...props });
-const pane = (props, usage = null, paneActions = actions) =>
+const pane = (props, usage = null, paneActions = quiet) =>
   renderPanel(ELEMENTS, DEFAULTS, view(props), usage, paneActions);
 
 test('the band, the pane and the router agree on which served model is a fallback', () => {
@@ -23,7 +22,7 @@ test('the band, the pane and the router agree on which served model is a fallbac
     ['claude-sonnet-5-5', 'claude-opus-5-5', true],
   ]) {
     const routed = { tier: 'low', selectedModel, actualModel, effort: 'medium' };
-    const band = bandSegments(DEFAULTS, view(routed), null, actions).flatMap((s) => s.parts);
+    const band = bandSegments(DEFAULTS, view(routed), null, quiet).flatMap((s) => s.parts);
     const label = `${selectedModel} served as ${actualModel}`;
     assert.equal(!isSameModel(selectedModel, actualModel), fallback, label);
     assert.equal(
@@ -57,7 +56,7 @@ test('the pane header is one line: the on/off pair with its o and f hotkeys, the
     ],
   ]) {
     const pressed = [];
-    const tree = pane({ mode, adviceMs: 347 }, null, { ...actions, mode: (to) => pressed.push(to) });
+    const tree = pane({ mode, adviceMs: 347 }, null, { ...quiet, mode: (to) => pressed.push(to) });
     const pair = controls(tree).filter((c) => c.key === 'auto' || c.key === 'manual');
     assert.deepEqual(
       pair.map((c) => [c.key, c.label, c.hotkey, c.variant]),
@@ -185,29 +184,29 @@ test('the Now tab names the activity with its share and marks an override with t
     ['off', haikuLow, '  ▂▄  Haiku 5.5 · high', null],
   ]) {
     const config = { ...DEFAULTS, activityRouting: mode };
-    const lines = screen(renderPanel(ELEMENTS, config, view({ ...props, ...reading }), null, actions));
+    const lines = screen(renderPanel(ELEMENTS, config, view({ ...props, ...reading }), null, quiet));
     const name = `${mode} ${JSON.stringify(props)}`;
     assert.equal(lines[4], first, name);
     assert.equal(lines.includes(override), override !== null, name);
   }
-  const why = screen(renderPanel(ELEMENTS, DEFAULTS, view({ ...sonnetLow, reason: 'activity-up' }), null, actions));
+  const why = screen(renderPanel(ELEMENTS, DEFAULTS, view({ ...sonnetLow, reason: 'activity-up' }), null, quiet));
   assert.ok(why.includes('  why   ↑ code'));
   const unsure = { activityChoice: 'uncertain', activityProbabilities: { uncertain: 0.94, explore: 0.03 } };
   const nodes = [];
   (function walk(node) {
     if (node?.type === 'Text') nodes.push(node.props);
     if (Array.isArray(node?.props?.children)) node.props.children.forEach(walk);
-  })(renderPanel(ELEMENTS, DEFAULTS, view({ ...haikuLow, activity: null, ...unsure }), null, actions));
+  })(renderPanel(ELEMENTS, DEFAULTS, view({ ...haikuLow, activity: null, ...unsure }), null, quiet));
   assert.deepEqual(
     nodes.find((n) => n.children === 'uncertain'),
     { children: 'uncertain', dimColor: true },
     'uncertain is not drawn as an activity',
   );
-  const verb = texts(renderPanel(ELEMENTS, DEFAULTS, view({ ...sonnetLow, ...reading }), null, actions));
+  const verb = texts(renderPanel(ELEMENTS, DEFAULTS, view({ ...sonnetLow, ...reading }), null, quiet));
   assert.ok(verb.includes('code'), 'the activity is its own orange italic Text');
 });
 
-const routesTab = (config, routeDraft = null, props = {}, paneActions = actions, options = {}) =>
+const routesTab = (config, routeDraft = null, props = {}, paneActions = quiet, options = {}) =>
   renderPanel(ELEMENTS, config, view({ tab: 'routes', routeDraft, ...props }), null, paneActions, options);
 const grid = (tree) => {
   const lines = screen(tree);
@@ -226,7 +225,7 @@ const editor = (tree) => {
 test('the Routes grid fits normal narrow panes for every provider', () => {
   for (const provider of ['anthropic', 'minimax', 'mimo', 'kimi', 'deepseek', 'zai'])
     for (const columns of [50, 60, 62, 70, 100]) {
-      const rows = grid(routesTab(loadConfig({ provider }), null, {}, actions, { columns })).slice(
+      const rows = grid(routesTab(loadConfig({ provider }), null, {}, quiet, { columns })).slice(
         0,
         2 + ACTIVITIES.length,
       );
@@ -246,7 +245,7 @@ test('shortened route labels keep selection and unsaved markers', () => {
     config,
     draft,
     { routeCell: 'tier.high' },
-    { ...actions, selectCell: (cell) => picked.push(cell) },
+    { ...quiet, selectCell: (cell) => picked.push(cell) },
     { columns: 62 },
   );
   const cell = controls(tree).find((c) => c.key === 'cell-tier-high');
@@ -262,7 +261,7 @@ test('truncated cells retain both built-in and unsaved markers', () => {
   const file = { activities: { code: { low: { model: 'opus', effort: 'max' } } } };
   const config = loadConfig({ userFile: file });
   const draft = editActivity(routeDraftOf(config, file), config, 'code', 'low', 'add');
-  const tree = routesTab(config, draft, { routeCell: 'code.low' }, actions, { columns: 50 });
+  const tree = routesTab(config, draft, { routeCell: 'code.low' }, quiet, { columns: 50 });
   const cell = controls(tree).find((c) => c.key === 'cell-code-low');
   assert.ok(cell.label.includes('…'));
   assert.ok(cell.label.endsWith('°●'));
@@ -297,7 +296,7 @@ test('the Routes tab is one grid: the tiers’ own models on top, built-in overr
   );
   assert.ok(!lines.some((line) => line.startsWith('!')));
   // A narrow pane shortens the efforts and keeps a space between the cells.
-  const narrow = grid(routesTab(DEFAULTS, null, {}, actions, { columns: 70 }));
+  const narrow = grid(routesTab(DEFAULTS, null, {}, quiet, { columns: 70 }));
   assert.equal(narrow[1], 'every turn    haiku·med     haiku·high    opus·med      opus·xh');
   assert.equal(narrow[2], 'code          ·             sonnet·high°  ·             ·');
 });
@@ -405,7 +404,7 @@ test('a route that leaves the effort to the session reads inherit in the grid', 
     routes: { ...DEFAULTS.routes, micro: { model: 'haiku', effort: null } },
   };
   assert.equal(grid(routesTab(DEFAULTS, draft))[1].split(/\s{2,}/)[1], 'haiku·inherit●');
-  const narrow = grid(routesTab(DEFAULTS, draft, {}, actions, { columns: 70 }));
+  const narrow = grid(routesTab(DEFAULTS, draft, {}, quiet, { columns: 70 }));
   assert.equal(narrow[1].split(/\s{2,}/)[1], 'haiku·inh●');
 });
 
@@ -444,7 +443,7 @@ test('the one-more-cache warning counts the overrides in every activity mode', (
   }
 });
 
-test('the Routes controls call the pane actions with the cell they edit', () => {
+test('the Routes controls call the pane quiet with the cell they edit', () => {
   const { calls, actions: recorded } = recording();
   const found = (key, routeCell) =>
     controls(routesTab(DEFAULTS, null, { routeCell }, recorded)).find((c) => c.key === key);
@@ -491,7 +490,7 @@ test('the draft lists activity edits and the mode in the router.json diff on Rou
   assert.equal(changes.mode, true);
   assert.equal(changes.count, 3);
   for (const tab of ['routes', 'policy']) {
-    const lines = screen(renderPanel(ELEMENTS, config, view({ tab, routeDraft: draft }), null, actions));
+    const lines = screen(renderPanel(ELEMENTS, config, view({ tab, routeDraft: draft }), null, quiet));
     const at = lines.indexOf('router.json changes:');
     assert.deepEqual(
       lines.slice(at + 1, at + 8),
@@ -507,14 +506,14 @@ test('the draft lists activity edits and the mode in the router.json diff on Rou
       tab,
     );
   }
-  const now = screen(renderPanel(ELEMENTS, config, view({ routeDraft: draft }), null, actions));
+  const now = screen(renderPanel(ELEMENTS, config, view({ routeDraft: draft }), null, quiet));
   assert.ok(!now.includes('router.json changes:'));
   assert.ok(now.includes('● 3 unsaved routing changes  [ Save ] [ Discard ]  listed on Routes and Policy'));
   assert.equal(routingChanges(config, view()).count, 0);
 });
 
 test('the Policy tab puts each control in its sentence and names the default beside a changed value', () => {
-  const policy = (props = {}, config = DEFAULTS, paneActions = actions) =>
+  const policy = (props = {}, config = DEFAULTS, paneActions = quiet) =>
     renderPanel(ELEMENTS, config, view({ tab: 'policy', ...props }), null, paneActions);
   const lines = screen(policy());
   const at = lines.indexOf('POLICY · how readily the router changes models · edit, then Save');
@@ -593,7 +592,7 @@ test('the Now tab keeps Claude’s readings on one line, and details show them w
     inputTokens: 1000,
   };
   const usage = { context: { tokens: 400_000 }, cost: { usd: 18.003 } };
-  const folded = screen(renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'now', ...props }), usage, actions));
+  const folded = screen(renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'now', ...props }), usage, quiet));
   assert.ok(folded.includes('  cache  90% last reply   [ details ]'), folded.join('\n'));
   assert.ok(!folded.some((line) => line.startsWith('Compared tiers') || line.startsWith('INPUT PER REPLY')));
   const { calls, actions: recorded } = recording();
@@ -627,13 +626,13 @@ test('the Now tab keeps Claude’s readings on one line, and details show them w
 
 test('the Usage tab shows no plan quota and no Claude readings: the status line and the Now tab have them', () => {
   const usage = { rateLimits: [{ kind: 'five_hour', percentUsed: 48 }], cost: { usd: 18.003 } };
-  const lines = screen(renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'usage' }), usage, actions));
+  const lines = screen(renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'usage' }), usage, quiet));
   assert.ok(!lines.some((line) => /PLAN QUOTA|five hour|CLAUDE READINGS|\$18\.003/.test(line)));
 });
 
 // The wide layout's lines: a pane under 80 columns, or one with no width, puts each classifier on two lines.
 const classifierLines = (props, config = { ...DEFAULTS, activityRouting: 'on' }) =>
-  screen(renderPanel(ELEMENTS, config, view({ tab: 'classifier', ...props }), null, actions, { columns: 100 }));
+  screen(renderPanel(ELEMENTS, config, view({ tab: 'classifier', ...props }), null, quiet, { columns: 100 }));
 
 test('the Classifier tab shows the counts across sessions when there are any', () => {
   for (const [name, activityStore, expected] of [

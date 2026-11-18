@@ -12,13 +12,16 @@ import {
   modeLever,
   modelName,
   percentPair,
+  reasonNamesActivity,
   routeLabel,
+  shortRoute,
   sparkline,
   storeAgreementLine,
   unpricedLine,
   usageMetrics,
   whyText,
 } from '../lib/display.mjs';
+import { limitTone } from '../lib/ui/tokens.mjs';
 
 test('unknown metrics stay unknown and zero is a real reading', () => {
   assert.equal(formatTokens(null), 'unknown');
@@ -383,4 +386,48 @@ test('cardRoute names a route as a card does, and as a pin does with short', () 
   assert.notEqual(cardRoute(config, route('numbers', 'high'), { short: true }).split(' · ')[0], '');
   // A route to a model the config lacks names the alias.
   assert.equal(cardRoute(config, route('missing', 'high')), 'missing');
+});
+
+for (const [percent, tone] of [
+  [0, 'success'],
+  [74.9, 'success'],
+  [75, 'warning'],
+  [89.9, 'warning'],
+  [90, 'danger'],
+  [140, 'danger'],
+])
+  test(`a plan window at ${percent}% reads ${tone}`, () => {
+    assert.equal(limitTone(percent), tone);
+  });
+
+for (const [name, route, expected] of [
+  ['a model with efforts and a chosen effort', { model: 'opus', effort: 'xhigh' }, 'Opus·xhigh'],
+  ['a model with efforts and the session effort', { model: 'opus', effort: null }, 'Opus·session'],
+  ['an alias that is not a model', { model: 'gpt', effort: 'high' }, 'gpt'],
+])
+  test(`a pin labels ${name} as ${expected}`, () => {
+    assert.equal(shortRoute(DEFAULTS, route), expected);
+  });
+
+test('a pin labels a model without efforts by its name alone', () => {
+  const config = loadConfig({ userFile: { models: { haiku: { efforts: [] } } } });
+  assert.equal(shortRoute(config, { model: 'haiku', effort: 'high' }), 'Haiku');
+});
+
+test('only a reason with an activity slot names the activity', () => {
+  assert.equal(reasonNamesActivity('upgrade'), false);
+  assert.equal(reasonNamesActivity('not-a-reason'), false);
+  assert.equal(reasonNamesActivity('activity-up'), true);
+});
+
+test('unpricedLine says reply for one and replies for several unavailable comparisons', () => {
+  const metrics = (comparison) => ({
+    version: 1,
+    since: 1,
+    latency: {},
+    downMoves: { moves: 0, escalations: 0 },
+    unpriced: { usage: 0, model: 0, ttl: 0, error: 0, comparison },
+  });
+  assert.match(unpricedLine(metrics(1)), /^Comparison unavailable: 1 routed reply;/);
+  assert.match(unpricedLine(metrics(2)), /^Comparison unavailable: 2 routed replies;/);
 });

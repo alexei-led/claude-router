@@ -4,7 +4,7 @@
 // compares. Handlers are dropped; every other prop (key, label, variant, hotkey, style) is kept.
 import assert from 'node:assert/strict';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import test from 'node:test';
+import test, { after } from 'node:test';
 
 // Times print through toLocaleTimeString: fix the zone before any module builds a date.
 process.env.TZ = 'UTC';
@@ -16,13 +16,12 @@ const { renderPanel } = await import('../lib/panel.mjs');
 const { routeDraftOf } = await import('../lib/ui/model/draft.mjs');
 const { emptySubagentStore, recordAgent, spawnRecord } = await import('../lib/subagents.mjs');
 const { BAND_STATES, CLAUDE, ROUTED, SESSION_RECORDS } = await import('./band-states.mjs');
-const { ELEMENTS, goldenText } = await import('./harness.mjs');
+const { ELEMENTS, goldenText, quiet } = await import('./harness.mjs');
 const { at, NOW, OTHER, reply, SESSION, STORE } = await import('./usage-fixtures.mjs');
 const { emptyUsage, recordUsage } = await import('../lib/usage.mjs');
 
 const GOLDEN = new URL('./fixtures/ui-golden/', import.meta.url);
 const UPDATE = process.env.UPDATE_GOLDEN === '1';
-const actions = new Proxy({}, { get: () => () => {} });
 
 // Compares the tree's text form with its golden file, or writes the file when UPDATE_GOLDEN=1.
 const cases = new Set();
@@ -152,13 +151,13 @@ const DECISIONS = [
 for (const [name, { view, usage = null }] of Object.entries(BAND_STATES))
   for (const columns of [100, 40])
     test(`band ${name} at ${columns} columns`, () => {
-      golden(`band-${name}-${columns}`, renderBand(ELEMENTS, DEFAULTS, view, usage, { columns, now: NOW }, actions));
+      golden(`band-${name}-${columns}`, renderBand(ELEMENTS, DEFAULTS, view, usage, { columns, now: NOW }, quiet));
     });
 
 // So narrow that only the first segment survives, cut with an ellipsis.
 for (const columns of [14, 20])
   test(`band routed at ${columns} columns`, () => {
-    golden(`band-routed-${columns}`, renderBand(ELEMENTS, DEFAULTS, ROUTED, CLAUDE, { columns, now: NOW }, actions));
+    golden(`band-routed-${columns}`, renderBand(ELEMENTS, DEFAULTS, ROUTED, CLAUDE, { columns, now: NOW }, quiet));
   });
 
 // A subagent's band is its own row: moved up, moved down, kept, passed through, failed, and without its record.
@@ -178,7 +177,7 @@ for (const [name, { agent, config = { ...DEFAULTS, subagentRouting: 'on' } }] of
     test(`band subagent ${name} at ${columns} columns`, () => {
       golden(
         `band-subagent-${name}-${columns}`,
-        renderBand(ELEMENTS, config, ROUTED, null, { columns, agentId: 'a1', agent, now: NOW }, actions),
+        renderBand(ELEMENTS, config, ROUTED, null, { columns, agentId: 'a1', agent, now: NOW }, quiet),
       );
     });
 
@@ -215,8 +214,7 @@ const RICH = {
 };
 const TABS = ['now', 'routes', 'policy', 'classifier', 'usage'];
 
-const pane = (config, view, usage, columns) =>
-  renderPanel(ELEMENTS, config, view, usage, actions, { columns, now: NOW });
+const pane = (config, view, usage, columns) => renderPanel(ELEMENTS, config, view, usage, quiet, { columns, now: NOW });
 
 for (const tab of TABS)
   for (const columns of [60, 80, 120]) {
@@ -419,14 +417,14 @@ for (const tab of ['routes', 'policy', 'classifier'])
   test(`pane ${tab} without Select`, () => {
     const view = { ...RICH, tab, routeCell: tab === 'routes' ? 'code.high' : undefined, routeDraft: DRAFT };
     const options = { columns: 80, now: NOW };
-    golden(`pane-${tab}-no-select-80`, renderPanel(WITHOUT_SELECT, DEFAULTS, view, CLAUDE, actions, options));
+    golden(`pane-${tab}-no-select-80`, renderPanel(WITHOUT_SELECT, DEFAULTS, view, CLAUDE, quiet, options));
   });
 
 // A pane that reports no width: nothing is cut or wrapped.
 for (const tab of TABS)
   test(`pane ${tab} without a width`, () => {
     const view = { ...RICH, tab, usageOpen: 'activity:code' };
-    golden(`pane-${tab}-unbounded`, renderPanel(ELEMENTS, DEFAULTS, view, CLAUDE, actions, { now: NOW }));
+    golden(`pane-${tab}-unbounded`, renderPanel(ELEMENTS, DEFAULTS, view, CLAUDE, quiet, { now: NOW }));
   });
 
 // Band rows that need a second row or no width.
@@ -449,7 +447,7 @@ const BAND_EXTRAS = {
 };
 for (const [name, { config = DEFAULTS, view, usage = null, columns = 100 }] of Object.entries(BAND_EXTRAS))
   test(`band ${name}`, () => {
-    const tree = renderBand(ELEMENTS, config, view, usage, { columns, now: NOW }, actions);
+    const tree = renderBand(ELEMENTS, config, view, usage, { columns, now: NOW }, quiet);
     golden(`band-${name}-${columns ?? 'unbounded'}`, tree);
   });
 
@@ -484,10 +482,10 @@ test('a view without readings draws no NaN and no undefined, on the band and on 
     );
   };
   for (const columns of [100, 40]) {
-    const band = renderBand(ELEMENTS, DEFAULTS, blank, null, { columns, now: NOW }, actions);
+    const band = renderBand(ELEMENTS, DEFAULTS, blank, null, { columns, now: NOW }, quiet);
     golden(`band-blank-${columns}`, band);
     assert.deepEqual(flaws(band), [], `band at ${columns}`);
-    const nan = renderBand(ELEMENTS, DEFAULTS, blank, readings, { columns, now: NOW }, actions);
+    const nan = renderBand(ELEMENTS, DEFAULTS, blank, readings, { columns, now: NOW }, quiet);
     golden(`band-blank-nan-${columns}`, nan);
     assert.deepEqual(flaws(nan), [], `band with NaN readings at ${columns}`);
   }
@@ -502,8 +500,10 @@ test('a view without readings draws no NaN and no undefined, on the band and on 
     }
 });
 
-// Last: every golden file belongs to a case above, and every case has its file.
-test('the golden files are exactly the cases the tests draw', () => {
+// An after hook, so it holds in any test order: every golden file belongs to a case above, and every case has its file.
+// A filtered run (--test-name-pattern) draws fewer cases and skips the check.
+after(() => {
+  if (UPDATE || process.execArgv.some((arg) => arg.startsWith('--test-name-pattern'))) return;
   const files = readdirSync(GOLDEN)
     .filter((file) => file.endsWith('.txt'))
     .map((file) => file.slice(0, -4));

@@ -1,7 +1,5 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { renderBand } from '../lib/band.mjs';
-import { DEFAULTS } from '../lib/config.mjs';
 import { kit } from '../lib/ui/terminal/kit.mjs';
 import {
   GRAPHICAL_MODEL,
@@ -12,7 +10,7 @@ import {
   TIER_COLOR,
   toneColor,
 } from '../lib/ui/tokens.mjs';
-import { ELEMENTS, goldenText } from './harness.mjs';
+import { ELEMENTS } from './harness.mjs';
 
 // WCAG 2.x relative luminance and contrast ratio.
 const luminance = (hex) => {
@@ -76,12 +74,6 @@ test('only a surface that is not the terminal is graphical', () => {
   for (const surface of ['desktop', 'mobile', 'vscode']) assert.equal(isGraphical(surface), true);
   assert.equal(isGraphical('terminal'), false);
   assert.equal(isGraphical(), false);
-});
-
-test('the band draws the same for the terminal surface as with none named', () => {
-  const view = { mode: 'manual', phase: 'manual', nativeModel: 'claude-sonnet-5-5' };
-  const draw = (options) => goldenText(renderBand(ELEMENTS, DEFAULTS, view, null, { columns: 100, ...options }, {}));
-  assert.equal(draw({ surface: 'terminal' }), draw({}));
 });
 
 test('a terminal tone is the theme key that means it, so the router follows the user’s theme', () => {

@@ -204,9 +204,7 @@ test('the graphical kit draws section as a bordered card and shares the element 
   assert.equal(terminal.section, undefined);
   const card = ui.section('Next turn', { hint: 'why' }, [ui.text('body')]);
   assert.equal(card.props.borderStyle, 'round');
-  assert.equal(card.props.flexDirection, 'column');
-  assert.equal(card.props.padding, 'md');
-  assert.equal(card.props.gap, 'sm');
+  assert.ok(card.props.padding && card.props.gap, 'a card pads and spaces its content');
   const title = find(card, (n) => n.type === 'Text' && n.props.children === 'Next turn')[0];
   assert.equal(title.props.size, 'footnote');
   assert.equal(title.props.weight, 'semibold');

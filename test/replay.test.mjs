@@ -386,9 +386,54 @@ test('input unchanged and auto does not consume recorded per-operation route/cac
   assert.deepEqual(before, snapshot);
 });
 
-test('malformed untrusted inputs fail with bounded structural errors', () => {
-  for (const value of [null, {}, { version: 1, sessions: null }, { version: 1, sessions: { secret: {} } }])
-    assert.throws(() => evaluateReplay([value]), /Invalid replay input/);
+const eventsExport = (...events) => ({ version: 1, sessions: { s1: { events } } });
+const REQUEST = { type: 'request', at: 1, turn: 't1', mode: 'auto', model: 'claude-haiku-5-5', messageCount: 1 };
+
+for (const [name, value, message] of [
+  ['no export', null, /expected version 1 sessions object/],
+  ['an export with no version', {}, /expected version 1 sessions object/],
+  ['sessions that are null', { version: 1, sessions: null }, /expected version 1 sessions object/],
+  ['sessions that are a list', { version: 1, sessions: [] }, /expected version 1 sessions object/],
+  ['a session with no events', { version: 1, sessions: { secret: {} } }, /expected events array/],
+  ['an event with no timestamp', eventsExport({ type: 'end' }), /event timestamp required/],
+  ['an event timestamp that is not finite', eventsExport({ type: 'end', at: Number.NaN }), /event timestamp required/],
+  ['a request with no operations', eventsExport(REQUEST), /invalid request/],
+  ['a request in an unknown mode', eventsExport({ ...REQUEST, operations: [], mode: 'cost' }), /invalid request/],
+  ['a request with no model', eventsExport({ ...REQUEST, operations: [], model: undefined }), /invalid request/],
+  [
+    'a request with a fractional message count',
+    eventsExport({ ...REQUEST, operations: [], messageCount: 1.5 }),
+    /invalid request/,
+  ],
+  [
+    'an operation of an unknown kind',
+    eventsExport({ ...REQUEST, operations: [{ at: 1, kind: 'guess' }] }),
+    /operation timestamp\/kind required/,
+  ],
+  [
+    'an operation with no timestamp',
+    eventsExport({ ...REQUEST, operations: [{ kind: 'choose' }] }),
+    /operation timestamp\/kind required/,
+  ],
+  [
+    'a negative token counter',
+    eventsExport({ type: 'response', at: 1, usage: { input_tokens: -1 } }),
+    /invalid token counter/,
+  ],
+  [
+    'a token counter that is not a number',
+    eventsExport({ type: 'response', at: 1, usage: { input_tokens: '9' } }),
+    /invalid token counter/,
+  ],
+])
+  test(`a replay of ${name} fails with a bounded structural error`, () => {
+    assert.throws(
+      () => evaluateReplay([value]),
+      (error) => message.test(error.message) && /^Invalid replay input/.test(error.message),
+    );
+  });
+
+test('a replay with a zero reversal window is refused', () => {
   assert.throws(() => evaluateReplay([], { reversalWindow: 0 }), /positive integer/);
 });
 

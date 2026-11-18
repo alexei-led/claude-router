@@ -15,7 +15,7 @@ import {
   summarize,
   withReplies,
 } from '../lib/usage.mjs';
-import { drain, ELEMENTS, harness, press, screen, start, step } from './harness.mjs';
+import { drain, ELEMENTS, harness, press, quiet, screen, start, step } from './harness.mjs';
 
 const NOW = new Date(2026, 9, 31, 12).getTime();
 const ALL = { from: null, to: null };
@@ -155,8 +155,7 @@ test('mixed comparison coverage never treats unmeasured savings as zero', () => 
     usageStore: record,
     usageOpen: 'activity:code',
   };
-  const actions = new Proxy({}, { get: () => () => {} });
-  const lines = screen(renderPanel(ELEMENTS, config, base, null, actions, { columns: 62, now: NOW })).join('\n');
+  const lines = screen(renderPanel(ELEMENTS, config, base, null, quiet, { columns: 62, now: NOW })).join('\n');
   assert.match(lines, /^1 of 2 replies have no comparison: no saving is shown\.$/m);
   assert.match(lines, /^ {2}▾ code +2 +≈\$0\.00 +—$/m);
   assert.match(lines, /comparison unavailable · input 2\.2K/);
@@ -174,9 +173,9 @@ test('mixed comparison coverage never treats unmeasured savings as zero', () => 
       .join(''),
     'session ≈$0.00 API estimate   not compared   1 reply',
   );
-  const whatIf = screen(
-    renderPanel(ELEMENTS, config, { ...base, usageCompare: true }, null, actions, { now: NOW }),
-  ).join('\n');
+  const whatIf = screen(renderPanel(ELEMENTS, config, { ...base, usageCompare: true }, null, quiet, { now: NOW })).join(
+    '\n',
+  );
   assert.match(whatIf, /What if unavailable/);
 });
 

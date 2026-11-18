@@ -9,6 +9,7 @@ import {
   INSIGHT_REPLIES,
   insights,
   mergeUsage,
+  mostlyOn,
   periodRange,
   prunedUsage,
   RETAIN_DAYS,
@@ -254,6 +255,42 @@ test('a breakdown groups the cells by activity, model or tier, costliest first, 
   );
   assert.deepEqual(breakdown({}, 'tier'), []);
 });
+
+test('groups of equal cost list in name order, and so do the cells inside a group', () => {
+  const sums = (replies, routed) => [replies, routed, 0, 0, 0, 0, 0, 0, 0];
+  const cells = {
+    'balanced|ops|low|sonnet@high': sums(1, 0.5),
+    'balanced|code|low|opus@high': sums(1, 0.5),
+    'balanced|code|low|haiku@high': sums(1, 0.5),
+  };
+  const groups = breakdown(cells, 'activity');
+  assert.deepEqual(
+    groups.map((group) => group.name),
+    ['code', 'ops'],
+  );
+  assert.deepEqual(
+    groups[0].children.map((child) => child.name),
+    ['haiku@high', 'opus@high'],
+  );
+});
+
+for (const [name, cells, expected] of [
+  ['no cells', {}, null],
+  ['the route with most replies', { 'balanced|code|low|a@high': [1], 'balanced|ops|low|b@high': [4] }, 'b@high'],
+  [
+    'replies of one route summed across cells',
+    { 'balanced|code|low|a@high': [2], 'balanced|ops|low|a@high': [2], 'balanced|ops|medium|b@high': [3] },
+    'a@high',
+  ],
+  [
+    'a tie, which goes to the first in name order',
+    { 'balanced|code|low|b@high': [2], 'balanced|ops|low|a@high': [2] },
+    'a@high',
+  ],
+])
+  test(`mostlyOn names ${name}`, () => {
+    assert.equal(mostlyOn(cells), expected);
+  });
 
 test('the trend is per hour today, per day with zero for a quiet day, and per week past 45 days', () => {
   let record = turnOf(emptyUsage(), [entry(at(2026, 10, 13, 9)), entry(at(2026, 10, 13, 11))], NOW);

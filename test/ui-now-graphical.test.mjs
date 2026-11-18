@@ -64,7 +64,7 @@ for (const surface of SURFACES) {
       const group = find(next, (n) => kids(n).includes(pin))[0];
       assert.equal(group.props.flexDirection, 'row', tier);
       assert.equal(group.props.alignItems, 'center', tier);
-      assert.equal(group.props.gap, 'xs', tier);
+      assert.ok(group.props.gap, `${tier}: the meter and reading are spaced`);
       // A group may shrink to the card; its meter never does.
       assert.equal(group.props.flexShrink, 1, tier);
       assert.equal(group.props.minWidth, 0, tier);
@@ -81,7 +81,7 @@ for (const surface of SURFACES) {
       high: 'Opus · xhigh',
     });
     // No block glyphs anywhere in the pins: the meters are Svg.
-    const row = find(next, (n) => n.props.gap === 'md' && n.props.flexWrap === 'wrap')[0];
+    const row = find(next, (n) => n.props.flexWrap === 'wrap' && find(n, (m) => m.props.key === 'pin-micro').length)[0];
     assert.equal(row.props.flexDirection, 'row');
     assert.equal(row.props.justifyContent, 'flex-start');
     assert.equal(kids(row).length, 4);

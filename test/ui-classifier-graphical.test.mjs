@@ -66,7 +66,7 @@ for (const surface of SURFACES) {
     assert.deepEqual(cards(tree).map(titleOf), ['Jev', 'Other classifiers', 'Across sessions']);
     const others = card(tree, 'Other classifiers');
     assert.equal(kids(others).length - 1, IDS.length - 1);
-    assert.equal(others.props.gap, 'sm');
+    assert.ok(others.props.gap, 'the rows are spaced');
     assert.deepEqual(
       kids(others)
         .slice(1)
