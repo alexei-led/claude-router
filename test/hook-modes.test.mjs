@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { loadConfig, resolveRoute, routeSpec, TIERS } from '../lib/config.mjs';
+import { cardRoute } from '../lib/display.mjs';
+import { pinOf } from '../lib/ui/model/band.mjs';
 import { answering, CONFIG, drain, harness, JEV_KEY, press, start, step } from './harness.mjs';
 import { jevResponse } from './helpers.mjs';
 
@@ -227,4 +230,25 @@ test('a symlinked project file is refused, and the home directory has no project
   home.files.set(PROJECT, JSON.stringify({ routes: {} }));
   await start(home);
   assert.equal(home.view().projectError, null);
+});
+
+test('a pin runs its tier’s configured route on both engines in every mode, and its label names that route', async () => {
+  const config = loadConfig({});
+  for (const engine of ['table', 'auto']) {
+    for (const mode of ['cost', 'balanced', 'quality']) {
+      for (const tier of TIERS) {
+        const where = `${engine} ${mode} ${tier}`;
+        const route = resolveRoute(config, tier);
+        const h = harness(JEV_KEY);
+        h.files.set(CONFIG, JSON.stringify({ routingEngine: engine, mode }));
+        await start(h);
+        await command(h, `pin ${tier}`);
+        await routed(h);
+        assert.deepEqual(sent(h), [`${routeSpec(config, route).id}@${route.effort}`], where);
+        const view = { mode: 'auto', phase: 'routed', routingMode: { mode, source: 'session' } };
+        const option = pinOf({ ...config, routingEngine: engine }, view)?.options.find((item) => item.value === tier);
+        assert.equal(option?.label, cardRoute(config, resolveRoute(config, tier), { short: true }), where);
+      }
+    }
+  }
 });

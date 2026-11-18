@@ -37,6 +37,7 @@ Ideas and minor issues that can wait for the next release. Add an item when you 
 
 ## Tests and code quality
 
+- `test/benchmark-routing.test.mjs` and two experiment launcher tests spawn processes with a 1 second budget; they fail in the full suite when the machine load average passes about 30 and pass alone. Give their launchers timeout headroom or inject the clock.
 - `fitSegments` cannot shorten a first segment whose text parts are each no longer than the overflow (a route of short words in a window of about 14 columns); it draws the segment whole.
 - `hooks/native-router.mjs` is at about 90.6% branch coverage. The trace-store reset, conflict-merge and lost-write paths need a concurrent-store test harness and an injectable clock.
 - Times format in local time, so test files set `process.env.TZ`. A `now` plus a zone option on the formatters would remove that.

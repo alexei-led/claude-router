@@ -472,21 +472,3 @@ test('tierMeter draws four rising bars, lit to the tier', () => {
   assert.equal(tierMeter(ELEMENTS, null, 'off').props.alt, 'Tier: off');
   assert.equal(tierMeter(ELEMENTS, null, 'pending').props.alt, 'Tier: choosing');
 });
-
-test('a pin option names the route pressing it runs: the configured one on the table engine, the mode’s on Auto', async () => {
-  const { loadConfig, resolveRoute } = await import('../lib/config.mjs');
-  const { cardRoute, shownConfig } = await import('../lib/display.mjs');
-  const { pinOf } = await import('../lib/ui/model/band.mjs');
-  const view = { ...ROUTED, routingMode: { mode: 'cost', source: 'session' } };
-  const label = (config, tier) => pinOf(config, view).options.find((option) => option.value === tier)?.label;
-  const named = (config, tier) => cardRoute(config, resolveRoute(config, tier), { short: true });
-  for (const [engine, runs] of [
-    ['table', (config) => config],
-    ['auto', (config) => shownConfig(config, view)],
-  ]) {
-    const config = loadConfig({ userFile: { routingEngine: engine } });
-    const moved = TIERS.filter((tier) => named(config, tier) !== named(shownConfig(config, view), tier));
-    assert.ok(moved.length > 0, `${engine}: cost mode moves a route, so the check can fail`);
-    for (const tier of TIERS) assert.equal(label(config, tier), named(runs(config), tier), `${engine} ${tier}`);
-  }
-});

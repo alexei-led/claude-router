@@ -79,7 +79,6 @@ import {
   GATEWAY_SETTINGS,
   missingCredentials,
   NOT_A_TIER_REASON,
-  pinConfig,
   pluginIdOf,
   savingsLine,
   storeAgreementLine,
@@ -3192,7 +3191,7 @@ export function register(on, options) {
     const mine = routerSuggestions(e, {
       describe: (name, value) =>
         name === 'pin' && router.view
-          ? cardRoute(router.config, resolveRoute(pinConfig(router.config, router.view), value), { short: true })
+          ? cardRoute(router.config, resolveRoute(router.config, value), { short: true })
           : undefined,
     });
     if (!mine.length) return next(e);
