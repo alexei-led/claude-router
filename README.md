@@ -54,7 +54,34 @@ The band above the prompt shows the tier, activity, model, and reason for each t
 
 In the desktop app, VS Code and mobile, the band is one fixed row with nothing revealed on hover: a tier meter icon, the route, activity and reason on the left; the readings, a **Pin next turn** dropdown and **Router** on the right. The pane has a header, five tabs (Now, Routes, Policy, Classifier, Usage), one warnings slot and a save bar. Colours follow the app's theme. These surfaces cannot open the plugin settings dialog, so **Set up** shows a card with the command that saves the classifier's key from a terminal.
 
-<!-- TODO: capture desktop screenshots: band, Now, Routes, Policy, Classifier, Usage, key card (dark and light) -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/desktop-band-routed-dark.png">
+  <img src="docs/images/desktop-band-routed-light.png" alt="The desktop band in one row: a tier meter, Opus 5.5 xhigh, the code activity and the reason "clearly stronger" on the left; context and cache readings, the Pin next turn dropdown and the Router button on the right." width="900">
+</picture>
+
+*Rendered from the real component tree with a browser's layout and approximate theme colours; not a screenshot of the Claude app.*
+
+<table>
+<tr>
+<td width="50%">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/desktop-pane-now-dark.png">
+  <img src="docs/images/desktop-pane-now-light.png" alt="The Now tab of the pane: the next turn route with a pin button per tier, plan usage bars, context and cache, and this session's cost against no routing with a strip of replies by tier.">
+</picture>
+
+</td>
+<td width="50%">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/desktop-pane-routes-dark.png">
+  <img src="docs/images/desktop-pane-routes-light.png" alt="The Routes tab: a grid of tiers by activities with the models they run, an editor card for code at High, and an Unsaved changes table with Discard and Save.">
+</picture>
+
+</td>
+</tr>
+</table>
+
 
 In the terminal, the picture above shows the band, whose controls appear on its own row on hover; the colours follow your Claude Code theme. The pane's warnings share one slot under the tab row, and a pending pin shows on its pin button (press it again to unpin).
 
