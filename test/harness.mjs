@@ -253,6 +253,12 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       const event = { component, requestId: component, props, ...(surface ? { surface } : {}) };
       return handler('ui.render', { component })($, event, next);
     },
+    // A prompt.autocomplete dispatch: `engine` is what core's typeahead already holds. Returns the rows after the hook.
+    autocomplete: async (input, engine = []) => {
+      snapshot = new Map();
+      const core = async () => ({ suggestions: engine });
+      return (await handler('prompt.autocomplete', input)($, input, core)).suggestions;
+    },
     step: (input, response = {}, signal = new AbortController().signal) => {
       snapshot = new Map();
       const send = async function* (request) {
