@@ -37,6 +37,7 @@ Ideas and minor issues that can wait for the next release. Add an item when you 
 
 ## Tests and code quality
 
+- `fitSegments` cannot shorten a first segment whose text parts are each no longer than the overflow (a route of short words in a window of about 14 columns); it draws the segment whole.
 - `hooks/native-router.mjs` is at about 90.6% branch coverage. The trace-store reset, conflict-merge and lost-write paths need a concurrent-store test harness and an injectable clock.
 - Times format in local time, so test files set `process.env.TZ`. A `now` plus a zone option on the formatters would remove that.
 - The hover overlay is tested through `left` and `position: 'absolute'`. A band model that returns hover spans as data would let tests drop the layout inference.

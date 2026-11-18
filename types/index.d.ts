@@ -328,6 +328,7 @@ declare module 'claude-code' {
     tier: RouterTier | null;
     reason: string;
     activity: RouterActivity | null;
+    reasonActivity: RouterActivity | null;
     estimate: RouterEstimate | null;
   }
   interface PluginState {

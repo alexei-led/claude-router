@@ -73,10 +73,10 @@ Box flexDirection="column"
   Box
     Text
       "        "
-    Button key="pin-medium" label="▂▄▆ Opus·high 7%" variant="secondary"
+    Button key="pin-medium" label="▂▄▆ Opus·medium 7%" variant="secondary"
     Text
       " "
-    Button key="pin-high" label="▶ ▂▄▆█ Opus·max 88%" variant="secondary"
+    Button key="pin-high" label="▶ ▂▄▆█ Opus·xhigh 88%" variant="secondary"
     Text
       " "
   Text

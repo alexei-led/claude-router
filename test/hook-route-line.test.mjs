@@ -118,3 +118,15 @@ test('a new session’s first routed turn places a row even when its route is th
   await turn(h, 't2');
   assert.deepEqual(h.places, [{ id: 'rl-t1' }, { id: 'rl-t2' }]);
 });
+
+test('a row in a narrow window drops its reason and keeps its route, and a tighter one is cut with an ellipsis', async () => {
+  const h = await started();
+  await turn(h, 't1');
+  const drawn = async (columns) =>
+    texts(await h.component('Placed', { id: 'rl-t1', plugin: 'router' }, { viewport: { columns, rows: 30 } })).join('');
+  assert.match(await drawn(100), /Haiku 5\.5 · high.*fits/);
+  const narrow = await drawn(30);
+  assert.match(narrow, /Haiku 5\.5 · high/);
+  assert.doesNotMatch(narrow, /fits/);
+  assert.match(await drawn(20), /…$/);
+});

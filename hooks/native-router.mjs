@@ -79,9 +79,9 @@ import {
   GATEWAY_SETTINGS,
   missingCredentials,
   NOT_A_TIER_REASON,
+  pinConfig,
   pluginIdOf,
   savingsLine,
-  shownConfig,
   storeAgreementLine,
   unavailableReason,
   unpricedLine,
@@ -2104,7 +2104,7 @@ async function placeRouteLine($, router, e, turn) {
     const mode = lineModeOf(await $.store.get(ROUTE_LINE).catch(() => undefined));
     if (!showsLine(mode, previous, route)) return;
     const id = lineId(e.turnId);
-    await $.state.set({ ...LINES, id }, lineOf(view, route));
+    await $.state.set({ ...LINES, id }, lineOf(router.config, view, route));
     const placed = await $.ui.place({ id });
     if (!placed.isPlaced) $.ui.log(`router route line not drawn: ${placed.reason}`, { to: 'debug' });
   } catch {}
@@ -2364,8 +2364,17 @@ async function decideSpawn($, router, cfg, e, definition, signal) {
 // Claude Code uses in place of the Agent call's `model` and the agent's frontmatter. Routing off or unavailable keeps
 // every model Claude Code chooses, and records nothing.
 async function spawnAgent($, router, e, next) {
-  // A resumed agent keeps the model and the record of its first spawn: a hook can only refuse a resume.
-  if (e.resume) return next(e);
+  // A resumed agent keeps the model and the record of its first spawn: a hook can only refuse a resume. It runs again
+  // from here, so the band's rows show it before its first reply.
+  if (e.resume) {
+    const result = await next(e);
+    const agent = router.agents.get(e.resume.agentId);
+    if (agent && !agent.running) {
+      router.agents.set(e.resume.agentId, { ...agent, running: true });
+      await showRunning($, router);
+    }
+    return result;
+  }
   if (!(await ensureInitialized($, router))) return next(e);
   const cfg = router.config;
   if (cfg.subagentRouting === 'off') return next(e);
@@ -3183,7 +3192,7 @@ export function register(on, options) {
     const mine = routerSuggestions(e, {
       describe: (name, value) =>
         name === 'pin' && router.view
-          ? cardRoute(router.config, resolveRoute(shownConfig(router.config, router.view), value), { short: true })
+          ? cardRoute(router.config, resolveRoute(pinConfig(router.config, router.view), value), { short: true })
           : undefined,
     });
     if (!mine.length) return next(e);
@@ -3304,6 +3313,7 @@ export function register(on, options) {
     const { value: line } = await $.state.get({ ...LINES, id: e.props.id });
     if (!line) return next(e);
     return renderRouteLine($.ui.resolve(e), router.config, line, {
+      columns: e.viewport?.columns,
       surface: e.surface,
       onFallback: logFallback($, 'route line'),
     });

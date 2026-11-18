@@ -278,9 +278,15 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
         async () => null,
       );
     },
-    component: async (component, props = {}, { next = async (input) => input, surface } = {}) => {
+    component: async (component, props = {}, { next = async (input) => input, surface, viewport } = {}) => {
       snapshot = new Map();
-      const event = { component, requestId: component, props, ...(surface ? { surface } : {}) };
+      const event = {
+        component,
+        requestId: component,
+        props,
+        ...(surface ? { surface } : {}),
+        ...(viewport ? { viewport } : {}),
+      };
       return handler('ui.render', { component })($, event, next);
     },
     // A prompt.autocomplete dispatch: `engine` is what core's typeahead already holds. Returns the rows after the hook.

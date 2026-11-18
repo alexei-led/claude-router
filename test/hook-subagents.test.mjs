@@ -392,9 +392,12 @@ test('resuming a subagent leaves its spawn and its record alone', async () => {
     background: true,
     resume: { agentId: 'r1' },
   });
+  assert.equal(h.view().subagentsRunning, 0);
   const { sent } = await h.spawn(resume, { model: 'claude-haiku-5-5', agentId: 'r1' });
   assert.equal(sent, resume);
+  assert.equal(h.view().subagentsRunning, 1, 'a resumed agent shows as running before its first reply');
   await finish(h, 'r1', 'claude-haiku-5-5');
+  assert.equal(h.view().subagentsRunning, 0);
   assert.equal(routedOf(h, 'general-purpose').agents, routedBefore);
   assert.deepEqual(kept(h).passed, before.passed);
 });

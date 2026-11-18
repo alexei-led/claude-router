@@ -6,7 +6,7 @@ Select a [provider profile](providers.md), then configure the key of the classif
 
 | Item                               | Where it lives                                  | How to change it                                                                                |
 | ---------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Jev API key                        | Sensitive plugin option `typesafe_api_key`      | Run `/plugin configure router`, or use **Set up** or **Credentials → Edit** in the router pane. |
+| Jev API key                        | Sensitive plugin option `typesafe_api_key`      | Run `/plugin configure router`, or use **Set up** or **Credentials → Edit** in the router pane (on the desktop app, VS Code and mobile they show the command to run in a terminal). |
 | Cloudflare API token               | Sensitive plugin option `cloudflare_api_token`  | The same dialog. Used by Clef, Clef Flash and Clef Omni.                                        |
 | Cloudflare account ID              | Plugin option `cloudflare_account_id`           | The same dialog, or the config menu row. Not a secret.                                          |
 | OpenAI API key                     | Sensitive plugin option `openai_api_key`        | The same dialog. Used only by the OpenAI classifier. Ollama needs no key.                       |
