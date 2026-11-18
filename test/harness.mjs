@@ -69,6 +69,9 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   let opened = {};
   const copied = [];
   const toasts = [];
+  const views = [];
+  let agents = [];
+  let viewResult = {};
   let version = '2.1.321';
   let settings = {};
   let sessionId = 's1';
@@ -147,6 +150,8 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
         }),
     },
     http: { fetch: (...args) => http(...args) },
+    // `agents` as `$.agent.list()` lists them.
+    agent: { list: async () => agents },
     ui: {
       // A graphical renderer that falls back to the terminal tree is a failure in a test.
       log: (text) => {
@@ -154,6 +159,10 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       },
       copy: async (args) => copied.push(args),
       toast: (text) => toasts.push(text),
+      view: async (view) => {
+        views.push(view);
+        return viewResult;
+      },
       open: async () => opened,
       close: async () => {},
       resolve: () => ELEMENTS,
@@ -215,6 +224,15 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     commandCalls: () => commandCalls,
     copied,
     toasts,
+    // The calls of `$.ui.view`, in order; `viewAnswer` is what it resolves to next (`{}` or `{ deny }`).
+    views,
+    viewAnswer: (value) => {
+      viewResult = value;
+    },
+    // What `$.agent.list()` returns: `{ id, type, description, status }` each.
+    agents: (value) => {
+      agents = value;
+    },
     // What `$.ui.open` resolves: `{ isPlaced: true }`, or `{ isPlaced: false, reason }` where the pane waits undrawn.
     opens: (value) => {
       opened = value;

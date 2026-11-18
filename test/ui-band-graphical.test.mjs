@@ -24,6 +24,7 @@ const actions = {
   unpin: () => calls.push(['unpin']),
   key: () => calls.push(['key']),
   toggleDetail: () => calls.push(['toggleDetail']),
+  back: () => calls.push(['back']),
 };
 const draw = (view, usage = CLAUDE, opts = {}, config = DEFAULTS) =>
   renderBand(ELEMENTS, config, view, usage, { columns: 100, now: NOW, surface: 'desktop', ...opts }, actions);
@@ -323,6 +324,54 @@ test('the subagent band is one graphical row with no control and no Router', () 
   }
   const terminal = draw(ROUTED, null, { agentId: 'a1', agent, surface: 'terminal' });
   assert.equal(terminal.props.key, undefined);
+});
+
+test('the subagent band gets a Back button where the caller can go back', () => {
+  const agent = { routedModel: 'claude-haiku-5-5', coreModel: 'claude-opus-5-5', move: 'down', choice: 'router' };
+  for (const surface of SURFACES) {
+    calls.length = 0;
+    const tree = draw(ROUTED, null, { agentId: 'a1', agent, back: true, surface });
+    const [back] = find(tree, (n) => n.type === 'Button');
+    assert.equal(back.props.key, 'band-back');
+    assert.equal(find(tree, (n) => n.type === 'Button').length, 1);
+    back.props.onPress();
+    assert.deepEqual(calls, [['back']]);
+    assert.match(textOf(tree), /Haiku 5\.5.*from Opus 5\.5/);
+  }
+});
+
+test('the running agents are a row of Buttons under the band, shown on both band sizes', () => {
+  const record = { routedModel: 'claude-haiku-5-5', coreModel: 'claude-opus-5-5', move: 'down' };
+  const agents = [
+    { id: 'a1', type: 'Explore', description: 'retry usages', record },
+    { id: 'a2', type: 'Plan', description: '', record: { ...record, move: null } },
+  ];
+  const pressed = [];
+  const withActions = { ...actions, viewAgent: (id) => pressed.push(id) };
+  for (const surface of SURFACES)
+    for (const bandDetail of [false, true]) {
+      const tree = renderBand(
+        ELEMENTS,
+        DEFAULTS,
+        { ...ROUTED, bandDetail },
+        CLAUDE,
+        { columns: 100, now: NOW, surface, agents },
+        withActions,
+      );
+      assert.equal(tree.props.key, 'router-band');
+      const buttons = find(tree, (n) => n.type === 'Button' && n.props.key?.startsWith('band-agent-'));
+      assert.deepEqual(
+        buttons.map((n) => n.props.key),
+        ['band-agent-a1', 'band-agent-a2'],
+      );
+      assert.equal(buttons[0].props.plain, undefined);
+      buttons[1].props.onPress();
+      assert.match(textOf(tree), /agents 2/);
+    }
+  assert.deepEqual(pressed, ['a2', 'a2', 'a2', 'a2']);
+  const none = draw(ROUTED, CLAUDE, { surface: 'desktop', agents: [] });
+  assert.equal(find(none, (n) => n.props.key?.startsWith('band-agent-')).length, 0);
+  assert.equal(none.props.flexDirection, 'row');
 });
 
 // The spec's state table: the control on the right of each state, with Router last.

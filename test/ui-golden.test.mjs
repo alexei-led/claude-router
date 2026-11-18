@@ -181,6 +181,46 @@ for (const [name, { agent, config = { ...DEFAULTS, subagentRouting: 'on' } }] of
       );
     });
 
+// The main thread's band lists the agents running under it: two, then five (three rows and a count); and an agent's
+// own band, which has a way back.
+const RUNNING = [
+  { id: 'a1', type: 'Explore', description: 'retry usages', record: AGENT },
+  {
+    id: 'a2',
+    type: 'general-purpose',
+    description: 'run tests',
+    record: { ...AGENT, routedModel: 'claude-sonnet-5-5', coreModel: 'claude-sonnet-5-5', move: null },
+  },
+];
+const MORE_RUNNING = [...RUNNING, ...['a3', 'a4', 'a5'].map((id) => ({ ...RUNNING[0], id }))];
+for (const columns of [100, 40]) {
+  test(`band agents at ${columns} columns`, () => {
+    golden(
+      `band-agents-${columns}`,
+      renderBand(ELEMENTS, DEFAULTS, ROUTED, null, { columns, agents: RUNNING, now: NOW }, quiet),
+    );
+  });
+  test(`band agents with more than three at ${columns} columns`, () => {
+    golden(
+      `band-agents-more-${columns}`,
+      renderBand(ELEMENTS, DEFAULTS, ROUTED, null, { columns, agents: MORE_RUNNING, now: NOW }, quiet),
+    );
+  });
+  test(`band agent view with back at ${columns} columns`, () => {
+    golden(
+      `band-agent-back-${columns}`,
+      renderBand(
+        ELEMENTS,
+        { ...DEFAULTS, subagentRouting: 'on' },
+        ROUTED,
+        null,
+        { columns, agentId: 'a1', agent: AGENT, back: true, now: NOW },
+        quiet,
+      ),
+    );
+  });
+}
+
 // ---- the pane ---------------------------------------------------------------------------------------------------
 
 const KEYS_SET = { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null };
