@@ -21,8 +21,9 @@
 
 ### Added: terminal
 
+- A route line after a turn: one dim row at the end of the transcript with the model, effort and why, such as `▂▄▆█ Sonnet 5.5 · high  ↓ cheaper fits  code`. By default it appears only when the route moved; `/router line all` shows it after every routed turn and `/router line off` hides it. Not for interrupted turns, subagents or while routing is off; not restored by `--resume`. Also drawn on the desktop app, VS Code and mobile.
 - While subagents run, a row under the band lists them (model, type and task, three at most and then `+N`), and pressing one opens its transcript in the main view. In an agent's transcript the band has a **Back** control to return. Teammates are not listed. The same row and a **← Main** button are drawn on the desktop app, VS Code and mobile.
-- `/router` completes in the prompt: type `/router a` and the words that start with it appear under Claude Code's own rows (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `decisions [n]`, `trace export`), then the values after `pin `, `mode ` or `activities `. The `/router` argument hint lists the same words.
+- `/router` completes in the prompt: type `/router a` and the words that start with it appear under Claude Code's own rows (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `line <off|moves|all>`, `decisions [n]`, `trace export`), then the values after `pin `, `mode `, `activities ` or `line `. The `/router` argument hint lists the same words.
 - A session that starts with routing unavailable (Claude Code older than 2.1.321, v0.8 gateway settings still set, or a `router.json` that does not load) shows one toast with the reason, at most once a day for each cause. Not under `claude -p`.
 
 ### Changed: desktop app, VS Code and mobile
