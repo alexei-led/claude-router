@@ -131,7 +131,8 @@ test('Now and Usage identify configured-rate estimates for every billing product
 test('a plan window shows its reset only while it is ahead', () => {
   const props = STARTS['started on Opus: DeepSeek turns are cheaper'];
   const ahead = { ...PLAN, rateLimits: [{ kind: 'five_hour', percentUsed: 37, resetsAt: '2026-11-03T13:30:00Z' }] };
-  assert.match(band(props, ahead), /^plan 5h ▰▰▰▱▱▱▱▱ 37% ↻\d\d:30 /);
+  const reset = new Date('2026-11-03T13:30:00Z').toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  assert.ok(band(props, ahead).startsWith(`plan 5h ▰▰▰▱▱▱▱▱ 37% ↻${reset} `));
   assert.match(band(props, PLAN), /^plan 5h ▰▰▰▱▱▱▱▱ 37% {3}7d/);
 });
 

@@ -1179,14 +1179,15 @@ test('with activity routing on, a turn without an activity answer keeps the acti
   assert.deepEqual(savedStats(h.preferences).runs, { code: [1, 0, 0, 0, 0] });
 });
 
-test('the classifier latency is the wait for its answer, not the routing after it', async () => {
+test('the classifier latency is the wait for its answer, not the routing after it', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 0 });
   const h = harness(JEV_KEY);
   h.files.set(CONFIG, JSON.stringify({ activityRouting: 'on' }));
   answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
   await h.event('session.start', { cwd: '/fixture' });
   const set = h.$.state.set;
   h.$.state.set = async (...args) => {
-    await new Promise((resolve) => setTimeout(resolve, 120));
+    t.mock.timers.tick(120);
     return set(...args);
   };
   await turn(h, 't1', 'claude-sonnet-5-5', ['Edit']);

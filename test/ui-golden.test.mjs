@@ -4,7 +4,7 @@
 // compares. Handlers are dropped; every other prop (key, label, variant, hotkey, style) is kept.
 import assert from 'node:assert/strict';
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import test from 'node:test';
+import test, { after } from 'node:test';
 
 // Times print through toLocaleTimeString: fix the zone before any module builds a date.
 process.env.TZ = 'UTC';
@@ -501,8 +501,10 @@ test('a view without readings draws no NaN and no undefined, on the band and on 
     }
 });
 
-// Last: every golden file belongs to a case above, and every case has its file.
-test('the golden files are exactly the cases the tests draw', () => {
+// An after hook, so it holds in any test order: every golden file belongs to a case above, and every case has its file.
+// A filtered run (--test-name-pattern) draws fewer cases and skips the check.
+after(() => {
+  if (UPDATE || process.execArgv.some((arg) => arg.startsWith('--test-name-pattern'))) return;
   const files = readdirSync(GOLDEN)
     .filter((file) => file.endsWith('.txt'))
     .map((file) => file.slice(0, -4));
