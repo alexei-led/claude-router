@@ -56,7 +56,7 @@ In the desktop app, VS Code and mobile, the band is one fixed row with nothing r
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/desktop-band-routed-dark.png">
-  <img src="docs/images/desktop-band-routed-light.png" alt="The desktop band in one row: a tier meter, Opus 5.5 xhigh, the code activity and the reason "clearly stronger" on the left; context and cache readings, the Pin next turn dropdown and the Router button on the right." width="900">
+  <img src="docs/images/desktop-band-routed-light.png" alt="The desktop band in one row: a tier meter, Opus 5.5 xhigh, the code activity and the reason &quot;clearly stronger&quot; on the left; context and cache readings, the Pin to a tier dropdown and the Router button on the right." width="900">
 </picture>
 
 *Rendered from the real component tree with a browser's layout and approximate theme colours; not a screenshot of the Claude app.*

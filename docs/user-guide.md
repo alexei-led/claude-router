@@ -45,7 +45,7 @@ The pane shows its provider and file path.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/desktop-band-routed-dark.png">
-  <img src="images/desktop-band-routed-light.png" alt="The desktop band in one row: a tier meter, Opus 5.5 xhigh, the code activity and the reason "clearly stronger" on the left; context and cache readings, the Pin next turn dropdown and the Router button on the right.">
+  <img src="images/desktop-band-routed-light.png" alt="The desktop band in one row: a tier meter, Opus 5.5 xhigh, the code activity and the reason &quot;clearly stronger&quot; on the left; context and cache readings, the Pin to a tier dropdown and the Router button on the right.">
 </picture>
 
 *Rendered from the real component tree with a browser's layout and approximate theme colours; not a screenshot of the Claude app.*
@@ -68,12 +68,12 @@ While subagents run, a row of buttons under the band lists them, one per agent w
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/desktop-band-setup-dark.png">
-  <img src="images/desktop-band-setup-light.png" alt="The desktop band with a missing classifier key: a warning "Jev: no API key", the model kept, and a Set up button beside Router.">
+  <img src="images/desktop-band-setup-light.png" alt="The desktop band with a missing classifier key: a warning &quot;Jev: no API key&quot;, the model kept, and a Set up button beside Router.">
 </picture>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="images/desktop-band-off-dark.png">
-  <img src="images/desktop-band-off-light.png" alt="The desktop band with routing off: Sonnet 5.5, "routing off", and a Turn on button beside Router.">
+  <img src="images/desktop-band-off-light.png" alt="The desktop band with routing off: Sonnet 5.5, &quot;routing off&quot;, and a Turn on button beside Router.">
 </picture>
 
 ### In the terminal

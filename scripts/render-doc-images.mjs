@@ -108,18 +108,31 @@ function lay(node, opts) {
 function bordered(lines, { borderColor, paddingX = 0 }, columns) {
   const fill = COLORS[borderColor] ?? borderColor ?? DIM;
   const inner = Math.max(Number.isFinite(columns) ? columns - 2 : 0, ...lines.map(width).map((w) => w + 2 * paddingX));
-  const side = (glyph) => ({ text: glyph, fill });
+  const side = (glyph, rule) => ({ text: glyph, fill, rule });
   const space = { text: ' '.repeat(paddingX) };
   return [
-    [side(`┌${'─'.repeat(inner)}┐`)],
-    ...pad(lines, inner - 2 * paddingX).map((line) => [side('│'), space, ...line, space, side('│')]),
-    [side(`└${'─'.repeat(inner)}┘`)],
+    [side(`┌${'─'.repeat(inner)}┐`, 'top')],
+    ...pad(lines, inner - 2 * paddingX).map((line) => [side('│', 'side'), space, ...line, space, side('│', 'side')]),
+    [side(`└${'─'.repeat(inner)}┘`, 'bottom')],
   ];
 }
 
 const CW = 7.8;
 const LH = 19;
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+// A border drawn as lines, not box-drawing glyphs: a glyph does not fill the 19px row, so a side would show as dashes.
+// `base` is the text baseline of the row; the cell spans base - 14 to base + 5.
+function ruleSvg({ rule, fill }, x, base, width) {
+  const [top, mid, bottom] = [base - 14, base - 5, base + 5];
+  const left = (x + CW / 2).toFixed(1);
+  const right = (x + width - CW / 2).toFixed(1);
+  const path = {
+    side: `M${left} ${top}V${bottom}`,
+    top: `M${left} ${bottom}V${mid}H${right}V${bottom}`,
+    bottom: `M${left} ${top}V${mid}H${right}V${top}`,
+  }[rule];
+  return `<path d="${path}" fill="none" stroke="${fill}"/>`;
+}
 function runsSvg(lines, x0, y0) {
   const out = [];
   lines.forEach((line, row) => {
@@ -127,6 +140,11 @@ function runsSvg(lines, x0, y0) {
     for (const run of line) {
       const x = x0 + col * CW;
       const width = [...run.text].length * CW;
+      if (run.rule) {
+        out.push(ruleSvg(run, x, y0 + row * LH, width));
+        col += [...run.text].length;
+        continue;
+      }
       if (run.bg && run.text.trim()) {
         out.push(
           `<rect x="${x.toFixed(1)}" y="${y0 + row * LH - 14}" width="${width.toFixed(1)}" height="18" rx="4" fill="${run.bg}"/>`,
