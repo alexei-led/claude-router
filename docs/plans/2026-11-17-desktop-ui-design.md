@@ -115,7 +115,7 @@ lib/panel.mjs                  the tab table (id, key, label, model, terminal, g
 lib/band.mjs                   renderBand and renderRouteLine: the surface dispatch, and the switch toast
 lib/route-line.mjs             the route line's record and when a turn leaves one (not UI code)
 lib/ui/tokens.mjs              every colour: tones, tier and model hex, theme keys, Svg hex
-lib/ui/fallback.mjs            orTerminal: a graphical throw draws the terminal tree and tells a reporter
+lib/ui/fallback.mjs            orTerminal: with an onFallback, a graphical throw draws the terminal tree and reports it
 lib/ui/model/                  plain data, no elements and no layout by width: now, routes, policy, classifier,
                                usage (+ usage-breakdown, usage-agents, usage-shared), frame (notices, save bar,
                                help, key help), draft (the Routes and Policy draft), band (segments, fitting,
@@ -129,8 +129,9 @@ lib/ui/graphical/              kit.mjs (standalone), frame.mjs, band.mjs, charts
 Each tab has a model: plain data in which conditions, wording and number formatting are decided once. Where the words
 differ by surface the model holds a `{ terminal, graphical }` pair. A renderer only lays the model out. `renderPanel`
 passes `e.surface` through: `terminal` (or none) picks the terminal renderer, anything else the graphical one. If a
-graphical renderer throws, `orTerminal` in `lib/ui/fallback.mjs` draws the terminal tree instead, and tells a reporter
-that tests set to fail on any unexpected fallback.
+graphical renderer throws, `orTerminal` in `lib/ui/fallback.mjs` draws the terminal tree instead when the caller passed `onFallback`, and reports the error to it (the hook writes it
+to the debug log). Shipped: without `onFallback` the throw propagates, so a test sees a broken renderer rather than the
+terminal tree standing in for it.
 
 The band keeps its data form (`bandSegments` returns segments of parts, and `fitSegments` in
 `lib/ui/model/band.mjs` drops them by priority). `lib/band.mjs` chooses `lib/ui/terminal/band.mjs` for the terminal and
@@ -316,8 +317,8 @@ warnings keep words. Hotkeys are unchanged. Dark mode has been checked on deskto
   `test/ui-painter.test.mjs`, `test/ui-tokens.test.mjs`).
 - Engine mount tests on desktop, VS Code and mobile that act by key (`test/ui-*.test.ts`).
 - A walk over every graphical tab that fails on a duplicate key or hotkey (`test/ui-keys-graphical.test.mjs`).
-- A fallback reporter that fails any test in which a graphical renderer threw and the terminal tree was drawn
-  unexpectedly (`test/ui-fallback.test.mjs`).
+- A fallback test: with `onFallback` a throwing graphical renderer draws the terminal tree and reports the error, and
+  the test harness fails any other fallback (`test/ui-fallback.test.mjs`).
 - A band test asserts the graphical band has no hover-revealed element and is one row (two with the session row).
 - A person checks the look on screen; tests do not paint.
 
