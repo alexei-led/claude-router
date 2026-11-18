@@ -1,13 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { register } from '../hooks/native-router.mjs';
-import { setFallbackReporter } from '../lib/ui/painter.mjs';
-
-// A graphical renderer that throws falls back to the terminal tree in silence; in a test that is a failure, unless the
-// test expects it and sets its own reporter.
-setFallbackReporter((error) => {
-  throw error;
-});
 
 const element = (type) => (props) => ({ type, props });
 export const ELEMENTS = {
@@ -117,7 +110,10 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     },
     http: { fetch: (...args) => http(...args) },
     ui: {
-      log: () => {},
+      // A graphical renderer that falls back to the terminal tree is a failure in a test.
+      log: (text) => {
+        if (String(text).startsWith('graphical ')) throw new Error(text);
+      },
       copy: async (args) => copied.push(args),
       toast: (text) => toasts.push(text),
       open: async () => ({}),

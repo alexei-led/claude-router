@@ -1049,6 +1049,12 @@ async function keySetup($, router, press, id) {
   await updateView($, router, { keyHelp: keyHelpFor(router, id ?? router.config.classifier), notice: null });
 }
 
+// A graphical band or pane that throws draws the terminal tree; the error goes to the debug log, never the transcript.
+const logFallback = ($, what) => (error) =>
+  $.ui.log(`graphical ${what} failed, drew the terminal one: ${error instanceof Error ? error.message : error}`, {
+    to: 'debug',
+  });
+
 // The key help to open for classifier `id`: an Edit, when nothing is missing, stays open until Done.
 const keyHelpFor = (router, id) => ({
   id,
@@ -3145,6 +3151,7 @@ export function register(on, options) {
             {
               columns: e.props.bodyColumns,
               surface: e.surface,
+              onFallback: logFallback($, 'band'),
               agentId: e.props.view?.agentId,
               agent: router.agents.get(e.props.view?.agentId) ?? null,
             },
@@ -3180,6 +3187,7 @@ export function register(on, options) {
       modelOptions,
       columns: e.props.bodyColumns,
       surface: e.surface,
+      onFallback: logFallback($, 'pane'),
       pluginId: pluginIdOf({ name: $.plugin.name, root: $.plugin.root }, settings?.enabledPlugins ?? null),
     });
   });
