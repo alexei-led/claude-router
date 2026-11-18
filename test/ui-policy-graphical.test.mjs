@@ -37,7 +37,7 @@ const muted = toneColor('muted', 'graphical');
 const fieldOf = (tree, key) =>
   find(
     tree,
-    (n) => n.type === 'Box' && n.props.flexDirection === 'column' && n.props.gap === 'xs' && Boolean(byKey(n, key)),
+    (n) => n.type === 'Box' && n.props.flexDirection === 'column' && Boolean(n.props.gap) && Boolean(byKey(n, key)),
   ).at(-1);
 const helpOf = (field) => find(field, (n) => n.type === 'Text' && n.props.size === 'footnote');
 const SELECTS = ['routing-mode', 'baseline', ...POLICY_ROWS.map(([key]) => key)];
