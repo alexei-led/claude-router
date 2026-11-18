@@ -1,6 +1,7 @@
 // Set up and Edit on a graphical surface, which cannot open `/plugin configure`'s dialog: the pane shows how to add the
 // credentials from a terminal instead. The terminal still opens the dialog.
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { DEFAULTS } from '../lib/config.mjs';
 import { pluginIdOf } from '../lib/display.mjs';
@@ -238,4 +239,17 @@ test('an open Edit card leaves the title ready; an open Set up card says the cla
   const setUp = await pane(missing, 'desktop');
   assert.equal(keyed(setUp, 'key-help-copy').length, 1);
   assert.ok(titleOf(setUp).includes('Jev needs attention'), titleOf(setUp).join(' | '));
+});
+
+test('the key help command passes an unusual plugin id to claude as one word', () => {
+  const zsh = spawnSync('zsh', ['-c', 'true']);
+  if (zsh.error) return;
+  for (const pluginId of [ID, 'my router', "it's; touch pwned", '$(id)']) {
+    const { command } = keyHelpOf(DEFAULTS, 'jev', pluginId);
+    const run = spawnSync('zsh', ['-fc', `claude() { print -rl -- "$@"; cat >/dev/null; }; ${command}`], {
+      input: 'secret\n',
+      encoding: 'utf8',
+    });
+    assert.deepEqual(run.stdout.trim().split('\n').slice(0, 3), ['plugin', 'configure', pluginId], pluginId);
+  }
 });
