@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { bandSegments, fitSegments, renderBand, switchToast } from '../lib/band.mjs';
+import { renderBand, switchToast } from '../lib/band.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
 import { GATEWAY_SETTINGS } from '../lib/display.mjs';
+import { bandSegments, fitSegments } from '../lib/ui/model/band.mjs';
+import { partGlyphs } from '../lib/ui/terminal/band.mjs';
+import { toneColor } from '../lib/ui/tokens.mjs';
 import { ELEMENTS, quiet } from './harness.mjs';
 
 const ROUTER_BUTTON_COLUMNS = 8;
@@ -40,7 +43,7 @@ test('a wide band shows the warning, the route kept and the reason', () => {
   const text = (error) =>
     fitSegments(bandSegments(config, { ...view, error, reason: 'no-advice' }, null, quiet), 112)
       .flatMap((s) => s.parts)
-      .map((p) => p.text ?? `[${p.button.label}]`)
+      .map((p) => (p.button ? `[${p.button.label}]` : partGlyphs(p)))
       .join(' ');
   assert.match(text('missing-account'), /⚠ Clef Flash: no account ID \[Set up\].*Opus 5\.5 {2}· medium.*= no advice/);
   assert.match(text('timeout'), /⚠ Clef Flash timed out \[Details\].*Opus 5\.5 {2}· medium.*= no advice/);
@@ -49,7 +52,7 @@ test('a wide band shows the warning, the route kept and the reason', () => {
 const line = (segments) =>
   segments
     .flatMap((s) => s.parts)
-    .map((p) => p.text ?? `[${p.button.label}]`)
+    .map((p) => (p.button ? `[${p.button.label}]` : partGlyphs(p)))
     .join('');
 const plain = (priority, ...texts) => ({ priority, parts: texts.map((text) => ({ text, style: {} })) });
 
@@ -175,7 +178,17 @@ test('a narrow manual band drops the explanation, then cuts the model, and keeps
 test('a turn being classified shows an accent meter and the classifier deadline', () => {
   const segments = bandSegments(DEFAULTS, { mode: 'auto', phase: 'choosing', tier: 'medium' }, null, quiet);
   assert.equal(line(segments), '▂▄▆█ choosing…Jev ≤ 1.5 s');
-  assert.ok(segments[0].parts.slice(0, 4).every((p) => p.style.color && !p.style.dimColor));
+  assert.equal(segments[0].parts[0].meter, 'pending');
+  const band = renderBand(
+    ELEMENTS,
+    DEFAULTS,
+    { mode: 'auto', phase: 'choosing', tier: 'medium' },
+    null,
+    { columns: 100 },
+    quiet,
+  );
+  const bars = band.props.children[0].props.children.slice(0, 4);
+  assert.ok(bars.every((bar) => bar.props.color && !bar.props.dimColor));
 });
 
 test('a narrow band drops the highest priority first, the later one on a tie', () => {
@@ -252,7 +265,11 @@ test('a narrow band drops the activity before the reason and keeps the tier and 
       );
       const tag = parts.find((p) => p.text === label);
       assert.equal(Boolean(tag), activity, name);
-      if (tag) assert.deepEqual(tag.style, { color: '#d77757', italic: true }, name);
+      if (tag) {
+        assert.equal(tag.tone, 'activity', name);
+        assert.equal(tag.italic, true, name);
+        assert.equal(toneColor(tag.tone, 'terminal', tag.scale), '#d77757', name);
+      }
     }
   }
 });
@@ -273,7 +290,7 @@ test('an activity move names the activity once, in its reason', () => {
 test('routing off by activity shows no activity in the band', () => {
   const config = { ...DEFAULTS, activityRouting: 'off' };
   const parts = bandSegments(config, activityBand.on.view, null, quiet).flatMap((s) => s.parts);
-  assert.ok(!parts.some((p) => p.style?.italic));
+  assert.ok(!parts.some((p) => p.italic));
 });
 
 test('activity moves name their activity in the band and the switch toast', () => {

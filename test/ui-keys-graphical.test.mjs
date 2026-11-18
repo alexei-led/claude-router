@@ -8,12 +8,11 @@ process.env.TZ = 'UTC';
 const { DEFAULTS } = await import('../lib/config.mjs');
 const { renderPanel, routeDraftOf } = await import('../lib/panel.mjs');
 const { BAND_STATES, CLAUDE, ROUTED } = await import('./band-states.mjs');
-const { duplicates, ELEMENTS } = await import('./harness.mjs');
+const { duplicates, ELEMENTS, quiet } = await import('./harness.mjs');
 const { NOW, SESSION, STORE } = await import('./usage-fixtures.mjs');
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
 const TABS = ['now', 'routes', 'policy', 'classifier', 'usage'];
-const actions = new Proxy({}, { get: () => () => undefined });
 const SAVED = routeDraftOf(DEFAULTS, {});
 const DRAFT = { ...SAVED, routes: { ...SAVED.routes, micro: { ...SAVED.routes.high } } };
 const KEYS_SET = { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null };
@@ -56,7 +55,7 @@ test('no graphical tab holds a key or a hotkey twice', () => {
     for (const tab of TABS)
       for (const [name, view] of Object.entries(VIEWS))
         for (const [extra, more] of extras) {
-          const tree = renderPanel(ELEMENTS, DEFAULTS, { ...view, ...more, tab }, CLAUDE, actions, {
+          const tree = renderPanel(ELEMENTS, DEFAULTS, { ...view, ...more, tab }, CLAUDE, quiet, {
             columns: 100,
             now: NOW,
             surface,

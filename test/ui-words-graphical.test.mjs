@@ -9,14 +9,13 @@ process.env.TZ = 'UTC';
 const { DEFAULTS, TIERS } = await import('../lib/config.mjs');
 const { renderPanel, routeDraftOf } = await import('../lib/panel.mjs');
 const { CLAUDE, ROUTED } = await import('./band-states.mjs');
-const { byKey, ELEMENTS, find, texts } = await import('./harness.mjs');
+const { byKey, ELEMENTS, find, quiet, texts } = await import('./harness.mjs');
 const { NOW, SESSION, STORE } = await import('./usage-fixtures.mjs');
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
-const actions = new Proxy({}, { get: () => () => undefined });
 const VIEW = { ...ROUTED, credentials: { jev: null }, usageSession: SESSION, usageStore: STORE };
 const draw = (props, surface) =>
-  renderPanel(ELEMENTS, DEFAULTS, { ...VIEW, ...props }, CLAUDE, actions, { columns: 100, now: NOW, surface });
+  renderPanel(ELEMENTS, DEFAULTS, { ...VIEW, ...props }, CLAUDE, quiet, { columns: 100, now: NOW, surface });
 const GRAPHICAL = new URL('../lib/ui/graphical/', import.meta.url);
 
 test('the graphical renderers neither capitalise nor hold the wording the models decide', () => {

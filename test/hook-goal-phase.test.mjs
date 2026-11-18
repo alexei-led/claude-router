@@ -285,3 +285,40 @@ test('ambiguous continuity cannot preserve a stale goal into another request', a
   ]);
   assert.notEqual(bodies[0].state.activeGoal?.text, goal);
 });
+
+test('a subagent turn starting mid-setup does not take the main turn’s goal', async () => {
+  const h = harness(JEV_KEY);
+  const bodies = answering(h, answer(0));
+  await h.event('session.start', { cwd: '/fixture' });
+  let release;
+  let started;
+  const pending = new Promise((resolve) => {
+    release = resolve;
+  });
+  const firstRead = new Promise((resolve) => {
+    started = resolve;
+  });
+  let first = true;
+  h.$.session.id = async () => {
+    if (first) {
+      first = false;
+      started();
+      await pending;
+    }
+    return 's1';
+  };
+  const goal = 'Implement the importer and its tests.';
+  const main = h.submit({ text: goal, origin: { kind: 'composer' }, wait: false }, () =>
+    h.event('turn.start', { turnId: 'main', text: goal }),
+  );
+  await firstRead;
+  await h.event('turn.start', { turnId: 'sub', text: 'Find the parser files.', agentId: 'a1' });
+  release();
+  await main;
+  h.messages(async () => [user(goal)]);
+  await drain(h.step({ ...step, turnId: 'main', messageCount: 1 }));
+  assert.equal(bodies.at(-1).state.currentRequest.text, goal);
+  await h.event('turn.complete', { turnId: 'main' });
+  await run(h, 'after', 'Background work finished.', [user(goal)], 'task-notification');
+  assert.equal(bodies.at(-1).state.activeGoal?.text, goal);
+});

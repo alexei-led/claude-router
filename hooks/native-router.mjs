@@ -1049,6 +1049,12 @@ async function keySetup($, router, press, id) {
   await updateView($, router, { keyHelp: keyHelpFor(router, id ?? router.config.classifier), notice: null });
 }
 
+// A graphical band or pane that throws draws the terminal tree; the error goes to the debug log, never the transcript.
+const logFallback = ($, what) => (error) =>
+  $.ui.log(`graphical ${what} failed, drew the terminal one: ${error instanceof Error ? error.message : error}`, {
+    to: 'debug',
+  });
+
 // The key help to open for classifier `id`: an Edit, when nothing is missing, stays open until Done.
 const keyHelpFor = (router, id) => ({
   id,
@@ -3019,17 +3025,16 @@ export function register(on, options) {
 
   on('command.run', { command: 'router' }, ($, e) => routerCommand($, router, e.args));
 
+  // Since 2.1.321 a subagent's loop raises turn.start too, with its agentId; the goal and prompt state is the main loop's.
   on('turn.start', async ($, e, next) => {
-    await startTurn($, router, e);
+    if (e.agentId === undefined) await startTurn($, router, e);
     return next(e);
   });
 
   on('prompt.submit', (_$, e, next) => submitPrompt(router, e, next));
 
   // A hook failure spawns the agent as Claude Code would; next(e) replays a spawn already made.
-  try {
-    on('agent.spawn', ($, e, next) => spawnAgent($, router, e, next)).catch((_$, e, next) => next(e));
-  } catch {}
+  on('agent.spawn', ($, e, next) => spawnAgent($, router, e, next)).catch((_$, e, next) => next(e));
 
   on('turn.step', async function* ($, e, next) {
     return yield* stepMain($, router, e, next);
@@ -3145,6 +3150,7 @@ export function register(on, options) {
             {
               columns: e.props.bodyColumns,
               surface: e.surface,
+              onFallback: logFallback($, 'band'),
               agentId: e.props.view?.agentId,
               agent: router.agents.get(e.props.view?.agentId) ?? null,
             },
@@ -3180,6 +3186,7 @@ export function register(on, options) {
       modelOptions,
       columns: e.props.bodyColumns,
       surface: e.surface,
+      onFallback: logFallback($, 'pane'),
       pluginId: pluginIdOf({ name: $.plugin.name, root: $.plugin.root }, settings?.enabledPlugins ?? null),
     });
   });
