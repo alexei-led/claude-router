@@ -4,9 +4,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 const { ACTIVITIES, DEFAULTS, TIERS } = await import('../lib/config.mjs');
-const { renderPanel, routeDraftOf } = await import('../lib/panel.mjs');
+const { renderPanel } = await import('../lib/panel.mjs');
+const { routeDraftOf } = await import('../lib/ui/model/draft.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
-const { tierLabel } = await import('../lib/ui/model/words.mjs');
+const { tierLabel } = await import('../lib/ui/model/format.mjs');
 const { ROUTED } = await import('./band-states.mjs');
 const { byKey, controls, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
 

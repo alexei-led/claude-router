@@ -4,8 +4,9 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { renderBand } from '../lib/band.mjs';
 import { loadConfig } from '../lib/config.mjs';
-import { renderPanel, routeDraftOf } from '../lib/panel.mjs';
+import { renderPanel } from '../lib/panel.mjs';
 import { emptySubagentStore, recordAgent, spawnRecord } from '../lib/subagents.mjs';
+import { routeDraftOf } from '../lib/ui/model/draft.mjs';
 import { emptyUsage, mergeUsage, recordUsage, replyEntry } from '../lib/usage.mjs';
 import { addToStrip } from '../lib/view.mjs';
 

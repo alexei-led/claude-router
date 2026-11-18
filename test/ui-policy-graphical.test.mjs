@@ -5,7 +5,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 const { DEFAULTS, TIERS } = await import('../lib/config.mjs');
-const { POLICY_FORM, POLICY_ROWS, renderPanel, routeDraftOf } = await import('../lib/panel.mjs');
+const { renderPanel } = await import('../lib/panel.mjs');
+const { POLICY_ROWS, routeDraftOf } = await import('../lib/ui/model/draft.mjs');
+const { POLICY_FORM } = await import('../lib/ui/model/policy.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { ROUTED } = await import('./band-states.mjs');
 const { byKey, controls, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');

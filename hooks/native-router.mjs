@@ -95,7 +95,7 @@ import {
   stripReminders,
 } from '../lib/facts.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
-import { keyHelpOf, renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
+import { renderPanel } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
 import { providerFile, providerName } from '../lib/providers.mjs';
 import {
@@ -168,6 +168,8 @@ import {
   subagentsAfterReset,
   typeRoute,
 } from '../lib/subagents.mjs';
+import { routeDraftOf, routingChanges } from '../lib/ui/model/draft.mjs';
+import { keyHelpOf } from '../lib/ui/model/frame.mjs';
 import { isGraphical } from '../lib/ui/tokens.mjs';
 import {
   emptyUsage,

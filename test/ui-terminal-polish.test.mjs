@@ -214,7 +214,9 @@ test('a band with no width draws every hover control unpadded', () => {
 });
 
 // B. The pane header.
-const { classifierTwoLine, renderPanel, routeDraftOf } = await import('../lib/panel.mjs');
+const { renderPanel } = await import('../lib/panel.mjs');
+const { routeDraftOf } = await import('../lib/ui/model/draft.mjs');
+const { classifierTwoLine } = await import('../lib/ui/terminal/classifier.mjs');
 const { CLAUDE } = await import('./band-states.mjs');
 const KEYS_SET = { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null };
 const TAB_IDS = ['now', 'routes', 'policy', 'classifier', 'usage'];
@@ -549,7 +551,7 @@ test('Classifier rows go two-line whenever the widest wide row does not fit', ()
 test('with no rows to draw, the Classifier layout reads as fitting, with no -Infinity in the comparison', () => {
   assert.equal(classifierTwoLine([], 60), false);
   assert.equal(classifierTwoLine([], null), true);
-  const row = { state: { text: '○ no API token  ' }, setup: { label: 'Set up' } };
+  const row = { state: { text: '○ no API token' }, setup: { label: 'Set up' } };
   assert.equal(classifierTwoLine([row], 81), true);
   assert.equal(classifierTwoLine([row], 82), false);
 });

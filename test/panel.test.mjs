@@ -2,9 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ACTIVITIES, DEFAULTS, editActivity, loadConfig } from '../lib/config.mjs';
 import { GATEWAY_CLEANUP, GATEWAY_SETTINGS, TIER_COLOR } from '../lib/display.mjs';
-import { renderPanel, routeDraftOf, routingChanges } from '../lib/panel.mjs';
+import { renderPanel } from '../lib/panel.mjs';
 import { isSameModel } from '../lib/route.mjs';
 import { bandSegments } from '../lib/ui/model/band.mjs';
+import { routeDraftOf, routingChanges } from '../lib/ui/model/draft.mjs';
 import { controls, ELEMENTS, screen, texts } from './harness.mjs';
 
 const actions = new Proxy({}, { get: () => () => {} });

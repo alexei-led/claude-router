@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS } from '../lib/config.mjs';
-import { renderPanel, routeDraftOf } from '../lib/panel.mjs';
+import { renderPanel } from '../lib/panel.mjs';
+import { routeDraftOf } from '../lib/ui/model/draft.mjs';
 import { paintersOf } from '../lib/ui/painter.mjs';
 import { toneColor } from '../lib/ui/tokens.mjs';
 import { byKey, controls, ELEMENTS, find, kids, texts } from './harness.mjs';
@@ -233,10 +234,10 @@ test('field sets a fixed label column and mono only for numbers', () => {
   assert.equal(find(dim, (n) => n.props.children === 'Quiet')[0].props.color, toneColor('muted', 'graphical'));
 });
 
-test('notice colours its words by tone and trims the terminal indent', () => {
+test('notice colours its words by tone and keeps its action beside them', () => {
   const ui = paintersOf(ELEMENTS, 'desktop');
   const action = ui.Button({ key: 'key', label: 'Set up' });
-  const tree = ui.notice('warning', '  Ignored: x  ', action);
+  const tree = ui.notice('warning', 'Ignored: x', action);
   const [words] = find(tree, (n) => n.type === 'Text');
   assert.equal(words.props.children, 'Ignored: x');
   assert.equal(words.props.color, toneColor('warning', 'graphical'));

@@ -6,7 +6,8 @@ import test from 'node:test';
 process.env.TZ = 'UTC';
 
 const { DEFAULTS } = await import('../lib/config.mjs');
-const { renderPanel, routeDraftOf } = await import('../lib/panel.mjs');
+const { renderPanel } = await import('../lib/panel.mjs');
+const { routeDraftOf } = await import('../lib/ui/model/draft.mjs');
 const { BAND_STATES, CLAUDE, ROUTED } = await import('./band-states.mjs');
 const { duplicates, ELEMENTS } = await import('./harness.mjs');
 const { NOW, SESSION, STORE } = await import('./usage-fixtures.mjs');

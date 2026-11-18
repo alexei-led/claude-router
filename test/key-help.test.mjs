@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { DEFAULTS } from '../lib/config.mjs';
 import { pluginIdOf } from '../lib/display.mjs';
-import { keyHelpOf } from '../lib/panel.mjs';
+import { keyHelpOf } from '../lib/ui/model/frame.mjs';
 import { controls, drain, duplicates, find, harness, start, step, texts } from './harness.mjs';
 
 const ID = 'router@router-preview';
