@@ -381,6 +381,8 @@ On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the
 | **on** / **off** on the pane (`o` / `f`) | The same as `/router auto` and `/router off`.                                                             |
 | **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.                                      |
 
+Type `/router` and a space, then a letter, and the prompt offers the words that start with it (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `decisions [n]`, `trace export`). After `pin `, `mode ` or `activities ` it offers the values; `pin` names the model each tier runs. The rows come after Claude Code's own. They are drawn by the surface's prompt box, so a surface that does not raise the typeahead shows none.
+
 With `table` or `shadow`, a routing mode moves each tier's route one step toward cost or quality; pins and `micro` turns are not moved. With opt-in `auto`, the mode changes the demand margin instead, and a tier pin uses exact demand without a margin. The band and the Now tab show the mode and where it comes from, such as `cost (session)`. When the mode kept the cell's model and changed only its effort, as `cost` does for Opus at `high`, the band adds `effort only`: the cost estimates price the same tokens on both routes, so that change shows no difference there, though real output length can differ. A change applies from the next turn, and the route in use moves only through the usual checks, so on a running task a cheaper route can wait a few requests and for a checkpoint. **Mode** on the Policy tab sets the profile's mode. See [Routing modes](routing-modes.md).
 
 ### Routing decisions

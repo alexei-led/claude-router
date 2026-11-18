@@ -25,6 +25,8 @@ The activity is what the turn produces: `code`, `debug`, `explore`, `plan`, `rev
 | `/router decisions [n]`               | Print this session's last `n` routing decisions (default 20, at most 60): origin, classifier answer, task, tier, route, reason with the mass and bar it compared, and each turn's end. No text. |
 | `/model <name>`                        | Select a model and turn routing off. `/router auto` turns it back on.                             |
 
+The prompt's typeahead (`prompt.autocomplete`) offers these words after `/router ` and their values after `pin `, `mode ` and `activities `. It starts with the first typed character, because the engine passes a token that is never empty. The command, the typeahead and the argument hint all read one table, `lib/subcommands.mjs`, and a test runs the command with every word and value in it.
+
 The pane's **Set up** and **Credentials → Edit** buttons open Claude Code's secure plugin configuration. Claude Code refuses `$.command.run` from inside a `command.run` hook, so the Mod starts that dialog from a timer after the press returns.
 
 Mode belongs to a Claude Code session. Clear starts a new session with routing on. Resume restores the saved mode for that session. A new or forked session has a new ID: it starts with routing on for a model that one of the tiers routes to and with routing off for any other model, as a fresh launch does. With activity routing `on`, a model that only an activity override uses also starts the session with routing on. A pin applies to one logical turn, then the prior route resumes. A history reset clears votes and cache evidence; the current turn keeps its route, pin and any native fallback.

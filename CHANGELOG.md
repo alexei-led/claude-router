@@ -19,6 +19,10 @@
 - Policy's help lines, and the active classifier's in a narrow pane, wrap inside their column instead of falling back to the pane's edge.
 - In a pane too narrow for its widest row (about 80 columns), the Classifier tab draws each classifier on two lines, name, status and **Set up**, then where the prompt goes and its probe result, instead of columns whose status wrapped a word per line.
 
+### Added: terminal
+
+- `/router` completes in the prompt: type `/router a` and the words that start with it appear under Claude Code's own rows (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `decisions [n]`, `trace export`), then the values after `pin `, `mode ` or `activities `. The `/router` argument hint lists the same words.
+
 ### Changed: desktop app, VS Code and mobile
 
 - A **Router** press that opens a pane the surface cannot draw (no surface places panes, or the terminal is too narrow) says why in a toast instead of showing nothing.
