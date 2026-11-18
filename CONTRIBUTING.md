@@ -93,7 +93,7 @@ Rules that keep the layers apart:
 - A user-visible change adds a line to `CHANGELOG.md` under `## Unreleased` (create it if absent), in the user's words. Do not bump the version; the maintainer cuts releases.
 - Update the docs your change makes stale: [user guide](docs/user-guide.md), [configuration](docs/configuration.md), [architecture](docs/architecture.md).
 - Run `npm run docs:images` only when the terminal UI changed, and commit the changed `docs/*.svg`. Run `npm run docs:desktop-images` only when the graphical UI changed (`lib/ui/graphical/`, `lib/ui/model/`), and commit the changed `docs/images/*.png`; it needs Chrome (`CHROME` names the binary) and ImageMagick to shrink the PNGs.
-- CI runs four jobs, each with annotations on the changed lines: `Lint (biome)`, `Types (tsc)`, `Unit tests (node --test)`, `Plugin (validate and engine tests)`. Fork PRs need a maintainer to approve the first run. A maintainer may add the `ai-review` label.
+- CI runs four jobs, each with annotations on the changed lines: `Lint (biome)`, `Types (tsc)`, `Unit tests (node --test)`, `Plugin (validate and engine tests)`. Fork PRs need a maintainer to approve the first run.
 - Never commit secrets, keys or a root lockfile. Never push to `main`.
 
 ## Pointers

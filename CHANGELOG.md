@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Removed
+
+- The `ai-review` label and its GitHub workflow, which 1.25.0 added for maintainer-started AI reviews of pull requests. CI keeps its four checks.
+
 ### Docs
 
 - Pictures of the desktop, VS Code and mobile band and pane (every tab, the Set up card, dark and light) in the README and the user guide, drawn from the real component tree by `npm run docs:desktop-images`. They approximate the Claude app's layout and colours.
