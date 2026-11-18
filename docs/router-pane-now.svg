@@ -25,87 +25,87 @@
 <text x="437.4" y="53" fill="#d0d0d0" xml:space="preserve">[ 5 Usage ]</text>
 <rect x="531.0" y="39" width="39.0" height="18" rx="4" fill="#2e3340"/>
 <text x="531.0" y="53" fill="#d0d0d0" xml:space="preserve">[ ? ]</text>
-<text x="24.0" y="91" fill="#7c7c7c" xml:space="preserve">┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐</text>
-<text x="24.0" y="110" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M27.9 96V86H893.7V96" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 96V115" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="110" fill="#5fafd7" font-weight="700" xml:space="preserve">NEXT TURN</text>
-<text x="889.8" y="110" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="129" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 96V115" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 115V134" fill="none" stroke="#7c7c7c"/>
 <text x="55.2" y="129" fill="#e0708a" xml:space="preserve">▂▄▆█</text>
 <text x="102.0" y="129" fill="#d0d0d0" font-weight="700" xml:space="preserve">Opus 5.5 · xhigh</text>
 <text x="250.2" y="129" fill="#d77757" font-style="italic" xml:space="preserve">code</text>
 <text x="281.4" y="129" fill="#d0d0d0" xml:space="preserve"> 84%</text>
 <text x="312.6" y="129" fill="#7c7c7c" xml:space="preserve">  debug 8%</text>
-<text x="889.8" y="129" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="148" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 115V134" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 134V153" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="148" fill="#7c7c7c" xml:space="preserve">  why   </text>
 <text x="102.0" y="148" fill="#d0d0d0" xml:space="preserve">↑ clearly stronger</text>
 <text x="242.4" y="148" fill="#7c7c7c" xml:space="preserve">   Jev 88% ≥ 82% · switch ≈ $0.48</text>
-<text x="889.8" y="148" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="167" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 134V153" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 153V172" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="167" fill="#7c7c7c" xml:space="preserve">  pin next turn to a tier · now Opus 5.5 · xhigh</text>
-<text x="889.8" y="167" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="186" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 153V172" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 172V191" fill="none" stroke="#7c7c7c"/>
 <text x="70.8" y="186" fill="#d0d0d0" xml:space="preserve">Pin to a tier ▾</text>
-<text x="889.8" y="186" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="205" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 172V191" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 191V210" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="205" fill="#7c7c7c" xml:space="preserve">    other models: /model, with routing off</text>
-<text x="889.8" y="205" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="224" fill="#7c7c7c" xml:space="preserve">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
-<text x="24.0" y="243" fill="#7c7c7c" xml:space="preserve">┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐</text>
-<text x="24.0" y="262" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 191V210" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 210V219H893.7V210" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 248V238H893.7V248" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 248V267" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="262" fill="#5fafd7" font-weight="700" xml:space="preserve">PLAN</text>
 <text x="70.8" y="262" fill="#7c7c7c" xml:space="preserve">  Claude plan usage</text>
-<text x="889.8" y="262" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="281" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 248V267" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 267V286" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="281" fill="#d0d0d0" xml:space="preserve">  5h    </text>
 <text x="102.0" y="281" fill="#87d787" xml:space="preserve">▰▰▰▰▰▰▰▰▰▰</text>
 <text x="180.0" y="281" fill="#7c7c7c" xml:space="preserve">▱▱▱▱▱▱▱▱▱▱</text>
 <text x="258.0" y="281" fill="#87d787" xml:space="preserve">  48%</text>
 <text x="297.0" y="281" fill="#7c7c7c" xml:space="preserve">   resets 18:00</text>
-<text x="889.8" y="281" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="300" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 267V286" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 286V305" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="300" fill="#d0d0d0" xml:space="preserve">  7d    </text>
 <text x="102.0" y="300" fill="#87d787" xml:space="preserve">▰▰▰▰▰▰▰▰▰</text>
 <text x="172.2" y="300" fill="#7c7c7c" xml:space="preserve">▱▱▱▱▱▱▱▱▱▱▱</text>
 <text x="258.0" y="300" fill="#87d787" xml:space="preserve">  43%</text>
 <text x="297.0" y="300" fill="#7c7c7c" xml:space="preserve">   resets Fri 16:00</text>
-<text x="889.8" y="300" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
-<text x="24.0" y="338" fill="#7c7c7c" xml:space="preserve">┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐</text>
-<text x="24.0" y="357" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 286V305" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 305V314H893.7V305" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 343V333H893.7V343" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 343V362" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="357" fill="#5fafd7" font-weight="700" xml:space="preserve">SESSION</text>
 <text x="94.2" y="357" fill="#7c7c7c" xml:space="preserve">  since 14:18 · 86 replies · 6 agents · 9 switches</text>
 <text x="484.2" y="357" fill="#d7af5f" xml:space="preserve">  ● 1 running</text>
 <rect x="601.2" y="343" width="124.8" height="18" rx="4" fill="#2e3340"/>
 <text x="601.2" y="357" fill="#d0d0d0" xml:space="preserve">[ band: 2 rows ]</text>
-<text x="889.8" y="357" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="376" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 343V362" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 362V381" fill="none" stroke="#7c7c7c"/>
 <text x="55.2" y="376" fill="#d0d0d0" font-weight="700" xml:space="preserve">≈$8.97</text>
 <text x="102.0" y="376" fill="#7c7c7c" xml:space="preserve">  API estimate · plan quota, not a charge  </text>
 <rect x="437.4" y="362" width="70.2" height="18" rx="4" fill="#2e3340"/>
 <text x="437.4" y="376" fill="#d0d0d0" xml:space="preserve">[ Usage ]</text>
-<text x="889.8" y="376" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="395" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 362V381" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 381V400" fill="none" stroke="#7c7c7c"/>
 <text x="55.2" y="395" fill="#87d787" font-weight="700" xml:space="preserve">−$4.09 (−31%)</text>
 <text x="156.6" y="395" fill="#d0d0d0" xml:space="preserve"> vs unrouted</text>
 <text x="250.2" y="395" fill="#7c7c7c" xml:space="preserve"> ≈$13.06</text>
-<text x="889.8" y="395" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="414" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 381V400" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 400V419" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="414" fill="#d0d0d0" xml:space="preserve">  main  </text>
 <text x="102.0" y="414" fill="#d0d0d0" xml:space="preserve"> ≈$6.45</text>
 <text x="172.2" y="414" fill="#5fafd7" xml:space="preserve">████████████████</text>
 <text x="312.6" y="414" fill="#87d787" xml:space="preserve">−$4.17</text>
 <text x="359.4" y="414" fill="#7c7c7c" xml:space="preserve"> vs Opus 5.5 · xhigh</text>
-<text x="889.8" y="414" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="433" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 400V419" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 419V438" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="433" fill="#d0d0d0" xml:space="preserve">  agents</text>
 <text x="102.0" y="433" fill="#d0d0d0" xml:space="preserve"> ≈$2.52</text>
 <text x="172.2" y="433" fill="#5fafd7" xml:space="preserve">██████</text>
 <text x="219.0" y="433" fill="#7c7c7c" xml:space="preserve">░░░░░░░░░░</text>
 <text x="312.6" y="433" fill="#d7af5f" xml:space="preserve">+$0.08</text>
 <text x="359.4" y="433" fill="#7c7c7c" xml:space="preserve"> vs their picks</text>
-<text x="889.8" y="433" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="452" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 419V438" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 438V457" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="452" fill="#7c7c7c" xml:space="preserve">  tiers </text>
 <text x="102.0" y="452" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
 <text x="109.8" y="452" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
@@ -151,28 +151,28 @@
 <text x="421.8" y="452" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
 <text x="429.6" y="452" fill="#e0708a" font-weight="700" xml:space="preserve">█</text>
 <text x="437.4" y="452" fill="#7c7c7c" xml:space="preserve">  2 replies per cell</text>
-<text x="889.8" y="452" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="471" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 438V457" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 457V476" fill="none" stroke="#7c7c7c"/>
 <text x="102.0" y="471" fill="#5f9fe0" xml:space="preserve">▂▄</text>
 <text x="117.6" y="471" fill="#7c7c7c" xml:space="preserve"> 41   </text>
 <text x="164.4" y="471" fill="#d7af5f" xml:space="preserve">▂▄▆</text>
 <text x="187.8" y="471" fill="#7c7c7c" xml:space="preserve"> 12   </text>
 <text x="234.6" y="471" fill="#e0708a" xml:space="preserve">▂▄▆█</text>
 <text x="265.8" y="471" fill="#7c7c7c" xml:space="preserve"> 33   </text>
-<text x="889.8" y="471" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="490" fill="#7c7c7c" xml:space="preserve">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
-<text x="24.0" y="509" fill="#7c7c7c" xml:space="preserve">┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐</text>
-<text x="24.0" y="528" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 457V476" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 476V485H893.7V476" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 514V504H893.7V514" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 514V533" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="528" fill="#5fafd7" font-weight="700" xml:space="preserve">CONTEXT</text>
-<text x="889.8" y="528" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="547" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 514V533" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 533V552" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="547" fill="#d0d0d0" xml:space="preserve">  ctx    </text>
 <text x="109.8" y="547" fill="#87d787" xml:space="preserve">▰▰▰▰▰▰▰▰</text>
 <text x="172.2" y="547" fill="#7c7c7c" xml:space="preserve">▱▱▱▱▱▱▱▱▱▱▱▱</text>
 <text x="265.8" y="547" fill="#d0d0d0" xml:space="preserve">  40%</text>
 <text x="304.8" y="547" fill="#7c7c7c" xml:space="preserve">   ~402.9K / 1.00M</text>
-<text x="889.8" y="547" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="566" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 533V552" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 552V571" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="566" fill="#d0d0d0" xml:space="preserve">  cache  </text>
 <text x="109.8" y="566" fill="#87d787" xml:space="preserve">100%</text>
 <text x="141.0" y="566" fill="#7c7c7c" xml:space="preserve"> last reply</text>
@@ -181,6 +181,6 @@
 <text x="273.6" y="566" fill="#7c7c7c" xml:space="preserve"> session</text>
 <rect x="359.4" y="552" width="85.8" height="18" rx="4" fill="#2e3340"/>
 <text x="359.4" y="566" fill="#d0d0d0" xml:space="preserve">[ details ]</text>
-<text x="889.8" y="566" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="585" fill="#7c7c7c" xml:space="preserve">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
+<path d="M893.7 552V571" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 571V580H893.7V571" fill="none" stroke="#7c7c7c"/>
 </svg>

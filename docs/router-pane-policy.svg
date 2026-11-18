@@ -25,69 +25,69 @@
 <text x="453.0" y="53" fill="#d0d0d0" xml:space="preserve">[ 5 Usage ]</text>
 <rect x="546.6" y="39" width="39.0" height="18" rx="4" fill="#2e3340"/>
 <text x="546.6" y="53" fill="#d0d0d0" xml:space="preserve">[ ? ]</text>
-<text x="24.0" y="91" fill="#7c7c7c" xml:space="preserve">┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐</text>
-<text x="24.0" y="110" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M27.9 96V86H893.7V96" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 96V115" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="110" fill="#5fafd7" font-weight="700" xml:space="preserve">POLICY</text>
 <text x="86.4" y="110" fill="#7c7c7c" xml:space="preserve"> · how readily the router changes models · edit, then Save</text>
-<text x="889.8" y="110" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="129" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="889.8" y="129" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="148" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 96V115" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 115V134" fill="none" stroke="#7c7c7c"/>
+<path d="M893.7 115V134" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 134V153" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="148" fill="#d0d0d0" font-weight="700" xml:space="preserve">Mode</text>
 <text x="141.0" y="148" fill="#d0d0d0" xml:space="preserve">balanced ▾</text>
 <text x="219.0" y="148" fill="#7c7c7c" xml:space="preserve">  saved at once</text>
-<text x="889.8" y="148" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="167" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 134V153" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 153V172" fill="none" stroke="#7c7c7c"/>
 <text x="141.0" y="167" fill="#7c7c7c" xml:space="preserve">each tier runs its route as configured</text>
-<text x="889.8" y="167" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="186" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 153V172" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 172V191" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="186" fill="#d0d0d0" font-weight="700" xml:space="preserve">Start</text>
 <text x="141.0" y="186" fill="#d0d0d0" xml:space="preserve">at </text>
 <text x="164.4" y="186" fill="#d0d0d0" xml:space="preserve">low ▾</text>
-<text x="889.8" y="186" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="205" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 172V191" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 191V210" fill="none" stroke="#7c7c7c"/>
 <text x="141.0" y="205" fill="#7c7c7c" xml:space="preserve">when the session’s model is no tier’s model</text>
-<text x="889.8" y="205" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="224" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 191V210" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 210V229" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="224" fill="#d0d0d0" font-weight="700" xml:space="preserve">Going down</text>
 <text x="141.0" y="224" fill="#d0d0d0" xml:space="preserve">after </text>
 <text x="187.8" y="224" fill="#d0d0d0" xml:space="preserve">3 ▾</text>
 <text x="211.2" y="224" fill="#d0d0d0" xml:space="preserve"> agreeing turns </text>
 <text x="336.0" y="224" fill="#d7af5f" xml:space="preserve">●</text>
 <text x="351.6" y="224" fill="#7c7c7c" xml:space="preserve">default 2</text>
-<text x="889.8" y="224" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="243" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 210V229" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 229V248" fill="none" stroke="#7c7c7c"/>
 <text x="141.0" y="243" fill="#d0d0d0" xml:space="preserve">if a cache write pays back within </text>
 <text x="406.2" y="243" fill="#d0d0d0" xml:space="preserve">5 turns ▾</text>
-<text x="889.8" y="243" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="262" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 229V248" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 248V267" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="262" fill="#d0d0d0" font-weight="700" xml:space="preserve">Going up</text>
 <text x="141.0" y="262" fill="#7c7c7c" xml:space="preserve">needs Jev support of 75%, up to 90% as the switch costs more</text>
-<text x="889.8" y="262" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="281" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 248V267" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 267V286" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="281" fill="#d0d0d0" font-weight="700" xml:space="preserve">Activities</text>
 <text x="141.0" y="281" fill="#d0d0d0" xml:space="preserve">apply at </text>
 <text x="211.2" y="281" fill="#d0d0d0" xml:space="preserve">60% ▾</text>
 <text x="250.2" y="281" fill="#d0d0d0" xml:space="preserve"> certainty or more </text>
-<text x="889.8" y="281" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="300" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 267V286" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 286V305" fill="none" stroke="#7c7c7c"/>
 <text x="141.0" y="300" fill="#7c7c7c" xml:space="preserve">else a new task runs its tier’s model; a continuation keeps it</text>
-<text x="889.8" y="300" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 286V305" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 305V324" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="319" fill="#d0d0d0" font-weight="700" xml:space="preserve">Credits</text>
 <text x="141.0" y="319" fill="#d0d0d0" xml:space="preserve">cap one cold cache write at </text>
 <text x="359.4" y="319" fill="#d0d0d0" xml:space="preserve">$2.00 ▾</text>
-<text x="889.8" y="319" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="338" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 305V324" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 324V343" fill="none" stroke="#7c7c7c"/>
 <text x="141.0" y="338" fill="#7c7c7c" xml:space="preserve">no model in router.json bills credits, so this has no effect</text>
-<text x="889.8" y="338" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="357" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="889.8" y="357" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="376" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 324V343" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 343V362" fill="none" stroke="#7c7c7c"/>
+<path d="M893.7 343V362" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 362V381" fill="none" stroke="#7c7c7c"/>
 <rect x="39.6" y="362" width="218.4" height="18" rx="4" fill="#2e3340"/>
 <text x="39.6" y="376" fill="#d0d0d0" xml:space="preserve">[ Reset policy to defaults ]</text>
-<text x="889.8" y="376" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="395" fill="#7c7c7c" xml:space="preserve">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
+<path d="M893.7 362V381" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 381V390H893.7V381" fill="none" stroke="#7c7c7c"/>
 <text x="24.0" y="414" fill="#5fafd7" font-weight="700" xml:space="preserve">FILE</text>
 <text x="55.2" y="414" fill="#d0d0d0" xml:space="preserve">  ~/.claude/router.json  </text>
 <rect x="250.2" y="400" width="62.4" height="18" rx="4" fill="#2e3340"/>

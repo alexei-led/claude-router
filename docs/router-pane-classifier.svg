@@ -69,38 +69,38 @@
 <text x="382.8" y="224" fill="#d0d0d0" xml:space="preserve">3483 ms</text>
 <text x="460.8" y="224" fill="#87d787" xml:space="preserve">● ready</text>
 <text x="24.0" y="243" fill="#7c7c7c" xml:space="preserve">  probe: historical turn-activity questions, not goal/phase accuracy; p95 from that run</text>
-<text x="24.0" y="281" fill="#7c7c7c" xml:space="preserve">┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐</text>
-<text x="24.0" y="300" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M27.9 286V276H893.7V286" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 286V305" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="300" fill="#5fafd7" font-weight="700" xml:space="preserve">CLEF FLASH</text>
 <text x="117.6" y="300" fill="#7c7c7c" xml:space="preserve"> · active</text>
-<text x="889.8" y="300" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 286V305" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 305V324" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="319" fill="#d0d0d0" xml:space="preserve">Deadline</text>
 <text x="133.2" y="319" fill="#d0d0d0" xml:space="preserve">3000 ms ▾</text>
 <text x="226.8" y="319" fill="#7c7c7c" xml:space="preserve">p95 874 ms in its probe</text>
-<text x="889.8" y="319" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="338" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 305V324" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 324V343" fill="none" stroke="#7c7c7c"/>
 <text x="133.2" y="338" fill="#7c7c7c" xml:space="preserve">past the deadline the turn keeps its model</text>
-<text x="889.8" y="338" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="357" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 324V343" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 343V362" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="357" fill="#d0d0d0" xml:space="preserve">Sends</text>
 <text x="133.2" y="357" fill="#d0d0d0" xml:space="preserve">prompt + 6 recent turns → api.cloudflare.com</text>
-<text x="889.8" y="357" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="376" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 343V362" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 362V381" fill="none" stroke="#7c7c7c"/>
 <text x="133.2" y="376" fill="#7c7c7c" xml:space="preserve">the bounded active goal and current step also go to the classifier</text>
-<text x="889.8" y="376" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="395" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 362V381" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 381V400" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="395" fill="#d0d0d0" xml:space="preserve">Health</text>
 <text x="133.2" y="395" fill="#d0d0d0" xml:space="preserve">not paused</text>
 <text x="211.2" y="395" fill="#d0d0d0" xml:space="preserve"> · 0 recent failures</text>
-<text x="889.8" y="395" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="414" fill="#7c7c7c" xml:space="preserve">│</text>
+<path d="M893.7 381V400" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 400V419" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="414" fill="#d0d0d0" xml:space="preserve">Credentials</text>
 <rect x="133.2" y="400" width="62.4" height="18" rx="4" fill="#2e3340"/>
 <text x="133.2" y="414" fill="#d0d0d0" xml:space="preserve">[ Edit ]</text>
 <text x="195.6" y="414" fill="#7c7c7c" xml:space="preserve">  opens /plugin configure</text>
-<text x="889.8" y="414" fill="#7c7c7c" xml:space="preserve">│</text>
-<text x="24.0" y="433" fill="#7c7c7c" xml:space="preserve">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
+<path d="M893.7 400V419" fill="none" stroke="#7c7c7c"/>
+<path d="M27.9 419V428H893.7V419" fill="none" stroke="#7c7c7c"/>
 <text x="24.0" y="471" fill="#5fafd7" font-weight="700" xml:space="preserve">ACROSS SESSIONS · since the last reset</text>
 <text x="24.0" y="490" fill="#d0d0d0" xml:space="preserve">Labelled   83 turns</text>
 <text x="24.0" y="509" fill="#d0d0d0" xml:space="preserve">Tool compatibility (not accuracy): 78 of 83 turns (94%)</text>
