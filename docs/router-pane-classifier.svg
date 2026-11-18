@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 727 610" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 922 648" role="img" aria-labelledby="title desc">
   <title id="title">Router pane, Classifier tab</title>
   <desc id="desc">One row per classifier to compare: where the prompt goes, its activity probe, its p95 wait and whether its credentials are complete, with Set up for a missing Jev API key; the active classifier’s deadline against its wait, the host that receives the prompt, health and credentials; the agreement with tools across sessions; and Undo after a switch.</desc>
   <style>
     text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; }
     .cap { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; fill: #9a988f; }
   </style>
-  <rect width="727" height="610" rx="8" fill="#1c1c1c"/>
-<rect x="10" y="10" width="707" height="590" rx="6" fill="none" stroke="#3f5f8f"/>
+  <rect width="922" height="648" rx="8" fill="#1c1c1c"/>
+<rect x="10" y="10" width="902" height="628" rx="6" fill="none" stroke="#3f5f8f"/>
 <text x="24.0" y="34" fill="#5fafd7" font-weight="700" xml:space="preserve">ROUTER</text>
 <rect x="86.4" y="20" width="62.4" height="18" rx="4" fill="#87afff"/>
 <text x="86.4" y="34" fill="#0d1016" font-weight="700" xml:space="preserve">[ ◉ on ]</text>
@@ -69,30 +69,46 @@
 <text x="382.8" y="224" fill="#d0d0d0" xml:space="preserve">3483 ms</text>
 <text x="460.8" y="224" fill="#87d787" xml:space="preserve">● ready</text>
 <text x="24.0" y="243" fill="#7c7c7c" xml:space="preserve">  probe: historical turn-activity questions, not goal/phase accuracy; p95 from that run</text>
-<text x="24.0" y="281" fill="#5fafd7" font-weight="700" xml:space="preserve">CLEF FLASH</text>
-<text x="102.0" y="281" fill="#7c7c7c" xml:space="preserve"> · active</text>
-<text x="24.0" y="300" fill="#d0d0d0" xml:space="preserve">Deadline</text>
-<text x="117.6" y="300" fill="#d0d0d0" xml:space="preserve">3000 ms ▾</text>
-<text x="211.2" y="300" fill="#7c7c7c" xml:space="preserve">p95 874 ms in its probe</text>
-<text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">            past the deadline the turn keeps its model</text>
-<text x="24.0" y="338" fill="#d0d0d0" xml:space="preserve">Sends</text>
-<text x="117.6" y="338" fill="#d0d0d0" xml:space="preserve">prompt + 6 recent turns → api.cloudflare.com</text>
-<text x="24.0" y="357" fill="#7c7c7c" xml:space="preserve">            the bounded active goal and current step also go to the classifier</text>
-<text x="24.0" y="376" fill="#d0d0d0" xml:space="preserve">Health</text>
-<text x="117.6" y="376" fill="#d0d0d0" xml:space="preserve">not paused</text>
-<text x="195.6" y="376" fill="#d0d0d0" xml:space="preserve"> · 0 recent failures</text>
-<text x="24.0" y="395" fill="#d0d0d0" xml:space="preserve">Credentials</text>
-<rect x="117.6" y="381" width="62.4" height="18" rx="4" fill="#2e3340"/>
-<text x="117.6" y="395" fill="#d0d0d0" xml:space="preserve">[ Edit ]</text>
-<text x="180.0" y="395" fill="#7c7c7c" xml:space="preserve">  opens /plugin configure</text>
-<text x="24.0" y="433" fill="#5fafd7" font-weight="700" xml:space="preserve">ACROSS SESSIONS · since the last reset</text>
-<text x="24.0" y="452" fill="#d0d0d0" xml:space="preserve">Labelled   83 turns</text>
-<text x="24.0" y="471" fill="#d0d0d0" xml:space="preserve">Tool compatibility (not accuracy): 78 of 83 turns (94%)</text>
-<text x="24.0" y="490" fill="#d0d0d0" xml:space="preserve">Code/ops/explore  classifier vs tools: 78 of 83 turns (94%)</text>
-<text x="24.0" y="509" fill="#d0d0d0" xml:space="preserve">Mismatch   code → read 4 · ops → code 1</text>
-<text x="24.0" y="528" fill="#d0d0d0" xml:space="preserve">Activity moves  9 taken · 4 refused</text>
-<text x="24.0" y="547" fill="#d0d0d0" xml:space="preserve">Escalations  after a cheaper activity move: 0 in 7 moves</text>
-<text x="24.0" y="585" fill="#87d787" xml:space="preserve">Saved: classifier Clef → Clef Flash. Applies from the next turn.  </text>
-<rect x="538.8" y="571" width="62.4" height="18" rx="4" fill="#2e3340"/>
-<text x="538.8" y="585" fill="#d0d0d0" xml:space="preserve">[ Undo ]</text>
+<text x="24.0" y="281" fill="#7c7c7c" xml:space="preserve">┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐</text>
+<text x="24.0" y="300" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="39.6" y="300" fill="#5fafd7" font-weight="700" xml:space="preserve">CLEF FLASH</text>
+<text x="117.6" y="300" fill="#7c7c7c" xml:space="preserve"> · active</text>
+<text x="889.8" y="300" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="24.0" y="319" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="39.6" y="319" fill="#d0d0d0" xml:space="preserve">Deadline</text>
+<text x="133.2" y="319" fill="#d0d0d0" xml:space="preserve">3000 ms ▾</text>
+<text x="226.8" y="319" fill="#7c7c7c" xml:space="preserve">p95 874 ms in its probe</text>
+<text x="889.8" y="319" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="24.0" y="338" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="133.2" y="338" fill="#7c7c7c" xml:space="preserve">past the deadline the turn keeps its model</text>
+<text x="889.8" y="338" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="24.0" y="357" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="39.6" y="357" fill="#d0d0d0" xml:space="preserve">Sends</text>
+<text x="133.2" y="357" fill="#d0d0d0" xml:space="preserve">prompt + 6 recent turns → api.cloudflare.com</text>
+<text x="889.8" y="357" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="24.0" y="376" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="133.2" y="376" fill="#7c7c7c" xml:space="preserve">the bounded active goal and current step also go to the classifier</text>
+<text x="889.8" y="376" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="24.0" y="395" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="39.6" y="395" fill="#d0d0d0" xml:space="preserve">Health</text>
+<text x="133.2" y="395" fill="#d0d0d0" xml:space="preserve">not paused</text>
+<text x="211.2" y="395" fill="#d0d0d0" xml:space="preserve"> · 0 recent failures</text>
+<text x="889.8" y="395" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="24.0" y="414" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="39.6" y="414" fill="#d0d0d0" xml:space="preserve">Credentials</text>
+<rect x="133.2" y="400" width="62.4" height="18" rx="4" fill="#2e3340"/>
+<text x="133.2" y="414" fill="#d0d0d0" xml:space="preserve">[ Edit ]</text>
+<text x="195.6" y="414" fill="#7c7c7c" xml:space="preserve">  opens /plugin configure</text>
+<text x="889.8" y="414" fill="#7c7c7c" xml:space="preserve">│</text>
+<text x="24.0" y="433" fill="#7c7c7c" xml:space="preserve">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
+<text x="24.0" y="471" fill="#5fafd7" font-weight="700" xml:space="preserve">ACROSS SESSIONS · since the last reset</text>
+<text x="24.0" y="490" fill="#d0d0d0" xml:space="preserve">Labelled   83 turns</text>
+<text x="24.0" y="509" fill="#d0d0d0" xml:space="preserve">Tool compatibility (not accuracy): 78 of 83 turns (94%)</text>
+<text x="24.0" y="528" fill="#d0d0d0" xml:space="preserve">Code/ops/explore  classifier vs tools: 78 of 83 turns (94%)</text>
+<text x="24.0" y="547" fill="#d0d0d0" xml:space="preserve">Mismatch   code → read 4 · ops → code 1</text>
+<text x="24.0" y="566" fill="#d0d0d0" xml:space="preserve">Activity moves  9 taken · 4 refused</text>
+<text x="24.0" y="585" fill="#d0d0d0" xml:space="preserve">Escalations  after a cheaper activity move: 0 in 7 moves</text>
+<text x="24.0" y="623" fill="#87d787" xml:space="preserve">Saved: classifier Clef → Clef Flash. Applies from the next turn.  </text>
+<rect x="538.8" y="609" width="62.4" height="18" rx="4" fill="#2e3340"/>
+<text x="538.8" y="623" fill="#d0d0d0" xml:space="preserve">[ Undo ]</text>
 </svg>
