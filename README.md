@@ -163,19 +163,7 @@ npm run check && npm run typecheck && npm test && npm run validate && npm run te
 
 ## Contributing
 
-Pull requests from forks run CI automatically (a maintainer may have to approve the first run). Each check is its own job, and failures show as annotations on the changed lines: `Lint (biome)`, `Types (tsc)`, `Unit tests (node --test)`, and `Plugin (validate and engine tests)`. Run them locally before pushing:
-
-```sh
-npm run setup
-npm run check && npm run typecheck && npm test && npm run validate && npm run test:plugin
-```
-
-`npm test` runs the unit tests; CI runs the same files as `npm run test:ci`, which adds a reporter that annotates failures on the changed lines. `npm run format` fixes biome formatting. A maintainer can request an AI review by adding the `ai-review` label.
-
-### Code quality
-
-- `npm run check` is Biome with `--error-on-warnings`, so a warning fails like an error. Besides the recommended rules it catches unawaited or misused promises, an `await` on a non-promise, an incomplete `switch` over a union, unused imports and variables, import cycles, throws of non-Error values, a lost `cause` when an error is rethrown, shadowed bindings, conditions the types prove constant, and read-modify-write updates split by an `await` (`useAtomicUpdates`). Use `biome-ignore` only with a one-line reason for code that is deliberate.
-- `npm run typecheck` is `tsc` over `lib` and `hooks` with `strictNullChecks`, `noUncheckedIndexedAccess`, `useUnknownInCatchVariables`, `strictFunctionTypes`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals`/`noUnusedParameters`, `verbatimModuleSyntax` and `erasableSyntaxOnly`.
+Read [CONTRIBUTING.md](CONTRIBUTING.md): set-up and commands, the layer rules, test conventions and the pull request checklist. Coding agents start with [AGENTS.md](AGENTS.md). Run `npm run setup` once, then `npm run check && npm run typecheck && npm test && npm run test:plugin` before you push.
 
 ## Documentation
 
@@ -187,4 +175,5 @@ npm run check && npm run typecheck && npm test && npm run validate && npm run te
 - [Routing modes](docs/routing-modes.md): `cost`, `balanced` and `quality`, where the mode comes from, and every decision per mode.
 - [Native router details](docs/native-router.md): panel semantics, tuning, and accepted limits.
 - [Evaluation](docs/evaluation.md): limits, text-free trace export and replay, and the paired benchmark proposal.
+- [Contributing](CONTRIBUTING.md): set up, commands, architecture rules, tests, and pull requests.
 - [Changelog](CHANGELOG.md): user-visible changes by version.
