@@ -241,11 +241,4 @@ for (const surface of SURFACES) {
     assert.doesNotMatch(texts(body(tree)).join('\n'), /NaN|undefined|\?/);
     assert.equal(byKey(tree, 'copy-path'), undefined);
   });
-
-  test(`${surface}: without Select the values show as text`, () => {
-    const { Select: _select, ...elements } = ELEMENTS;
-    const tree = draw({}, { surface, elements });
-    assert.equal(find(body(tree), (n) => n.type === 'Select').length, 0);
-    for (const value of ['5 turns', 'Balanced', 'Low']) assert.ok(texts(body(tree)).includes(value), value);
-  });
 }

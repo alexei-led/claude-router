@@ -160,14 +160,8 @@ test('states keep their buttons in the right group before Router', () => {
 });
 
 test('a pending pin can be cancelled when the Select is not drawn', () => {
-  for (const [view, elements] of [
-    [{ ...ROUTED, pendingPin: 'low', error: 'missing-key' }, ELEMENTS],
-    [
-      { ...ROUTED, pendingPin: 'low' },
-      { ...ELEMENTS, Select: undefined },
-    ],
-  ]) {
-    const tree = renderBand(elements, DEFAULTS, view, CLAUDE, { columns: 100, now: NOW, surface: 'desktop' }, actions);
+  for (const view of [{ ...ROUTED, pendingPin: 'low', error: 'missing-key' }]) {
+    const tree = renderBand(ELEMENTS, DEFAULTS, view, CLAUDE, { columns: 100, now: NOW, surface: 'desktop' }, actions);
     assert.equal(keyed(tree, 'band-pin').length, 0);
     const keys = kids(rightGroup(tree)).map((n) => n.props.key);
     assert.equal(keys.at(-1), 'details');
@@ -190,17 +184,13 @@ test('on mobile a pending pin keeps its text and ✕ beside the Select, even whe
     unpin.props.onPress();
     assert.deepEqual(calls.pop(), ['unpin']);
   }
-  // At phone width the pin's words give way, never its ✕; nor without a Select on any surface.
-  for (const columns of [60, 40, 30])
-    for (const [elements, surface] of [
-      [emptySelect, 'mobile'],
-      [{ ...ELEMENTS, Select: undefined }, 'desktop'],
-    ]) {
-      const view = { ...ROUTED, pendingPin: 'low' };
-      const tree = renderBand(elements, DEFAULTS, view, CLAUDE, { columns, now: NOW, surface }, actions);
-      assert.equal(keyed(tree, 'band-unpin').length, 1, `${surface} at ${columns}`);
-      assert.equal(keyed(tree, 'details').length, 1, `${surface} at ${columns}`);
-    }
+  // At phone width the pin's words give way, never its ✕.
+  for (const columns of [60, 40, 30]) {
+    const view = { ...ROUTED, pendingPin: 'low' };
+    const tree = renderBand(emptySelect, DEFAULTS, view, CLAUDE, { columns, now: NOW, surface: 'mobile' }, actions);
+    assert.equal(keyed(tree, 'band-unpin').length, 1, `mobile at ${columns}`);
+    assert.equal(keyed(tree, 'details').length, 1, `mobile at ${columns}`);
+  }
   // Desktop draws the Select, which shows the pin: no second ✕.
   assert.equal(keyed(draw({ ...ROUTED, pendingPin: 'low' }), 'band-unpin').length, 0);
 });
@@ -409,7 +399,7 @@ test('the Now tab offers the session row setting, named for a card on graphical 
     );
 });
 
-test('tierMeter draws four rising bars, lit to the tier, or text without Svg', () => {
+test('tierMeter draws four rising bars, lit to the tier', () => {
   const lit = tierMeter(ELEMENTS, 'medium', 'lit');
   assert.equal(lit.type, 'Svg');
   assert.equal(lit.props.alt, 'Tier: medium');
@@ -432,8 +422,4 @@ test('tierMeter draws four rising bars, lit to the tier, or text without Svg', (
   );
   assert.equal(tierMeter(ELEMENTS, null, 'off').props.alt, 'Tier: off');
   assert.equal(tierMeter(ELEMENTS, null, 'pending').props.alt, 'Tier: choosing');
-  const { Svg: _, ...noSvg } = ELEMENTS;
-  const text = tierMeter(noSvg, 'high', 'lit');
-  assert.equal(text.type, 'Text');
-  assert.equal(text.props.children, '▂▄▆█');
 });

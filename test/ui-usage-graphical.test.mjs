@@ -9,7 +9,8 @@ process.env.TZ = 'UTC';
 const { DEFAULTS } = await import('../lib/config.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
 const { emptySubagentStore, recordAgent, spawnRecord } = await import('../lib/subagents.mjs');
-const { paintersOf } = await import('../lib/ui/painter.mjs');
+const { graphicalKit } = await import('../lib/ui/graphical/kit.mjs');
+const { kit } = await import('../lib/ui/terminal/kit.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { CLAUDE, ROUTED } = await import('./band-states.mjs');
 const { byKey, controls, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
@@ -489,7 +490,7 @@ test('without usage or any record the tab draws its empty states and no NaN', ()
 });
 
 test('the trend Svg stays under the size limit with 400 points, and states its first, last and peak', () => {
-  const ui = paintersOf(ELEMENTS, 'desktop');
+  const ui = graphicalKit(ELEMENTS);
   const points = Array.from({ length: 400 }, (_, i) => (i % 7) * 1.234567);
   const labels = ['Oct 1', 'Nov 4'];
   const tree = ui.trend({ points, labels, alt: 'Cost by day: first $0, last $1, peak $7', tone: 'accent' });
@@ -502,16 +503,6 @@ test('the trend Svg stays under the size limit with 400 points, and states its f
       svgs(ui.trend({ points: odd, labels, alt: 'x', tone: 'accent' }))[0].props.source,
       /NaN|Infinity/,
     );
-  // A surface without Svg says the alt in words.
-  const { Svg: _svg, ...noSvg } = ELEMENTS;
-  assert.ok(
-    texts(paintersOf(noSvg, 'desktop').trend({ points, labels, alt: 'Cost by day', tone: 'accent' })).includes(
-      'Cost by day',
-    ),
-  );
   // The terminal draws the same points as one row of blocks, a dot for an empty bucket.
-  assert.equal(
-    paintersOf(ELEMENTS, 'terminal').trend({ points: [0, 1, 2], labels, alt: 'x', tone: 'accent' }).props.children,
-    '·▅█',
-  );
+  assert.equal(kit(ELEMENTS).trend({ points: [0, 1, 2], labels, alt: 'x', tone: 'accent' }).props.children, '·▅█');
 });

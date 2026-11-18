@@ -1,16 +1,43 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { paintersOf } from '../lib/ui/painter.mjs';
+import { graphicalKit } from '../lib/ui/graphical/kit.mjs';
+import { kit } from '../lib/ui/terminal/kit.mjs';
 import { ELEMENTS, texts } from './harness.mjs';
 
-const ui = paintersOf(ELEMENTS, 'terminal');
+const ui = kit(ELEMENTS);
 
-test('the graphical painter exposes every method the terminal kit does, and its cards', () => {
-  const graphical = Object.keys(paintersOf(ELEMENTS, 'desktop'));
-  for (const name of Object.keys(ui)) assert.ok(graphical.includes(name), name);
-  for (const name of ['section', 'field', 'meter', 'strip', 'stat', 'choice', 'table'])
+test('each surface’s kit holds what its renderers draw with, and no more', () => {
+  const graphical = Object.keys(graphicalKit(ELEMENTS));
+  for (const name of [
+    'Box',
+    'Button',
+    'Select',
+    'text',
+    'say',
+    'color',
+    'select',
+    'field',
+    'notice',
+    'tierMeter',
+    'trend',
+  ])
+    assert.ok(graphical.includes(name) && name in ui, name);
+  for (const name of ['section', 'meter', 'strip', 'stat', 'choice', 'table', 'muted', 'Svg', 'Code'])
     assert.ok(graphical.includes(name) && !(name in ui), name);
-  assert.deepEqual(Object.keys(paintersOf(ELEMENTS)), Object.keys(ui));
+  for (const name of [
+    'line',
+    'cell',
+    'head',
+    'dim',
+    'tier',
+    'bars',
+    'activity',
+    'stripRows',
+    'help',
+    'marker',
+    'lostLine',
+  ])
+    assert.ok(name in ui && !graphical.includes(name), name);
 });
 
 // The session strip as the terminal's two rows: a cell per reply, then the replies per tier.

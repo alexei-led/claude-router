@@ -4,8 +4,9 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS } from '../lib/config.mjs';
 import { renderPanel } from '../lib/panel.mjs';
+import { graphicalKit } from '../lib/ui/graphical/kit.mjs';
 import { routeDraftOf } from '../lib/ui/model/draft.mjs';
-import { paintersOf } from '../lib/ui/painter.mjs';
+import { kit } from '../lib/ui/terminal/kit.mjs';
 import { toneColor } from '../lib/ui/tokens.mjs';
 import { byKey, controls, ELEMENTS, find, kids, texts } from './harness.mjs';
 
@@ -195,12 +196,12 @@ test('the terminal shows view.error once, in its header line, not in a slot', ()
   assert.equal(texts(tree).filter((t) => /router\.json unreadable/.test(t)).length, 1);
 });
 
-test('the graphical painter draws section as a bordered card and keeps the shared methods', () => {
-  const ui = paintersOf(ELEMENTS, 'desktop');
-  const terminal = paintersOf(ELEMENTS, 'terminal');
-  for (const name of Object.keys(terminal)) assert.ok(name in ui, name);
+test('the graphical kit draws section as a bordered card and shares the element and text methods', () => {
+  const ui = graphicalKit(ELEMENTS);
+  const terminal = kit(ELEMENTS);
+  for (const name of ['Box', 'Button', 'Select', 'text', 'say', 'color', 'notice', 'tierMeter', 'trend'])
+    assert.ok(name in ui && name in terminal, name);
   assert.equal(terminal.section, undefined);
-  for (const surface of ['mobile', 'vscode']) assert.equal(typeof paintersOf(ELEMENTS, surface).section, 'function');
   const card = ui.section('Next turn', { hint: 'why' }, [ui.text('body')]);
   assert.equal(card.props.borderStyle, 'round');
   assert.equal(card.props.flexDirection, 'column');
@@ -218,7 +219,7 @@ test('the graphical painter draws section as a bordered card and keeps the share
 });
 
 test('field sets a fixed label column and mono only for numbers', () => {
-  const ui = paintersOf(ELEMENTS, 'desktop');
+  const ui = graphicalKit(ELEMENTS);
   const row = ui.field('Votes', ['3', 'rounds'], { help: 'how many agree' });
   const [label] = find(row, (n) => n.props.width !== undefined);
   assert.equal(typeof label.props.width, 'number');
@@ -235,7 +236,7 @@ test('field sets a fixed label column and mono only for numbers', () => {
 });
 
 test('notice colours its words by tone and keeps its action beside them', () => {
-  const ui = paintersOf(ELEMENTS, 'desktop');
+  const ui = graphicalKit(ELEMENTS);
   const action = ui.Button({ key: 'key', label: 'Set up' });
   const tree = ui.notice('warning', 'Ignored: x', action);
   const [words] = find(tree, (n) => n.type === 'Text');
@@ -245,7 +246,7 @@ test('notice colours its words by tone and keeps its action beside them', () => 
 });
 
 test('choice is a segmented row of Buttons, the selected one primary, each pressing onPick', () => {
-  const ui = paintersOf(ELEMENTS, 'desktop');
+  const ui = graphicalKit(ELEMENTS);
   const picked = [];
   const options = [
     { value: 'auto', label: 'On', key: 'auto', hotkey: 'o' },

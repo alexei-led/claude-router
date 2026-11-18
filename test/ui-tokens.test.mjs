@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { renderBand } from '../lib/band.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
-import { paintersOf } from '../lib/ui/painter.mjs';
+import { kit } from '../lib/ui/terminal/kit.mjs';
 import {
   GRAPHICAL_MODEL,
   GRAPHICAL_PENDING,
@@ -85,7 +85,7 @@ test('the band draws the same for the terminal surface as with none named', () =
 });
 
 test('the terminal tones are what the pane writes today', () => {
-  const ui = paintersOf(ELEMENTS, 'terminal');
+  const ui = kit(ELEMENTS);
   assert.equal(toneColor('warning', 'terminal'), 'yellow');
   assert.equal(toneColor('success', 'terminal'), 'green');
   assert.equal(toneColor('danger', 'terminal'), 'red');

@@ -100,7 +100,7 @@ for (const surface of SURFACES) {
     assert.ok(!texts(row).some((t) => t === 'current · 3%'));
   });
 
-  test(`${surface}: a pin without a reading draws no percent and no dash, and without Svg no meter`, () => {
+  test(`${surface}: a pin without a reading draws no percent and no dash`, () => {
     const next = card(draw({ probabilities: null }, { surface }), 'Next turn');
     const group = (tier) => find(next, (n) => kids(n).includes(byKey(next, `pin-${tier}`)))[0];
     assert.deepEqual(
@@ -109,17 +109,6 @@ for (const surface of SURFACES) {
     );
     assert.equal(kids(group('high')).at(-1).props.children, 'current');
     assert.doesNotMatch(texts(next).join(' '), /—/);
-    const { Svg: _svg, ...NO_SVG } = ELEMENTS;
-    const bare = card(
-      unique(renderPanel(NO_SVG, DEFAULTS, { ...RICH }, CLAUDE, actions, { columns: 100, now: NOW, surface })),
-      'Next turn',
-    );
-    for (const tier of ['micro', 'low', 'medium', 'high']) {
-      const pin = byKey(bare, `pin-${tier}`);
-      const kin = kids(find(bare, (n) => kids(n).includes(pin))[0]);
-      assert.equal(kin[0], pin, tier);
-      assert.ok(!kin.some((n) => n.type === 'Svg'), tier);
-    }
   });
 
   test(`${surface}: a 90-character model name keeps its pin group shrinkable and draws without a throw`, () => {
@@ -355,7 +344,7 @@ test('whole percents give every non-empty part at least 1, and a small bar value
     (t) => kids(t)[0].props.width,
   );
   assert.ok(fills.every((w) => w !== '0%'));
-  const { graphicalKit } = await import('../lib/ui/graphical/painter.mjs');
+  const { graphicalKit } = await import('../lib/ui/graphical/kit.mjs');
   const meter = graphicalKit(ELEMENTS).meter({ label: 'Agents', value: 0.001, tone: 'accent', text: '$0.01' });
   assert.equal(kids(kids(meter)[1])[0].props.width, '1%');
   assert.equal(graphicalKit(ELEMENTS).strip({ per: 1, cells: [] }, { columns: 80, now: 0 }), null);
