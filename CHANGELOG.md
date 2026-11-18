@@ -22,6 +22,7 @@
 ### Added: terminal
 
 - `/router` completes in the prompt: type `/router a` and the words that start with it appear under Claude Code's own rows (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `decisions [n]`, `trace export`), then the values after `pin `, `mode ` or `activities `. The `/router` argument hint lists the same words.
+- A session that starts with routing unavailable (Claude Code older than 2.1.321, v0.8 gateway settings still set, or a `router.json` that does not load) shows one toast with the reason, at most once a day for each cause. Not under `claude -p`.
 
 ### Changed: desktop app, VS Code and mobile
 
