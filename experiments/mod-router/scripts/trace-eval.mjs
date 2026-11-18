@@ -559,7 +559,10 @@ export const TRACE_LADDER = loadConfig({
 export function evaluate(rows, teamIds, malformed = 0) {
   const config = TRACE_LADDER;
   const counts = { ...countRows(rows, teamIds), malformedLinesIgnored: malformed };
-  const days = rows.filter((r) => teamIds.has(r.session) && typeof r.at === 'string').map((r) => r.at.slice(0, 10));
+  const days = rows
+    .filter((r) => teamIds.has(r.session) && typeof r.at === 'string')
+    .map((r) => r.at.slice(0, 10))
+    .sort();
   const results = [...groupBySession(rows, teamIds).values()].map((sessionRows) => replaySession(sessionRows, config));
   const shadow = summarizeReplay(results, counts.mainDecisionsWithAdvice);
   const obs = observationCoverage(rows, teamIds);
@@ -568,8 +571,8 @@ export function evaluate(rows, teamIds, malformed = 0) {
     schema: 'trace-evaluation/1',
     label: 'shadow estimate; not measured savings',
     window: {
-      firstDayUtc: days.length ? days.reduce((a, b) => (a < b ? a : b)) : null,
-      lastDayUtc: days.length ? days.reduce((a, b) => (a > b ? a : b)) : null,
+      firstDayUtc: days[0] ?? null,
+      lastDayUtc: days.at(-1) ?? null,
     },
     counts,
     routeTransitions: routeTransitions(rows, teamIds),

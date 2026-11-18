@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
   "files": {
     "includes": [
       "lib/**/*.mjs",
@@ -21,10 +21,23 @@
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "correctness": { "noUnusedVariables": "error", "noUnusedFunctionParameters": "error" },
-      "nursery": { "noFloatingPromises": "error", "noMisusedPromises": "error", "noIdenticalTestTitle": "error" },
-      "style": { "useNodejsImportProtocol": "error", "useConsistentArrayType": "error", "noParameterAssign": "error" },
-      "suspicious": { "noImportCycles": "error" }
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedFunctionParameters": "error"
+      },
+      "nursery": {
+        "noFloatingPromises": "error",
+        "noMisusedPromises": "error"
+      },
+      "style": {
+        "useNodejsImportProtocol": "error",
+        "useConsistentArrayType": "error",
+        "noParameterAssign": "error"
+      },
+      "suspicious": {
+        "noImportCycles": "error",
+        "noIdenticalTestTitle": "error"
+      }
     }
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },
@@ -34,8 +47,14 @@
       "linter": {
         "rules": {
           "complexity": {
-            "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 71 } },
-            "noExcessiveLinesPerFunction": { "level": "error", "options": { "maxLines": 93 } }
+            "noExcessiveCognitiveComplexity": {
+              "level": "error",
+              "options": { "maxAllowedComplexity": 71 }
+            },
+            "noExcessiveLinesPerFunction": {
+              "level": "error",
+              "options": { "maxLines": 93 }
+            }
           }
         }
       }
@@ -45,8 +64,14 @@
       "linter": {
         "rules": {
           "complexity": {
-            "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 45 } },
-            "noExcessiveLinesPerFunction": { "level": "error", "options": { "maxLines": 240 } }
+            "noExcessiveCognitiveComplexity": {
+              "level": "error",
+              "options": { "maxAllowedComplexity": 45 }
+            },
+            "noExcessiveLinesPerFunction": {
+              "level": "error",
+              "options": { "maxLines": 240 }
+            }
           }
         }
       }
