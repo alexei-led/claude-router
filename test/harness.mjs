@@ -499,3 +499,45 @@ export function unique(tree) {
   assert.deepEqual(duplicates(tree), { keys: [], hotkeys: [] });
   return tree;
 }
+
+// Every action a pane or band may call, doing nothing.
+export const quiet = new Proxy({}, { get: () => () => {} });
+
+// Actions that record each call as [name, ...args].
+export function recorder() {
+  const calls = [];
+  const actions = new Proxy(
+    {},
+    {
+      get:
+        (_target, name) =>
+        (...args) =>
+          calls.push([name, ...args]),
+    },
+  );
+  return { actions, calls };
+}
+
+// The element whose children include `target`.
+export const parentOf = (tree, target) => find(tree, (node) => kids(node).includes(target))[0];
+
+// The words the tree draws, in document order: a Text's string, a Button as `[ label ]`.
+export const textOf = (tree) =>
+  find(tree, () => true)
+    .map((node) =>
+      node.type === 'Text' ? String(node.props.children) : node.type === 'Button' ? `[ ${node.props.label} ]` : '',
+    )
+    .join('');
+
+// The line's Text hangs when it wraps inside the field's value column, which sits beside the fixed-width label.
+export function hangs(tree, words, labelWidth) {
+  const [text] = find(tree, (node) => node.type === 'Text' && node.props.children === words);
+  if (!text) return 'no such line';
+  if (text.props.wrap !== 'wrap') return 'does not wrap';
+  const column = parentOf(tree, text);
+  const { flexDirection, flexGrow, flexShrink } = column.props;
+  if (flexDirection !== 'column' || flexGrow !== 1 || flexShrink !== 1) return 'not in a value column';
+  const [label, value] = kids(parentOf(tree, column));
+  if (label.props.width !== labelWidth || label.props.flexShrink !== 0) return 'no fixed-width label beside it';
+  return value === column ? 'hangs' : 'not beside its label';
+}
