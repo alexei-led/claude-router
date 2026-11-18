@@ -152,7 +152,6 @@ test('the key help closes by itself once the credential is there', async () => {
   await keyed(await pane(h, 'desktop'), 'classifier-ollama')[0].props.onPress({ surface: 'desktop' });
   assert.equal(h.view().credentials.jev, null);
   assert.equal(keyed(await pane(h, 'desktop'), 'key-help-copy').length, 0);
-  assert.equal(h.view().keyHelp, null);
 });
 
 test('the band’s Set up on a graphical surface opens the pane on the key help', async () => {

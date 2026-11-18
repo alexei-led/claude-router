@@ -1040,10 +1040,9 @@ async function credentialsOf($, options, config) {
 
 // A Set up or Edit press: in the terminal, the secure key dialog of `/plugin configure`; a graphical surface, which
 // has no such dialog (the command does nothing there), shows how to add the credentials from a terminal instead, in
-// the pane, for classifier `id`. `surface` is the press's, else the one the pane last drew on.
+// the pane, for classifier `id`.
 async function keySetup($, router, press, id) {
-  const surface = press?.surface ?? router.paneSurface;
-  if (!isGraphical(surface)) {
+  if (!isGraphical(press?.surface)) {
     openKeySettings($);
     return $.ui.close({ id: PANE });
   }
@@ -3167,23 +3166,17 @@ export function register(on, options) {
       });
     }
     view.decisionRows = await paneDecisionRows($, router);
-    router.paneSurface = e.surface;
-    // A Set up's key help closes by itself once the credentials it asks for are there; an Edit's waits for Done.
+    // A Set up's key help hides by itself once the credentials it asks for are there; an Edit's waits for Done.
     const open = view.keyHelp;
-    if (
-      open &&
-      (typeof open !== 'object' ||
-        !router.config.classifiers[open.id] ||
-        (!open.edit && !missingCredentials(router.config, view, open.id)))
-    ) {
-      view.keyHelp = null;
-      await updateView($, router, { keyHelp: null });
-    }
+    const keyHelp =
+      open?.id && router.config.classifiers[open.id] && (open.edit || missingCredentials(router.config, view, open.id))
+        ? open
+        : null;
     const settings = await $.settings.read().catch(() => ({}));
     const modelOptions = Object.keys(router.config.models).filter((alias) =>
       isModelAllowed(router.config.models[alias].id, settings.availableModels, view.nativeModel),
     );
-    return renderPanel(elements, router.config, view, usage, paneActions($, router, view), {
+    return renderPanel(elements, router.config, { ...view, keyHelp }, usage, paneActions($, router, view), {
       modelOptions,
       columns: e.props.bodyColumns,
       surface: e.surface,
