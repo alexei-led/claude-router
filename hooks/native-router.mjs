@@ -2810,7 +2810,7 @@ async function traceContinuation($, router, cfg, loop, e, traceInput) {
   if (cfg.routingEngine === 'shadow') {
     // Replay's incumbent may differ from the table's: retain unconditional modality and checkpoint evidence.
     // Failure stays unknown, never a false assertion that the hypothetical route can accept this history.
-    let replayMessages = null;
+    let replayMessages;
     let actualHasImages = null;
     try {
       replayMessages = await transcript($);
