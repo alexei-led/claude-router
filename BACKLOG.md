@@ -10,7 +10,6 @@ Ideas and minor issues that can wait for the next release. Add an item when you 
 - **Zero-key classifier.** `$.model.complete` and `$.model.classify` use the session's own credentials, which would fill the "classifier not set up" state.
 - **Early classification while typing.** Hook `prompt.edit` and warm the verdict by draft hash. Needs an opt-in because of privacy.
 - **Live tool results.** `PostToolUse` and `PostToolUseFailure` give incremental failure counts instead of re-reading `$.session.messages` on every step.
-- **Workflow and resumed subagents.** The 2.1.321 types say a workflow agent's model rewrite now applies, and a resumed subagent's rewrite is ignored. Verify live, then route workflow agents and mark resumed spawns as pass-through (`lib/subagents.mjs`).
 
 ## Terminal and desktop
 
@@ -27,8 +26,7 @@ Ideas and minor issues that can wait for the next release. Add an item when you 
 
 ## Docs
 
-- Desktop screenshots: the README and user guide carry `TODO` markers where images belong.
-- Say in `docs/native-router.md` that effort changes on tool-result steps are not sent unless the person sets `CLAUDE_CODE_MODEL_CAPABILITIES=per_turn_effort`.
+- Desktop screenshots: the README and the user guide carry a maintainer note where images belong. Shots to take: band, Now, Routes, Policy, Classifier, Usage and the key card, each in dark and light.
 
 ## Packaging
 
