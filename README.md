@@ -171,8 +171,7 @@ npm run check && npm run typecheck && npm test && npm run validate && npm run te
 ### Code quality
 
 - `npm run check` is Biome with `--error-on-warnings`, so a warning fails like an error. Besides the recommended rules it catches unawaited or misused promises, an `await` on a non-promise, an incomplete `switch` over a union, unused imports and variables, import cycles, throws of non-Error values, a lost `cause` when an error is rethrown, shadowed bindings, conditions the types prove constant, and read-modify-write updates split by an `await` (`useAtomicUpdates`). Use `biome-ignore` only with a one-line reason for code that is deliberate.
-- `npm run typecheck` is `tsc` over `lib` and `hooks` with `useUnknownInCatchVariables`, `strictFunctionTypes`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals`/`noUnusedParameters`, `verbatimModuleSyntax` and `erasableSyntaxOnly`.
-- `npm run typecheck:strict` adds `strictNullChecks` and `noUncheckedIndexedAccess`. It is a tracking script, not a gate: run it on the files you touch and do not add errors.
+- `npm run typecheck` is `tsc` over `lib` and `hooks` with `strictNullChecks`, `noUncheckedIndexedAccess`, `useUnknownInCatchVariables`, `strictFunctionTypes`, `noImplicitReturns`, `noFallthroughCasesInSwitch`, `noUnusedLocals`/`noUnusedParameters`, `verbatimModuleSyntax` and `erasableSyntaxOnly`.
 
 ## Documentation
 
