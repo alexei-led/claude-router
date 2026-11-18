@@ -731,3 +731,22 @@ test('an escalation a hold turned away still escalates on the same failure once 
   const after = chooseRoute(DEFAULTS, during, failing(during, now + 300_000));
   assert.deepEqual([after.decision.tier, after.decision.model, after.decision.reason], ['medium', OPUS, 'escalation']);
 });
+
+// Sonnet ran medium before a mode change made the configured medium route Opus; no classifier answer moves it.
+for (const [name, held, expected] of [
+  ['unheld, it keeps running', undefined, 'claude-sonnet-5-5'],
+  ['held, Opus replaces it, and stays after the hold', { error: 'overloaded', until: now + 300_000 }, OPUS],
+])
+  test(`a route kept apart from its tier’s configured route, ${name}`, () => {
+    const loop = {
+      ...emptyLoop(DEFAULTS, OPUS),
+      route: { model: 'sonnet', effort: 'high' },
+      held: held && { 'claude-sonnet-5-5': held },
+    };
+    const during = chooseRoute(DEFAULTS, loop, opusInput(loop, { advice: null }));
+    const after = chooseRoute(DEFAULTS, during, opusInput(during, { advice: null, now: now + 300_000 }));
+    assert.deepEqual(
+      [during.decision.model, during.decision.reason, after.decision.model],
+      [expected, 'no-advice', expected],
+    );
+  });
