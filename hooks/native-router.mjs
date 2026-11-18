@@ -39,6 +39,7 @@ import {
   MIGRATION_HINT,
   MIN_CLAUDE_CODE,
   ROUTING_MODES,
+  resolveRoute,
   supportedVersion,
   TIERS,
   tuningOf,
@@ -71,6 +72,7 @@ import {
 } from '../lib/decisions.mjs';
 import {
   activityDetailLines,
+  cardRoute,
   classifierStatus,
   classifierTimed,
   GATEWAY_CLEANUP,
@@ -79,6 +81,7 @@ import {
   NOT_A_TIER_REASON,
   pluginIdOf,
   savingsLine,
+  shownConfig,
   storeAgreementLine,
   unavailableReason,
   unpricedLine,
@@ -168,6 +171,7 @@ import {
   subagentsAfterReset,
   typeRoute,
 } from '../lib/subagents.mjs';
+import { argumentHint, routerSuggestions, SUBCOMMANDS } from '../lib/subcommands.mjs';
 import { routeDraftOf, routingChanges } from '../lib/ui/model/draft.mjs';
 import { keyHelpOf } from '../lib/ui/model/frame.mjs';
 import { isGraphical } from '../lib/ui/tokens.mjs';
@@ -975,32 +979,40 @@ async function setPin($, router, tier) {
   return `${tier} pinned for the next turn and its tool continuations.`;
 }
 
-// `/router [auto|off|pin <tier>|activities <mode>|mode <mode>]`; with no action, the pane, or the status text without
-// a surface.
+// What each word of the SUBCOMMANDS table does. A handler that answers nothing leaves the command to open the pane.
+const SUBCOMMAND_RUNNERS = {
+  auto: ($, router) => switchRouting($, router, 'auto'),
+  off: ($, router) => switchRouting($, router, 'manual'),
+  trace: async ($, router, value) => (value === 'export' ? { text: await exportTraces($, router) } : undefined),
+  decisions: async ($, router, value) => ({ text: await decisionsText($, router, value) }),
+  pin: async ($, router, value) => ({
+    text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.`,
+  }),
+  mode: async ($, router, value) => ({
+    text: [...ROUTING_MODES, 'default'].includes(value)
+      ? await setRoutingMode($, router, value)
+      : `Choose mode ${[...ROUTING_MODES, 'default'].join(', ')}.`,
+  }),
+  activities: async ($, router, value) => ({
+    text: ACTIVITY_MODES.includes(value)
+      ? await setActivityRouting($, router, value)
+      : `Choose activities ${ACTIVITY_MODES.join(', ')}.`,
+  }),
+};
+
+async function switchRouting($, router, mode) {
+  const view = router.view ?? (await readView($, router));
+  if (view.phase === 'unavailable') return { text: unavailableText(view) };
+  await changeMode($, router, mode);
+  return { text: mode === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
+}
+
+// `/router [word [value]]`, the words of SUBCOMMANDS; with none, the pane, or the status text without a surface.
 async function routerCommand($, router, args) {
   const [action, value] = args.trim().split(/\s+/);
-  if (action === 'auto' || action === 'off') {
-    const view = router.view ?? (await readView($, router));
-    if (view.phase === 'unavailable') return { text: unavailableText(view) };
-    await changeMode($, router, action === 'auto' ? 'auto' : 'manual');
-    return { text: action === 'auto' ? 'Routing on.' : 'Routing off: Claude’s model is kept.' };
-  }
-  if (action === 'trace' && value === 'export') return { text: await exportTraces($, router) };
-  if (action === 'decisions') return { text: await decisionsText($, router, value) };
-  if (action === 'pin')
-    return { text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.` };
-  if (action === 'mode')
-    return {
-      text: [...ROUTING_MODES, 'default'].includes(value)
-        ? await setRoutingMode($, router, value)
-        : `Choose mode ${[...ROUTING_MODES, 'default'].join(', ')}.`,
-    };
-  if (action === 'activities')
-    return {
-      text: ACTIVITY_MODES.includes(value)
-        ? await setActivityRouting($, router, value)
-        : `Choose activities ${ACTIVITY_MODES.join(', ')}.`,
-    };
+  const known = SUBCOMMANDS.some((sub) => sub.name === action);
+  const answer = known ? await SUBCOMMAND_RUNNERS[action]($, router, value) : undefined;
+  if (answer) return answer;
   const storedView = await readView($, router);
   const view = { ...storedView, mode: await modeOf($, router, storedView.mode) };
   if (!(await $.session.surfaces()).length)
@@ -2958,8 +2970,7 @@ async function initializeSession($, router) {
     name: 'router',
     description:
       'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>; decisions [n] lists the last routing decisions.',
-    argumentHint:
-      '[auto|off|pin <tier>|activities off|on|mode cost|balanced|quality|default|decisions [n]|trace export]',
+    argumentHint: argumentHint(),
     immediate: true,
   });
   const model = await $.session.model();
@@ -3060,6 +3071,19 @@ export function register(on, options) {
   });
 
   on('command.run', { command: 'router' }, ($, e) => routerCommand($, router, e.args));
+
+  // The words after `/router `, once one character is typed (the token is never empty). A matcher tests the token
+  // alone, so the hook reads the text before it. Nothing is read or written but the router's own view.
+  on('prompt.autocomplete', async (_$, e, next) => {
+    const mine = routerSuggestions(e, {
+      describe: (name, value) =>
+        name === 'pin' && router.view
+          ? cardRoute(router.config, resolveRoute(shownConfig(router.config, router.view), value), { short: true })
+          : undefined,
+    });
+    if (!mine.length) return next(e);
+    return { suggestions: [...(await next(e)).suggestions, ...mine] };
+  });
 
   // Since 2.1.321 a subagent's loop raises turn.start too, with its agentId; the goal and prompt state is the main loop's.
   on('turn.start', async ($, e, next) => {
