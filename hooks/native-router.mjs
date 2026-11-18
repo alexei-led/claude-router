@@ -259,6 +259,20 @@ const LEDGERS = {
 };
 const LEDGER_KINDS = Object.keys(LEDGERS);
 
+/** @typedef {ReturnType<typeof readTrace> | ReturnType<typeof newTrace>} TraceRecord */
+/**
+ * @typedef {object} TraceHold
+ * @property {string} sessionId
+ * @property {TraceRecord | null} record
+ * @property {unknown} persisted
+ * @property {number} lostWrites
+ * @property {Set<string>} reasons
+ * @property {Map<string, any>} turns
+ * @property {number} nextTurn
+ * @property {string | null} config
+ * @property {{ events: object[], excludedEvents?: number } | null} controls
+ */
+
 // Everything the hooks change between events, in one object `register()` creates and passes to its helpers. Module
 // variables, not $.state: a reload starts them over, and the view is written through to $.state as it changes.
 function createRouter(options) {
@@ -290,7 +304,7 @@ function createRouter(options) {
     // `{ sessionId, record }` once read (`decisionRecord`).
     turnDecisions: new Map(),
     decisionRecord: null,
-    trace: null,
+    trace: /** @type {TraceHold | null} */ (null),
     traceFreshSession: null,
     traceClearSession: null,
     traceStartedSession: null,
@@ -298,7 +312,7 @@ function createRouter(options) {
     traceOperations: new Map(),
     controllers: new Set(),
     turnControllers: new Map(),
-    view: null,
+    view: /** @type {Record<string, unknown> | null} */ (null),
     modes: new Map(),
     // Each session's routing mode override (null: none), as read from or written to the store.
     routingModes: new Map(),
@@ -357,6 +371,7 @@ async function ensureTrace($, router, e, turn, loop, loaded, fresh) {
     if (router.trace?.sessionId === sessionId && router.trace.record) return;
     const previous = router.trace?.sessionId === sessionId ? router.trace : null;
     const at = Date.now();
+    /** @type {TraceHold} */
     const held = {
       sessionId,
       record: null,
@@ -539,7 +554,7 @@ async function flushTrace($, router, turnId = null, ending = false) {
     try {
       const at = Date.now();
       const keys = await $.store.keys();
-      let entries = await Promise.all(keys.map(async (key) => [key, await $.store.get(key)]));
+      let entries = await Promise.all(keys.map(async (name) => [name, await $.store.get(name)]));
       if (entries.some(([, value]) => value === undefined)) throw new Error('store-guard');
       if (traceBytes(Object.fromEntries(entries)) > TRACE_STORE_BYTES) throw new Error('store-guard');
       const resetAt = entries.find(([name]) => name === SAVINGS_RESET_KEY)?.[1];
@@ -602,9 +617,8 @@ async function flushTrace($, router, turnId = null, ending = false) {
       if (ending) held.controls = null;
     } catch (error) {
       held.lostWrites++;
-      held.reasons.add(
-        error.message === 'conflict' ? 'conflict' : error.message === 'store-guard' ? 'store-guard' : 'lost-write',
-      );
+      const message = /** @type {Error} */ (error).message;
+      held.reasons.add(message === 'conflict' ? 'conflict' : message === 'store-guard' ? 'store-guard' : 'lost-write');
     }
   } catch {
     traceFailed(router);
@@ -646,7 +660,7 @@ async function readView($, router) {
 
 // Only a saved mode is cached: the engine can draw the band before session.start, and a cached fallback from that
 // render would override the start rule.
-async function modeOf($, router, fallback = 'auto') {
+async function modeOf($, router, fallback = /** @type {string | null} */ ('auto')) {
   const sessionId = await $.session.id();
   if (router.modes.has(sessionId)) return router.modes.get(sessionId);
   try {
@@ -780,15 +794,17 @@ async function readProject($, profilePath) {
 }
 
 async function updateView($, router, patch) {
-  const value = router.view ?? (await readView($, router));
-  router.view = { ...value, ...patch };
+  // Read the stored view only when none is held, and merge into whatever is held once it arrives: a patch applied
+  // during that read stays.
+  const stored = router.view ? null : await readView($, router);
+  router.view = { ...(router.view ?? stored), ...patch };
   await $.state.set(VIEW, router.view);
 }
 
 // This session's record of `kind`, read from the store once per session, and the last reset (ms) from any session,
 // read each time: a Reset in another session empties a record held from before it.
 async function ownRecord($, router, kind) {
-  const { prefix, read, afterReset } = LEDGERS[kind];
+  const { prefix, read, afterReset: resetRecord } = LEDGERS[kind];
   const held = router.ledgers[kind];
   const sessionId = await $.session.id();
   const resetAt = await $.store.get(SAVINGS_RESET_KEY);
@@ -797,7 +813,7 @@ async function ownRecord($, router, kind) {
     // Another call may have read it meanwhile and a turn added to it: that one stands.
     if (held.own?.sessionId !== sessionId) held.own = { sessionId, record };
   }
-  held.own.record = afterReset(held.own.record, resetAt);
+  held.own.record = resetRecord(held.own.record, resetAt);
   return { own: held.own, resetAt };
 }
 
@@ -1702,8 +1718,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       resolveCredentials(activeClassifier(cfg), (name) => settingOf($, router.options, name)),
       $.session.messages({ as: 'api' }),
     ]);
-    job.observedUpTo = messages.length;
-    job.prefix = historySignature(messages);
+    Object.assign(job, { observedUpTo: messages.length, prefix: historySignature(messages) });
     const facts = stepFacts(cfg, router, loop, e, messages, context);
     clientOf(router, cfg.classifier)
       .ask({
@@ -1732,7 +1747,17 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
 }
 
 // A routed reply's metrics in the view, with the tier that served it, and added to the turn's activity record with its list price (`routedUsd`, null when unpriced) and, when its tier served it, its route.
-async function publishReply($, router, turnId, request, response, tier, route, routedUsd, cause = null) {
+async function publishReply(
+  $,
+  router,
+  turnId,
+  request,
+  response,
+  tier,
+  route,
+  routedUsd,
+  cause = /** @type {string | null} */ (null),
+) {
   const turn = router.turnActivities.get(turnId);
   const metrics = responseMetrics(router.view, response, tier, Date.now());
   await updateView($, router, {
@@ -1989,11 +2014,13 @@ async function submitPrompt(router, e, next) {
   router.submitting = entry;
   try {
     const result = await next(e);
+    // biome-ignore lint/suspicious/noUnnecessaryConditions: turn.start sets `started` through router.submitting, an alias Biome cannot follow
     if (!entry.started && typeof result?.text === 'string' && !result.drop)
       router.origins = queueOrigin(router.origins, { kind: entry.kind, text: result.text, at: Date.now() });
     return result;
   } finally {
-    router.submitting = outer;
+    // Only the submission still current restores: a later one that started meanwhile keeps its entry.
+    if (router.submitting === entry) router.submitting = outer;
   }
 }
 
@@ -2030,8 +2057,11 @@ async function flushDecisions($, router, turnId, turn) {
     if (turn && turn.sessionId !== sessionId) return;
     const key = `${DECISIONS_PREFIX}${sessionId}`;
     const resetAt = await $.store.get(SAVINGS_RESET_KEY);
-    if (router.decisionRecord?.sessionId !== sessionId)
-      router.decisionRecord = { sessionId, record: readDecisions(await $.store.get(key)) };
+    if (router.decisionRecord?.sessionId !== sessionId) {
+      const record = readDecisions(await $.store.get(key));
+      // Another flush may have read it meanwhile and added its rows to it: that one stands.
+      if (router.decisionRecord?.sessionId !== sessionId) router.decisionRecord = { sessionId, record };
+    }
     const held = router.decisionRecord;
     const now = Date.now();
     const end = turn
@@ -2118,12 +2148,12 @@ async function recordActivity($, router, turn) {
     const start = promptIndex(messages);
     if (start < 0) return;
     const observed = observedActivity(messages, start);
-    // The turn's end row reads it (flushDecisions).
-    turn.observed = observed;
     const view = router.view ?? (await readView($, router));
     const manual = (await modeOf($, router)) === 'manual';
     // The session may have changed during the reads; this turn is not the new session's.
     if ((await $.session.id()) !== turn.sessionId) return;
+    // The turn's end row reads it (flushDecisions).
+    turn.observed = observed;
     // Advanced before any further await, so a session change meanwhile cannot carry this run into the new session.
     const { run, ended } = advanceRun(router.run, turn.answer);
     router.run = run;
@@ -2274,7 +2304,7 @@ async function spawnAgent($, router, e, next) {
   const pass = passReason(cfg, e, definition);
   const decision = pass ? null : await decideSpawn($, router, cfg, e, definition, next.signal).catch(() => null);
   const routed = Boolean(decision?.model);
-  const result = await next(routed ? { ...e, model: decision.model } : e);
+  const result = await next(decision?.model ? { ...e, model: decision.model } : e);
   if (result.agentId && (pass || decision))
     await noteSpawn($, router, { cfg, e, pass, decision, routed, result, definition }).catch(() => {});
   return result;
@@ -2591,11 +2621,11 @@ function paneActions($, router, view) {
           router.ledgers[kind] = { own: null, others: LEDGERS[kind].empty(), othersResetAt: resetAt };
         return true;
       };
-      const cleared = await clearRecords().catch(() => false);
       router.trace = null;
       router.traceFreshSession = null;
       router.traceClearSession = null;
       router.traceOperations.clear();
+      const cleared = await clearRecords().catch(() => false);
       // The store kept the history: this session's records start over, and its next write replaces the stored one.
       if (!cleared)
         for (const kind of LEDGER_KINDS) {
@@ -2815,7 +2845,7 @@ async function traceContinuation($, router, cfg, loop, e, traceInput) {
   if (cfg.routingEngine === 'shadow') {
     // Replay's incumbent may differ from the table's: retain unconditional modality and checkpoint evidence.
     // Failure stays unknown, never a false assertion that the hypothetical route can accept this history.
-    let replayMessages = null;
+    let replayMessages;
     let actualHasImages = null;
     try {
       replayMessages = await transcript($);
@@ -2934,16 +2964,16 @@ async function initializeSession($, router) {
   });
   const model = await $.session.model();
   try {
-    router.config = await loadNativeConfig($);
+    const config = await loadNativeConfig($);
+    const project = await readProject($, config.nativePath);
+    const existing = await readView($, router);
     // A successful reload adopts this config even for the current turn; stale jobs must not route with the old engine.
+    Object.assign(router, { config, project, view: existing });
     for (const controller of router.controllers) controller.abort();
     router.decisions.clear();
     router.turnConfigs.clear();
     for (const review of router.reviews.values()) review.controller.abort();
     router.reviews.clear();
-    router.project = await readProject($, router.config.nativePath);
-    const existing = await readView($, router);
-    router.view = existing;
     const sameClassifier = existing.health?.classifier === router.config.classifier;
     clientOf(router, router.config.classifier).restore(sameClassifier ? existing.health : null);
     const base = await $.env.get('ANTHROPIC_BASE_URL');
@@ -2976,6 +3006,7 @@ async function initializeSession($, router) {
       ...(await storeView($, router)),
     });
     await pruneDecisionRecords($);
+    // biome-ignore lint/nursery/useAtomicUpdates: ensureInitialized runs this once at a time, and the flag marks it done
     router.initialized = true;
     return true;
   } catch (error) {
@@ -3055,10 +3086,11 @@ export function register(on, options) {
     router.reviews.get(e.turnId)?.controller.abort();
     router.reviews.delete(e.turnId);
     router.turnControllers.get(e.turnId)?.abort();
-    if (router.view?.activeTurnId === e.turnId && router.view.phase === 'choosing') {
-      router.view = { ...router.view, activeTurnId: null };
+    const held = router.view;
+    if (held !== null && held.activeTurnId === e.turnId && held.phase === 'choosing') {
+      router.view = { ...held, activeTurnId: null };
       const mode = await modeOf($, router);
-      if (router.view.activeTurnId === null)
+      if (router.view?.activeTurnId === null)
         await updateView($, router, { phase: mode === 'manual' ? 'manual' : 'ready', reason: 'interrupted' });
     }
     router.prompts.delete(e.turnId);
@@ -3083,6 +3115,7 @@ export function register(on, options) {
     const result = await next(e);
     // Only the main conversation is routed, so an agent compaction changes nothing here.
     if (!result.skip && e.trigger !== 'precompute' && !e.agentId) {
+      // biome-ignore lint/suspicious/noUnnecessaryConditions: router.trace is set by helpers that take `router`, which Biome cannot follow
       if (!router.trace) {
         router.traceFreshSession = null;
         router.traceClearSession = null;
@@ -3113,6 +3146,7 @@ export function register(on, options) {
       if (router.trace?.turns.size) router.trace.reasons.add('aborted');
       await flushTrace($, router, null, true);
     }
+    // biome-ignore lint/nursery/useAtomicUpdates: the session is over, so whatever trace the final flush held or created is dropped
     router.trace = null;
     router.traceOperations.clear();
     router.traceFreshSession = null;
