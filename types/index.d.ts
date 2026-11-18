@@ -320,10 +320,21 @@ declare module 'claude-code' {
     engineModel?: string;
     suspended?: boolean;
   }
+  // What a route line records, under the id `$.ui.place` was given: the route that ran, its tier and why, the activity,
+  // and the policy's estimate (lib/route-line.mjs).
+  interface RouterLine {
+    model: string;
+    effort: string | number | null;
+    tier: RouterTier | null;
+    reason: string;
+    activity: RouterActivity | null;
+    estimate: RouterEstimate | null;
+  }
   interface PluginState {
     router: {
       view: RouterView;
       loops: StateFamily<RouterLoop>;
+      lines: StateFamily<RouterLine>;
     };
   }
 }

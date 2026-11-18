@@ -23,7 +23,7 @@ import {
 } from '../lib/activity-stats.mjs';
 import { advanceDemand, assessCandidates, initialAutoState, selectTarget } from '../lib/auto-engine.mjs';
 import { autoRoute, observeAutoFallback } from '../lib/auto-route.mjs';
-import { renderBand, switchToast } from '../lib/band.mjs';
+import { renderBand, renderRouteLine, switchToast } from '../lib/band.mjs';
 import { ClassifierClient } from '../lib/classifier-client.mjs';
 import { resolveCredentials } from '../lib/classifier-contract.mjs';
 import {
@@ -137,6 +137,7 @@ import {
   prepareLoop,
   resetHistory,
 } from '../lib/route.mjs';
+import { LINE_MODES, lineId, lineModeOf, lineOf, routeOf, showsLine } from '../lib/route-line.mjs';
 import {
   afterReset,
   compareModels,
@@ -201,9 +202,13 @@ import {
 
 const VIEW = { plugin: 'router', key: 'view' };
 const LOOP = { plugin: 'router', key: 'loops' };
+// One record per route line placed, by its `$.ui.place` id: what its `Placed` row draws.
+const LINES = { plugin: 'router', key: 'lines' };
 const PANE = 'jev-router';
 const PANE_TITLE = 'Router';
 const BAND_DETAIL = 'band:detail';
+// Whether and when a turn leaves a route line (lib/route-line.mjs), kept across sessions.
+const ROUTE_LINE = 'route:line';
 const MODE_PREFIX = 'mode:';
 // When the toast for one reason routing cannot run last showed; the reason is appended.
 const UNAVAILABLE_NOTICE_PREFIX = 'notice:unavailable:';
@@ -310,6 +315,8 @@ function createRouter(options) {
     // Each turn's decision rows until turn.complete writes them, with the turn's end, to the session's record, held as
     // `{ sessionId, record }` once read (`decisionRecord`).
     turnDecisions: new Map(),
+    // The route the last routed turn ran, to tell whether the next one moved it; null at a session's start.
+    lastRoute: null,
     decisionRecord: null,
     trace: /** @type {TraceHold | null} */ (null),
     traceFreshSession: null,
@@ -992,6 +999,10 @@ async function runSubcommand($, router, action, value) {
       return switchRouting($, router, 'manual');
     case 'trace':
       return value === 'export' ? { text: await exportTraces($, router) } : undefined;
+    case 'line':
+      return {
+        text: LINE_MODES.includes(value) ? await setRouteLine($, value) : `Choose line ${LINE_MODES.join(', ')}.`,
+      };
     case 'decisions':
       return { text: await decisionsText($, router, value) };
     case 'pin':
@@ -1011,6 +1022,20 @@ async function runSubcommand($, router, action, value) {
     default:
       return undefined;
   }
+}
+
+// `/router line <mode>`: a preference like the band's second row, kept across sessions and never in router.json.
+async function setRouteLine($, mode) {
+  const saved = await $.store.set(ROUTE_LINE, mode).then(
+    () => true,
+    () => false,
+  );
+  const says = {
+    off: 'no route line after a turn',
+    moves: 'a route line after a turn that ran another model or effort than the last',
+    all: 'a route line after every turn',
+  };
+  return `Route line ${mode}: ${says[mode]}.${saved ? '' : ' It could not be saved for later sessions.'}`;
 }
 
 async function switchRouting($, router, mode) {
@@ -2065,6 +2090,26 @@ function originOfTurn(router, text) {
   return taken.kind;
 }
 
+// A routed turn's route line: one record in `$.state`, one row placed at the transcript's end. Not for an interrupted
+// turn, a subagent's, or a turn with routing off, which has no route of its own to say. Display only, so a failure
+// here never breaks the turn, and a surface that cannot draw the row now is logged, not told.
+async function placeRouteLine($, router, e, turn) {
+  try {
+    const view = router.view;
+    const route = routeOf(view);
+    if (!turn || e.isAborted || !route || !view || view.phase === 'unavailable') return;
+    if ((await modeOf($, router, view.mode)) === 'manual') return;
+    const previous = router.lastRoute;
+    router.lastRoute = route;
+    const mode = lineModeOf(await $.store.get(ROUTE_LINE).catch(() => undefined));
+    if (!showsLine(mode, previous, route)) return;
+    const id = lineId(e.turnId);
+    await $.state.set({ ...LINES, id }, lineOf(view, route));
+    const placed = await $.ui.place({ id });
+    if (!placed.isPlaced) $.ui.log(`router route line not drawn: ${placed.reason}`, { to: 'debug' });
+  } catch {}
+}
+
 // A finished turn's decision rows and its end row, added to this session's record. Telemetry never breaks a turn: a
 // failed read or write loses this turn's rows. A record from before the last reset reads as empty, and rows read
 // before a Reset in this session are not written back.
@@ -3002,7 +3047,7 @@ async function initializeSession($, router) {
   await $.command.register({
     name: 'router',
     description:
-      'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>; decisions [n] lists the last routing decisions.',
+      'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>, line <mode>; decisions [n] lists the last routing decisions.',
     argumentHint: argumentHint(),
     immediate: true,
   });
@@ -3103,6 +3148,7 @@ export function register(on, options) {
     router.traceStartedSession = sessionId;
     router.trace = null;
     router.traceOperations.clear();
+    router.lastRoute = null;
     router.initialized = false;
     await ensureInitialized($, router);
     await noticeUnavailable($, router, e);
@@ -3179,6 +3225,7 @@ export function register(on, options) {
     // `off` asks nothing, so it records nothing; it only ends the watch after a cheaper activity move.
     const turn = router.turnActivities.get(e.turnId);
     router.turnActivities.delete(e.turnId);
+    await placeRouteLine($, router, e, turn);
     if (turn?.mode === 'off') {
       if ((await $.session.id()) === turn.sessionId) router.afterDown = advanceDown(router.afterDown, turn).after;
     } else if (turn) await recordActivity($, router, turn);
@@ -3247,6 +3294,17 @@ export function register(on, options) {
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     const label = await footerLabel($, router, await readView($, router));
     return label ? next({ ...e, props: { ...e.props, modes: [...e.props.modes, label] } }) : next(e);
+  });
+
+  // A route line: drawn from the record the turn's end kept under the row's id. Rows other plugins placed pass.
+  on('ui.render', { component: 'Placed' }, async ($, e, next) => {
+    if (e.props.plugin !== $.plugin.name) return next(e);
+    const { value: line } = await $.state.get({ ...LINES, id: e.props.id });
+    if (!line) return next(e);
+    return renderRouteLine($.ui.resolve(e), router.config, line, {
+      surface: e.surface,
+      onFallback: logFallback($, 'route line'),
+    });
   });
 
   on('ui.render', { component: ['AbovePrompt', 'Pane'] }, async ($, e, next) => {
