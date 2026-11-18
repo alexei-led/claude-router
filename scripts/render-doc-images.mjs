@@ -18,7 +18,16 @@ const elements = { Box: element('Box'), Text: element('Text'), Button: element('
 const noop = () => {};
 const actions = new Proxy({}, { get: () => noop });
 
-const COLORS = { cyan: '#5fafd7', yellow: '#d7af5f', green: '#87d787', red: '#e06c6c', gray: '#7c7c7c' };
+// The terminal draws Claude Code theme keys (lib/ui/tokens.mjs); these are a dark theme's colours for them, so the
+// pictures read like a dark terminal. A real terminal uses the person's own theme.
+const COLORS = {
+  text: '#d0d0d0',
+  subtle: '#7c7c7c',
+  suggestion: '#5fafd7',
+  success: '#87d787',
+  warning: '#d7af5f',
+  error: '#e06c6c',
+};
 const FG = '#d0d0d0';
 const DIM = '#7c7c7c';
 const ACCENT = '#87afff';
@@ -51,7 +60,17 @@ function lay(node, { hover }) {
   const { type, props } = node;
   if (type === 'Text') {
     const fill = props.dimColor ? DIM : (COLORS[props.color] ?? props.color ?? FG);
-    return [[{ text: props.children ?? '', fill, bold: props.bold, italic: props.italic, bg: props.backgroundColor }]];
+    return [
+      [
+        {
+          text: props.children ?? '',
+          fill,
+          bold: props.weight === 'semibold' || props.weight === 'bold',
+          italic: props.italic,
+          bg: props.backgroundColor,
+        },
+      ],
+    ];
   }
   if (type === 'Button') {
     const text = props.plain ? props.label : `[ ${props.label} ]`;

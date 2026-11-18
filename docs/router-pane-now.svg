@@ -28,7 +28,7 @@
 <text x="24.0" y="91" fill="#5fafd7" font-weight="700" xml:space="preserve">NEXT TURN</text>
 <text x="39.6" y="110" fill="#e0708a" xml:space="preserve">▂▄▆█</text>
 <text x="86.4" y="110" fill="#d0d0d0" font-weight="700" xml:space="preserve">Opus 5.5 · xhigh</text>
-<text x="234.6" y="110" fill="#d7875f" font-style="italic" xml:space="preserve">code</text>
+<text x="234.6" y="110" fill="#d77757" font-style="italic" xml:space="preserve">code</text>
 <text x="265.8" y="110" fill="#d0d0d0" xml:space="preserve"> 84%</text>
 <text x="297.0" y="110" fill="#7c7c7c" xml:space="preserve">  debug 8%</text>
 <text x="24.0" y="129" fill="#7c7c7c" xml:space="preserve">  why   </text>
@@ -64,19 +64,19 @@
 <text x="86.4" y="300" fill="#7c7c7c" xml:space="preserve">  API estimate · plan quota, not a charge  </text>
 <rect x="421.8" y="286" width="70.2" height="18" rx="4" fill="#2e3340"/>
 <text x="421.8" y="300" fill="#d0d0d0" xml:space="preserve">[ Usage ]</text>
-<text x="39.6" y="319" fill="#6fcf97" font-weight="700" xml:space="preserve">−$4.09 (−31%)</text>
+<text x="39.6" y="319" fill="#87d787" font-weight="700" xml:space="preserve">−$4.09 (−31%)</text>
 <text x="141.0" y="319" fill="#d0d0d0" xml:space="preserve"> vs unrouted</text>
 <text x="234.6" y="319" fill="#7c7c7c" xml:space="preserve"> ≈$13.06</text>
 <text x="24.0" y="338" fill="#d0d0d0" xml:space="preserve">  main  </text>
 <text x="86.4" y="338" fill="#d0d0d0" xml:space="preserve"> ≈$6.45</text>
 <text x="156.6" y="338" fill="#5fafd7" xml:space="preserve">████████████████</text>
-<text x="297.0" y="338" fill="#6fcf97" xml:space="preserve">−$4.17</text>
+<text x="297.0" y="338" fill="#87d787" xml:space="preserve">−$4.17</text>
 <text x="343.8" y="338" fill="#7c7c7c" xml:space="preserve"> vs Opus 5.5 · xhigh</text>
 <text x="24.0" y="357" fill="#d0d0d0" xml:space="preserve">  agents</text>
 <text x="86.4" y="357" fill="#d0d0d0" xml:space="preserve"> ≈$2.52</text>
 <text x="156.6" y="357" fill="#5fafd7" xml:space="preserve">██████</text>
 <text x="203.4" y="357" fill="#7c7c7c" xml:space="preserve">░░░░░░░░░░</text>
-<text x="297.0" y="357" fill="#f0b429" xml:space="preserve">+$0.08</text>
+<text x="297.0" y="357" fill="#d7af5f" xml:space="preserve">+$0.08</text>
 <text x="343.8" y="357" fill="#7c7c7c" xml:space="preserve"> vs their picks</text>
 <text x="24.0" y="376" fill="#7c7c7c" xml:space="preserve">  tiers </text>
 <text x="86.4" y="376" fill="#5f9fe0" font-weight="700" xml:space="preserve">█</text>
