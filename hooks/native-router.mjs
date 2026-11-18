@@ -257,6 +257,20 @@ const LEDGERS = {
 };
 const LEDGER_KINDS = Object.keys(LEDGERS);
 
+/** @typedef {ReturnType<typeof readTrace> | ReturnType<typeof newTrace>} TraceRecord */
+/**
+ * @typedef {object} TraceHold
+ * @property {string} sessionId
+ * @property {TraceRecord | null} record
+ * @property {unknown} persisted
+ * @property {number} lostWrites
+ * @property {Set<string>} reasons
+ * @property {Map<string, any>} turns
+ * @property {number} nextTurn
+ * @property {string | null} config
+ * @property {{ events: object[], excludedEvents?: number } | null} controls
+ */
+
 // Everything the hooks change between events, in one object `register()` creates and passes to its helpers. Module
 // variables, not $.state: a reload starts them over, and the view is written through to $.state as it changes.
 function createRouter(options) {
@@ -288,7 +302,7 @@ function createRouter(options) {
     // `{ sessionId, record }` once read (`decisionRecord`).
     turnDecisions: new Map(),
     decisionRecord: null,
-    trace: null,
+    trace: /** @type {TraceHold | null} */ (null),
     traceFreshSession: null,
     traceClearSession: null,
     traceStartedSession: null,
@@ -296,7 +310,7 @@ function createRouter(options) {
     traceOperations: new Map(),
     controllers: new Set(),
     turnControllers: new Map(),
-    view: null,
+    view: /** @type {Record<string, unknown> | null} */ (null),
     modes: new Map(),
     // Each session's routing mode override (null: none), as read from or written to the store.
     routingModes: new Map(),
@@ -355,6 +369,7 @@ async function ensureTrace($, router, e, turn, loop, loaded, fresh) {
     if (router.trace?.sessionId === sessionId && router.trace.record) return;
     const previous = router.trace?.sessionId === sessionId ? router.trace : null;
     const at = Date.now();
+    /** @type {TraceHold} */
     const held = {
       sessionId,
       record: null,
@@ -643,7 +658,7 @@ async function readView($, router) {
 
 // Only a saved mode is cached: the engine can draw the band before session.start, and a cached fallback from that
 // render would override the start rule.
-async function modeOf($, router, fallback = 'auto') {
+async function modeOf($, router, fallback = /** @type {string | null} */ ('auto')) {
   const sessionId = await $.session.id();
   if (router.modes.has(sessionId)) return router.modes.get(sessionId);
   try {
@@ -1727,7 +1742,17 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
 }
 
 // A routed reply's metrics in the view, with the tier that served it, and added to the turn's activity record with its list price (`routedUsd`, null when unpriced) and, when its tier served it, its route.
-async function publishReply($, router, turnId, request, response, tier, route, routedUsd, cause = null) {
+async function publishReply(
+  $,
+  router,
+  turnId,
+  request,
+  response,
+  tier,
+  route,
+  routedUsd,
+  cause = /** @type {string | null} */ (null),
+) {
   const turn = router.turnActivities.get(turnId);
   const metrics = responseMetrics(router.view, response, tier, Date.now());
   await updateView($, router, {
@@ -2274,7 +2299,7 @@ async function spawnAgent($, router, e, next) {
   const pass = passReason(cfg, e, definition);
   const decision = pass ? null : await decideSpawn($, router, cfg, e, definition, next.signal).catch(() => null);
   const routed = Boolean(decision?.model);
-  const result = await next(routed ? { ...e, model: decision.model } : e);
+  const result = await next(decision?.model ? { ...e, model: decision.model } : e);
   if (result.agentId && (pass || decision))
     await noteSpawn($, router, { cfg, e, pass, decision, routed, result, definition }).catch(() => {});
   return result;
@@ -3056,10 +3081,11 @@ export function register(on, options) {
     router.reviews.get(e.turnId)?.controller.abort();
     router.reviews.delete(e.turnId);
     router.turnControllers.get(e.turnId)?.abort();
-    if (router.view?.activeTurnId === e.turnId && router.view.phase === 'choosing') {
-      router.view = { ...router.view, activeTurnId: null };
+    const held = router.view;
+    if (held !== null && held.activeTurnId === e.turnId && held.phase === 'choosing') {
+      router.view = { ...held, activeTurnId: null };
       const mode = await modeOf($, router);
-      if (router.view.activeTurnId === null)
+      if (router.view?.activeTurnId === null)
         await updateView($, router, { phase: mode === 'manual' ? 'manual' : 'ready', reason: 'interrupted' });
     }
     router.prompts.delete(e.turnId);
