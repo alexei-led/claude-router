@@ -64,10 +64,12 @@ async function refusal(drawing: { drawn: () => Promise<unknown> }) {
 
 // Desktop, VS Code and mobile draw the same graphical trees: every tab of the pane and the band must pass each
 // surface's own element table, so the engine never refuses them and draws its own.
-test('desktop, vscode and mobile: every pane tab and the band mount without a refusal', async ($, on) => {
-  const state = setup(on, ROUTED);
-  const refused: string[] = [];
-  for (const surface of SURFACES) {
+// One test per surface: each mounts every tab several times, and a loaded machine would push all three past the
+// engine's per-test limit together.
+for (const surface of SURFACES) {
+  test(`${surface}: every pane tab and the band mount without a refusal`, async ($, on) => {
+    const state = setup(on, ROUTED);
+    const refused: string[] = [];
     for (const tab of TABS) {
       for (const view of [
         ROUTED,
@@ -131,9 +133,9 @@ test('desktop, vscode and mobile: every pane tab and the band mount without a re
         refused.push(`mobile band at ${columns}: a pending pin without its ✕`);
       await band.unmount();
     }
-  }
-  expect(refused).toEqual([]);
-});
+    expect(refused).toEqual([]);
+  });
+}
 
 // Set up on a surface without `/plugin configure`'s dialog: the pane shows how to add the key, and no command runs.
 test('desktop, vscode and mobile: the key help card mounts, and Set up runs no command', async ($, on) => {
