@@ -3146,6 +3146,15 @@ async function noticeUnavailable($, router, e) {
   } catch {}
 }
 
+const MODEL_SELECTED_MANUALLY = 'model selected manually';
+const MANUAL_SWITCH_SOURCES = new Set(['picker', 'sdk']);
+
+// A person chose the session's model: routing turns off and keeps it.
+async function keepChosenModel($, router, reason) {
+  await changeMode($, router, 'manual');
+  await updateView($, router, { nativeModel: await $.session.model(), ...(reason ? { reason } : {}) });
+}
+
 async function ensureInitialized($, router) {
   if (router.initialized) return true;
   router.initializing ??= initializeSession($, router).finally(() => {
@@ -3181,19 +3190,21 @@ export function register(on, options) {
 
   on('command.run', { command: 'model' }, async ($, e, next) => {
     const result = await next(e);
-    if (e.origin.kind !== 'plugin') {
-      await changeMode($, router, 'manual');
-      await updateView($, router, { nativeModel: await $.session.model(), reason: 'model selected manually' });
-    }
+    if (e.origin.kind !== 'plugin') await keepChosenModel($, router, MODEL_SELECTED_MANUALLY);
     return result;
   });
 
   on('config.set', { key: 'model' }, async ($, e, next) => {
     const result = await next(e);
-    if (!result.deny && e.origin.kind !== 'plugin') {
-      await changeMode($, router, 'manual');
-      await updateView($, router, { nativeModel: await $.session.model() });
-    }
+    if (!result.deny && e.origin.kind !== 'plugin') await keepChosenModel($, router);
+    return result;
+  });
+
+  // A switch the two hooks above never see: the model picker's shortcut, or set_model from the SDK, an IDE or Remote
+  // Control. A 'command' switch is theirs (they know a plugin's own /model); 'auto' and 'resume' are no one's choice.
+  on('classic.PostModelSwitch', async ($, e, next) => {
+    const result = await next(e);
+    if (MANUAL_SWITCH_SOURCES.has(e.source)) await keepChosenModel($, router, MODEL_SELECTED_MANUALLY);
     return result;
   });
 

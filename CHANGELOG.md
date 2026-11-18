@@ -5,6 +5,7 @@
 ### Fixed
 
 - The "Routing off" toast now also shows on a desktop, VS Code or mobile surface that attaches after the session started, once per surface. The once-a-day rule per cause is unchanged.
+- A model chosen in the model picker, or set from the SDK, an IDE or Remote Control, now turns routing off as `/model` does, so the router no longer overrides it.
 
 ### Removed
 

@@ -26,7 +26,7 @@ The activity is what the turn produces: `code`, `debug`, `explore`, `plan`, `rev
 | `/router mode <cost\|balanced\|quality\|default>` | Set or clear this session's [routing mode](routing-modes.md), from the next turn. Kept for a resume in `$.store` `routing-mode:<session id>`. Never aborts a turn. |
 | `/router decisions [n]`               | Print this session's last `n` routing decisions (default 20, at most 60): origin, classifier answer, task, tier, route, reason with the mass and bar it compared, and each turn's end. No text. |
 | `/router line <off\|moves\|all>`      | Set when a turn leaves a route line (default `moves`: only when its route moved). Kept in `$.store` as `route:line`, across sessions. |
-| `/model <name>`                        | Select a model and turn routing off. `/router auto` turns it back on.                             |
+| `/model <name>`                        | Select a model and turn routing off. `/router auto` turns it back on. A `classic.PostModelSwitch` from the picker or the SDK (`source` `picker` or `sdk`) does the same; `command` is left to the `/model` and `config.set` hooks, which skip a plugin's own switch, and `auto` and `resume` change nothing. |
 
 The prompt's typeahead (`prompt.autocomplete`) offers these words after `/router ` and their values after `pin `, `mode `, `activities ` and `line `. It starts with the first typed character, because the engine passes a token that is never empty. The command, the typeahead and the argument hint all read one table, `lib/subcommands.mjs`, and a test runs the command with every word and value in it.
 
