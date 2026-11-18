@@ -603,3 +603,52 @@ test('routing turned on for a model no tier routes to keeps it running: failures
     assert.equal(decision.escalated, false, name);
   }
 });
+
+const OPUS = 'claude-opus-5-5';
+const heldOpus = (until = now + 300_000) => ({
+  ...emptyLoop(DEFAULTS, OPUS),
+  held: { [OPUS]: { error: 'overloaded', until } },
+});
+const opusInput = (loop, overrides = {}) =>
+  input(loop, { nativeModel: OPUS, advice: adviceOf('medium', { medium: 0.97, high: 0.03 }), ...overrides });
+
+test('a held-out model routes the turn to the nearest tier on another model and keeps the held route for later', () => {
+  const loop = heldOpus();
+  const result = chooseRoute(DEFAULTS, loop, opusInput(loop));
+  assert.deepEqual(
+    [result.decision.tier, result.decision.model, result.decision.effort, result.decision.reason],
+    ['low', 'claude-haiku-5-5', 'high', 'model-held'],
+  );
+  assert.equal(result.lastRoute, loop.lastRoute);
+  assert.equal(result.route, loop.route);
+});
+
+test('a held-out model at the turn’s activity falls to that activity’s nearest route', () => {
+  const loop = heldOpus();
+  const code = {
+    ...adviceOf('medium', { medium: 0.97, high: 0.03 }),
+    activity: { choice: 'code', probabilities: { code: 0.95 } },
+  };
+  const { decision } = chooseRoute(DEFAULTS, loop, opusInput(loop, { advice: code }));
+  assert.deepEqual(
+    [decision.tier, decision.model, decision.effort, decision.reason],
+    ['low', 'claude-sonnet-5-5', 'high', 'model-held'],
+  );
+});
+
+test('a pinned turn on a held-out model runs the fallback and names the hold', () => {
+  const loop = heldOpus();
+  const { decision } = chooseRoute(DEFAULTS, loop, opusInput(loop, { pin: 'high' }));
+  assert.deepEqual([decision.pinned, decision.model, decision.reason], [true, 'claude-haiku-5-5', 'model-held']);
+});
+
+test('once the hold ends the next turn runs the held model again', () => {
+  const loop = heldOpus(now);
+  const { decision } = chooseRoute(DEFAULTS, loop, opusInput(loop));
+  assert.deepEqual([decision.tier, decision.model], ['medium', OPUS]);
+  assert.notEqual(decision.reason, 'model-held');
+});
+
+test('a compaction keeps the holds', () => {
+  assert.deepEqual(resetHistory(heldOpus()).held, heldOpus().held);
+});

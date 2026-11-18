@@ -412,6 +412,21 @@ These thresholds are starting values. They are not tuned on data yet.
 
 On Claude Code 2.1.322 an effort that the router changed inside a turn was not sent in the 6 cases found, while a changed model was, so the band and the decision record can name an effort that did not run. Claude Code sends an effort change on a tool-result step only when `CLAUDE_CODE_MODEL_CAPABILITIES=per_turn_effort` is set in its environment; the router does not set it. See [What we do not know yet](activity-routing.md#what-we-do-not-know-yet).
 
+### When a model fails
+
+When a turn ends on an API error that is the model's fault, the router holds that model out of routing for a while, so the next turns run another model. A toast says so once, such as `Opus 5.5 held out of routing: overloaded, 5 min`.
+
+| Error Claude Code reports | Held out for |
+| ------------------------- | ------------ |
+| `rate_limit`              | 5 minutes    |
+| `overloaded`              | 5 minutes    |
+| `server_error`            | 2 minutes    |
+| `model_not_found`         | 1 hour       |
+
+A billing error, a rejected key or request, a cut-off answer and an unknown error hold nothing: another model would not help. Claude Code reports no retry-after, so the times are fixed.
+
+While a model is held out, a turn whose route runs it, a pinned turn too, runs the nearest tier's route on another model at the turn's activity; of two tiers as near, the stronger. The switch toast, the band and the route line show `! held out`. When the hold ends, the next turn returns to the route it held out without waiting for votes or a checkpoint. The failed request is not sent again: Claude Code reports the error after the turn has ended. A subagent's failure holds nothing. A compaction keeps the holds; a new session starts without them. The `auto` engine does not use them.
+
 ### Read the activity on the pane
 
 - **Now**: the first line of **NEXT TURN** names the classifier's activity with its share and the next answer, such as `code 84%  debug 8%`. An `uncertain` answer is shown dim: it applies no activity. In `on`, a line under it names the cell when the route is an override, such as `code at low runs on Sonnet 5.5 · high · tier route Haiku 5.5 · high`, and **why** reads `↑ code` or `↓ ops` when the activity moved the route; a refused move, a hold, or a tier change keeps its reason.

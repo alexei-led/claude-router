@@ -76,6 +76,7 @@ import {
   GATEWAY_CLEANUP,
   GATEWAY_SETTINGS,
   missingCredentials,
+  modelName,
   NOT_A_TIER_REASON,
   pinCard,
   pluginIdOf,
@@ -95,6 +96,7 @@ import {
   routingBucket,
   stripReminders,
 } from '../lib/facts.mjs';
+import { activeHolds, holdModel, holdMs, holdText } from '../lib/failover.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
@@ -315,6 +317,8 @@ function createRouter(options) {
     turnDecisions: new Map(),
     // The route the last routed turn ran, to tell whether the next one moved it; null at a session's start.
     lastRoute: null,
+    // The model of the last main request sent: the one an API error that ends the turn failed on (holdFailedModel).
+    lastRequested: /** @type {string | null} */ (null),
     decisionRecord: null,
     trace: /** @type {TraceHold | null} */ (null),
     traceFreshSession: null,
@@ -1281,6 +1285,8 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
   const sessionId = await $.session.id();
   if (turn.config.routingEngine === 'shadow')
     traceRequest(router, e, turn, e, reason === 'manual' ? 'manual' : 'auto', loop);
+  // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
+  router.lastRequested = e.model;
   const response = yield* next(e);
   if (!next.signal.aborted && (await $.session.id()) === sessionId) {
     const at = Date.now();
@@ -2879,6 +2885,8 @@ async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, session
   else request.effort = loop.decision.effort;
   if (cfg.routingEngine === 'shadow' && !next.signal.aborted && (await $.session.id()) === sessionId)
     traceRequest(router, e, router.turnConfigs.get(e.turnId) ?? turn, request, 'auto', loop);
+  // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
+  router.lastRequested = request.model;
   const response = yield* next(request);
   if (!next.signal.aborted && (await $.session.id()) === sessionId)
     await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
@@ -3155,6 +3163,31 @@ async function keepChosenModel($, router, reason) {
   await updateView($, router, { nativeModel: await $.session.model(), ...(reason ? { reason } : {}) });
 }
 
+// A main turn ended on an API error (`StopFailure`): the request is lost, and Claude Code reports neither the model nor
+// a retry-after. An error that is the model's holds the model the last request ran out of routing for a while
+// (lib/failover.mjs), so the next turn runs another; the hold lives in the loop, which routing reads.
+async function holdFailedModel($, router, error) {
+  // A failed hold changes no route; the turn's result stands.
+  try {
+    if (holdMs(error) === null || !(await ensureInitialized($, router))) return;
+    const model = router.lastRequested ?? (await $.session.model());
+    const ref = { ...LOOP, id: 'main' };
+    // A write that lost to a step's own write reads the loop again.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { value: loop, version } = await $.state.get(ref);
+      if (!loop) return;
+      const now = Date.now();
+      const held = holdModel(loop.held, model, error, now);
+      const written = await $.state.set(ref, { ...loop, held }, { ifVersion: version });
+      if (!written.isSet) continue;
+      const hold = activeHolds(held, now)[model];
+      if (hold && (await modeOf($, router)) === 'auto')
+        $.ui.toast(`${modelName(model)} held out of routing: ${holdText(hold, now)}`);
+      return;
+    }
+  } catch {}
+}
+
 async function ensureInitialized($, router) {
   if (router.initialized) return true;
   router.initializing ??= initializeSession($, router).finally(() => {
@@ -3270,6 +3303,14 @@ export function register(on, options) {
     router.traceOperations.delete(e.turnId);
     return next(e);
   });
+
+  // Since 2.1.296 (present at the 2.1.321 floor): a turn that ended on an API error. A subagent's is not routed here.
+  // A hook failure leaves the event to the hooks beneath, as without the router.
+  on('classic.StopFailure', async ($, e, next) => {
+    const result = await next(e);
+    if (e.agent_id === undefined) await holdFailedModel($, router, e.error);
+    return result;
+  }).catch((_$, e, next) => next(e));
 
   on('session.compact', async ($, e, next) => {
     const result = await next(e);

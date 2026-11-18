@@ -54,6 +54,7 @@ Claude Code builds each request for the model the Mod selects, so no request rew
 | [Classifier contract](../lib/classifier-contract.mjs) | Route criteria and instructions shared by every protocol, credentials and endpoint filling, and retry rules.     |
 | [Classifier APIs](../lib/classifier-apis.mjs)         | One adapter per wire protocol: request payload, answer validation, and the shared advice shape.                  |
 | [Classifier client](../lib/classifier-client.mjs)     | Classifier HTTP, deadline, in-flight admission, and circuit breaker.                                             |
+| [Failover](../lib/failover.mjs)                       | How long each API error holds the failed model out of routing, and which holds still run.                        |
 | [Router controller](../lib/route.mjs)                 | Context fit, model identity, engine fallback, cache observations, one-turn pins, and the tier-and-activity cell. |
 | [Activity rules](../lib/activity.mjs)                 | Which activity applies, how two routes compare, and when a route change inside a tier is worth it.               |
 | [Activity stats](../lib/activity-stats.mjs)           | Session and stored activity counts, the tool-agreement table, and the per-turn record.                           |
@@ -106,6 +107,8 @@ An upgrade or downgrade needs a streak of supporting votes (`upgradeVotes`, `dow
 A move to a smaller context window needs a main-response measurement from the current history and Claude's local context estimate. The router uses the larger available reading and reserves 20% of the model window. If it cannot establish fit, it keeps the current model with `context-unknown`. It does not infer token count from character count.
 
 An explicit context-window failure marks that model ineligible until the next history reset. An engine fallback suspends rewriting for the rest of the turn. The router does not retry an Anthropic request.
+
+A main turn that ends on an API error (`classic.StopFailure`) holds the model of the last main request out of routing (`loop.held`, `lib/failover.mjs`): `rate_limit` and `overloaded` for 5 minutes, `server_error` for 2, `model_not_found` for an hour; other errors are not the model's and hold nothing. The event carries neither the model nor a retry-after, so the hook keeps the last request's model and the times are fixed. At the next turn a cell whose route runs a held model falls back to the nearest tier, the stronger of two as near, at the turn's activity, with reason `model-held`. That fallback serves the turn only, as a pin does: `lastRoute` and `loop.route` keep the held route, so the turn after the hold runs it again with no switching gate. A compaction keeps the holds. Tool continuations and the `auto` engine do not read them.
 
 ## Activity routing
 

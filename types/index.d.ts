@@ -314,6 +314,8 @@ declare module 'claude-code' {
       requestedPin: RouterTier | null;
     } | null;
     ineligible: string[];
+    // Models an API error held out of routing (lib/failover.mjs), by model id: the error and when the hold ends.
+    held?: Record<string, { error: string; until: number }>;
     // Your model's simulated cache for routing vs your model: the last prompt's tokens, when, whether that reply ran
     // on your route, and the model and effort it was kept for. Null at the start and after a compaction.
     yours?: { total: number; at: number; onYours: boolean; model: string; effort: string | null } | null;
