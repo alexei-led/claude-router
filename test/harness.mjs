@@ -70,6 +70,8 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   const copied = [];
   const toasts = [];
   const views = [];
+  const places = [];
+  let placeResult = { isPlaced: true, requestId: 'placed-1' };
   let agents = [];
   let viewResult = {};
   let version = '2.1.321';
@@ -159,6 +161,10 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       },
       copy: async (args) => copied.push(args),
       toast: (text) => toasts.push(text),
+      place: async (args) => {
+        places.push(args);
+        return placeResult;
+      },
       view: async (view) => {
         views.push(view);
         return viewResult;
@@ -224,6 +230,12 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     commandCalls: () => commandCalls,
     copied,
     toasts,
+    // The calls of `$.ui.place`, in order; `placeAnswer` is what it resolves to next (`{ isPlaced: false, reason }` where
+    // no surface is attached).
+    places,
+    placeAnswer: (value) => {
+      placeResult = value;
+    },
     // The calls of `$.ui.view`, in order; `viewAnswer` is what it resolves to next (`{}` or `{ deny }`).
     views,
     viewAnswer: (value) => {

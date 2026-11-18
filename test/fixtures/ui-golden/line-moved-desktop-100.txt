@@ -1,0 +1,13 @@
+Box alignItems="center" flexDirection="row" flexWrap="nowrap" gap="sm" key="router-line" overflow="hidden" paddingX=1
+  Svg alt="Tier: medium" height=12 source="<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 16 12\" width=\"16\" height=\"12\"><rect x=\"0\" y=\"9\" width=\"3\" height=\"3\" rx=\"0.5\" fill=\"#a67c1a\"/><rect x=\"4\" y=\"6\" width=\"3\" height=\"6\" rx=\"0.5\" fill=\"#a67c1a\"/><rect x=\"8\" y=\"3\" width=\"3\" height=\"9\" rx=\"0.5\" fill=\"#a67c1a\"/><rect x=\"12\" y=\"0\" width=\"3\" height=\"12\" rx=\"0.5\" fill=\"rgba(127,127,127,0.35)\"/></svg>" width=16
+  Text size="footnote" tabular=true
+    Text weight="semibold"
+      "Sonnet 5.5"
+    Text
+      " · high"
+  Text color="subtle" size="footnote" tabular=true
+    "↓ cheaper fits"
+  Text color="#c4693f" italic=true size="footnote" tabular=true
+    "code"
+  Text color="subtle" size="footnote" tabular=true
+    "Jev 93% ≥ 90%"

@@ -1,0 +1,21 @@
+Box
+  Text
+    "  "
+  Text color="#5fd7af"
+    "▂"
+  Text dimColor=true
+    "▄"
+  Text dimColor=true
+    "▆"
+  Text dimColor=true
+    "█"
+  Text
+    " "
+  Text weight="semibold"
+    "Haiku 5.5"
+  Text
+    " · medium"
+  Text
+    "   "
+  Text dimColor=true
+    "⏵ pinned"
