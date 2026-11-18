@@ -1,6 +1,6 @@
 Box flexDirection="column" key="router-band"
   Box
-    Text color="#f0b429"
+    Text color="warning"
       "⚠ Jev: no API key"
     Text
       "   "

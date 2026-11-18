@@ -1,6 +1,6 @@
 Box flexDirection="column"
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "ROUTER"
     Text
       "  "
@@ -10,7 +10,7 @@ Box flexDirection="column"
     Button hotkey="f" key="manual" label="○ off" variant="secondary"
     Text
       "  "
-    Text color="green"
+    Text color="success"
       "Jev ready · 347 ms"
   Box
     Button hotkey="1" key="tab-now" label="Now" variant="secondary"
@@ -57,11 +57,11 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="#6fcf97"
+    Text color="success" weight="semibold"
       "−$0.20 (−40%)"
     Text
       " vs unrouted"
-    Text color="yellow"
+    Text color="warning"
       "   1 reply so far: one model switch can still move this a lot"
   Text
     " "
@@ -81,7 +81,7 @@ Box flexDirection="column"
         "main · 1 reply"
     Text
       "  ≈$0.30"
-    Text color="#6fcf97"
+    Text color="success"
       "         −$0.20"
     Text dimColor=true
       "      ≈$0.50"
@@ -91,7 +91,7 @@ Box flexDirection="column"
         "  cheaper models"
     Text
       "        "
-    Text color="#6fcf97"
+    Text color="success"
       "         −$0.22"
   Box
     Box flexShrink=0 width=26
@@ -99,7 +99,7 @@ Box flexDirection="column"
         "  cache rebuilds"
     Text
       "        "
-    Text color="#f0b429"
+    Text color="warning"
       "         +$0.02"
     Text dimColor=true
       "   9% of the saving"
@@ -107,11 +107,11 @@ Box flexDirection="column"
     "─────────────────────────────────────────────────────────────"
   Box
     Box flexShrink=0 width=26
-      Text bold=true
+      Text weight="semibold"
         "7 days · API estimate"
-    Text bold=true
+    Text weight="semibold"
       "  ≈$0.30"
-    Text bold=true color="#6fcf97"
+    Text color="success" weight="semibold"
       "         −$0.20"
     Text dimColor=true
       "      ≈$0.50"
@@ -122,7 +122,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "BY  "
     Button key="group-activity" label="Activity" variant="primary"
     Text
@@ -144,18 +144,18 @@ Box flexDirection="column"
     Text
       " "
     Box flexShrink=0 width=20
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "code"
     Text
       "       1    ≈$0.30"
-    Text color="#6fcf97"
+    Text color="success"
       "         −$0.20"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "COST BY DAY "
-    Text color="cyan"
+    Text color="suggestion"
       "·····█·"
     Text dimColor=true
       "  peak ≈$0.30   "
@@ -163,7 +163,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "SUBAGENTS"
     Text dimColor=true
       " · all projects · Oct 7 – Oct 13   subagent routing on"

@@ -10,13 +10,13 @@ Box flexDirection="column" key="router-band"
       "█"
     Text
       " "
-    Text bold=true
+    Text weight="semibold"
       "Opus 5.5"
     Text
       " · xhigh"
     Text
       "   "
-    Text color="#7c9cff"
+    Text color="suggestion"
       "⏵ next "
     Text color="#5f9fe0"
       "▂▄"

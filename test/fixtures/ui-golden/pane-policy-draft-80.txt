@@ -1,6 +1,6 @@
 Box flexDirection="column"
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "ROUTER"
     Text
       "  "
@@ -10,7 +10,7 @@ Box flexDirection="column"
     Button hotkey="f" key="manual" label="○ off" variant="secondary"
     Text
       "  "
-    Text color="green"
+    Text color="success"
       "Jev ready · 347 ms"
   Box
     Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
@@ -32,7 +32,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "POLICY"
     Text dimColor=true
       " · how readily the router changes models · edit, then Save"
@@ -40,7 +40,7 @@ Box flexDirection="column"
     " "
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "Mode"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Box
@@ -49,11 +49,11 @@ Box flexDirection="column"
           "  saved at once"
       Text dimColor=true wrap="wrap"
         "each tier runs its route as configured"
-      Text color="yellow" wrap="wrap"
+      Text color="warning" wrap="wrap"
         "this session runs cost (session)"
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "Start"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Box
@@ -63,7 +63,7 @@ Box flexDirection="column"
         Text
           " "
         Box flexShrink=0 width=2
-          Text color="yellow"
+          Text color="warning"
             "●"
         Text dimColor=true
           "default low"
@@ -71,7 +71,7 @@ Box flexDirection="column"
         "when the session’s model is no tier’s model"
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "Going down"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Box
@@ -90,20 +90,20 @@ Box flexDirection="column"
         Text
           " "
         Box flexShrink=0 width=2
-          Text color="yellow"
+          Text color="warning"
             "●"
         Text dimColor=true
           "default 5 turns"
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "Going up"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Text dimColor=true wrap="wrap"
         "needs Jev support of 75%, up to 90% as the switch costs more"
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "Activities"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Box
@@ -113,7 +113,7 @@ Box flexDirection="column"
         Text
           " certainty or more "
         Box flexShrink=0 width=2
-          Text color="yellow"
+          Text color="warning"
             "●"
         Text dimColor=true
           "default 60%"
@@ -121,7 +121,7 @@ Box flexDirection="column"
         "else a new task runs its tier’s model; a continuation keeps it"
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "Credits"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Box
@@ -131,7 +131,7 @@ Box flexDirection="column"
         Text
           " "
         Box flexShrink=0 width=2
-          Text color="yellow"
+          Text color="warning"
             "●"
         Text dimColor=true
           "default $2.00"
@@ -143,7 +143,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "FILE"
     Text
       "  /fixture/team/router.json  "
@@ -154,24 +154,24 @@ Box flexDirection="column"
     " "
   Text dimColor=true
     "router.json changes:"
-  Text color="red"
+  Text color="error"
     "- baselineTier                   low"
-  Text color="green"
+  Text color="success"
     "+ baselineTier                   micro"
-  Text color="red"
+  Text color="error"
     "- policy.downgradeHorizonTurns   5 turns"
-  Text color="green"
+  Text color="success"
     "+ policy.downgradeHorizonTurns   10 turns"
-  Text color="red"
+  Text color="error"
     "- policy.cashCapUsd              $2.00"
-  Text color="green"
+  Text color="success"
     "+ policy.cashCapUsd              $1.00"
-  Text color="red"
+  Text color="error"
     "- policy.activityMass            60%"
-  Text color="green"
+  Text color="success"
     "+ policy.activityMass            80%"
   Box
-    Text color="yellow"
+    Text color="warning"
       "● 4 unsaved routing changes  "
     Button hotkey="s" key="save-routing" label="Save" variant="primary"
     Text

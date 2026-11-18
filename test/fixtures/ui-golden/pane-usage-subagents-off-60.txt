@@ -1,6 +1,6 @@
 Box flexDirection="column"
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "ROUTER"
     Text
       "  "
@@ -10,7 +10,7 @@ Box flexDirection="column"
     Button hotkey="f" key="manual" label="○ off" variant="secondary"
     Text
       "  "
-    Text color="green"
+    Text color="success"
       "Jev ready · 347 ms"
   Box
     Button hotkey="1" key="tab-now" label="Now" variant="secondary"
@@ -55,12 +55,12 @@ Box flexDirection="column"
   Box
     Text dimColor=true
       "this session · your model "
-    Text bold=true color="#e0708a"
+    Text color="#e0708a" weight="semibold"
       "Opus 5.5 · xhigh"
   Text
     " "
   Box
-    Text bold=true color="#6fcf97"
+    Text color="success" weight="semibold"
       "−$4.70 (−52%)"
     Text
       " vs unrouted"
@@ -82,7 +82,7 @@ Box flexDirection="column"
         "main · 20 replies"
     Text
       "  ≈$4.30"
-    Text color="#6fcf97"
+    Text color="success"
       "         −$4.70"
     Text dimColor=true
       "      ≈$9.00"
@@ -92,7 +92,7 @@ Box flexDirection="column"
         "  cheaper models"
     Text
       "        "
-    Text color="#6fcf97"
+    Text color="success"
       "         −$4.92"
   Box
     Box flexShrink=0 width=26
@@ -100,7 +100,7 @@ Box flexDirection="column"
         "  cache rebuilds"
     Text
       "        "
-    Text color="#f0b429"
+    Text color="warning"
       "         +$0.22"
     Text dimColor=true
       "   4% of the saving"
@@ -108,11 +108,11 @@ Box flexDirection="column"
     "─────────────────────────────────────────────────────────────"
   Box
     Box flexShrink=0 width=26
-      Text bold=true
+      Text weight="semibold"
         "session · API estimate"
-    Text bold=true
+    Text weight="semibold"
       "  ≈$4.30"
-    Text bold=true color="#6fcf97"
+    Text color="success" weight="semibold"
       "         −$4.70"
     Text dimColor=true
       "      ≈$9.00"
@@ -123,7 +123,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "BY  "
     Button key="group-activity" label="Activity" variant="primary"
     Text
@@ -145,11 +145,11 @@ Box flexDirection="column"
     Text
       " "
     Box flexShrink=0 width=20
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "code"
     Text
       "      10    ≈$3.80"
-    Text color="#6fcf97"
+    Text color="success"
       "         −$1.20"
   Box
     Text
@@ -158,18 +158,18 @@ Box flexDirection="column"
     Text
       " "
     Box flexShrink=0 width=20
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "explore"
     Text
       "      10    ≈$0.50"
-    Text color="#6fcf97"
+    Text color="success"
       "         −$3.50"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "COST BY HOUR "
-    Text color="cyan"
+    Text color="suggestion"
       "█▁▂█"
     Text dimColor=true
       "  peak ≈$2.00   "
@@ -177,14 +177,14 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "WORTH A LOOK"
     Text dimColor=true
       " · from the numbers; answer quality is not measured"
   Box
     Text
       "  "
-    Text color="#d7875f" italic=true
+    Text color="#d77757" italic=true
       "code"
     Text dimColor=true
       " · "
@@ -198,7 +198,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "SUBAGENTS"
     Text dimColor=true
       " · this session   subagent routing off"

@@ -10,7 +10,7 @@ Box flexDirection="column" key="router-band"
       "█"
     Text
       " "
-    Text bold=true
+    Text weight="semibold"
       "Sonnet 5.5"
     Text
       " · high"
@@ -24,23 +24,23 @@ Box flexDirection="column" key="router-band"
       "↑ needs stronger"
     Text
       "   "
-    Text backgroundColor="#2a3040" color="#8b93a7"
+    Text backgroundColor="#2a3040" color="subtle"
       " cost "
     Text
       "     "
     Text dimColor=true
       "ctx "
-    Text color="green"
+    Text color="success"
       "▰"
     Text dimColor=true
       "▱▱▱▱"
-    Text color="green"
+    Text color="success"
       " 12%"
     Text
       "   "
     Text dimColor=true
       "cache "
-    Text color="green"
+    Text color="success"
       "90%"
     Text dimColor=true
       " last"

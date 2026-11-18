@@ -271,7 +271,7 @@ test('a narrow band drops the activity before the reason and keeps the tier and 
       if (tag) {
         assert.equal(tag.tone, 'activity', name);
         assert.equal(tag.italic, true, name);
-        assert.equal(toneColor(tag.tone, 'terminal', tag.scale), '#d77757', name);
+        assert.equal(toneColor(tag.tone, 'terminal'), '#d77757', name);
       }
     }
   }

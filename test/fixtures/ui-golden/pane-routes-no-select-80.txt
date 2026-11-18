@@ -1,6 +1,6 @@
 Box flexDirection="column"
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "ROUTER"
     Text
       "  "
@@ -10,7 +10,7 @@ Box flexDirection="column"
     Button hotkey="f" key="manual" label="○ off" variant="secondary"
     Text
       "  "
-    Text color="green"
+    Text color="success"
       "Jev ready · 347 ms"
   Box
     Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
@@ -32,7 +32,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "ROUTES"
     Text dimColor=true
       " · which model runs, by tier and activity · edit, then Save"
@@ -41,7 +41,7 @@ Box flexDirection="column"
       Text
         "Activity routing: off"
     Box flexShrink=0 width=2
-      Text color="yellow"
+      Text color="warning"
         "●"
     Text dimColor=true
       "not asked; every turn runs its tier’s model"
@@ -57,20 +57,20 @@ Box flexDirection="column"
       Text
         ""
     Box flexShrink=0 width=16
-      Text bold=true color="#5fd7af"
+      Text color="#5fd7af" weight="semibold"
         " micro"
     Box flexShrink=0 width=16
-      Text bold=true color="#5f9fe0"
+      Text color="#5f9fe0" weight="semibold"
         " low"
     Box flexShrink=0 width=16
-      Text bold=true color="#d7af5f"
+      Text color="#d7af5f" weight="semibold"
         " medium"
     Box flexShrink=0 width=16
-      Text bold=true color="#e0708a"
+      Text color="#e0708a" weight="semibold"
         " high"
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "every turn"
     Box flexShrink=0 width=16
       Button key="cell-tier-micro" label=" sonnet·high●" plain=true
@@ -82,7 +82,7 @@ Box flexDirection="column"
       Button key="cell-tier-high" label=" opus·xhigh" plain=true
   Box
     Box flexShrink=0 width=13
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "code"
     Box flexShrink=0 width=16
       Button dimColor=true key="cell-code-micro" label=" ·" plain=true
@@ -94,7 +94,7 @@ Box flexDirection="column"
       Button dimColor=true key="cell-code-high" label="▸opus·max●" plain=true
   Box
     Box flexShrink=0 width=13
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "debug"
     Box flexShrink=0 width=16
       Button dimColor=true key="cell-debug-micro" label=" ·" plain=true
@@ -106,7 +106,7 @@ Box flexDirection="column"
       Button dimColor=true key="cell-debug-high" label=" ·" plain=true
   Box
     Box flexShrink=0 width=13
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "explore"
     Box flexShrink=0 width=16
       Button dimColor=true key="cell-explore-micro" label=" ·" plain=true
@@ -118,7 +118,7 @@ Box flexDirection="column"
       Button dimColor=true key="cell-explore-high" label=" ·" plain=true
   Box
     Box flexShrink=0 width=13
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "plan"
     Box flexShrink=0 width=16
       Button dimColor=true key="cell-plan-micro" label=" ·" plain=true
@@ -130,7 +130,7 @@ Box flexDirection="column"
       Button dimColor=true key="cell-plan-high" label=" ·" plain=true
   Box
     Box flexShrink=0 width=13
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "review"
     Box flexShrink=0 width=16
       Button dimColor=true key="cell-review-micro" label=" ·" plain=true
@@ -142,7 +142,7 @@ Box flexDirection="column"
       Button dimColor=true key="cell-review-high" label=" ·" plain=true
   Box
     Box flexShrink=0 width=13
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "ops"
     Box flexShrink=0 width=16
       Button dimColor=true key="cell-ops-micro" label=" ·" plain=true
@@ -154,7 +154,7 @@ Box flexDirection="column"
       Button dimColor=true key="cell-ops-high" label=" ·" plain=true
   Box
     Box flexShrink=0 width=13
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "docs"
     Box flexShrink=0 width=16
       Button dimColor=true key="cell-docs-micro" label=" ·" plain=true
@@ -171,11 +171,11 @@ Box flexDirection="column"
   Box
     Box flexShrink=0 width=22
       Box
-        Text color="#d7875f" italic=true
+        Text color="#d77757" italic=true
           "code"
         Text
           " at "
-        Text bold=true color="#e0708a"
+        Text color="#e0708a" weight="semibold"
           "high"
     Box flexShrink=0 width=14
       Text
@@ -184,7 +184,7 @@ Box flexDirection="column"
       Text
         "max"
     Box flexShrink=0 width=2
-      Text color="yellow"
+      Text color="warning"
         "●"
   Box
     Box flexShrink=0 width=22
@@ -212,28 +212,28 @@ Box flexDirection="column"
     " "
   Text dimColor=true
     "router.json changes:"
-  Text color="red"
+  Text color="error"
     "- routes.micro                   Haiku 5.5 · medium"
-  Text color="green"
+  Text color="success"
     "+ routes.micro                   Sonnet 5.5 · high"
-  Text color="red"
+  Text color="error"
     "- baselineTier                   low"
-  Text color="green"
+  Text color="success"
     "+ baselineTier                   micro"
-  Text color="red"
+  Text color="error"
     "- activities.code.low            Sonnet 5.5 · high"
-  Text color="green"
+  Text color="success"
     "+ activities.code.low            no override"
-  Text color="red"
+  Text color="error"
     "- activities.code.high           no override"
-  Text color="green"
+  Text color="success"
     "+ activities.code.high           Opus 5.5 · max"
-  Text color="red"
+  Text color="error"
     "- activityRouting                on"
-  Text color="green"
+  Text color="success"
     "+ activityRouting                off"
   Box
-    Text color="yellow"
+    Text color="warning"
       "● 5 unsaved routing changes  "
     Button hotkey="s" key="save-routing" label="Save" variant="primary"
     Text

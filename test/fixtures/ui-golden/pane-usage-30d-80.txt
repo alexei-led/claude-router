@@ -1,6 +1,6 @@
 Box flexDirection="column"
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "ROUTER"
     Text
       "  "
@@ -10,7 +10,7 @@ Box flexDirection="column"
     Button hotkey="f" key="manual" label="○ off" variant="secondary"
     Text
       "  "
-    Text color="green"
+    Text color="success"
       "Jev ready · 347 ms"
   Box
     Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
@@ -57,7 +57,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="#6fcf97"
+    Text color="success" weight="semibold"
       "−$6.10 (−49%)"
     Text
       " vs unrouted"
@@ -79,7 +79,7 @@ Box flexDirection="column"
         "main · 22 replies"
     Text
       "  ≈$4.90"
-    Text color="#6fcf97"
+    Text color="success"
       "         −$5.10"
     Text dimColor=true
       "     ≈$10.00"
@@ -89,7 +89,7 @@ Box flexDirection="column"
         "  cheaper models"
     Text
       "        "
-    Text color="#6fcf97"
+    Text color="success"
       "         −$5.36"
   Box
     Box flexShrink=0 width=26
@@ -97,7 +97,7 @@ Box flexDirection="column"
         "  cache rebuilds"
     Text
       "        "
-    Text color="#f0b429"
+    Text color="warning"
       "         +$0.26"
     Text dimColor=true
       "   5% of the saving"
@@ -107,7 +107,7 @@ Box flexDirection="column"
         "agents · 7"
     Text
       "  ≈$1.50"
-    Text color="#6fcf97"
+    Text color="success"
       "         −$1.00"
     Text dimColor=true
       "      ≈$2.50"
@@ -115,11 +115,11 @@ Box flexDirection="column"
     "─────────────────────────────────────────────────────────────"
   Box
     Box flexShrink=0 width=26
-      Text bold=true
+      Text weight="semibold"
         "30 days · API estimate"
-    Text bold=true
+    Text weight="semibold"
       "  ≈$6.40"
-    Text bold=true color="#6fcf97"
+    Text color="success" weight="semibold"
       "         −$6.10"
     Text dimColor=true
       "     ≈$12.50"
@@ -130,7 +130,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "BY  "
     Button key="group-activity" label="Activity" variant="primary"
     Text
@@ -152,11 +152,11 @@ Box flexDirection="column"
     Text
       " "
     Box flexShrink=0 width=20
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "code"
     Text
       "      12    ≈$4.40"
-    Text color="#6fcf97"
+    Text color="success"
       "         −$1.60"
     Text dimColor=true
       "   Sonnet 5.5 · high"
@@ -167,20 +167,20 @@ Box flexDirection="column"
     Text
       " "
     Box flexShrink=0 width=20
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "explore"
     Text
       "      10    ≈$0.50"
-    Text color="#6fcf97"
+    Text color="success"
       "         −$3.50"
     Text dimColor=true
       "   Haiku 5.5 · high"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "COST BY DAY "
-    Text color="cyan"
+    Text color="suggestion"
       "·················▁··········▁█"
     Text dimColor=true
       "  peak ≈$4.30   "
@@ -188,14 +188,14 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "WORTH A LOOK"
     Text dimColor=true
       " · from the numbers; answer quality is not measured"
   Box
     Text
       "  "
-    Text color="#d7875f" italic=true
+    Text color="#d77757" italic=true
       "code"
     Text dimColor=true
       " · "
@@ -209,7 +209,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "SUBAGENTS"
     Text dimColor=true
       " · all projects · Sep 14 – Oct 13   subagent routing on"
@@ -250,7 +250,7 @@ Box flexDirection="column"
   Box
     Text
       "  "
-    Text bold=true color="#6fcf97"
+    Text color="success" weight="semibold"
       "routing −$1.00 (−50%)"
     Text
       " vs Claude Code’s picks"
@@ -259,14 +259,14 @@ Box flexDirection="column"
   Box
     Text
       "  per day "
-    Text bold=true
+    Text weight="semibold"
       "▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▂▁▂▁█"
     Text dimColor=true
       "  peak 5 on Oct 13"
   Text
     " "
   Box
-    Text bold=true
+    Text weight="semibold"
       "  ROUTED"
     Text dimColor=true
       " · the router picked the model at spawn"
@@ -289,7 +289,7 @@ Box flexDirection="column"
       "  3"
     Text
       "   ≈$0.30"
-    Text color="#6fcf97"
+    Text color="success"
       "   −$1.20 ▼"
   Box
     Text
@@ -312,12 +312,12 @@ Box flexDirection="column"
       "  3"
     Text
       "   ≈$0.70"
-    Text color="#f0b429"
+    Text color="warning"
       "   +$0.20 ▲"
   Text
     " "
   Box
-    Text bold=true
+    Text weight="semibold"
       "  NOT ROUTED"
     Text dimColor=true
       " · Claude Code picked the model"

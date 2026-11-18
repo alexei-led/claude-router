@@ -2,7 +2,7 @@ Box flexDirection="column" key="router-band"
   Box
     Text dimColor=true
       "○ "
-    Text bold=true
+    Text weight="semibold"
       "Sonnet 5.5"
     Text
       " "

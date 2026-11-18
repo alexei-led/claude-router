@@ -1,8 +1,8 @@
 Box flexDirection="column" key="router-band"
   Box
-    Text color="red"
+    Text color="error"
       "✕ "
-    Text bold=true
+    Text weight="semibold"
       "Opus 5.5"
     Text
       " · xhigh"

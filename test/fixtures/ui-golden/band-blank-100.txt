@@ -10,7 +10,7 @@ Box flexDirection="column" key="router-band"
       "█"
     Text
       " "
-    Text bold=true
+    Text weight="semibold"
       "no response yet"
     Text
       "   "

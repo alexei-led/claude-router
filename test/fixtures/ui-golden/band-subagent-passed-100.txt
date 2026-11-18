@@ -1,7 +1,7 @@
 Box
   Text dimColor=true
     "agent "
-  Text bold=true color="#c3e88d"
+  Text color="#c3e88d" weight="semibold"
     "□ Haiku 5.5"
   Text dimColor=true
     "  = Claude Code’s pick: the workflow sets it"

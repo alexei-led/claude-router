@@ -84,10 +84,17 @@ test('the band draws the same for the terminal surface as with none named', () =
   assert.equal(draw({ surface: 'terminal' }), draw({}));
 });
 
-test('the terminal tones are what the pane writes today', () => {
+test('a terminal tone is the theme key that means it, so the router follows the user’s theme', () => {
   const ui = kit(ELEMENTS);
-  assert.equal(toneColor('warning', 'terminal'), 'yellow');
-  assert.equal(toneColor('success', 'terminal'), 'green');
-  assert.equal(toneColor('danger', 'terminal'), 'red');
+  for (const [tone, key] of Object.entries({
+    primary: 'text',
+    muted: 'subtle',
+    accent: 'suggestion',
+    success: 'success',
+    warning: 'warning',
+    danger: 'error',
+  }))
+    assert.equal(toneColor(tone, 'terminal'), key, tone);
   assert.equal(toneColor('activity', 'terminal'), ui.activity('x').props.color);
+  assert.match(toneColor('activity', 'terminal'), /^#/);
 });

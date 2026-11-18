@@ -1,6 +1,6 @@
 Box flexDirection="column"
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "ROUTER"
     Text
       "  "
@@ -10,7 +10,7 @@ Box flexDirection="column"
     Button hotkey="f" key="manual" label="○ off" variant="secondary"
     Text
       "  "
-    Text color="green"
+    Text color="success"
       "Jev ready · 347 ms"
   Box
     Button hotkey="1" key="tab-now" label="Now" variant="primary"
@@ -31,7 +31,7 @@ Box flexDirection="column"
     Button key="help" label="?" variant="secondary"
   Text
     " "
-  Text bold=true color="cyan"
+  Text color="suggestion" weight="semibold"
     "NEXT TURN"
   Box
     Text
@@ -40,12 +40,12 @@ Box flexDirection="column"
       "▂▄▆█"
     Text
       "  "
-    Text bold=true
+    Text weight="semibold"
       "Opus 5.5 · xhigh"
     Box
       Text
         "   "
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "code"
   Box
     Text dimColor=true
@@ -80,7 +80,7 @@ Box flexDirection="column"
       " "
   Text
     " "
-  Text bold=true color="cyan"
+  Text color="suggestion" weight="semibold"
     "RECENT DECISIONS"
   Text
     "15:50:00  start     composer  asked code 91% code 80%  new task  -> medium code claude-sonnet-5-5@high  (jump)"
@@ -89,34 +89,34 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "PLAN"
     Text dimColor=true
       "  Claude plan usage"
   Box
     Text
       "  5h    "
-    Text color="green"
+    Text color="success"
       "▰▰▰▰▰▰▰"
     Text dimColor=true
       "▱▱▱▱▱▱▱▱▱▱▱▱▱"
-    Text color="green"
+    Text color="success"
       "  37%"
     Text dimColor=true
       "   resets 17:00"
   Box
     Text
       "  7d    "
-    Text color="#f0b429"
+    Text color="warning"
       "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰"
     Text dimColor=true
       "▱▱▱▱"
-    Text color="#f0b429"
+    Text color="warning"
       "  81%"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "SESSION"
     Text dimColor=true
       "  7 agents"
@@ -126,7 +126,7 @@ Box flexDirection="column"
   Box
     Text
       "  "
-    Text bold=true
+    Text weight="semibold"
       "≈$1.50"
     Text dimColor=true
       "  API estimate · plan quota, not a charge  "
@@ -134,7 +134,7 @@ Box flexDirection="column"
   Box
     Text
       "  "
-    Text bold=true color="#6fcf97"
+    Text color="success" weight="semibold"
       "−$1.00 (−40%)"
     Text
       " vs unrouted"
@@ -147,7 +147,7 @@ Box flexDirection="column"
       " ≈$0.00"
     Text
       "  "
-    Text color="cyan"
+    Text color="suggestion"
       ""
     Text dimColor=true
       "░░░░░░░░░░░░░░░░"
@@ -158,25 +158,25 @@ Box flexDirection="column"
       " ≈$1.50"
     Text
       "  "
-    Text color="cyan"
+    Text color="suggestion"
       "████████████████"
     Text dimColor=true
       ""
     Box
       Text
         "  "
-      Text color="#6fcf97"
+      Text color="success"
         "−$1.00"
       Text dimColor=true
         " vs their picks"
   Text
     " "
-  Text bold=true color="cyan"
+  Text color="suggestion" weight="semibold"
     "CONTEXT"
   Box
     Text
       "  ctx    "
-    Text color="green"
+    Text color="success"
       "▰▰"
     Text dimColor=true
       "▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱"
@@ -188,7 +188,7 @@ Box flexDirection="column"
     Text
       "  cache  "
     Box
-      Text color="green"
+      Text color="success"
         "90%"
       Text dimColor=true
         " last reply"

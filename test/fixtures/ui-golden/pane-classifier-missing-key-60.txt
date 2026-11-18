@@ -1,6 +1,6 @@
 Box flexDirection="column"
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "ROUTER"
     Text
       "  "
@@ -10,7 +10,7 @@ Box flexDirection="column"
     Button hotkey="f" key="manual" label="○ off" variant="secondary"
     Text
       "  "
-    Text color="green"
+    Text color="success"
       "Jev ready · 347 ms"
   Box
     Button hotkey="1" key="tab-now" label="Now" variant="secondary"
@@ -32,7 +32,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "CLASSIFIER"
     Text dimColor=true
       " · asked once per new turn · a pick saves at once"
@@ -41,7 +41,7 @@ Box flexDirection="column"
       Box flexShrink=0 width=17
         Button key="classifier-jev" label="◉ Jev       " variant="primary"
       Box flexShrink=1 minWidth=2
-        Text color="green" wrap="truncate-end"
+        Text color="success" wrap="truncate-end"
           "● ready"
     Text dimColor=true
       "    api.typesafe.ai"
@@ -50,7 +50,7 @@ Box flexDirection="column"
       Box flexShrink=0 width=17
         Button key="classifier-clef" label="○ Clef      " variant="secondary"
       Box flexShrink=1 minWidth=2
-        Text color="green" wrap="truncate-end"
+        Text color="success" wrap="truncate-end"
           "● ready"
     Text dimColor=true
       "    api.cloudflare.com · 69/70 · p95 883 ms"
@@ -59,7 +59,7 @@ Box flexDirection="column"
       Box flexShrink=0 width=17
         Button key="classifier-clef-flash" label="○ Clef Flash" variant="secondary"
       Box flexShrink=1 minWidth=2
-        Text color="yellow" wrap="truncate-end"
+        Text color="warning" wrap="truncate-end"
           "○ no API token  "
       Box flexShrink=0
         Button key="key-clef-flash" label="Set up"
@@ -70,7 +70,7 @@ Box flexDirection="column"
       Box flexShrink=0 width=17
         Button key="classifier-clef-omni" label="○ Clef Omni " variant="secondary"
       Box flexShrink=1 minWidth=2
-        Text color="green" wrap="truncate-end"
+        Text color="success" wrap="truncate-end"
           "● ready"
     Text dimColor=true
       "    api.cloudflare.com"
@@ -79,7 +79,7 @@ Box flexDirection="column"
       Box flexShrink=0 width=17
         Button key="classifier-openai" label="○ OpenAI    " variant="secondary"
       Box flexShrink=1 minWidth=2
-        Text color="yellow" wrap="truncate-end"
+        Text color="warning" wrap="truncate-end"
           "○ no API key  "
       Box flexShrink=0
         Button key="key-openai" label="Set up"
@@ -90,7 +90,7 @@ Box flexDirection="column"
       Box flexShrink=0 width=17
         Button key="classifier-ollama" label="○ Ollama    " variant="secondary"
       Box flexShrink=1 minWidth=2
-        Text color="green" wrap="truncate-end"
+        Text color="success" wrap="truncate-end"
           "● ready"
     Text dimColor=true
       "    this machine · 66/70 · p95 3483 ms"
@@ -101,7 +101,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "JEV"
     Text dimColor=true
       " · active"
@@ -145,13 +145,13 @@ Box flexDirection="column"
       "  opens /plugin configure"
   Text
     " "
-  Text bold=true color="cyan"
+  Text color="suggestion" weight="semibold"
     "THIS SESSION"
   Text
     "Tool compatibility (not accuracy): 19 of 22 turns (86%)"
   Text
     " "
-  Text bold=true color="cyan"
+  Text color="suggestion" weight="semibold"
     "ACROSS SESSIONS · since the last reset"
   Text
     "Labelled   22 turns"

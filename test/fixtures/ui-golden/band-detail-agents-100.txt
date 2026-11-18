@@ -10,7 +10,7 @@ Box flexDirection="column" key="router-band"
       "█"
     Text
       " "
-    Text bold=true
+    Text weight="semibold"
       "Opus 5.5"
     Text
       " · xhigh"
@@ -22,11 +22,11 @@ Box flexDirection="column" key="router-band"
       "                                     "
     Text dimColor=true
       "ctx "
-    Text color="green"
+    Text color="success"
       "▰"
     Text dimColor=true
       "▱▱▱▱"
-    Text color="green"
+    Text color="success"
       " 12%"
     Text
       "  "
@@ -55,11 +55,11 @@ Box flexDirection="column" key="router-band"
   Box
     Text dimColor=true
       "plan 5h "
-    Text color="green"
+    Text color="success"
       "▰▰▰"
     Text dimColor=true
       "▱▱▱▱▱"
-    Text color="green"
+    Text color="success"
       " 37%"
     Text dimColor=true
       " ↻17:00"
@@ -67,13 +67,13 @@ Box flexDirection="column" key="router-band"
       "   "
     Text dimColor=true
       "7d "
-    Text color="#f0b429"
+    Text color="warning"
       "81%"
     Text
       "   "
     Text dimColor=true
       "session "
-    Text bold=true
+    Text weight="semibold"
       "≈$5.80"
     Text
       "   "
@@ -81,7 +81,7 @@ Box flexDirection="column" key="router-band"
       "credits ≈$0.90"
     Text
       "   "
-    Text bold=true color="#6fcf97"
+    Text color="success" weight="semibold"
       "−$5.70 (−50%)"
     Text dimColor=true
       " vs unrouted"

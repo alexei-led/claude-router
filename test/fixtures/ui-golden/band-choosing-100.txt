@@ -1,12 +1,12 @@
 Box flexDirection="column" key="router-band"
   Box
-    Text color="#7c9cff"
+    Text color="suggestion"
       "▂"
-    Text color="#7c9cff"
+    Text color="suggestion"
       "▄"
-    Text color="#7c9cff"
+    Text color="suggestion"
       "▆"
-    Text color="#7c9cff"
+    Text color="suggestion"
       "█"
     Text dimColor=true
       " choosing…"

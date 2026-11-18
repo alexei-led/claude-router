@@ -1,6 +1,6 @@
 Box flexDirection="column"
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "ROUTER"
     Text
       "  "
@@ -10,7 +10,7 @@ Box flexDirection="column"
     Button hotkey="f" key="manual" label="○ off" variant="secondary"
     Text
       "  "
-    Text color="green"
+    Text color="success"
       "Jev ready · 347 ms"
   Box
     Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
@@ -55,7 +55,7 @@ Box flexDirection="column"
   Box
     Text dimColor=true
       "this session · your model "
-    Text bold=true color="#e0708a"
+    Text color="#e0708a" weight="semibold"
       "Opus 5.5 · xhigh"
   Text
     " "
@@ -79,9 +79,9 @@ Box flexDirection="column"
     "──────────────────────────────────"
   Box
     Box flexShrink=0 width=26
-      Text bold=true
+      Text weight="semibold"
         "session · API estimate"
-    Text bold=true
+    Text weight="semibold"
       "  ≈$4.30"
   Text
     " "
@@ -90,7 +90,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "BY  "
     Button key="group-activity" label="Activity" variant="primary"
     Text
@@ -112,7 +112,7 @@ Box flexDirection="column"
     Text
       " "
     Box flexShrink=0 width=20
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "code"
     Text
       "      10    ≈$3.80"
@@ -125,7 +125,7 @@ Box flexDirection="column"
     Text
       " "
     Box flexShrink=0 width=20
-      Text color="#d7875f" italic=true
+      Text color="#d77757" italic=true
         "explore"
     Text
       "      10    ≈$0.50"
@@ -134,9 +134,9 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "COST BY HOUR "
-    Text color="cyan"
+    Text color="suggestion"
       "█▁▂█"
     Text dimColor=true
       "  peak ≈$2.00   "
@@ -144,14 +144,14 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "WORTH A LOOK"
     Text dimColor=true
       " · from the numbers; answer quality is not measured"
   Box
     Text
       "  "
-    Text color="#d7875f" italic=true
+    Text color="#d77757" italic=true
       "code"
     Text dimColor=true
       " · "
@@ -165,7 +165,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "SUBAGENTS"
     Text dimColor=true
       " · this session   subagent routing on"

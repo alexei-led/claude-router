@@ -1,6 +1,6 @@
 Box flexDirection="column"
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "ROUTER"
     Text
       "  "
@@ -10,7 +10,7 @@ Box flexDirection="column"
     Button hotkey="f" key="manual" label="○ off" variant="secondary"
     Text
       "  "
-    Text color="green"
+    Text color="success"
       "Jev ready"
   Box
     Button hotkey="1" key="tab-now" label="1 Now" variant="secondary"
@@ -32,7 +32,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "POLICY"
     Text dimColor=true
       " · how readily the router changes models · edit, then Save"
@@ -40,7 +40,7 @@ Box flexDirection="column"
     " "
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "Mode"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Box
@@ -51,7 +51,7 @@ Box flexDirection="column"
         "each tier runs its route as configured"
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "Start"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Box
@@ -67,7 +67,7 @@ Box flexDirection="column"
         "when the session’s model is no tier’s model"
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "Going down"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Box
@@ -90,14 +90,14 @@ Box flexDirection="column"
             ""
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "Going up"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Text dimColor=true wrap="wrap"
         "needs Jev support of 75%, up to 90% as the switch costs more"
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "Activities"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Box
@@ -113,7 +113,7 @@ Box flexDirection="column"
         "else a new task runs its tier’s model; a continuation keeps it"
   Box
     Box flexShrink=0 width=13
-      Text bold=true
+      Text weight="semibold"
         "Credits"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Box
@@ -133,7 +133,7 @@ Box flexDirection="column"
   Text
     " "
   Box
-    Text bold=true color="cyan"
+    Text color="suggestion" weight="semibold"
       "FILE"
     Text
       "  profile router.json  "
