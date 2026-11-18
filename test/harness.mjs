@@ -29,6 +29,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   let draft = '';
   let commandCalls = 0;
   let surfaces = ['terminal'];
+  let opened = {};
   const copied = [];
   const toasts = [];
   let version = '2.1.321';
@@ -116,7 +117,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       },
       copy: async (args) => copied.push(args),
       toast: (text) => toasts.push(text),
-      open: async () => ({}),
+      open: async () => opened,
       close: async () => {},
       resolve: () => ELEMENTS,
     },
@@ -177,6 +178,10 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     commandCalls: () => commandCalls,
     copied,
     toasts,
+    // What `$.ui.open` resolves: `{ isPlaced: true }`, or `{ isPlaced: false, reason }` where the pane waits undrawn.
+    opens: (value) => {
+      opened = value;
+    },
     surfaces: (value) => {
       surfaces = value;
     },

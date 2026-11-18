@@ -349,3 +349,13 @@ test('whole percents give every non-empty part at least 1, and a small bar value
   assert.equal(kids(kids(meter)[1])[0].props.width, '1%');
   assert.equal(graphicalKit(ELEMENTS).strip({ per: 1, cells: [] }, { columns: 80, now: 0 }), null);
 });
+
+for (const surface of SURFACES) {
+  test(`${surface}: the running-agents count and the session card's hint draw in digits of one width`, () => {
+    const session = card(draw({ subagentsRunning: 2 }, { surface }), 'This session');
+    const running = find(session, (n) => n.type === 'Text' && n.props.children === '● 2 running')[0];
+    assert.equal(running?.props.tabular, true);
+    const hint = find(session, (n) => n.type === 'Text' && /replies|reply/.test(String(n.props.children)))[0];
+    assert.equal(hint?.props.tabular, true);
+  });
+}

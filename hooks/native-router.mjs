@@ -898,7 +898,10 @@ async function storeView($, router) {
 // status bar.
 async function openPane($, router) {
   await updateView($, router, { notice: null, confirmDelete: false, ...(await storeView($, router)) });
-  await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
+  const opened = await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
+  // The pane is open but undrawn, as where no surface places panes or the terminal is too narrow for it; saying why beats
+  // a press that shows nothing.
+  if (opened?.isPlaced === false) $.ui.toast(`The Router pane is not shown: ${opened.reason}`);
 }
 
 async function changeMode($, router, mode) {

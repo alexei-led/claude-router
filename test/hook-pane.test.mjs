@@ -3,6 +3,7 @@ import test from 'node:test';
 import { emptyStore, STORE_KEY, STORE_PREFIX } from '../lib/activity-stats.mjs';
 import { readUsage, summarize } from '../lib/usage.mjs';
 import {
+  band,
   CLEF_FLASH_ANSWER,
   CLOUDFLARE_KEYS,
   CONFIG,
@@ -907,4 +908,16 @@ test('Reset routes keeps pending activity edits and the mode', async () => {
     activities: { code: { low: { model: 'opus', effort: 'high' } } },
     activityRouting: 'off',
   });
+});
+
+test('a pane the surface leaves undrawn says why in a toast, and a placed one says nothing', async () => {
+  const h = harness();
+  await start(h);
+  const open = async () => (await band(h)).controls.find((node) => node.key === 'details').onPress();
+  h.opens({ isPlaced: true });
+  await open();
+  assert.equal(h.toasts.length, 0);
+  h.opens({ isPlaced: false, reason: 'the terminal is 100 columns wide; the floor is 144' });
+  await open();
+  assert.equal(h.toasts.at(-1), 'The Router pane is not shown: the terminal is 100 columns wide; the floor is 144');
 });
