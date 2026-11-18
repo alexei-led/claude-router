@@ -7,9 +7,9 @@ import { decide, initialState } from '../lib/policy.mjs';
 import { chooseRoute, continueRoute, emptyLoop } from '../lib/route.mjs';
 import { advice, T0 } from './helpers.mjs';
 
-// Routing decisions pinned across refactors. Regenerate with GOLDEN_WRITE=1 node --test test/decision-golden.test.mjs
+// Routing decisions pinned across refactors. Regenerate with GOLDEN_WRITE=1 node --test test/route-golden.test.mjs
 // only for an intended decision change, and say why in the commit.
-const FIXTURE = new URL('./fixtures/decision-golden.json', import.meta.url);
+const FIXTURE = new URL('./fixtures/route-golden.json', import.meta.url);
 
 const NOW = T0 + 1_000_000;
 const WARM = NOW - 60_000;
