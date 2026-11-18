@@ -3025,8 +3025,9 @@ export function register(on, options) {
 
   on('command.run', { command: 'router' }, ($, e) => routerCommand($, router, e.args));
 
+  // Since 2.1.321 a subagent's loop raises turn.start too, with its agentId; the goal and prompt state is the main loop's.
   on('turn.start', async ($, e, next) => {
-    await startTurn($, router, e);
+    if (e.agentId === undefined) await startTurn($, router, e);
     return next(e);
   });
 
