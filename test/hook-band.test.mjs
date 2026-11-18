@@ -51,7 +51,10 @@ test('in a subagent’s transcript the band names its model and who picked it', 
     ...extra,
   });
   await h.spawn(spawn(), { model: 'claude-haiku-5-5', agentId: 'a1' });
-  await h.spawn(spawn({ workflow: { runId: 'wf_1', agentIndex: 1 } }), { model: 'claude-opus-5-5', agentId: 'w1' });
+  await h.spawn(spawn({ workflow: { runId: 'wf_1', agentIndex: 1 }, model: 'opus' }), {
+    model: 'claude-opus-5-5',
+    agentId: 'w1',
+  });
   const routed = (columns) => band(h, { view: { agentId: 'a1' }, bodyColumns: columns });
   assert.equal((await routed(120)).line.trim(), 'agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)');
   assert.equal((await routed(30)).line.trim(), 'agent ■ Haiku 5.5');

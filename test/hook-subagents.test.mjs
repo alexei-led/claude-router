@@ -98,7 +98,10 @@ test('a fork, a workflow agent, an explicit model, a teammate, a pinned agent an
     ['fork', spawnInput({ fork: true, subagentType: 'fork' })],
     ['explicit', spawnInput({ model: 'opus' })],
     ['teammate', spawnInput({ isTeammate: true, background: true })],
-    ['workflow', spawnInput({ subagentType: 'workflow-subagent', workflow: { runId: 'wf_1', agentIndex: 1 } })],
+    [
+      'workflow',
+      spawnInput({ subagentType: 'workflow-subagent', workflow: { runId: 'wf_1', agentIndex: 1 }, model: 'sonnet' }),
+    ],
     ['pinned', spawnInput({ provider: { plugin: 'project', tier: 'user' } })],
     ['pinned', ccThingz('discovery:runner')],
     ['unknown', ccThingz('dev-flow:reviewer')],
@@ -330,7 +333,7 @@ test('Usage and Now show the session’s agents by model, who picked it, and wha
   );
   await h.event('turn.complete', { turnId: 'a1-t', agentId: 'a1' });
   assert.equal(h.view().subagentsRunning, 0);
-  await h.spawn(spawnInput({ workflow: { runId: 'wf_1', agentIndex: 1 } }), {
+  await h.spawn(spawnInput({ workflow: { runId: 'wf_1', agentIndex: 1 }, model: 'opus' }), {
     model: 'claude-opus-5-5',
     agentId: 'w1',
   });
@@ -367,16 +370,20 @@ test('Usage and Now show the session’s agents by model, who picked it, and wha
   assert.match(open, /1\.0 requests per agent · none respawned within 10 min/);
 });
 
-test('a workflow agent runs on the router’s pick once its type is listed, and keeps its own model otherwise', async () => {
+test('a workflow agent is classified by default, and keeps its own model, or Claude Code’s pick when opted out', async () => {
   const input = (extra = {}) =>
     spawnInput({ subagentType: 'workflow-subagent', workflow: { runId: 'wf_1', agentIndex: 1 }, ...extra });
-  const listed = await started({ subagents: { types: { 'workflow-subagent': 'haiku' } } });
-  assert.equal((await listed.spawn(input())).sent.model, 'claude-haiku-5-5');
+  const on = await started();
+  const bodies = answering(on, HARD);
+  assert.equal((await on.spawn(input({ prompt: 'Audit the cache layer.' }))).sent.model, 'claude-opus-5-5');
+  assert.equal(bodies.length, 1);
   const own = input({ model: 'sonnet' });
-  assert.equal((await listed.spawn(own, { agentId: 'w2' })).sent, own);
-  const unlisted = await started();
+  assert.equal((await on.spawn(own, { agentId: 'w2' })).sent, own);
+  const optedOut = await started({ subagents: { types: { 'workflow-subagent': null } } });
   const plain = input();
-  assert.equal((await unlisted.spawn(plain)).sent, plain);
+  assert.equal((await optedOut.spawn(plain)).sent, plain);
+  const named = await started({ subagents: { types: { 'workflow-subagent': 'haiku' } } });
+  assert.equal((await named.spawn(input())).sent.model, 'claude-haiku-5-5');
 });
 
 test('resuming a subagent leaves its spawn and its record alone', async () => {

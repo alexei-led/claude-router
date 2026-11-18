@@ -441,7 +441,7 @@ Keep it if requests per agent and respawns per type stay no higher than before y
 Limits:
 
 - Answer quality is not measured.
-- Workflow agents are routed only when `subagents.types` lists `workflow-subagent`. In the maintainer's sessions they were 22 of 24 Opus subagents (`workflow-subagent-models.json`), so that listing reaches most of the inherited Opus spend. The routed effect is not measured yet.
+- Workflow agents are classified by default (`subagents.types['workflow-subagent']`). In the maintainer's sessions they were 22 of 24 Opus subagents (`workflow-subagent-models.json`), so this reaches most of the inherited Opus spend. The routed effect is not measured yet, and answer quality is not either.
 - `on` estimates core's model. It does not apply the family-alias rule or the `availableModels` substitution.
 - Respawns are a proxy. A parent may spawn the same type twice on purpose.
 - Records follow the savings records' storage, with the same gaps.

@@ -342,7 +342,7 @@ These agents always keep their model:
 - a fork;
 - an Agent call that names a `model`;
 - a teammate;
-- a workflow `agent({ model })`: the script chose it. A workflow `agent()` without a model keeps Claude Code's pick unless you list `workflow-subagent` under `subagents.types` (a models key, or `classify`); then the router picks its model like any other agent's;
+- a workflow `agent({ model })`: the script chose it. A workflow `agent()` without a model is classified like `general-purpose`, unless you set `workflow-subagent` to `null` under `subagents.types`;
 - a resumed subagent: it runs on the model of its first spawn, and Claude Code lets a hook only refuse a resume;
 - a built-in agent other than Explore, Plan and general-purpose: its definition is not on disk.
 
@@ -361,10 +361,10 @@ These agents always keep their model:
 
 The values above are the defaults.
 
-To route workflow agents too, list their type. The key is the engine's own name for them, `workflow-subagent`; its value is a models key, `classify`, or `null`:
+Workflow agents are routed by default, classified like `general-purpose`. The key is the engine's own name for them, `workflow-subagent` (whatever type the script gives an agent does not apply to it); its value is a models key, `classify`, or `null` to keep Claude Code's pick:
 
 ```json
-{ "subagents": { "types": { "workflow-subagent": "classify" } } }
+{ "subagents": { "types": { "workflow-subagent": null } } }
 ```
 
 - `types` overrides the rule for an agent type: a models key, `classify`, or `null` to never route it. A user file adds to the defaults. A key without a colon matches only Claude Code's built-in of that name, such as `Explore`; a project agent named `Explore` replaces the built-in and follows its own definition. A `plugin:name` key matches only that plugin's agent. A listed type is routed even if its definition pins a model.

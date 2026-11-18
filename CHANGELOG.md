@@ -19,7 +19,7 @@
 - `/router` completes in the prompt: type `/router a` and the words that start with it appear under Claude Code's own rows (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `line <off|moves|all>`, `decisions [n]`, `trace export`), then the values after `pin `, `mode `, `activities ` or `line `. The `/router` argument hint lists the same words.
 - A session that starts with routing unavailable (Claude Code older than 2.1.321, v0.8 gateway settings still set, or a `router.json` that does not load) shows one toast with the reason, at most once a day for each cause. Not under `claude -p`.
 - A **Router** press that opens a pane the surface cannot draw (no surface places panes, or the terminal is too narrow) says why in a toast instead of showing nothing.
-- A workflow `agent()` can be routed: Claude Code 2.1.321 applies a model rewrite to it (checked live). List `workflow-subagent` under `subagents.types` to opt in; by default workflow agents still keep Claude Code's pick. An `agent({ model })` call keeps the script's model. See [subagent routing](docs/configuration.md#subagent-routing).
+- A workflow `agent()` can be routed: Claude Code 2.1.321 applies a model rewrite to it (checked live). Workflow agents are classified by default, like `general-purpose`: Haiku for exploration, Opus for clearly hard tasks, Sonnet for the rest. Set `subagents.types['workflow-subagent']` to `null` to keep Claude Code's pick, or to a models key to name a model. An `agent({ model })` call keeps the script's model. See [subagent routing](docs/configuration.md#subagent-routing).
 
 ### Changed
 
