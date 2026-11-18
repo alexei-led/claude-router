@@ -47,7 +47,7 @@ The band above the prompt is drawn natively as one fixed row. Nothing appears on
 - **One control per state**: **Turn on** when routing is off, **Set up** when the active classifier lacks credentials, **Fix** when routing is unavailable. While routing is on, turn it off from the pane's header (**On** / **Off**) or with `/router off`.
 - **Session row**: the second row (plan windows and the session's cost against no routing) is no longer a band button. Turn it on with **Show session row in band** on the pane's Now tab; Router remembers the choice across sessions.
 
-In a subagent's transcript the band names the agent's model and who picked it, as described under the terminal band.
+While subagents run, a row of buttons under the band lists them, one per agent with the model, type and task (`agents 2  ▸ ■ Haiku 5.5 Explore · retry usages ●`). Press one to open that agent's transcript in the main view. The row lists three agents and then `+N`, and keeps the first agent and the count when the window narrows. It shows only while an agent runs, and never a teammate. In an agent's transcript the band has a **Back** button (`◂ main` in the terminal, **← Main** on these surfaces) that returns to the main conversation. The agent's model and who picked it are described under the terminal band.
 
 ### In the terminal
 
