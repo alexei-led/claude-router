@@ -110,7 +110,10 @@ test('a narrow pane keeps the pin dropdown on one line, and a turn without a rea
 
 test('with routing off or unavailable the next turn says which model runs, and offers no pins', () => {
   for (const [props, expected] of [
-    [{ mode: 'manual' }, ['  ○ Opus 5.5 · xhigh   routing off · /model choice', '  pin   needs routing on (o)']],
+    [
+      { mode: 'manual', nativeEffort: 'xhigh' },
+      ['  ○ Opus 5.5 · xhigh   routing off · /model choice', '  pin   needs routing on (o)'],
+    ],
     [
       { phase: 'unavailable', error: 'bad', nativeEffort: 'xhigh' },
       ['  ✕ Opus 5.5 · xhigh   routing unavailable · Claude’s model', '  pin   needs routing'],
@@ -120,6 +123,21 @@ test('with routing off or unavailable the next turn says which model runs, and o
     const stale = { ...props, reason: 'upgrade', activity: 'code', activityChoice: 'code', probabilities: { high: 1 } };
     assert.deepEqual(after(lines(stale), 'NEXT TURN', 4).slice(1), [...expected, '']);
     assert.ok(!controls(render(props)).some((c) => c.key === 'pin' || c.key.startsWith('pin-')));
+  }
+});
+
+test('with routing off the next turn names the model you chose, not the last routed one', () => {
+  for (const [props, expected] of [
+    [
+      { selectedModel: 'claude-haiku-5-5', effort: 'high', nativeModel: 'claude-sonnet-5-5', nativeEffort: 'medium' },
+      '  ○ Sonnet 5.5 · medium   routing off · /model choice',
+    ],
+    [
+      { selectedModel: 'claude-sonnet-5-5', effort: 'high', nativeModel: 'claude-sonnet-5-5', nativeEffort: 'high' },
+      '  ○ Sonnet 5.5 · high   routing off · /model choice',
+    ],
+  ]) {
+    assert.equal(after(lines({ mode: 'manual', ...props }), 'NEXT TURN', 4)[1], expected);
   }
 });
 

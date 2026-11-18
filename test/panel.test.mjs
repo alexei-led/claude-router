@@ -145,7 +145,11 @@ test('the Now tab says what runs next turn and why: the tier, the model, the sup
   const down = { ...routed, reason: 'downgrade', estimate: { threshold: 0.9, downgradeMass: 0.93 } };
   assert.equal(unboxed(screen(pane(down)))[5], '  why   ↓ cheaper fits   Jev 93% ≥ 90%');
   // Routing off: the /model choice runs, no support line, and the pins say what they need.
-  const off = unboxed(screen(pane({ ...routed, mode: 'manual', selectedModel: null, nativeModel: 'claude-opus-5-5' })));
+  const off = unboxed(
+    screen(
+      pane({ ...routed, mode: 'manual', selectedModel: null, nativeModel: 'claude-opus-5-5', nativeEffort: 'xhigh' }),
+    ),
+  );
   assert.deepEqual(off.slice(4, 6), [
     '  ○ Opus 5.5 · xhigh   routing off · /model choice',
     '  pin   needs routing on (o)',

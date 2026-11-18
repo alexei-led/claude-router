@@ -15,6 +15,7 @@
 
 - The "Routing off" toast now also shows on a desktop, VS Code or mobile surface that attaches after the session started, once per surface. The once-a-day rule per cause is unchanged.
 - A model chosen in the model picker, or set from the SDK, an IDE or Remote Control, now turns routing off as `/model` does, so the router no longer overrides it.
+- After you switch models with `/model` or the picker, the Now tab names the model you chose instead of the last routed one.
 - The pin row no longer reads like a model picker: the Now tab's pin row and the band's pin dropdown are named for pinning the next turn to a tier, show the model that runs now, and point to `/model` (with routing off) for models no tier routes to, such as Sonnet. Closes #91.
 
 ### Removed
