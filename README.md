@@ -52,6 +52,8 @@ Jev 1.14 is the default; a configured model override stays in force. [Configurat
 
 The band above the prompt shows the tier, activity, model, and reason for each turn. `/router` opens a pane to pin a tier, edit the model and effort of each tier, and tune the policy. See the [user guide](docs/user-guide.md#read-the-status-band).
 
+To move one turn without a pin, start the prompt with a keyword: `morethink`, `highthink` or `maxthink` for one effort level up, one tier up or the top tier, and `lessthink`, `lowthink` or `nothink` for the way down. The routing mode and the turn's activity still pick the route. See [prompt keywords](docs/user-guide.md#move-one-turn-with-a-prompt-keyword).
+
 In the desktop app, VS Code and mobile, the band is one fixed row with nothing revealed on hover: a tier meter icon, the route, activity and reason on the left; the readings, a **Pin to a tier** dropdown and **Router** on the right. The pane has a header, five tabs (Now, Routes, Policy, Classifier, Usage), one warnings slot and a save bar. Colours follow the app's theme. These surfaces cannot open the plugin settings dialog, so **Set up** shows a card with the command that saves the classifier's key from a terminal.
 
 <picture>

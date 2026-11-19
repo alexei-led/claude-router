@@ -493,10 +493,32 @@ On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the
 | **Turn on** / **Turn off** on the band   | The same as `/router auto` and `/router off`.                                                             |
 | **on** / **off** on the pane (`o` / `f`) | The same as `/router auto` and `/router off`.                                                             |
 | **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.                                      |
+| A prompt that starts with `maxthink`, `nothink` or another [prompt keyword](#move-one-turn-with-a-prompt-keyword) | Move that turn up or down, keeping the routing mode and the activity. |
 
 Type `/router` and a space, then a letter, and the prompt offers the words that start with it (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `line <off|moves|all>`, `holds`, `release <model|account>`, `decisions [n]`, `trace export`). After `pin `, `mode `, `activities `, `line ` or `trace ` it offers the values, and after `release ` the models and accounts held now; `pin` names the model each tier runs. The rows come after Claude Code's own. They are drawn by the surface's prompt box, so a surface that does not raise the typeahead shows none.
 
 With `table` or `shadow`, a routing mode moves each tier's route one step toward cost or quality; pins and `micro` turns are not moved. With opt-in `auto`, the mode changes the demand margin instead, and a tier pin uses exact demand without a margin. The band and the Now tab show the mode and where it comes from, such as `cost (session)`. When the mode kept the cell's model and changed only its effort, as `cost` does for Opus at `high`, the band adds `effort only`: the cost estimates price the same tokens on both routes, so that change shows no difference there, though real output length can differ. A change applies from the next turn, and the route in use moves only through the usual checks, so on a running task a cheaper route can wait a few requests and for a checkpoint. **Mode** on the Policy tab sets the profile's mode. See [Routing modes](routing-modes.md).
+
+### Move one turn with a prompt keyword
+
+Start a prompt with a keyword to move that turn and its tool continuations up or down, without a pin:
+
+| Keyword     | The turn runs                              |
+| ----------- | ------------------------------------------ |
+| `morethink` | the router's choice, one effort level up   |
+| `highthink` | one tier above the router's choice         |
+| `maxthink`  | the top tier, `high`                       |
+| `lessthink` | the router's choice, one effort level down |
+| `lowthink`  | one tier below the router's choice         |
+| `nothink`   | the bottom tier, `micro`                   |
+
+- Only the first word counts, in any case, followed by a space, punctuation or nothing: `maxthink: fix the race`. `please maxthink` and `maxthinking` do nothing. The words are made up, so a sentence does not start with one by accident, and Claude Code does not read any of them (`ultrathink` is its own).
+- Unlike a pin, the classifier still answers, so the routing mode and the turn's activity choose the route of the tier the keyword lands on. On the default routes `maxthink` runs Opus at `high` in `cost`, `xhigh` in `balanced` and `max` in `quality`. With `auto`, the keyword sets the turn's demand and the mode adds its margin.
+- The keyword skips the switching checks, not the context and availability checks: a conversation too large for the tier's model, or a held-out model, still sends the turn elsewhere.
+- An effort keyword moves to the next level the model lists. At the model's top or bottom level, or on the session's effort, the effort stays. With `auto`, it also stays when the moved route is not eligible, for example a credits model whose cold cache write at that effort is above the cash cap.
+- The next turn routes as if the keyword turn had not run. On a long conversation, a model switch and the switch back each write the prompt cache again.
+- The router reads a keyword only from a prompt a person or another agent sent, never from a task notification or another progress report. A pin outranks a keyword. The keyword stays in the prompt, so the model reads it too.
+- The band and the toast give the keyword as the reason: `↑ maxthink`, `↓ nothink`.
 
 ### The route line
 

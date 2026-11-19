@@ -16,7 +16,7 @@ const FIXTURE = fileURLToPath(new URL('./fixtures/replay-traces.json', import.me
 
 const exportOf = (record) => ({ version: 1, sessions: { [`${TRACE_PREFIX}private-session`]: record } });
 
-async function capture({ controls = false, continuations = false } = {}) {
+async function capture({ controls = false, continuations = false, keyword = false } = {}) {
   const h = shadowHarness();
   await h.event('session.start', { cwd: '/fixture' });
   for (let i = 0; i < 4; i++) {
@@ -30,7 +30,8 @@ async function capture({ controls = false, continuations = false } = {}) {
       await h.event('command.run', { command: 'router', args: 'auto' });
       await h.event('session.compact', { trigger: 'auto' });
     }
-    await h.event('turn.start', { turnId, text: 'Synthetic task' });
+    const text = keyword && i === 1 ? 'maxthink synthetic task' : 'Synthetic task';
+    await h.event('turn.start', { turnId, text });
     const messages = i ? [user('one'), assistant('two'), user('three')] : [user('one')];
     h.messages(async () => messages);
     await drain(h.step({ ...step, turnId, messageCount: messages.length }));
@@ -203,6 +204,48 @@ test('live auto and stateful replay agree on bounded multi-turn pin and forced r
   );
 });
 
+test('live auto and stateful replay agree on keyword turns and their tool steps', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
+  const capabilities = {
+    haiku: { capability: { low: 0, medium: 1, high: 1.5, xhigh: 2, max: 2 } },
+    sonnet: { capability: { low: 1, medium: 2, high: 2.5, xhigh: 2.5, max: 2.5 } },
+    opus: { capability: { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 } },
+    fable: { capability: { low: 3, medium: 3, high: 3, xhigh: 3, max: 3 } },
+  };
+  const turns = [
+    ['t1', 'Synthetic task'],
+    ['t2', 'morethink synthetic task'],
+    ['t3', 'highthink synthetic task'],
+    ['t4', 'Synthetic task'],
+  ];
+  const runs = [];
+  for (const engine of ['shadow', 'auto']) {
+    const h = harness(JEV_KEY);
+    h.files.set(
+      CONFIG,
+      JSON.stringify({ routingEngine: engine, models: capabilities, policy: { reviewEveryRequests: 0 } }),
+    );
+    answering(h, jevResponse('low', { low: 1 }, 0, { code: 1 }, 'execute'));
+    await h.event('session.start', { cwd: '/fixture' });
+    for (const [turnId, text] of turns) {
+      await h.event('turn.start', { turnId, text });
+      h.messages(async () => [user(text)]);
+      await drain(h.step({ ...step, turnId }));
+      await drain(h.step({ ...step, turnId, index: 1 }));
+      await h.event('turn.complete', { turnId });
+    }
+    runs.push(h);
+  }
+  const trace = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+  const table = replayTable(trace);
+  assert.deepEqual(table.mismatches, []);
+  const replayed = replayAuto(trace, table.rows);
+  assert.deepEqual(
+    replayed.map((row) => row.pair),
+    runs[1].requests.map(({ model, effort }) => ({ model, effort: effort ?? null })),
+  );
+});
+
 test('live/replay no-route suspension and next-turn reentry agree, including pinned native fallback', async (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
   for (const pinned of [false, true]) {
@@ -303,6 +346,13 @@ test('fidelity evolves real captured multi-turn, pin, mode, manual, reset and co
   assert.equal(result.coverage.allSessions.usableSessionRatio, null);
   assert.equal(result.coverage.allSessions.gate80Percent, 'unavailable');
   assert.equal(JSON.stringify(result).includes('private-session'), false);
+});
+
+test('a shadow keyword turn replays as it ran', async () => {
+  const record = await capture({ keyword: true, continuations: true });
+  const result = evaluateReplay([exportOf(record)]);
+  assert.deepEqual(result.fidelity.mismatches, []);
+  assert.equal(result.status, 'ok');
 });
 
 test('unexplained mismatch retains fidelity denominator and blocks ALL auto totals', async () => {
