@@ -12,6 +12,7 @@ import {
   decisionsAfterReset,
   emptyDecisions,
   endRow,
+  failureRow,
   isGoalOrigin,
   isProgressOrigin,
   MAX_ROWS,
@@ -513,3 +514,53 @@ for (const [name, row, expected] of [
   test(`a decision line for ${name}`, () => {
     assert.match(lineOf(row), expected);
   });
+
+test('a failure row keeps the error, 300 characters of its text, the readings and what was held', () => {
+  const row = failureRow({
+    at: T,
+    error: 'rate_limit',
+    details: 'x'.repeat(500),
+    limits: [{ kind: 'five_hour', label: '5h', percent: 100.04, resetsAt: T + 1 }],
+    failure: 'window',
+    scope: 'account',
+    held: 'plan',
+  });
+  assert.equal(row.details?.length, 300);
+  assert.deepEqual(row.limits, [{ kind: 'five_hour', pct: 100, resets: T + 1 }]);
+  assert.deepEqual(readDecisions({ version: 1, since: T, rows: [row] }).rows, [row]);
+});
+
+test('a failure row with nothing given holds nulls and no readings', () => {
+  assert.deepEqual(failureRow({ at: T, error: 'unknown' }), {
+    at: T,
+    kind: 'failure',
+    err: 'unknown',
+    details: null,
+    limits: [],
+    fail: null,
+    scope: null,
+    held: null,
+  });
+});
+
+test('a stored failure row with text over 300 characters or a reading that is not one loses that field', () => {
+  const stored = failureRow({ at: T, error: 'rate_limit', details: 'ok' });
+  const [row] = readDecisions({
+    version: 1,
+    since: T,
+    rows: [{ ...stored, details: 'x'.repeat(301), limits: [{ kind: 'five_hour', pct: 'all' }] }],
+  }).rows;
+  assert.equal(row?.details, undefined);
+  assert.equal(row?.limits, undefined);
+  assert.equal(row?.err, 'rate_limit');
+});
+
+test('a failure row is listed with what it held and never its text', () => {
+  const [held, nothing] = decisionLines([
+    failureRow({ at: T, error: 'rate_limit', details: 'secret', failure: 'window', scope: 'account', held: 'plan' }),
+    failureRow({ at: T, error: 'authentication_failed', details: 'secret' }),
+  ]);
+  assert.match(held ?? '', /failure +rate_limit {2}window held account plan$/);
+  assert.match(nothing ?? '', /failure +authentication_failed {2}held nothing$/);
+  assert.doesNotMatch(`${held}${nothing}`, /secret/);
+});

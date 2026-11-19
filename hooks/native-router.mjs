@@ -38,6 +38,7 @@ import {
   loadConfig,
   MIGRATION_HINT,
   MIN_CLAUDE_CODE,
+  PLAN_ACCOUNT,
   ROUTING_MODES,
   supportedVersion,
   TIERS,
@@ -50,6 +51,7 @@ import {
   withTuning,
 } from '../lib/config.mjs';
 import { changedLeaves, notSaved, restored, rewrittenConfig } from '../lib/config-file.mjs';
+import { billingOf, planLimits } from '../lib/costs.mjs';
 import {
   addTurnRow,
   appendDecisions,
@@ -59,6 +61,7 @@ import {
   decisionRow,
   decisionsAfterReset,
   endRow,
+  failureRow,
   isGoalOrigin,
   isProgressOrigin,
   MAX_ROWS,
@@ -96,7 +99,16 @@ import {
   routingBucket,
   stripReminders,
 } from '../lib/facts.mjs';
-import { activeHolds, holdModel, holdMs, holdText } from '../lib/failover.mjs';
+import {
+  accountOfModel,
+  activeHolds,
+  classifyFailure,
+  failureHold,
+  HOLDS_PREFIX,
+  holdModel,
+  holdText,
+  readHold,
+} from '../lib/failover.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
@@ -319,6 +331,8 @@ function createRouter(options) {
     lastRoute: null,
     // The model of the last main request sent: the one an API error that ends the turn failed on (holdFailedModel).
     lastRequested: /** @type {string | null} */ (null),
+    // The latest main turn's id: `StopFailure` carries none, and its failure row belongs to that turn.
+    mainTurnId: /** @type {string | null} */ (null),
     decisionRecord: null,
     trace: /** @type {TraceHold | null} */ (null),
     traceFreshSession: null,
@@ -1993,6 +2007,7 @@ async function startTurn($, router, e) {
   if (!(await ensureInitialized($, router))) return;
   const epoch = ++router.goalEpoch;
   router.goalTurnId = e.turnId;
+  router.mainTurnId = e.turnId;
   await fixTurnConfig($, router, e.turnId);
   const text = clip(stripReminders(e.text), router.config.context.maxTextChars);
   const origin = originOfTurn(router, e.text);
@@ -3168,30 +3183,85 @@ async function keepChosenModel($, router, reason) {
 }
 
 // A main turn ended on an API error (`StopFailure`): the request is lost, and Claude Code reports neither the model nor
-// a retry-after. An error that is the model's holds the model the last request ran out of routing for a while
-// (lib/failover.mjs), so the next turn runs another; the hold lives in the loop, which the table and shadow engines
-// read. The `auto` engine routes without holds, so it gets none and no toast claims one.
-async function holdFailedModel($, router, error) {
+// a retry-after. The failure goes into the turn's decision rows with what Claude Code gave and the plan's readings, then
+// classifies (classifyFailure) and holds: an error that is the model's holds the model the last request ran, which can
+// be a stand-in, out of routing for a while in the loop; a used-up quota holds its account in $.store, where every
+// session and restart sees it (lib/failover.mjs). The `auto` engine routes without holds, so it gets none and no toast
+// claims one.
+async function holdFailedModel($, router, e) {
   // A failed hold changes no route; the turn's result stands.
   try {
-    if (holdMs(error) === null || !(await ensureInitialized($, router))) return;
-    if (router.config.routingEngine === 'auto') return;
+    if (!(await ensureInitialized($, router))) return;
+    const { config } = router;
     const model = router.lastRequested ?? (await $.session.model());
-    const ref = { ...LOOP, id: 'main' };
-    // A write that lost to a step's own write reads the loop again.
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const { value: loop, version } = await $.state.get(ref);
-      if (!loop) return;
-      const now = Date.now();
-      const held = holdModel(loop.held, model, error, now);
-      const written = await $.state.set(ref, { ...loop, held }, { ifVersion: version });
-      if (!written.isSet) continue;
-      const hold = activeHolds(held, now)[model];
-      if (hold && (await modeOf($, router)) === 'auto')
-        $.ui.toast(`${modelName(model)} held out of routing: ${holdText(hold, now)}`);
-      return;
-    }
+    const usage = await $.session.usage().catch(() => null);
+    const limits = planLimits(usage);
+    const now = Date.now();
+    const account = accountOfModel(config, model);
+    const failure = classifyFailure({
+      error: e.error,
+      details: e.error_details,
+      limits,
+      billing: billingOf(config, usage),
+      account,
+      accounts: config.accounts,
+      now,
+    });
+    const held =
+      failure.kind === null || config.routingEngine === 'auto'
+        ? null
+        : await applyHold($, router, failure, e.error, failure.scope === 'account' ? account : model, now).catch(
+            () => null,
+          );
+    const turnId = router.mainTurnId;
+    if (turnId === null) return;
+    addDecision(
+      router,
+      turnId,
+      failureRow({
+        at: now,
+        error: e.error,
+        details: e.error_details,
+        limits,
+        failure: held ? failure.kind : null,
+        scope: held ? failure.scope : null,
+        held,
+      }),
+    );
+    // A turn that already completed will not flush its rows again.
+    if (!router.turnConfigs.has(turnId)) await flushDecisions($, router, turnId, null);
   } catch {}
+}
+
+// Holds `key`, the account or model a failure names, and returns it, or null when nothing was held. $.store has no
+// atomic update, so two sessions that fail together can each write their own hold; the later write stands, and both
+// say the same account is out.
+async function applyHold($, router, failure, error, key, now) {
+  if (failure.scope === 'account') {
+    const store = `${HOLDS_PREFIX}${key}`;
+    const running = readHold(await $.store.get(store)) ?? undefined;
+    const hold = failureHold(failure, error, running, now);
+    if (!hold) return null;
+    if (hold !== running) await $.store.set(store, hold);
+    if ((await modeOf($, router)) === 'auto')
+      $.ui.toast(`${key === PLAN_ACCOUNT ? 'Claude plan' : key} held out of routing: ${holdText(hold, now)}`);
+    return key;
+  }
+  const ref = { ...LOOP, id: 'main' };
+  // A write that lost to a step's own write reads the loop again.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { value: loop, version } = await $.state.get(ref);
+    if (!loop) return null;
+    const at = Date.now();
+    const held = holdModel(loop.held, key, failure, error, at);
+    const written = await $.state.set(ref, { ...loop, held }, { ifVersion: version });
+    if (!written.isSet) continue;
+    const hold = activeHolds(held, at)[key];
+    if (hold && (await modeOf($, router)) === 'auto')
+      $.ui.toast(`${modelName(key)} held out of routing: ${holdText(hold, at)}`);
+    return key;
+  }
+  return null;
 }
 
 async function ensureInitialized($, router) {
@@ -3214,6 +3284,7 @@ export function register(on, options) {
     router.traceOperations.clear();
     router.lastRoute = null;
     router.lastRequested = null;
+    router.mainTurnId = null;
     router.initialized = false;
     router.noticeSurfaces.clear();
     await ensureInitialized($, router);
@@ -3315,7 +3386,7 @@ export function register(on, options) {
   // A hook failure leaves the event to the hooks beneath, as without the router.
   on('classic.StopFailure', async ($, e, next) => {
     const result = await next(e);
-    if (e.agent_id === undefined) await holdFailedModel($, router, e.error);
+    if (e.agent_id === undefined) await holdFailedModel($, router, e);
     return result;
   }).catch((_$, e, next) => next(e));
 

@@ -750,3 +750,30 @@ for (const [name, held, expected] of [
       [expected, 'no-advice', expected],
     );
   });
+
+test('a real reply from a held model drops its hold and streak; an empty or substituted reply keeps them', () => {
+  const hold = { kind: 'availability', error: 'overloaded', since: now - 600_000, until: now - 300_000, streak: 2 };
+  const loop = { ...emptyLoop(DEFAULTS, model), held: { [model]: hold } };
+  const reply = (extra = {}, usageOver = {}) =>
+    observeResponse(DEFAULTS, loop, {
+      usage: usage({ model, ...usageOver }),
+      requestedModel: model,
+      effort: 'medium',
+      stopReason: 'end_turn',
+      now,
+      ...extra,
+    });
+  assert.deepEqual(reply().held, {});
+  assert.deepEqual(reply({ usage: null }).held, { [model]: hold });
+  assert.deepEqual(reply({}, { model: 'claude-sonnet-5-5' }).held, { [model]: hold });
+  assert.equal(
+    observeResponse(DEFAULTS, emptyLoop(DEFAULTS, model), {
+      usage: usage({ model }),
+      requestedModel: model,
+      effort: 'medium',
+      stopReason: 'end_turn',
+      now,
+    }).held,
+    undefined,
+  );
+});
