@@ -137,6 +137,21 @@ for (const [name, input, expected] of [
     { error: 'rate_limit', details: 'Your credit balance is too low', billing: 'billed', account: 'deepseek' },
     { kind: 'balance', scope: 'account', until: null },
   ],
+  [
+    'a Claude plan rate limit that names extra usage credits',
+    { error: 'rate_limit', details: "You're out of extra usage credits · resets 7pm" },
+    availability,
+  ],
+  [
+    'a Claude plan rate limit that names credit in a session that also bills credits',
+    { error: 'rate_limit', details: 'Add credits to keep going', billing: 'mixed' },
+    availability,
+  ],
+  [
+    'a rate limit that names credit on the plan account of a session that pays by key',
+    { error: 'rate_limit', details: 'Your credit balance is too low', billing: 'billed' },
+    { kind: 'balance', scope: 'account', until: null },
+  ],
   ['a billing error with no text', { error: 'billing_error' }, { kind: 'balance', scope: 'account', until: null }],
   [
     'a billing error with text',

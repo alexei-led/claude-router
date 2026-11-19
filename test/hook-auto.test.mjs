@@ -519,6 +519,8 @@ test('external reentry preserves escalation hold and does not count the fallback
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('edit', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
   ];
   await nextTurn(h, 'failed', failure);
@@ -740,6 +742,8 @@ test('failure occurrences escalate strictly stronger and do not repeat for the s
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
   ];
   await nextTurn(h, 'failed', failure);
@@ -753,6 +757,8 @@ test('failure occurrences escalate strictly stronger and do not repeat for the s
   await nextTurn(h, 'new-failure', [
     ...failure,
     assistant('edit', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
   ]);
   assert.ok(h.loop().auto.state.escalatedIndex > index);
@@ -775,6 +781,8 @@ test('exhausted headroom counts only a fresh failure or a later actual escalatio
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
   ];
   await nextTurn(h, 'first-failure', failure);

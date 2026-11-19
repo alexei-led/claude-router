@@ -885,7 +885,8 @@ test('repeated failure captured at its occurrence raises independent demand once
     role: 'user',
     content: [{ type: 'tool_result', tool_use_id: 't', is_error: true, content: 'Synthetic test failure' }],
   };
-  messages = [user('one'), call('Bash'), error, call('Edit'), error, user('fix')];
+  const ok = { role: 'user', content: [{ type: 'tool_result', tool_use_id: 't', is_error: false, content: 'ok' }] };
+  messages = [user('one'), call('Bash'), error, call('Edit'), ok, call('Bash'), error, user('fix')];
   await h.event('turn.start', { turnId: 't2', text: 'Synthetic fix' });
   await drain(h.step({ ...step, turnId: 't2', messageCount: messages.length }));
   await drain(h.step({ ...step, turnId: 't2', index: 1, messageCount: messages.length }));

@@ -137,6 +137,29 @@ test('OpenAI answer without a continuation predicate reads as no continuation', 
   assert.equal(parseAnswers(openaiConfig, body).continuation, null);
 });
 
+const routeBodies = (weights) => ({
+  'system-one': { answers: { route: { type: 'choice', choice: 'high', confidence: 0.9, probabilities: weights } } },
+  'openai-decisions': {
+    answers: [
+      {
+        type: 'choice',
+        name: 'route',
+        choice: 'high',
+        confidence: 0.9,
+        probabilities: Object.entries(weights).map(([value, probability]) => ({ value, probability })),
+      },
+    ],
+  },
+});
+const apiConfig = { 'system-one': DEFAULTS, 'openai-decisions': openaiConfig };
+
+test('a route answer whose probabilities add up to more than one is malformed', () => {
+  for (const [api, body] of Object.entries(routeBodies({ low: 0.9, medium: 0.9, high: 0.9 })))
+    assert.throws(() => parseAnswers(apiConfig[api], body), /classifier malformed answer/, api);
+  for (const [api, body] of Object.entries(routeBodies({ low: 0.2, medium: 0.3, high: 0.5005 })))
+    assert.equal(parseAnswers(apiConfig[api], body).probabilities.high, 0.5005, api);
+});
+
 const configFor = (classifier, activityRouting) => loadConfig({ userFile: { classifier, activityRouting } });
 const offRequests = fixture('activity-off-requests.json');
 

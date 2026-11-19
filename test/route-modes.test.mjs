@@ -208,6 +208,8 @@ test('repeated failures with no activity escalate to a stronger route after a mo
     user('fix the tests'),
     bash('a', 'npm test'),
     toolResult(failure('login at line 12'), { isError: true }),
+    bash('e', "sed -i 's/401/200/' lib/login.mjs"),
+    ran('e'),
     bash('b', 'npm test'),
     toolResult(failure('login at line 12'), { isError: true }),
     user('continue'),

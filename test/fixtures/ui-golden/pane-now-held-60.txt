@@ -215,8 +215,14 @@ Box flexDirection="column"
   Box
     Text
       "  ctx    "
+    Text color="success"
+      "▰▰"
     Text dimColor=true
-      "no reading yet"
+      "▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱▱"
+    Text
+      "  12%"
+    Text dimColor=true
+      "   ~120.3K / 1.00M"
   Box
     Text
       "  cache  "
