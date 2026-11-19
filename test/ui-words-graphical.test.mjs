@@ -9,6 +9,8 @@ process.env.TZ = 'UTC';
 const { DEFAULTS, TIERS } = await import('../lib/config.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
 const { routeDraftOf } = await import('../lib/ui/model/draft.mjs');
+const { frameOf } = await import('../lib/ui/model/frame.mjs');
+const { routesOf } = await import('../lib/ui/model/routes.mjs');
 const { CLAUDE, ROUTED } = await import('./band-states.mjs');
 const { byKey, ELEMENTS, find, quiet, texts } = await import('./harness.mjs');
 const { NOW, SESSION, STORE } = await import('./usage-fixtures.mjs');
@@ -89,4 +91,33 @@ test('the renderers read neither the config nor the view', () => {
       if (file === 'band.mjs') assert.doesNotMatch(source, /\b(config|view)\.\w/, name);
       else assert.doesNotMatch(source, /\b(config|view)\b/, name);
     }
+});
+
+// A hotkey is the model's: the key-conflict test reads the models, so a letter a renderer picks would escape it.
+test('the renderers name no hotkey letter of their own', () => {
+  for (const dir of [GRAPHICAL, TERMINAL])
+    for (const file of readdirSync(dir)) {
+      const source = readFileSync(new URL(file, dir), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+      assert.doesNotMatch(source, /hotkey: '/, file);
+    }
+});
+
+test('the models name the power and reset hotkeys', () => {
+  const ctx = {
+    config: DEFAULTS,
+    view: VIEW,
+    usage: CLAUDE,
+    actions: quiet,
+    now: NOW,
+    surface: 'desktop',
+    pluginId: 'router',
+  };
+  assert.deepEqual(
+    frameOf(ctx, 'now').power.map(({ value, hotkey }) => [value, hotkey]),
+    [
+      ['auto', 'o'],
+      ['manual', 'f'],
+    ],
+  );
+  assert.equal(routesOf(ctx).reset.hotkey, 'r');
 });
