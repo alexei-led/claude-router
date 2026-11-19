@@ -8,21 +8,12 @@ import { graphicalKit } from '../lib/ui/graphical/kit.mjs';
 import { routeDraftOf } from '../lib/ui/model/draft.mjs';
 import { kit } from '../lib/ui/terminal/kit.mjs';
 import { toneColor } from '../lib/ui/tokens.mjs';
-import { byKey, controls, ELEMENTS, find, kids, texts } from './harness.mjs';
+import { byKey, controls, ELEMENTS, find, kids, recorder, texts } from './harness.mjs';
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
 const KEYS_SET = { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null };
 const view = (props = {}) => ({ mode: 'auto', phase: 'routed', credentials: KEYS_SET, tab: 'now', ...props });
-const calls = [];
-const actions = new Proxy(
-  {},
-  {
-    get:
-      (_, name) =>
-      (...args) =>
-        calls.push([name, ...args]),
-  },
-);
+const { actions, calls } = recorder();
 const draw = (props, surface = 'desktop', usage = null) =>
   renderPanel(ELEMENTS, DEFAULTS, view(props), usage, actions, { columns: 100, surface });
 const WARNED = {

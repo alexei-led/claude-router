@@ -13,21 +13,12 @@ const { graphicalKit } = await import('../lib/ui/graphical/kit.mjs');
 const { kit } = await import('../lib/ui/terminal/kit.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { CLAUDE, ROUTED } = await import('./band-states.mjs');
-const { byKey, controls, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
+const { byKey, controls, ELEMENTS, find, kids, recorder, texts, unique } = await import('./harness.mjs');
 const { at, NOW, OTHER, reply, SESSION, STORE } = await import('./usage-fixtures.mjs');
 const { emptyUsage, recordUsage, replyEntry } = await import('../lib/usage.mjs');
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
-const calls = [];
-const actions = new Proxy(
-  {},
-  {
-    get:
-      (_, name) =>
-      (...args) =>
-        calls.push([name, ...args]),
-  },
-);
+const { actions, calls } = recorder();
 
 // Subagent records: `[day, type or pass:reason, model, core model]` per agent, one flush each.
 function agentStore(agents) {
@@ -265,6 +256,15 @@ for (const surface of SURFACES) {
     assert.equal(frame.props.overflow, 'hidden');
     assert.ok(texts(trend).includes('Oct 7'));
     assert.ok(texts(trend).includes('Oct 13'));
+  });
+
+  test(`${surface}: a period with one bucket says so in a Trend card instead of drawing nothing`, () => {
+    const trend = card(draw({ usageStore: EARLY, usagePeriod: 'all' }, { surface }), 'Trend');
+    assert.deepEqual(
+      texts(trend).filter((t) => /so far/.test(t)),
+      ['One day so far'],
+    );
+    assert.deepEqual(svgs(trend), []);
   });
 
   test(`${surface}: Breakdown is a table of name, replies, cost, saving and a bar with its figure beside it`, () => {
@@ -505,4 +505,22 @@ test('the trend Svg stays under the size limit with 400 points, and states its f
     );
   // The terminal draws the same points as one row of blocks, a dot for an empty bucket.
   assert.equal(kit(ELEMENTS).trend({ points: [0, 1, 2], labels, alt: 'x', tone: 'accent' }).props.children, '·▅█');
+  // A reading that is not a finite number is an empty bucket, as the Svg draws it.
+  assert.equal(
+    kit(ELEMENTS).trend({ points: [Number.NaN, 2, Number.POSITIVE_INFINITY], labels, alt: 'x', tone: 'accent' }).props
+      .children,
+    '·█·',
+  );
+});
+
+test('a bar figure wider than its column grows the column instead of wrapping', () => {
+  const ui = graphicalKit(ELEMENTS);
+  for (const figure of ['$0.42', '≈$1234.56']) {
+    const meter = ui.meter({ label: 'Main', value: 0.5, tone: 'accent', text: figure });
+    const [text] = find(meter, (n) => n.type === 'Text' && n.props.children === figure);
+    const column = find(meter, (n) => n.type === 'Box' && kids(n).includes(text))[0];
+    assert.equal(column.props.width, undefined, figure);
+    assert.ok(column.props.minWidth >= 7, figure);
+    assert.equal(column.props.flexShrink, 0, figure);
+  }
 });

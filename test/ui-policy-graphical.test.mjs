@@ -10,20 +10,11 @@ const { POLICY_ROWS, routeDraftOf } = await import('../lib/ui/model/draft.mjs');
 const { POLICY_FORM } = await import('../lib/ui/model/policy.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { ROUTED } = await import('./band-states.mjs');
-const { byKey, controls, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
+const { byKey, controls, ELEMENTS, find, kids, recorder, texts, unique } = await import('./harness.mjs');
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
 const GROUPS = ['Routing mode', 'Switching down', 'Switching up', 'Activities', 'Credits'];
-const calls = [];
-const actions = new Proxy(
-  {},
-  {
-    get:
-      (_, name) =>
-      (...args) =>
-        calls.push([name, ...args]),
-  },
-);
+const { actions, calls } = recorder();
 const VIEW = { ...ROUTED, tab: 'policy', credentials: { jev: null }, configPath: '/fixture/team/router.json' };
 const draw = (props = {}, { surface = 'desktop', config = DEFAULTS, elements = ELEMENTS } = {}) =>
   // Every tree a test draws holds each key and hotkey once.

@@ -12,19 +12,10 @@ const { routeDraftOf } = await import('../lib/ui/model/draft.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { tierLabel } = await import('../lib/ui/model/format.mjs');
 const { ROUTED } = await import('./band-states.mjs');
-const { byKey, controls, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
+const { byKey, controls, ELEMENTS, find, kids, recorder, texts, unique } = await import('./harness.mjs');
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
-const calls = [];
-const actions = new Proxy(
-  {},
-  {
-    get:
-      (_, name) =>
-      (...args) =>
-        calls.push([name, ...args]),
-  },
-);
+const { actions, calls } = recorder();
 const VIEW = { ...ROUTED, tab: 'routes', credentials: { jev: null } };
 const draw = (props = {}, { surface = 'desktop', config = DEFAULTS, columns = 100, now = undefined } = {}) =>
   // Every tree a test draws holds each key and hotkey once.

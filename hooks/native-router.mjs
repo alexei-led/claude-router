@@ -686,7 +686,7 @@ async function exportTraces($, router) {
 }
 
 function clientOf(router, id) {
-  if (!router.clients.has(id)) router.clients.set(id, new ClassifierClient());
+  if (!router.clients.has(id)) router.clients.set(id, new ClassifierClient({ now: Date.now }));
   return router.clients.get(id);
 }
 
@@ -2379,7 +2379,7 @@ async function findDefinition($, plugin, type) {
 // in-flight slot, so a parent that spawns several agents at once gets an answer for each.
 function spawnClientOf(router, id) {
   const key = `spawn:${id}`;
-  if (!router.clients.has(key)) router.clients.set(key, new ClassifierClient({ exclusive: false }));
+  if (!router.clients.has(key)) router.clients.set(key, new ClassifierClient({ now: Date.now, exclusive: false }));
   return router.clients.get(key);
 }
 
@@ -3632,6 +3632,7 @@ export function register(on, options) {
               agent: router.agents.get(e.props.view?.agentId) ?? null,
               agents: e.props.view?.agentId ? [] : await runningAgents($, router),
               back: true,
+              now: Date.now(),
             },
             {
               open: () => openPane($, router),
@@ -3668,6 +3669,7 @@ export function register(on, options) {
       columns: e.props.bodyColumns,
       surface: e.surface,
       onFallback: logFallback($, 'pane'),
+      now: Date.now(),
       pluginId: pluginIdOf({ name: $.plugin.name, root: $.plugin.root }, settings?.enabledPlugins ?? null),
     });
   });

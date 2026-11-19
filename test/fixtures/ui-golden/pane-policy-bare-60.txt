@@ -52,7 +52,7 @@ Box flexDirection="column"
   Box
     Box flexShrink=0 width=13
       Text weight="semibold"
-        "Start"
+        "Start tier"
     Box flexDirection="column" flexGrow=1 flexShrink=1
       Box
         Text

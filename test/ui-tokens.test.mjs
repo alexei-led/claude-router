@@ -70,6 +70,12 @@ test('every hex an Svg draws in reads at 3:1 on both grounds', () => {
   }
 });
 
+test('an Svg draws a tone it has no hex for, a tier or a model family included, in the accent', () => {
+  const accent = svgColor('accent');
+  for (const tone of ['danger', 'tier:none', 'model:gemini'])
+    assert.equal(svgColor(/** @type {any} */ (tone)), accent, tone);
+});
+
 test('only a surface that is not the terminal is graphical', () => {
   for (const surface of ['desktop', 'mobile', 'vscode']) assert.equal(isGraphical(surface), true);
   assert.equal(isGraphical('terminal'), false);
