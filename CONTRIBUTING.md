@@ -12,7 +12,7 @@ Needs Node 22 or newer (`engines`; CI runs 24.15.0) and `claude` on `PATH` for `
 
 | Command                | What it checks                                                                          | When                          |
 | ---------------------- | --------------------------------------------------------------------------------------- | ----------------------------- |
-| `npm run setup`        | Installs Biome and TypeScript into `tools/` (`npm ci --prefix tools`)                   | Once per clone                |
+| `npm run setup`        | Installs Biome and TypeScript into `tools/` (`npm ci --prefix tools --ignore-scripts`)                   | Once per clone                |
 | `npm run check`        | Biome lint and format; a warning fails                                                  | Before every commit           |
 | `npm run typecheck`    | `tsc` over `lib/` and `hooks/`, `strictNullChecks`, `noUncheckedIndexedAccess`          | Before every commit           |
 | `npm test`             | Unit tests (`test/*.test.mjs`, `experiments/mod-router/scripts/*.test.mjs`), 8 s each   | While you work               |
@@ -22,6 +22,10 @@ Needs Node 22 or newer (`engines`; CI runs 24.15.0) and `claude` on `PATH` for `
 | `npm run format`       | Rewrites formatting with Biome                                                          | When `check` reports format   |
 | `npm run docs:images`  | Redraws `docs/*.svg` from the real renderers                                            | Only when the terminal UI changed |
 | `npm run docs:desktop-images` | Redraws `docs/images/*.png` (desktop, VS Code and mobile band and pane) through headless Chrome | Only when the graphical UI changed |
+| `npm run test:providers` | Real Claude Code and the Mod against a loopback Messages API; no credentials or paid calls | Before pushing a provider change |
+| `npm run docs:modes`   | Rewrites the matrix in `docs/routing-modes.md`; `npm test` fails when it is stale        | After a change to modes or default routes |
+| `npm run prices:check` | Compares `lib/prices.mjs` with each vendor's price page (`--write` rewrites it)          | When prices may have changed  |
+| `npm run probe:results` | Regenerates `lib/probe-results.mjs` from the activity probe results                     | After a probe run             |
 | `npm run pack:dry`     | `npm pack --dry-run`: what the package would ship                                       | Before pushing                |
 
 `scripts/git-hooks/` holds `pre-commit` (staged Biome, ShellCheck, gitleaks) and `pre-push` (`check`, `typecheck`, `test`, `pack:dry`, `validate`, `test:plugin`, gitleaks). Enable them with `git config core.hooksPath scripts/git-hooks`; they need `gitleaks` installed.
@@ -73,7 +77,7 @@ Rules that keep the layers apart:
 - Mock only boundaries: network, files, clock, processes. Inject `now`; never wait on a real timer, and never depend on the time zone or machine load. A test with a real child process needs a generous deadline.
 - A bug fix starts with a regression test that fails for the right reason. Run it before the fix and read the failure.
 - Assert what a person sees: the label equals what pressing the button runs. Do not assert styling props.
-- Goldens in `test/fixtures/ui-golden/*.txt` pin terminal output. Change them only for an intended UI change: `UPDATE_GOLDEN=1 node --test test/ui-golden.test.mjs`, then read the diff.
+- Goldens in `test/fixtures/ui-golden/*.txt` pin terminal output. Change them only for an intended UI change: `UPDATE_GOLDEN=1 node --test test/ui-golden.test.mjs`, then read the diff. Route goldens (`test/route-golden.test.mjs`) use `GOLDEN_WRITE=1` instead.
 - `test/*.test.ts` are engine tests, for what only the engine can refuse. They run under `npm run test:plugin`, not `npm test`.
 
 ## Lessons from review

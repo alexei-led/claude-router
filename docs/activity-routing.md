@@ -11,7 +11,7 @@ They do not measure this router's answer quality or your bill.
 
 ## What it does
 
-For each new turn, Jev, Clef and OpenAI answer tier, continuation, goal and phase questions together. The existing
+For each new turn, Jev, Clef, Clef Flash, Clef Omni and OpenAI answer tier, continuation, goal and phase questions together. The existing
 `activity` field and route matrix name the goal; the phase can select the `ops` cell for bounded command-only work.
 Ollama asks tier and goal in two calls and does not provide a phase, so it cannot introduce a bounded-ops discount. A route is a model and an effort.
 

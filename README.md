@@ -201,6 +201,8 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md): set-up and commands, the layer rules, t
 - [Activity routing](docs/activity-routing.md): the default matrix by activity, why each cell, and how to change or turn it off.
 - [Routing modes](docs/routing-modes.md): `cost`, `balanced` and `quality`, where the mode comes from, and every decision per mode.
 - [Native router details](docs/native-router.md): panel semantics, tuning, and accepted limits.
+- [Automatic routing engine](docs/auto-engine.md): the opt-in `auto` engine's inputs, rules and limits.
+- [Provider experiments](docs/provider-experiments.md): MiniMax, MiMo and Kimi evidence behind the default routes.
 - [Evaluation](docs/evaluation.md): limits, text-free trace export and replay, and the paired benchmark proposal.
 - [Contributing](CONTRIBUTING.md): set up, commands, architecture rules, tests, and pull requests.
 - [Changelog](CHANGELOG.md): user-visible changes by version.

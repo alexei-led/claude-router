@@ -24,7 +24,10 @@ The activity is what the turn produces: `code`, `debug`, `explore`, `plan`, `rev
 | `/router pin <tier>`                   | Pin the next turn and tool continuations. Routing on must already be enabled.                     |
 | `/router activities <off\|on>` | Set the activity routing mode. Written to `router.json` at once; **Undo** in the pane reverts it. |
 | `/router mode <cost\|balanced\|quality\|default>` | Set or clear this session's [routing mode](routing-modes.md), from the next turn. Kept for a resume in `$.store` `routing-mode:<session id>`. Never aborts a turn. |
-| `/router decisions [n]`               | Print this session's last `n` routing decisions (default 20, at most 60): origin, classifier answer, task, tier, route, reason with the mass and bar it compared, and each turn's end. No text. |
+| `/router decisions [n]`               | Print this session's last `n` routing decisions (default 20; `n` is a whole number from 1 to 60, larger values show 60; anything else gets "Choose decisions 1 to 60, or none for 20."): origin, classifier answer, task, tier, route, reason with the mass and bar it compared, and each turn's end. No text. |
+| `/router holds`                       | List the models and accounts held out of routing, with the cause and the end. |
+| `/router release <model\|account>`    | End a hold early. The typeahead offers the models and accounts held now. |
+| `/router trace export`                | Export the shadow traces. |
 | `/router line <off\|moves\|all>`      | Set when a turn leaves a route line (default `moves`: only when its route moved). Kept in `$.store` as `route:line`, across sessions. |
 | `/model <name>`                        | Select a model and turn routing off. `/router auto` turns it back on. A `classic.PostModelSwitch` from the picker or the SDK (`source` `picker` or `sdk`) does the same; `command` is left to the `/model` and `config.set` hooks, which skip a plugin's own switch, and `auto` and `resume` change nothing. |
 
@@ -88,7 +91,7 @@ The pane refuses to write through a symlink. A failed validation names the setti
 
 - A missing key or account ID, a classifier failure, or a policy refusal keeps the current model. Network refusal is never bypassed with a helper process.
 - A missing, malformed, or timed-out activity answer keeps the running activity in `on`; the tier answer still applies. It does not count as a classifier failure. If the whole classifier call fails, the running route stays. Activity statistics are written inside a guard: a failed store read or write loses that turn's counts and never fails a turn.
-- Three launched classifier failures open a 60-second pause for that classifier. One in-flight request is allowed per classifier in each active Mod instance. Pending host HTTP work blocks another request until it settles.
+- Three launched classifier failures open a 60-second pause for that classifier. Each classifier has one in-flight request for turn decisions and one for mid-turn reviews in each active Mod instance, each with its own failure count and pause; spawns have none. Pending host HTTP work blocks another request until it settles.
 - A `router.json` with v0.8 gateway keys or the 1.1 `jev` section marks the router unavailable until the [migration command](configuration.md#convert-an-older-routerjson) converts it.
 - Unsupported Claude Code versions and leftover v0.8 gateway settings (the `jev-router` model or the `127.0.0.1:43170` base URL) mark the router unavailable. `/router` lists the settings to remove. A local gateway does not run as part of this Mod.
 - A session that starts with the router unavailable shows one toast with the reason (`$.ui.toast`, not `$.ui.notify`, which is a native terminal notification). It repeats at most once a day per cause: the time is kept in `$.store` as `notice:unavailable:<version|gateway|config>`. A `claude -p` run shows none.
@@ -106,6 +109,6 @@ On 2026-10-05, live probes of Clef and Clef Flash on Workers AI took 0.7 to 1.3 
 
 Recorded acceptance checks cover the local HTTP deadline and one-request admission, session clear/resume, circuit-breaker pause, reload, replacement, unload, engine fallback, and interrupt during Jev advice. The interrupt check closed the loopback socket within 4 ms and discarded late advice without changing the active route or UI. Results are stored under [`experiments/mod-router/results`](../experiments/mod-router/results/).
 
-A billed chain of pinned turns moved across Opus, Haiku 4.5, and Sonnet with a tool call on every turn, and no request was rejected. Claude Code builds each model's request itself; Haiku 4.5 received its own thinking mode and a 32K output cap. On Claude Code 2.1.293, a turn pinned to `low` ran on Haiku 5.5 at `high` with a tool call and was served by the requested model (2026-10-08). Sonnet and Opus accepted histories above 589K input tokens. These probes validate the tested path only. Claude Code and organization policy control other model and request combinations.
+On builds before 2.1.321, a billed chain of pinned turns moved across Opus, Haiku 4.5, and Sonnet with a tool call on every turn, and no request was rejected. Claude Code builds each model's request itself; Haiku 4.5 received its own thinking mode and a 32K output cap. On Claude Code 2.1.293, a turn pinned to `low` ran on Haiku 5.5 at `high` with a tool call and was served by the requested model (2026-10-08). Sonnet and Opus accepted histories above 589K input tokens. These probes validate the tested path only. Claude Code and organization policy control other model and request combinations.
 
 To stop routing in a session, run `/router off`. To stop loading the Mod, run `claude plugin disable router@alexei-led-claude-router` and restart.

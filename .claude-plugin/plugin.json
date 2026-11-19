@@ -19,13 +19,13 @@
     },
     "cloudflare_api_token": {
       "type": "string",
-      "title": "Cloudflare API token (Clef, Clef Flash)",
-      "description": "Workers AI token for the Clef and Clef Flash classifiers. Scope it to Workers AI only.",
+      "title": "Cloudflare API token (Clef, Clef Flash, Clef Omni)",
+      "description": "Workers AI token for the Clef, Clef Flash and Clef Omni classifiers. Scope it to Workers AI only.",
       "sensitive": true
     },
     "cloudflare_account_id": {
       "type": "string",
-      "title": "Cloudflare account ID (Clef, Clef Flash)",
+      "title": "Cloudflare account ID (Clef, Clef Flash, Clef Omni)",
       "description": "The Cloudflare account that runs Workers AI. Not a secret."
     },
     "openai_api_key": {
