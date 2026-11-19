@@ -44,6 +44,12 @@ test('an overloaded model is held out: the next turn runs the nearest tier on an
   assert.equal(h.state.get('lines:rl-t2').value.reason, 'model-held');
 });
 
+test('a model hold reaches the pane’s held-out view in the same event, without reopening the pane', async (t) => {
+  const h = await started(t);
+  await turn(h, 't1', { error: 'overloaded' });
+  assert.deepEqual(Object.keys(h.view().holds.models), [OPUS]);
+});
+
 const LOW = jevResponse('low', { micro: 0, low: 0.97, medium: 0.03, high: 0, uncertain: 0 });
 
 test('the hold is on the model the failed request ran, not on the session’s model', async (t) => {

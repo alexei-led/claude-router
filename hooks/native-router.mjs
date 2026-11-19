@@ -3253,7 +3253,11 @@ async function holdFailedModel($, router, e) {
         : await applyHold($, router, failure, e.error, failure.scope === 'account' ? account : model, now).catch(
             () => null,
           );
-    if (held) await updateView($, router, { holds: await readHolds($, router) });
+    // A loop read later in this event sees the state from before the write, so a model hold takes the holds just written.
+    if (held) {
+      const read = await readHolds($, router);
+      await updateView($, router, { holds: held.models ? { ...read, models: held.models } : read });
+    }
     const turnId = router.mainTurnId;
     if (turnId === null) return;
     addDecision(
@@ -3266,7 +3270,7 @@ async function holdFailedModel($, router, e) {
         limits,
         failure: held ? failure.kind : null,
         scope: held ? failure.scope : null,
-        held,
+        held: held?.key ?? null,
       }),
     );
     // A turn that already completed will not flush its rows again.
@@ -3381,7 +3385,7 @@ async function applyHold($, router, failure, error, key, now) {
     if (hold !== running) await $.store.set(store, hold);
     if ((await modeOf($, router)) === 'auto')
       $.ui.toast(`${key === PLAN_ACCOUNT ? 'Claude plan' : key} held out of routing: ${holdText(hold, now)}`);
-    return key;
+    return { key, models: null };
   }
   const ref = { ...LOOP, id: 'main' };
   // A write that lost to a step's own write reads the loop again.
@@ -3395,7 +3399,7 @@ async function applyHold($, router, failure, error, key, now) {
     const hold = activeHolds(held, at)[key];
     if (hold && (await modeOf($, router)) === 'auto')
       $.ui.toast(`${modelName(key)} held out of routing: ${holdText(hold, at)}`);
-    return key;
+    return { key, models: held };
   }
   return null;
 }
