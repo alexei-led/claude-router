@@ -3619,10 +3619,11 @@ export function register(on, options) {
         router.traceClearSession = null;
       }
       const ref = { ...LOOP, id: 'main' };
-      const loop = (await $.state.get(ref)).value;
-      if (loop) {
-        const reset = resetHistory(loop);
-        await $.state.set(ref, reset);
+      const { value: loop, version } = await $.state.get(ref);
+      // A reset that lost to a newer write is not written over it: the next step finds the history shorter
+      // (prepareLoop) and resets it then.
+      const reset = loop ? resetHistory(loop) : null;
+      if (reset && (await $.state.set(ref, reset, { ifVersion: version })).isSet) {
         if (router.config.routingEngine === 'shadow' && router.trace) {
           const event = { type: 'reset', at: Date.now(), cause: 'compact', loop: reset, generation: reset.generation };
           traceReset(router, event);

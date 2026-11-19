@@ -750,3 +750,20 @@ test('session.start, turn.start and turn.complete pass their event on when the r
     assert.deepEqual(await h.event(name, input), input, name);
   await running.catch(() => {});
 });
+
+test('a compaction does not write its history reset over a loop write made since it read the loop', async () => {
+  const h = harness();
+  await start(h);
+  await drain(h.step(step));
+  const get = h.$.state.get;
+  h.$.state.get = async (ref) => {
+    const read = await get(ref);
+    const stored = h.state.get('loops:main');
+    if (ref.key === 'loops' && stored)
+      h.state.set('loops:main', { value: { ...stored.value, requests: 99 }, version: stored.version + 1 });
+    return read;
+  };
+  await h.event('session.compact', { trigger: 'auto' });
+  h.$.state.get = get;
+  assert.equal(h.loop().requests, 99);
+});
