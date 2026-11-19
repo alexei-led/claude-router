@@ -437,25 +437,43 @@ Native cache freshness is unknown after 270 seconds or after a history reset. Cl
 
 ### Accounts and fallback chains
 
-When a model is held out of routing ([When a model fails](user-guide.md#when-a-model-fails)), its turn can run a stand-in you choose. Four settings describe it:
+When a model is held out of routing ([When a model fails](user-guide.md#when-a-model-fails)), its turn can run a stand-in you choose. Four settings describe it. This file is valid on the default Anthropic profile as it stands, because each added model is defined in full (`id`, prices, `contextWindow`, `billing`, `efforts`). Under a provider profile that already defines `glm` or `kimi`, a shorter entry such as `"glm": { "account": "zai" }` is enough:
 
 ```json
 {
   "fallbacks": {
-    "opus": ["glm@max", "deepseek@max"],
+    "opus": ["glm@max", "sonnet"],
     "sonnet": ["glm@high"]
   },
   "models": {
-    "glm": { "account": "zai" },
-    "kimi": { "requiresOwnHistory": true }
+    "glm": {
+      "id": "glm-5.3[1m]",
+      "input": 1.4,
+      "output": 4.4,
+      "cacheRead": 0.26,
+      "contextWindow": 1000000,
+      "billing": "credits",
+      "efforts": ["low", "high", "max"],
+      "account": "zai"
+    },
+    "kimi": {
+      "id": "kimi-k3.1-pro[1m]",
+      "input": 2,
+      "output": 10,
+      "cacheRead": 0.2,
+      "contextWindow": 1048576,
+      "billing": "credits",
+      "efforts": ["low", "high", "max"],
+      "requiresOwnHistory": true
+    }
   },
   "accounts": {
-    "acme": { "reset": { "monthly": 1, "tz": "UTC" } }
+    "zai": { "reset": { "monthly": 1, "tz": "UTC" } }
   }
 }
 ```
 
-- **`fallbacks`:** per source model key, an ordered list of targets; the router takes the first one that is allowed and not held. An entry is `alias` or `alias@effort`; the effort must be one of the target's `efforts`. A bare `alias` runs at the source's effort, moved to one the target supports. A target is a route of its own and need not appear in any tier. The list is not followed through: a target's own chain is not used. Subagents and the `auto` engine use no chains.
+- **`fallbacks`:** per source model key, an ordered list of targets; the router takes the first one that is allowed and not held. An entry is `alias` or `alias@effort`; the effort must be one of the target's `efforts`. A bare `alias` runs at the source's effort; one the target does not support moves down to the nearest it does, or to its lowest when none is below. A target is a route of its own and need not appear in any tier. The list is not followed through: a target's own chain is not used. Subagents and the `auto` engine use no chains.
 - **`models.<alias>.account`:** the quota account the model belongs to, a name of letters, digits, dots, dashes and underscores. A model with `billing: "plan"` is on the account `plan` by default; any other model is its own account, named by its key. Models that share an account are held out together when its quota is used up.
 - **`accounts.<name>.reset`:** `{ "monthly": <1-28>, "tz": "<IANA zone>" }`, the day a monthly spend limit resets. Only a failure that says "spend limit" uses it; without it that hold lasts 24 hours and the next turn tries again. The reset is midnight in `tz` on that day.
 - **`models.<alias>.requiresOwnHistory`:** `true` for a model that reads only its own thinking history. The Kimi preset sets it ([providers](providers.md#kimi-and-history)). The router never switches into or out of it from another model in a fallback or nearest-tier stand-in.
