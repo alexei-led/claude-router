@@ -70,6 +70,8 @@ test('full failure fingerprints distinguish test failures inside the Mod engine'
         assistant('running', ['Bash']),
         toolResult(failure('login'), { isError: true }),
         assistant('editing', ['Edit']),
+        toolResult('ok'),
+        assistant('running again', ['Bash']),
         toolResult(failure(nextTest), { isError: true }),
       ]),
       memory(),
