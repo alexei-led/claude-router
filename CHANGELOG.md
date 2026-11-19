@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Fallback chains:** `fallbacks` in `router.json` lists, per model, the models that run its turns while it is held out, such as `"opus": ["glm@max", "deepseek@max"]`. A bare entry takes the source's effort, an `alias@effort` entry its own. When no target fits, the nearest tier's route applies as before. The stand-in serves the turn and never becomes the running route, so routing returns to the model after the hold.
+- **Failure kinds and account holds:** the router now tells an availability failure (the model is held for a time that doubles on each failed retry, up to an hour) from a used-up 5-hour or 7-day plan window, a monthly spend limit and an empty balance. These hold the whole account, the Claude plan for plan models, until the limit's reset or a release. Account holds are kept in the plugin's store, so a new session sees them. A `billing_error` used to hold nothing; it now holds its account until released.
+- **`accounts` and model keys:** `models.<alias>.account` groups models for one quota, `accounts.<name>.reset` (`monthly` day 1-28 and `tz`) sets when a spend limit resets, and `models.<alias>.requiresOwnHistory` marks a model that reads only its own thinking history, which the Kimi preset sets. A chain cannot mix such a model with another, and the nearest-tier rule never switches into or out of it from another model. See [Configuration](docs/configuration.md#accounts-and-fallback-chains).
+- **`/router holds` and `/router release <model|account>`** list the holds and end one early. The prompt offers the words held now.
+- **Pane:** a **HELD OUT** section on Now shows each hold with its cause, end and covered models, and **Release** with **Undo**; **why** reads `↷ Opus 5.5 held · fallback 1 of 2`. Routes shows a read-only **FALLBACKS** list and marks a held cell `↷`. The band and the switch toast name the cause and the end, such as `Claude plan 5h limit · back 19:00 → GLM 5.3 · max`.
+- **Decisions:** every main-turn failure adds a `failure` row with the error word, the first 300 characters of Claude Code's error details, the plan readings, the kind and what was held.
+
+### Notes
+
+- Not checked live: what Claude Code's `error_details` holds on a real failure (it is optional, and every path works without it), a real 5-hour limit reading at 100%, a real `overloaded`, and a chain run on a provider that has to read another model's thinking history.
+
 ## 1.26.0 (2026-11-18)
 
 ### Summary

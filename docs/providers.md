@@ -115,6 +115,15 @@ When migrating Kimi, start a **fresh conversation**. Its preserved thinking/sign
 resuming another model's history into K3-family models is not a supported migration.
 The default Kimi ladder uses one model throughout, not a K2/K3 mixture.
 
+### Kimi and history
+
+The Kimi preset sets `requiresOwnHistory: true` on `k3`. A model that reads only its own thinking history cannot take over a session that another model ran, and another model cannot take over its session. The router therefore:
+
+- rejects a `fallbacks` chain that holds `k3`, as source or target, together with another model;
+- never uses the nearest-tier rule to switch into or out of `k3` from another model when a model is held out.
+
+Cross-provider history is a caveat for every other chain too. Claude Code resends the same history to the stand-in, and thinking blocks and signatures belong to the model that wrote them. A chain from an Anthropic model to GLM or DeepSeek is allowed because you choose it. Not checked live: how each provider handles another model's thinking history in a fallback turn. Set `requiresOwnHistory` on any model you find that needs it ([Configuration](configuration.md#accounts-and-fallback-chains)).
+
 ### Model IDs
 
 | Profile | Alias | Model ID |

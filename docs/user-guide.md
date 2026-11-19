@@ -414,18 +414,53 @@ On Claude Code 2.1.322 an effort that the router changed inside a turn was not s
 
 ### When a model fails
 
-When a turn ends on an API error that is the model's fault, the router holds that model out of routing for a while, so the next turns run another model. A toast says so once, such as `Opus 5.5 held out of routing: overloaded, 5 min`.
+When a turn ends on an API error that is the model's fault, the router holds something out of routing for a while, so the next turns run another model. A toast says so once, such as `Opus 5.5 held out of routing: overloaded, 5 min` or `Claude plan held out of routing: usage limit, 4 h`.
 
-| Error Claude Code reports | Held out for |
-| ------------------------- | ------------ |
-| `rate_limit`              | 5 minutes    |
-| `overloaded`              | 5 minutes    |
-| `server_error`            | 2 minutes    |
-| `model_not_found`         | 1 hour       |
+The router sorts each failure into one of four kinds, from the plan's usage readings first, then the error's text when Claude Code gives it, then the error word:
 
-A billing error, a rejected key or request, a cut-off answer and an unknown error hold nothing: another model would not help. Claude Code reports no retry-after, so the times are fixed.
+| Kind           | Recognised by                                                                                                 | Held out                                                                  | Ends                                                                     |
+| -------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `availability` | `overloaded`, `server_error`, `model_not_found`, or `rate_limit` with no sign of a used-up quota                | The model                                                                 | After a fixed time, doubled on each failed retry (see below)             |
+| `window`       | `rate_limit` while a `five_hour` or `seven_day` plan reading is at 100% or more and resets later              | The account, which is the Claude plan for plan models                     | The latest reset time plus 1 minute, at most 7 days away                 |
+| `calendar`     | `rate_limit` whose text says "spend limit"                                                                    | The account                                                               | The account's configured monthly reset, or 24 hours when none is set     |
+| `balance`      | `billing_error`, or an error text that names a balance, a recharge or credit                                  | The account                                                               | A release (`/router release`)                                            |
 
-While a model is held out, a turn whose route runs it, a pinned turn too, runs the nearest tier's route on another model at the turn's activity; of two tiers as near, the stronger. The switch toast, the band and the route line show `! held out`. The turn's own tool calls do not move it onto a held model either. When the hold ends, the next turn returns to the route it held out without waiting for votes or a checkpoint. A route that is not its tier's configured route, kept from before a routing mode change or a route edit, or your own model when no tier routes to it, is the exception: when the tier's configured route runs another model, that route takes over at once and stays after the hold. The failed request is not sent again: Claude Code reports the error after the turn has ended. A subagent's failure holds nothing. A compaction keeps the holds; a new session starts without them. With `"routingEngine": "auto"` no model is held and no toast shows: that engine does not route around holds.
+An authentication or request error (`authentication_failed`, `oauth_org_not_allowed`, `account_on_hold`, `invalid_request`), a cut-off answer and an unknown error hold nothing: another model would not help. Claude Code reports no retry-after, so an availability hold uses a fixed time.
+
+| Error Claude Code reports | First hold |
+| ------------------------- | ---------- |
+| `rate_limit`              | 5 minutes  |
+| `overloaded`              | 5 minutes  |
+| `server_error`            | 2 minutes  |
+| `model_not_found`         | 1 hour     |
+
+- **Availability, retries:** when the model fails again with the same error right after a hold ended, the next hold is twice as long, to at most 60 minutes. `overloaded` goes 5, 10, 20, 40, 60. A failure while a hold is still running is not a retry. A reply from that model clears the count.
+- **A window needs the plan.** It applies only when the failed model is on the plan account and the session pays only through the plan. In a session that also pays through a proxy or credits, the readings name no account, so a `rate_limit` is an availability failure there.
+- **An account holds every model on it.** A model with `billing: "plan"` is on the account `plan`; any other model is its own account unless `models.<alias>.account` groups it with others ([Configuration](configuration.md#accounts-and-fallback-chains)). A quota failure of a model that no configured model ran holds nothing.
+- **Account holds are kept in the plugin's store** (`holds/<account>`), so another session sees them and a restart keeps them. Model holds stay in the session. If two sessions write the same account hold at once, one write can be lost; both say the same account is out.
+- **A hold ending changes nothing by itself.** The failed request is not sent again, and nothing probes the model: the next turn routes as usual, and a model that was held out can run again.
+
+While a model is held out, a turn whose route runs it, a pinned turn too, runs a stand-in:
+
+1. The model's **fallback chain**, if `fallbacks` in `router.json` lists one: the first target that is allowed, not held (itself or through its account), not excluded this turn, able to take the turn's images and large enough for the context. While the context is unmeasured, a target with a smaller window than the last route is skipped. A bare target runs at the source's effort, moved to one the target supports (Opus at `medium` into GLM runs `high`, because GLM has only `high` and `max`). `alias@effort` runs at its own effort. A target need not be in any tier.
+2. When every target is skipped, or there is no chain, the nearest tier's route on another model at the turn's activity; of two tiers as near, the stronger.
+
+The nearest-tier rule never switches into or out of a model that requires its own history (`requiresOwnHistory`, such as Kimi K3) from another model, and a chain cannot mix such a model with another.
+
+The stand-in serves the turn and its tool calls, and never becomes the running route, so it does not stick: when the hold ends, the next turn returns to the route it held out without waiting for votes or a checkpoint. A route that is not its tier's configured route, kept from before a routing mode change or a route edit, or your own model when no tier routes to it, is the exception: when the tier's configured route runs another model, that route takes over at once and stays after the hold. The switch toast, the band and the route line show `! held out`, and the reason says who holds and until when: `↷ Claude plan 5h limit · back 19:00`; the toast names the stand-in, such as `Claude plan 5h limit · back 19:00 → GLM 5.3 · max`. If the stand-in fails, it gets the hold, not the model it stood in for. A subagent's failure holds nothing. A compaction keeps the holds; a new session starts without model holds and keeps account holds. With `"routingEngine": "auto"` no model or account is held and no toast shows: that engine does not route around holds.
+
+Every main-turn failure also adds a `failure` row to the decision record: the error word, the first 300 characters of Claude Code's `error_details` (empty when it gives none), the plan readings at that moment, the kind, and what was held. `/router decisions` lists the row without the text.
+
+**HELD OUT on Now.** A **HELD OUT** section after **NEXT TURN** shows while something is held, and also when routing is off, because an account hold outlives routing being off. Each row names the holder, the cause and the end (`5h limit · back 19:00`, `no balance · until released`, `overloaded ×2 · back 14:32`), the models it covers, and a **Release** button. Release applies on click and **Undo** puts the hold back. The footer names `router.json → fallbacks` and `/router holds`. When the turn runs a chain target, **why** reads `↷ Opus 5.5 held · fallback 1 of 2`.
+
+**FALLBACKS on Routes.** A read-only **FALLBACKS** section under the grid lists each model that has a chain: its status and its targets in order, a held target marked `✕`, and the one running `◀ runs`. A held model's cell in the grid gets `↷`. The pane has no chain editor; edit `fallbacks` in `router.json`.
+
+**Commands.**
+
+- `/router holds` lists each hold with its scope (`account` or `model`), kind, cause, end and, for an account, the models it holds out: `plan (account) · window: 5h limit · back 19:00 · holds out …`.
+- `/router release <model|account>` ends one early: an account name, a model's key in `router.json` or a model id. A model held only through its account is not released alone; the reply points to `/router release plan`. The prompt offers the words held now. Releasing is not a fix: if the model still fails, it is held again.
+
+Not yet checked live: what `error_details` holds on a real failure (the `calendar` and `balance` text rules depend on it, and every path also works when it is absent), a real `rate_limit` at a 5h limit with a plan reading at 100% (the window kind relies on it), and a real `overloaded`. Tests use the shapes found in local transcripts.
 
 ### Read the activity on the pane
 
@@ -449,6 +484,8 @@ On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the
 | `/router activities <off\|on>`           | Set the [activity routing](#route-by-activity) mode. Saved to `router.json` at once; **Undo** reverts it. |
 | `/router mode <cost\|balanced\|quality>`  | Set this session's [routing mode](routing-modes.md) from the next turn. A resume keeps it.               |
 | `/router mode default`                   | Clear the session's mode: the project's or the profile's applies again.                                  |
+| `/router holds`                          | List the models and accounts held out of routing, with the cause and the end. See [When a model fails](#when-a-model-fails). |
+| `/router release <model\|account>`       | End a hold early. **Release** on the Now tab does the same, with **Undo**. |
 | `/router decisions [n]`                  | Print this session's last `n` routing decisions, 20 by default. See [Routing decisions](#routing-decisions). |
 | `/router line <off\|moves\|all>`          | Choose when a turn leaves a [route line](#the-route-line) in the transcript. `moves` is the default. Kept across sessions. |
 | `/model <name>`                          | Select a model and turn routing off. Use `/router auto` to turn it back on. The model picker and a model set from the SDK, an IDE or Remote Control do the same. |
@@ -456,7 +493,7 @@ On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the
 | **on** / **off** on the pane (`o` / `f`) | The same as `/router auto` and `/router off`.                                                             |
 | **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.                                      |
 
-Type `/router` and a space, then a letter, and the prompt offers the words that start with it (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `line <off|moves|all>`, `decisions [n]`, `trace export`). After `pin `, `mode `, `activities ` or `line ` it offers the values; `pin` names the model each tier runs. The rows come after Claude Code's own. They are drawn by the surface's prompt box, so a surface that does not raise the typeahead shows none.
+Type `/router` and a space, then a letter, and the prompt offers the words that start with it (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `line <off|moves|all>`, `holds`, `release <model|account>`, `decisions [n]`, `trace export`). After `pin `, `mode `, `activities ` or `line ` it offers the values, and after `release ` the models and accounts held now; `pin` names the model each tier runs. The rows come after Claude Code's own. They are drawn by the surface's prompt box, so a surface that does not raise the typeahead shows none.
 
 With `table` or `shadow`, a routing mode moves each tier's route one step toward cost or quality; pins and `micro` turns are not moved. With opt-in `auto`, the mode changes the demand margin instead, and a tier pin uses exact demand without a margin. The band and the Now tab show the mode and where it comes from, such as `cost (session)`. When the mode kept the cell's model and changed only its effort, as `cost` does for Opus at `high`, the band adds `effort only`: the cost estimates price the same tokens on both routes, so that change shows no difference there, though real output length can differ. A change applies from the next turn, and the route in use moves only through the usual checks, so on a running task a cheaper route can wait a few requests and for a checkpoint. **Mode** on the Policy tab sets the profile's mode. See [Routing modes](routing-modes.md).
 
