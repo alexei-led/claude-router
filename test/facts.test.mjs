@@ -286,14 +286,17 @@ const step = (...calls) => ({
   role: 'assistant',
   content: [
     { type: 'text', text: 'ok' },
-    ...calls.map(([name, input]) => ({ type: 'tool_use', id: 't', name, input })),
+    ...calls.map(([name, input], i) => ({ type: 'tool_use', id: `t${i}`, name, input })),
   ],
 });
 const edit = (path, name = 'Edit') => [name, { file_path: path }];
 const bash = (command) => ['Bash', { command }];
 
 test('a repeated failure needs an edit attempt between the two failing calls, not the failing call itself', () => {
-  const failed = (text) => toolResult(text, { isError: true });
+  const failed = (text, id = 't0') => ({
+    role: 'user',
+    content: [{ type: 'tool_result', tool_use_id: id, is_error: true, content: [{ type: 'text', text }] }],
+  });
   const run = [step(bash('npm test')), failed('Error: test_login failed')];
   for (const [name, between, repeated] of [
     ['the same failing command rerun', [], false],
@@ -304,6 +307,21 @@ test('a repeated failure needs an edit attempt between the two failing calls, no
     ['an in-place sed between the runs', [step(bash("sed -i 's/a/b/' lib/login.mjs")), toolResult('')], true],
   ]) {
     const facts = factsFromRequest(body([user('fix the tests'), ...run, ...between, ...run]), memory(), CONTEXT);
+    assert.equal(facts.failure !== null, repeated, name);
+  }
+  for (const [name, second, repeated] of [
+    [
+      'an edit before the failing call in the same step',
+      [step(edit('/repo/lib/login.mjs'), bash('npm test')), failed('Error: test_login failed', 't1')],
+      true,
+    ],
+    [
+      'an edit after the failing call in the same step',
+      [step(bash('npm test'), edit('/repo/lib/login.mjs')), failed('Error: test_login failed', 't0')],
+      false,
+    ],
+  ]) {
+    const facts = factsFromRequest(body([user('fix the tests'), ...run, ...second]), memory(), CONTEXT);
     assert.equal(facts.failure !== null, repeated, name);
   }
   const editRetried = [step(edit('/repo/lib/login.mjs')), failed('String to replace not found in file')];
