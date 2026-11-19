@@ -262,6 +262,20 @@ test('an upgrade to a gated credits tier still needs its votes and mass before t
   );
 });
 
+test('a vote streak longer than three still moves', () => {
+  const cfg = loadConfig({ userFile: { policy: { upgradeVotes: 4, downgradeVotes: 5 } } });
+  const up = advice('medium', { medium: 0.9, low: 0.1 });
+  const down = advice('low', { low: 0.95, high: 0.05 });
+  assert.deepEqual(
+    runTurns(facts({ lastRoute: 'low' }), Array(4).fill(up), initialState(), cfg).map((d) => d.reason),
+    ['upgrade-pending', 'upgrade-pending', 'upgrade-pending', 'upgrade'],
+  );
+  assert.deepEqual(
+    runTurns(facts({ lastRoute: 'high' }), Array(5).fill(down), initialState(), cfg).map((d) => d.reason),
+    ['downgrade-pending', 'downgrade-pending', 'downgrade-pending', 'downgrade-pending', 'downgrade'],
+  );
+});
+
 test('a metered model warm at the routed effort passes the cash gate; warm at another effort is gated only where efforts split the cache', () => {
   const warmAt = (effort, effortSplits) =>
     facts({
