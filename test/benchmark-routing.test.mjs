@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { ROUTING_MODES } from '../lib/config.mjs';
 import {
   casesFor,
@@ -36,6 +37,9 @@ const fakeSpawn = (script) => () => {
   setImmediate(() => script(child));
   return child;
 };
+
+// Calls the handler runProcess registered, so the real signal path is exercised without a process-wide signal.
+const fireRegisteredInterrupt = (signal, before) => process.listeners(signal).find((l) => !before.includes(l))();
 
 const manifest = validateManifest(JSON.parse(await readFile(MANIFEST, 'utf8')));
 const result = (answer, cost = 0.1) =>
@@ -215,15 +219,14 @@ test('inspector failure, malformed metadata and interrupt restore active environ
     });
     assert.equal(await readFile(path, 'utf8'), original);
     assert.equal(parseResult(JSON.stringify({ type: 'result', modelUsage: { bad: null } }), 0).ok, false);
+    const before = process.listeners('SIGINT');
     await restoreActiveEnv(path, async () => {
       await writeFile(path, 'changed');
-      const interrupt = new AbortController();
       const child = await runProcess('fake', [], {
         timeoutMs: SPAWN_MS,
         spawnChild: fakeSpawn((c) => c.stdout.write('ready\n')),
-        interruptSignal: interrupt.signal,
         inspectLine: () => {
-          interrupt.abort();
+          fireRegisteredInterrupt('SIGINT', before);
           return null;
         },
       });
@@ -235,16 +238,21 @@ test('inspector failure, malformed metadata and interrupt restore active environ
   }
 });
 
-test('an interrupt through the signal leaves the process SIGINT listeners alone', async () => {
-  const before = process.listenerCount('SIGINT');
-  const interrupt = new AbortController();
-  const done = runProcess('fake', [], {
-    timeoutMs: SPAWN_MS,
-    spawnChild: fakeSpawn(() => interrupt.abort()),
-    interruptSignal: interrupt.signal,
-  });
-  assert.equal((await done).reason, 'interrupted');
-  assert.equal(process.listenerCount('SIGINT'), before);
+test('an interrupt handler registered for each signal stops the run and is removed on close', async () => {
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    const before = process.listeners(signal);
+    let during = -1;
+    const done = runProcess('fake', [], {
+      timeoutMs: SPAWN_MS,
+      spawnChild: fakeSpawn(() => {
+        during = process.listenerCount(signal);
+        fireRegisteredInterrupt(signal, before);
+      }),
+    });
+    assert.equal((await done).reason, 'interrupted');
+    assert.equal(during, before.length + 1);
+    assert.deepEqual(process.listeners(signal), before);
+  }
 });
 
 test('UTF-8 chunks survive decoding, oversized output and spawn errors fail closed', async () => {
@@ -374,9 +382,14 @@ test('paired matrix reports both-repeat heldout regressions; rerun duplicates ca
 
 test('proposal split is hash-frozen before tuning; full live matrix refuses without launching', async () => {
   assert.equal(hash(await readFile(MANIFEST)), '2efac9527b671d5240441bae0430d89e35829356cde9abb1dfc54f5d5efcb97c');
-  const child = await runProcess(process.execPath, ['scripts/benchmark-routing.mjs', '--live'], {
-    timeoutMs: SPAWN_MS,
-  });
+  const child = await runProcess(
+    process.execPath,
+    [fileURLToPath(new URL('../scripts/benchmark-routing.mjs', import.meta.url)), '--live'],
+    {
+      cwd: fileURLToPath(new URL('..', import.meta.url)),
+      timeoutMs: SPAWN_MS,
+    },
+  );
   assert.equal(child.exitCode, 1);
   assert.equal(child.stdout, '');
   await assert.rejects(cli(['--live']), /checkout\/profile isolation is not implemented; approval is required/);

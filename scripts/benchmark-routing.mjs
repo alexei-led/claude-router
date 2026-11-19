@@ -197,11 +197,11 @@ export function report(rows) {
 }
 
 // Child group termination is best-effort; Windows cannot kill a descendant tree through Node alone.
-// `spawnChild` and `interruptSignal` are seams for tests: a fake child, and an interrupt that reaches only this run.
+// `spawnChild` is a seam for tests: a fake child.
 export function runProcess(
   command,
   args,
-  { cwd, timeoutMs, env = process.env, inspectLine = () => null, spawnChild = spawn, interruptSignal } = {},
+  { cwd, timeoutMs, env = process.env, inspectLine = () => null, spawnChild = spawn } = {},
 ) {
   return new Promise((resolveResult) => {
     const start = Date.now();
@@ -226,7 +226,6 @@ export function runProcess(
     const interrupt = () => stop('interrupted');
     process.once('SIGINT', interrupt);
     process.once('SIGTERM', interrupt);
-    interruptSignal?.addEventListener('abort', interrupt, { once: true });
     const timer = setTimeout(() => stop('deadline'), timeoutMs);
     const collect = (stream, chunk) => {
       if (reason) return;
@@ -257,7 +256,6 @@ export function runProcess(
       clearTimeout(timer);
       process.removeListener('SIGINT', interrupt);
       process.removeListener('SIGTERM', interrupt);
-      interruptSignal?.removeEventListener('abort', interrupt);
       resolveResult({ exitCode: code, stdout, reason, wallMs: Date.now() - start });
     });
   });
