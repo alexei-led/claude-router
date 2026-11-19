@@ -151,13 +151,17 @@ test('with Auto, a keyword serves its turn’s tool steps and leaves demand as i
   assert.equal(h.loop().decision.keyword, undefined);
 });
 
-test('with Auto, morethink moves the effort once for the whole turn, not again at each tool step', async () => {
-  const h = setup(AUTO, jevResponse('low', { low: 1 }));
-  await h.event('session.start', { cwd: '/fixture' });
-  await run(h, 't1', 'morethink fix the flaky test', { steps: 2 });
-  const [first, ...rest] = sent(h);
-  assert.deepEqual(rest, [first, first]);
-});
+for (const [scope, cache] of [
+  ['one cache for every effort', {}],
+  ['a cache per effort', { cache: { effortScope: 'separate' } }],
+])
+  test(`with Auto and ${scope}, morethink moves the effort once for the whole turn, not at each tool step`, async () => {
+    const h = setup({ ...AUTO, ...cache }, jevResponse('low', { low: 1 }));
+    await h.event('session.start', { cwd: '/fixture' });
+    await run(h, 't1', 'morethink fix the flaky test', { steps: 2 });
+    const [first, ...rest] = sent(h);
+    assert.deepEqual(rest, [first, first]);
+  });
 
 const EXECUTE = jevResponse('medium', { medium: 1 }, 0, { code: 1 }, 'execute');
 const stepped = (route, by) => {
