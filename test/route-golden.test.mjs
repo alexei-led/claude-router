@@ -5,7 +5,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { ACTIVITIES, loadConfig, TIERS } from '../lib/config.mjs';
 import { decide, initialState } from '../lib/policy.mjs';
 import { chooseRoute, continueRoute, emptyLoop } from '../lib/route.mjs';
-import { advice, T0 } from './helpers.mjs';
+import { advice, EFFORT_SHARED, T0 } from './helpers.mjs';
 
 // Routing decisions pinned across refactors. Regenerate with GOLDEN_WRITE=1 node --test test/route-golden.test.mjs
 // only for an intended decision change, and say why in the commit.
@@ -47,9 +47,7 @@ const CONFIGS = {
   }),
 };
 
-// The cache key a tier's route uses, written out here so the fixture does not lean on the code under test: one cache
-// per effort, except on the models that keep one cache across efforts (code.claude.com/docs/en/prompt-caching).
-const EFFORT_SHARED = ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5', 'claude-fable-5-1'];
+// The cache key a tier's route uses: one cache per effort, except on the models that keep one cache across efforts.
 function keyOf(config, tier, sent) {
   const { model, effort } = config.routes[tier];
   const spec = config.models[model];

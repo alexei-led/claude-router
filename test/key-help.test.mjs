@@ -9,40 +9,47 @@ import { keyHelpOf } from '../lib/ui/model/frame.mjs';
 import { controls, drain, duplicates, find, harness, start, step, texts } from './harness.mjs';
 
 const ID = 'router@router-preview';
+const SEPARATOR = '--next-command--';
 
-test('the plugin id is name@marketplace for an installed plugin, else its name', () => {
-  assert.equal(
-    pluginIdOf({ name: 'router', root: '/Users/me/.claude/plugins/cache/router-preview/router/1.24.0' }),
-    'router@router-preview',
-  );
-  assert.equal(
-    pluginIdOf({ name: 'router', root: '/Users/me/.claude/plugins/cache/alexei-led-claude-router/router/1.24.0' }),
+const CACHE = '/Users/me/.claude/plugins/cache';
+const FOLDER = { name: 'router', root: '/work/claude-router' };
+
+for (const [name, plugin, expected] of [
+  ['a preview marketplace', { name: 'router', root: `${CACHE}/router-preview/router/1.24.0` }, ID],
+  [
+    'a release marketplace',
+    { name: 'router', root: `${CACHE}/alexei-led-claude-router/router/1.24.0` },
     'router@alexei-led-claude-router',
-  );
-  assert.equal(pluginIdOf({ name: 'router', root: '/work/claude-router' }), 'router');
-  assert.equal(pluginIdOf({ name: 'router', root: undefined }), 'router');
-});
+  ],
+  ['a folder install', FOLDER, 'router'],
+  ['no root', { name: 'router', root: undefined }, 'router'],
+])
+  test(`the plugin id of ${name} is name@marketplace for an installed plugin, else its name`, () => {
+    assert.equal(pluginIdOf(plugin), expected);
+  });
 
-test('a folder install takes its id from settings’ enabledPlugins, when one key names it', () => {
-  const folder = { name: 'router', root: '/work/claude-router' };
-  assert.equal(pluginIdOf(folder, { 'router@router-preview': true, 'other@x': true }), 'router@router-preview');
+for (const [name, plugin, enabled, expected] of [
+  ['one key naming it', FOLDER, { [ID]: true, 'other@x': true }, ID],
   // `--plugin-dir` loads are `@inline`, which the CLI cannot configure.
-  assert.equal(pluginIdOf(folder, { 'router@inline': true, 'router@router-preview': true }), 'router@router-preview');
-  // A disabled earlier install is no candidate: the enabled one names the plugin.
-  assert.equal(
-    pluginIdOf(folder, { 'router@alexei-led-claude-router': false, 'router@router-preview': true }),
-    'router@router-preview',
-  );
-  assert.equal(pluginIdOf(folder, { 'router@a': null, 'router@b': ['x'] }), 'router@b');
-  // Two enabled candidates, none, or no settings: the bare name.
-  assert.equal(pluginIdOf(folder, { 'router@a': false, 'router@b': false }), 'router');
-  assert.equal(pluginIdOf(folder, { 'router@a': true, 'router@b': true }), 'router');
-  assert.equal(pluginIdOf(folder, {}), 'router');
-  assert.equal(pluginIdOf(folder, null), 'router');
+  ['an inline key beside one', FOLDER, { 'router@inline': true, [ID]: true }, ID],
+  ['a disabled earlier install', FOLDER, { 'router@alexei-led-claude-router': false, [ID]: true }, ID],
+  ['non-boolean values around a truthy one', FOLDER, { 'router@a': null, 'router@b': ['x'] }, 'router@b'],
+  ['no enabled candidate', FOLDER, { 'router@a': false, 'router@b': false }, 'router'],
+  ['two enabled candidates', FOLDER, { 'router@a': true, 'router@b': true }, 'router'],
+  ['empty settings', FOLDER, {}, 'router'],
+  ['no settings', FOLDER, null, 'router'],
   // Anything but word characters, dots, @ and - falls back to the name: nothing to quote in the command.
-  assert.equal(pluginIdOf(folder, { "router@x'; rm -rf ~": true }), 'router');
-  assert.equal(pluginIdOf({ name: 'router', root: '/h/.claude/plugins/cache/a b/router/1' }), 'router');
-});
+  ['a key with shell syntax', FOLDER, { "router@x'; rm -rf ~": true }, 'router'],
+  [
+    'a marketplace folder with a space',
+    { name: 'router', root: '/h/.claude/plugins/cache/a b/router/1' },
+    undefined,
+    'router',
+  ],
+])
+  test(`a folder install takes its id from settings’ enabledPlugins: ${name}`, () => {
+    assert.equal(pluginIdOf(plugin, enabled), expected);
+  });
 
 test('the key help adds a line on the full name only when the id has no marketplace', () => {
   assert.equal(keyHelpOf(DEFAULTS, 'jev', ID).note, null);
@@ -240,15 +247,18 @@ test('an open Edit card leaves the title ready; an open Set up card says the cla
   assert.ok(titleOf(setUp).includes('Jev needs attention'), titleOf(setUp).join(' | '));
 });
 
-test('the key help command passes an unusual plugin id to claude as one word', () => {
+test('the key help command passes an unusual plugin id to claude as one word', (t) => {
   const zsh = spawnSync('zsh', ['-c', 'true']);
-  if (zsh.error) return;
-  for (const pluginId of [ID, 'my router', "it's; touch pwned", '$(id)']) {
-    const { command } = keyHelpOf(DEFAULTS, 'jev', pluginId);
-    const run = spawnSync('zsh', ['-fc', `claude() { print -rl -- "$@"; cat >/dev/null; }; ${command}`], {
-      input: 'secret\n',
-      encoding: 'utf8',
-    });
-    assert.deepEqual(run.stdout.trim().split('\n').slice(0, 3), ['plugin', 'configure', pluginId], pluginId);
-  }
+  if (zsh.error) return t.skip('zsh is not installed');
+  const ids = [ID, 'my router', "it's; touch pwned", '$(id)'];
+  const script = ids.map((id) => `print -r -- ${SEPARATOR}; ${keyHelpOf(DEFAULTS, 'jev', id).command}`).join('\n');
+  const run = spawnSync('zsh', ['-fc', `claude() { print -rl -- "$@"; cat >/dev/null; }\n${script}`], {
+    input: 'secret\n'.repeat(ids.length),
+    encoding: 'utf8',
+  });
+  const runs = run.stdout.split(`${SEPARATOR}\n`).slice(1);
+  assert.equal(runs.length, ids.length);
+  ids.forEach((id, i) => {
+    assert.deepEqual(runs[i].trim().split('\n').slice(0, 3), ['plugin', 'configure', id], id);
+  });
 });

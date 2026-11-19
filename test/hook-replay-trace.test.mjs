@@ -3,19 +3,14 @@ import test from 'node:test';
 import { evaluateReplay } from '../lib/replay.mjs';
 import { TRACE_ACTIVE_MS, TRACE_PREFIX, TRACE_RETAIN_MS, traceBytes, usableTrace } from '../lib/replay-trace.mjs';
 import { chooseRoute, continueRoute, observeResponse, prepareLoop } from '../lib/route.mjs';
-import { answering, CONFIG, drain, harness, JEV_KEY, press, step } from './harness.mjs';
+import { answering, CONFIG, drain, harness, press, shadowHarness, step } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
 const record = (h, id = 's1') => h.preferences.get(TRACE_PREFIX + id);
 
 const answer = jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce');
 
-function setup(config = {}, preferences = new Map()) {
-  const h = harness(JEV_KEY, preferences);
-  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 }, ...config }));
-  answering(h, answer);
-  return h;
-}
+const setup = (config, preferences) => shadowHarness(config, preferences, answer);
 
 async function begin(h) {
   await h.event('session.start', { cwd: '/fixture' });
@@ -316,7 +311,8 @@ test('mid-session/resume/reload cannot become usable even when the saved prefix 
   assert.equal(usableTrace(record(late)), false);
 });
 
-test('retention expires old whole sessions including killed active leases, not decision-row counts', async () => {
+test('retention expires old whole sessions including killed active leases, not decision-row counts', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
   const h = setup();
   await begin(h);
   await turn(h);
@@ -428,7 +424,8 @@ test('explicit Delete history clears stored traces even in table but leaves expo
   assert.equal(h.files.get('/fixture/team/router-traces.json'), saved);
 });
 
-test('concurrent active session records are never evicted to admit a new trace', async () => {
+test('concurrent active session records are never evicted to admit a new trace', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
   const h = setup();
   await begin(h);
   await turn(h);
@@ -451,7 +448,8 @@ test('concurrent active session records are never evicted to admit a new trace',
   assert.ok(record(h).incomplete.includes('store-guard'));
 });
 
-test('eviction rereads changed records and keeps a newly active writer', async () => {
+test('eviction rereads changed records and keeps a newly active writer', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
   const h = setup();
   await begin(h);
   await turn(h);

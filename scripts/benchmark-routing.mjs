@@ -197,14 +197,19 @@ export function report(rows) {
 }
 
 // Child group termination is best-effort; Windows cannot kill a descendant tree through Node alone.
-export function runProcess(command, args, { cwd, timeoutMs, env = process.env, inspectLine = () => null } = {}) {
+// `spawnChild` is a seam for tests: a fake child.
+export function runProcess(
+  command,
+  args,
+  { cwd, timeoutMs, env = process.env, inspectLine = () => null, spawnChild = spawn } = {},
+) {
   return new Promise((resolveResult) => {
     const start = Date.now();
     let stdout = '';
     let stderr = '';
     let reason = null;
     let pendingLine = '';
-    const child = spawn(command, args, {
+    const child = spawnChild(command, args, {
       cwd,
       env,
       detached: process.platform !== 'win32',
