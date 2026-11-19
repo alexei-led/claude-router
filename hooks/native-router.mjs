@@ -109,7 +109,9 @@ import {
   holdModel,
   holdText,
   readHold,
+  releaseHold,
 } from '../lib/failover.mjs';
+import { heldCause, heldRows, holdsText, releaseRow } from '../lib/holds.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
@@ -946,7 +948,12 @@ async function storeView($, router) {
 // A notice answers the last press in the pane, so the pane opens without one; the last write keeps its Undo in the
 // status bar.
 async function openPane($, router) {
-  await updateView($, router, { notice: null, confirmDelete: false, ...(await storeView($, router)) });
+  await updateView($, router, {
+    notice: null,
+    confirmDelete: false,
+    holds: await readHolds($, router),
+    ...(await storeView($, router)),
+  });
   const opened = await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
   // The pane is open but undrawn, as where no surface places panes or the terminal is too narrow for it; saying why beats
   // a press that shows nothing.
@@ -1024,6 +1031,10 @@ async function runSubcommand($, router, action, value) {
       };
     case 'decisions':
       return { text: await decisionsText($, router, value) };
+    case 'holds':
+      return { text: holdsText(router.config, await readHolds($, router), Date.now()) };
+    case 'release':
+      return { text: await releaseCommand($, router, value) };
     case 'pin':
       return { text: TIERS.includes(value) ? await setPin($, router, value) : `Choose ${TIERS.join(', ')}.` };
     case 'mode':
@@ -1294,6 +1305,7 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
     selectedModel: e.model,
     effort: e.effort ?? null,
     reason,
+    fallback: null,
     contextTokens: context.tokens,
     contextKnown: context.known,
   });
@@ -1525,8 +1537,19 @@ async function decideTurn($, router, e, signal, step) {
     if (!written.isSet || controller.signal.aborted) return null;
     if (cfg.routingEngine === 'shadow') traceOp(router, e, cfg, 'choose', traceInput, selected, messages);
     rememberGoal(router, e.turnId, result.advice, cfg.policy.continuationMass, messages);
+    const holds = { accounts: traceInput.accountHolds, models: selected.held ?? {} };
     if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
-      $.ui.toast(switchToast(cfg, previous, selected.decision, selected.decision.estimate));
+      $.ui.toast(
+        switchToast(
+          cfg,
+          previous,
+          selected.decision,
+          selected.decision.estimate,
+          selected.decision.reason === 'model-held'
+            ? heldCause(cfg, { holds, fallback: selected.decision.fallback }, Date.now())
+            : null,
+        ),
+      );
     const activity = turnActivity(cfg, result.advice, previous, selected.decision);
     const routingMode = step.cfg.routingMode;
     addDecision(
@@ -1591,6 +1614,8 @@ async function decideTurn($, router, e, signal, step) {
       tier: selected.decision.tier,
       effort: selected.decision.effort,
       reason: selected.decision.reason,
+      fallback: selected.decision.fallback ?? null,
+      holds,
       activity: activity.label,
       goal: selected.decision.goal,
       taskPhase: selected.decision.taskPhase,
@@ -2816,9 +2841,11 @@ function paneActions($, router, view) {
         withClassifierTimeout(file, router.config.classifier, timeoutMs),
       );
     },
+    release: (scope, key) => releaseKey($, router, scope, key),
     undo: async () => {
       const last = (router.view ?? view).lastWrite;
       if (!last) return undefined;
+      if (last.restore) return undoRelease($, router, last);
       return save(
         (file) => restored(file, last.leaves),
         () => ({ lastWrite: null, notice: `Undid: ${last.label}.` }),
@@ -3094,7 +3121,7 @@ async function initializeSession($, router) {
   await $.command.register({
     name: 'router',
     description:
-      'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>, line <mode>; decisions [n] lists the last routing decisions.',
+      'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>, line <mode>; decisions [n] lists the last routing decisions; holds lists what is held out of routing, release <model|account> ends a hold.',
     argumentHint: argumentHint(),
     immediate: true,
   });
@@ -3223,6 +3250,7 @@ async function holdFailedModel($, router, e) {
         : await applyHold($, router, failure, e.error, failure.scope === 'account' ? account : model, now).catch(
             () => null,
           );
+    if (held) await updateView($, router, { holds: await readHolds($, router) });
     const turnId = router.mainTurnId;
     if (turnId === null) return;
     addDecision(
@@ -3254,6 +3282,79 @@ async function accountHoldsOf($, cfg) {
     ]),
   );
   return Object.fromEntries(read.filter(([, hold]) => hold));
+}
+
+// The holds in force now, as the pane, the band and `/router holds` read them: each account's from $.store and the models'
+// from the loop. A read that fails shows none.
+async function readHolds($, router) {
+  const loaded = await $.state.get({ ...LOOP, id: 'main' }).catch(() => null);
+  return { accounts: await accountHoldsOf($, router.config), models: loaded?.value?.held ?? {} };
+}
+
+// Writes the hold of an account (in $.store) or a model (in the loop), or ends it with null. A loop write that lost to a
+// step's own write reads the loop again.
+async function writeHold($, scope, key, hold) {
+  if (scope === 'account') {
+    const store = `${HOLDS_PREFIX}${key}`;
+    await (hold ? $.store.set(store, hold) : $.store.delete(store));
+    return;
+  }
+  const ref = { ...LOOP, id: 'main' };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { value: loop, version } = await $.state.get(ref);
+    if (!loop) return;
+    const held = hold ? { ...loop.held, [key]: hold } : releaseHold(loop.held, key);
+    if ((await $.state.set(ref, { ...loop, held }, { ifVersion: version })).isSet) return;
+  }
+  throw new Error('the hold changed while it was written');
+}
+
+// Ends the hold of `row` (lib/holds.mjs) and keeps it for Undo in the pane. Returns what happened, in words.
+async function releaseHeld($, router, row) {
+  try {
+    await writeHold($, row.scope, row.key, null);
+  } catch {
+    return `${row.name} could not be released.`;
+  }
+  const notice = `Released ${row.name}: routing may use it from the next turn.`;
+  await updateView($, router, {
+    holds: await readHolds($, router),
+    lastWrite: {
+      label: `released ${row.name}`,
+      restore: { scope: row.scope, key: row.key, hold: row.hold },
+    },
+    notice,
+  });
+  return notice;
+}
+
+// The Now tab's Release: the hold is read again, since another session may have ended it.
+async function releaseKey($, router, scope, key) {
+  const holds = await readHolds($, router);
+  const row = heldRows(router.config, holds, Date.now()).find((one) => one.scope === scope && one.key === key);
+  if (!row) return updateView($, router, { holds, notice: 'Already released.' });
+  await releaseHeld($, router, row);
+  return undefined;
+}
+
+// Undo of a release puts the hold back as it was.
+async function undoRelease($, router, last) {
+  const { scope, key, hold } = last.restore;
+  const done = await writeHold($, scope, key, hold).then(
+    () => true,
+    () => false,
+  );
+  return updateView($, router, {
+    holds: await readHolds($, router),
+    lastWrite: done ? null : last,
+    notice: done ? `Undid: ${last.label}.` : `Not saved: ${last.label} could not be undone.`,
+  });
+}
+
+// `/router release <model|account>`.
+async function releaseCommand($, router, word) {
+  const found = releaseRow(router.config, await readHolds($, router), word, Date.now());
+  return found.row ? releaseHeld($, router, found.row) : found.text;
 }
 
 // Holds `key`, the account or model a failure names, and returns it, or null when nothing was held. $.store has no
@@ -3349,6 +3450,7 @@ export function register(on, options) {
   on('prompt.autocomplete', async (_$, e, next) => {
     const mine = routerSuggestions(e, {
       describe: (name, value) => (name === 'pin' && router.view ? pinCard(router.config, value) : undefined),
+      sources: { held: heldRows(router.config, router.view?.holds, Date.now()).map((row) => row.word) },
     });
     if (!mine.length) return next(e);
     return { suggestions: [...(await next(e)).suggestions, ...mine] };

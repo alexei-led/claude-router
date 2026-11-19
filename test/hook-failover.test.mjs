@@ -4,6 +4,9 @@ import { DECISIONS_PREFIX } from '../lib/decisions.mjs';
 import { answering, CONFIG, drain, harness, JEV_KEY, step } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
+// Times in toasts print in the local zone.
+process.env.TZ = 'UTC';
+
 const OPUS = 'claude-opus-5-5';
 const HAIKU = 'claude-haiku-5-5';
 const MEDIUM = jevResponse('medium', { micro: 0, low: 0, medium: 0.97, high: 0.03, uncertain: 0 });
@@ -37,7 +40,7 @@ test('an overloaded model is held out: the next turn runs the nearest tier on an
   assert.deepEqual(h.toasts, ['Opus 5.5 held out of routing: overloaded, 5 min']);
   const next = await turn(h, 't2');
   assert.deepEqual([next.model, next.effort], [HAIKU, 'high']);
-  assert.equal(h.toasts.at(-1), 'Model changed: Opus 5.5 · medium → Haiku 5.5 · high · ! held out');
+  assert.equal(h.toasts.at(-1), 'Opus 5.5 overloaded · back 00:21 → Haiku 5.5 · high');
   assert.equal(h.state.get('lines:rl-t2').value.reason, 'model-held');
 });
 
@@ -248,6 +251,7 @@ test('a full 5h plan window holds the plan account until its reset, in the store
     since: 1_000_000,
     until: 1_000_000 + 3 * HOUR + MINUTE,
     streak: 1,
+    window: 'five_hour',
   });
   assert.equal(h.loop().held, undefined);
   assert.deepEqual(h.toasts, ['Claude plan held out of routing: usage limit, 4 h']);
@@ -464,4 +468,76 @@ test('an account hold in the store skips the plan models of a chain, until it en
   assert.deepEqual(h.loop().decision.fallback, { from: 'opus', step: 2, of: 2 });
   t.mock.timers.tick(3 * HOUR);
   assert.equal((await turn(h, 't2')).model, OPUS);
+});
+
+const command = (h, args) => h.event('command.run', { command: 'router', args });
+const typeahead = async (h, text) => {
+  const start = text.lastIndexOf(' ') + 1;
+  return (await h.autocomplete({ text, cursor: text.length, token: text.slice(start), start })).map((row) => row.text);
+};
+const nothingHeld = 'Nothing is held out of routing.';
+
+test('/router holds lists a plan hold and a model hold with scope, kind, cause and end', async (t) => {
+  const h = await started(t);
+  assert.deepEqual(await command(h, 'holds'), { text: nothingHeld });
+  h.usage(planReadings(['five_hour', 100, 3 * HOUR]));
+  await turn(h, 't1', { error: 'rate_limit' });
+  await turn(h, 't2', { error: 'overloaded' });
+  const { text } = await command(h, 'holds');
+  assert.deepEqual(text.split('\n').slice(0, 3), [
+    'Held out of routing:',
+    '  plan (account) · window: 5h limit · back 03:17 · holds out Fable 5.2, Opus 5.5, Sonnet 5.5, Haiku 5.5',
+    '  opus (model) · availability: overloaded · back 00:21',
+  ]);
+});
+
+test('/router release plan ends the account hold, and routing may use the account at once', async (t) => {
+  const h = await started(t);
+  h.usage(planReadings(['five_hour', 100, 3 * HOUR]));
+  await turn(h, 't1', { error: 'rate_limit' });
+  assert.equal(h.preferences.has(HOLDS_PLAN), true);
+  assert.deepEqual(await typeahead(h, '/router release p'), ['plan']);
+  const { text } = await command(h, 'release plan');
+  assert.equal(text, 'Released Claude plan: routing may use it from the next turn.');
+  assert.equal(h.preferences.has(HOLDS_PLAN), false);
+  assert.deepEqual(h.view().holds, { accounts: {}, models: {} });
+  assert.equal((await turn(h, 't2')).model, OPUS);
+  assert.deepEqual(await typeahead(h, '/router release p'), []);
+});
+
+test('/router release opus ends a model hold, and says why a model held through its account stays', async (t) => {
+  const h = await started(t);
+  await turn(h, 't1', { error: 'overloaded' });
+  assert.deepEqual(Object.keys(h.loop().held), [OPUS]);
+  assert.equal((await command(h, 'release opus')).text, 'Released Opus 5.5: routing may use it from the next turn.');
+  assert.equal(h.loop().held[OPUS], undefined);
+  assert.equal((await turn(h, 't2')).model, OPUS);
+  h.usage(planReadings(['five_hour', 100, 3 * HOUR]));
+  await turn(h, 't3', { error: 'rate_limit' });
+  assert.equal(
+    (await command(h, 'release opus')).text,
+    'opus is held through Claude plan, not on its own: /router release plan',
+  );
+  assert.equal(h.preferences.has(HOLDS_PLAN), true);
+  assert.equal((await command(h, 'release nonsense')).text, 'Nothing held under that name. Held: plan.');
+  assert.equal((await command(h, 'release')).text, 'Name what to release: plan.');
+});
+
+test('a switch to a chain target is announced with the holder and its end, then the route that runs', async (t) => {
+  const h = await started(t, { models: { glm: GLM }, fallbacks: { opus: ['sonnet', 'glm@max'] } });
+  await turn(h, 't1');
+  h.preferences.set(HOLDS_PLAN, {
+    kind: 'window',
+    window: 'five_hour',
+    error: 'rate_limit',
+    since: 1_000_000,
+    until: 1_000_000 + 3 * HOUR + MINUTE,
+    streak: 1,
+  });
+  assert.deepEqual(await turn(h, 't2').then((r) => [r.model, r.effort]), [GLM_ID, 'max']);
+  assert.equal(h.toasts.at(-1), 'Claude plan 5h limit · back 03:17 → GLM 5.3 · max');
+  assert.deepEqual(h.view().fallback, { from: 'opus', step: 2, of: 2 });
+  t.mock.timers.tick(3 * HOUR + MINUTE);
+  await turn(h, 't3');
+  assert.equal(h.view().fallback, null);
 });

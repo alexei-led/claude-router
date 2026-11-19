@@ -10,6 +10,7 @@ import {
   failureHold,
   heldIds,
   heldModels,
+  holdCause,
   holdModel,
   holdMs,
   holdText,
@@ -73,12 +74,12 @@ for (const [name, input, expected] of [
   [
     'the 5h window at 100%',
     { error: 'rate_limit', limits: [reading('five_hour', 100, now + 3 * HOUR)] },
-    { kind: 'window', scope: 'account', until: now + 3 * HOUR + MINUTE },
+    { kind: 'window', scope: 'account', until: now + 3 * HOUR + MINUTE, window: 'five_hour' },
   ],
   [
     'the 7d window at 100% beside a 5h window with room',
     { error: 'rate_limit', limits: [reading('five_hour', 40, now + HOUR), reading('seven_day', 100, now + 2 * DAY)] },
-    { kind: 'window', scope: 'account', until: now + 2 * DAY + MINUTE },
+    { kind: 'window', scope: 'account', until: now + 2 * DAY + MINUTE, window: 'seven_day' },
   ],
   [
     'both windows at 100%: the later reset',
@@ -86,12 +87,12 @@ for (const [name, input, expected] of [
       error: 'rate_limit',
       limits: [reading('five_hour', 100, now + HOUR), reading('seven_day', 100.0, now + DAY)],
     },
-    { kind: 'window', scope: 'account', until: now + DAY + MINUTE },
+    { kind: 'window', scope: 'account', until: now + DAY + MINUTE, window: 'seven_day' },
   ],
   [
     'a window whose reset is further than a week',
     { error: 'rate_limit', limits: [reading('seven_day', 100, now + 30 * DAY)] },
-    { kind: 'window', scope: 'account', until: now + 7 * DAY },
+    { kind: 'window', scope: 'account', until: now + 7 * DAY, window: 'seven_day' },
   ],
   [
     'a window at 100% beats the text',
@@ -100,7 +101,7 @@ for (const [name, input, expected] of [
       details: 'You have hit your monthly spend limit',
       limits: [reading('five_hour', 100, now + HOUR)],
     },
-    { kind: 'window', scope: 'account', until: now + HOUR + MINUTE },
+    { kind: 'window', scope: 'account', until: now + HOUR + MINUTE, window: 'five_hour' },
   ],
   [
     'the monthly spend limit on an account with no reset',
@@ -344,6 +345,18 @@ for (const [kind, failure, until] of [
     });
   });
 
+test('a window hold keeps the window it waits for, and a stored one reads back with it', () => {
+  const hold = failureHold(
+    { kind: 'window', scope: 'account', until: now + 3 * HOUR, window: 'seven_day' },
+    'rate_limit',
+    undefined,
+    now,
+  );
+  assert.equal(hold?.window, 'seven_day');
+  assert.deepEqual(readHold(hold), hold);
+  assert.equal(readHold({ ...hold, window: 'one_hour' })?.window, undefined);
+});
+
 test('a quota hold is never doubled by another failure after it ended', () => {
   const failure = { kind: 'window', scope: 'account', until: now + 3 * HOUR };
   const first = failureHold(failure, 'rate_limit', undefined, now);
@@ -465,4 +478,18 @@ for (const [hold, at, words] of [
 ])
   test(`a hold reads "${words}"`, () => {
     assert.equal(holdText(hold, at), words);
+  });
+
+for (const [hold, words] of [
+  [{ kind: 'window', window: 'five_hour' }, '5h limit'],
+  [{ kind: 'window', window: 'seven_day' }, '7d limit'],
+  [{ kind: 'window' }, 'usage limit'],
+  [{ kind: 'calendar' }, 'spend limit'],
+  [{ kind: 'balance' }, 'no balance'],
+  [{ kind: 'availability', error: 'overloaded', streak: 1 }, 'overloaded'],
+  [{ kind: 'availability', error: 'overloaded', streak: 2 }, 'overloaded ×2'],
+  [{ kind: 'availability', error: 'rate_limit', streak: 1 }, 'rate limited'],
+])
+  test(`a ${hold.kind} hold is caused by "${words}"`, () => {
+    assert.equal(holdCause(hold), words);
   });
