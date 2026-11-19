@@ -100,6 +100,7 @@ import {
   stripReminders,
 } from '../lib/facts.mjs';
 import {
+  accountNames,
   accountOfModel,
   activeHolds,
   classifyFailure,
@@ -1498,6 +1499,7 @@ async function decideTurn($, router, e, signal, step) {
       nativeModel,
       contextKnown: context.known,
       availableModels,
+      accountHolds: await accountHoldsOf($, cfg),
       now: Date.now(),
     };
     const selected =
@@ -1655,7 +1657,13 @@ async function moveOnObserved($, router, cfg, loop, e, context) {
   const observed = routingBucket(
     observedActivity(messages, Math.max(promptIndex(messages), (loop.observedFrom ?? 0) - 1)),
   );
-  const traceInput = { observed, facts, contextKnown: context.known, now: Date.now() };
+  const traceInput = {
+    observed,
+    facts,
+    contextKnown: context.known,
+    accountHolds: await accountHoldsOf($, cfg),
+    now: Date.now(),
+  };
   const moved = observedMove(cfg, loop, traceInput);
   if (cfg.routingEngine === 'shadow') traceOp(router, e, cfg, 'observed', traceInput, moved, messages);
   if (moved === loop) return loop;
@@ -1708,6 +1716,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       nativeModel,
       contextKnown: context.known,
       availableModels,
+      accountHolds: await accountHoldsOf($, cfg),
       now: Date.now(),
     };
     const selected =
@@ -3062,6 +3071,7 @@ async function* stepMain($, router, e, next) {
       contextKnown: context.known,
       availableModels,
       effort: e.effort,
+      accountHolds: await accountHoldsOf($, cfg),
       now: Date.now(),
     };
     loop =
@@ -3231,6 +3241,19 @@ async function holdFailedModel($, router, e) {
     // A turn that already completed will not flush its rows again.
     if (!router.turnConfigs.has(turnId)) await flushDecisions($, router, turnId, null);
   } catch {}
+}
+
+// The account holds in $.store at this moment, account name to hold, for routing to skip the models they cover. A hold
+// that cannot be read holds nothing: a turn is never blocked on the store. The `auto` engine holds nothing.
+async function accountHoldsOf($, cfg) {
+  if (cfg.routingEngine === 'auto') return {};
+  const read = await Promise.all(
+    accountNames(cfg).map(async (name) => [
+      name,
+      readHold(await $.store.get(`${HOLDS_PREFIX}${name}`).catch(() => null)),
+    ]),
+  );
+  return Object.fromEntries(read.filter(([, hold]) => hold));
 }
 
 // Holds `key`, the account or model a failure names, and returns it, or null when nothing was held. $.store has no

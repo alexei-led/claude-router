@@ -426,3 +426,42 @@ test('/router decisions lists a failure without its text', async (t) => {
   assert.match(text, /failure +overloaded {2}availability held model claude-opus-5-5/);
   assert.doesNotMatch(text, /secret text/);
 });
+
+const CHAINED = { models: { glm: GLM }, fallbacks: { opus: ['glm@max'] } };
+const GLM_ID = GLM.id;
+
+test('a fallback target stands in for a held model on its continuation too, and the hold ending returns to the source', async (t) => {
+  const h = await started(t, CHAINED);
+  await turn(h, 't1', { error: 'overloaded' });
+  assert.deepEqual(await turn(h, 't2').then((r) => [r.model, r.effort]), [GLM_ID, 'max']);
+  assert.equal(h.state.get('lines:rl-t2').value.reason, 'model-held');
+  await h.event('turn.start', { turnId: 't3', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't3', model: OPUS }));
+  await drain(h.step({ ...step, turnId: 't3', model: OPUS, index: 1, messageCount: 3 }));
+  assert.deepEqual(
+    h.requests.slice(-2).map((r) => r.model),
+    [GLM_ID, GLM_ID],
+  );
+  assert.deepEqual(h.loop().decision.fallback, { from: 'opus', step: 1, of: 1 });
+  assert.deepEqual(h.loop().route, { model: 'opus', effort: 'medium' });
+  t.mock.timers.tick(5 * MINUTE);
+  assert.equal((await turn(h, 't4')).model, OPUS);
+});
+
+test('a fallback target that fails is the one held, so the next turn falls to the nearest tier', async (t) => {
+  const h = await started(t, CHAINED);
+  await turn(h, 't1', { error: 'overloaded' });
+  assert.equal((await failedTurn(h, 't2', { error: 'overloaded' })).model, GLM_ID);
+  assert.deepEqual(Object.keys(h.loop().held), [OPUS, GLM_ID]);
+  assert.equal((await turn(h, 't3')).model, HAIKU);
+});
+
+test('an account hold in the store skips the plan models of a chain, until it ends', async (t) => {
+  const h = await started(t, { models: { glm: GLM }, fallbacks: { opus: ['sonnet', 'glm@max'] } });
+  const until = 1_000_000 + 3 * HOUR;
+  h.preferences.set(HOLDS_PLAN, { kind: 'window', error: 'rate_limit', since: 1_000_000, until, streak: 1 });
+  assert.deepEqual(await turn(h, 't1').then((r) => [r.model, r.effort]), [GLM_ID, 'max']);
+  assert.deepEqual(h.loop().decision.fallback, { from: 'opus', step: 2, of: 2 });
+  t.mock.timers.tick(3 * HOUR);
+  assert.equal((await turn(h, 't2')).model, OPUS);
+});

@@ -87,14 +87,16 @@ function session($: Engine[0], on: Engine[1], rateLimits: object[] = []) {
 }
 
 // The engine raises classic.StopFailure for a main turn that ended on an API error: an overloaded model is held out, so
-// the next turn runs another; a billing error holds the account, not a model.
+// the next turn runs another; a billing error holds the account, not a model, until it is released.
 test('a turn that ends on an overloaded model routes the next turn to another model', async ($, on) => {
-  const { sent, toasts, held, request } = session($, on);
+  const { sent, toasts, held, request, store } = session($, on);
   await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
   await request('t1');
   expect(sent.at(-1)).toBe('claude-opus-5-5');
   await $.classic.StopFailure({ error: 'billing_error' });
   expect(held()).toBeUndefined();
+  expect((store.get('holds/plan') as { kind: string } | undefined)?.kind).toBe('balance');
+  store.delete('holds/plan');
   await $.classic.StopFailure({ error: 'overloaded' });
   expect(Object.keys(held() ?? {})).toEqual(['claude-opus-5-5']);
   expect(toasts.at(-1)).toBe('Opus 5.5 held out of routing: overloaded, 5 min');
