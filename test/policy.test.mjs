@@ -242,6 +242,26 @@ test('a blocked downgrade stays on the incumbent even when a plan tier ranks abo
   assert.deepEqual([d.tier, d.reason], ['medium', 'cash-gate']);
 });
 
+test('an upgrade to a gated credits tier still needs its votes and mass before the gate moves it', () => {
+  const f = facts({ lastRoute: 'micro', tokens: 300_000, servedBy: 'claude-haiku-4-5-20251001' });
+  const weak = advice('high', { high: 0.5, micro: 0.5 });
+  const strong = advice('medium', { medium: 0.9, micro: 0.1 });
+  assert.deepEqual(
+    runTurns(f, [weak, weak], initialState(), metered).map((d) => [d.tier, d.reason]),
+    [
+      ['micro', 'upgrade-pending'],
+      ['micro', 'upgrade-pending'],
+    ],
+  );
+  assert.deepEqual(
+    runTurns(f, [strong, strong], initialState(), metered).map((d) => [d.tier, d.reason]),
+    [
+      ['micro', 'upgrade-pending'],
+      ['low', 'cash-gate'],
+    ],
+  );
+});
+
 test('a metered model warm at the routed effort passes the cash gate; warm at another effort is gated only where efforts split the cache', () => {
   const warmAt = (effort, effortSplits) =>
     facts({
