@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { realpathSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { evaluateReplay } from '../lib/replay.mjs';
@@ -38,5 +39,5 @@ export async function main(args, { log = console.log, error = console.error } = 
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href)
   process.exitCode = await main(process.argv.slice(2));
