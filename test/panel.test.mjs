@@ -526,7 +526,7 @@ test('the Policy tab puts each control in its sentence and names the default bes
   assert.deepEqual(lines.slice(at + 2, at + 14), [
     'Mode         balanced ▾  saved at once',
     '             each tier runs its route as configured',
-    'Start        at low ▾',
+    'Start tier   at low ▾',
     '             when the session’s model is no tier’s model',
     'Going down   after 2 ▾ agreeing turns',
     '             if a cache write pays back within 5 ▾',
@@ -542,7 +542,7 @@ test('the Policy tab puts each control in its sentence and names the default bes
       policy({ tuning: { downgradeVotes: 3 }, routeDraft: { ...routeDraftOf(DEFAULTS, {}), baselineTier: 'micro' } }),
     ),
   );
-  assert.ok(changed.includes('Start        at micro ▾ ● default low'));
+  assert.ok(changed.includes('Start tier   at micro ▾ ● default low'));
   const overridden = unboxed(screen(policy({ routingMode: { mode: 'cost', source: 'session' } })));
   assert.ok(overridden.includes('             this session runs cost (session)'));
   assert.ok(changed.includes('Going down   after 3 ▾ agreeing turns ● default 2'));
