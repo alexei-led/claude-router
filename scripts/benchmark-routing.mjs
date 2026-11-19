@@ -197,14 +197,19 @@ export function report(rows) {
 }
 
 // Child group termination is best-effort; Windows cannot kill a descendant tree through Node alone.
-export function runProcess(command, args, { cwd, timeoutMs, env = process.env, inspectLine = () => null } = {}) {
+// `spawnChild` and `interruptSignal` are seams for tests: a fake child, and an interrupt that reaches only this run.
+export function runProcess(
+  command,
+  args,
+  { cwd, timeoutMs, env = process.env, inspectLine = () => null, spawnChild = spawn, interruptSignal } = {},
+) {
   return new Promise((resolveResult) => {
     const start = Date.now();
     let stdout = '';
     let stderr = '';
     let reason = null;
     let pendingLine = '';
-    const child = spawn(command, args, {
+    const child = spawnChild(command, args, {
       cwd,
       env,
       detached: process.platform !== 'win32',
@@ -221,6 +226,7 @@ export function runProcess(command, args, { cwd, timeoutMs, env = process.env, i
     const interrupt = () => stop('interrupted');
     process.once('SIGINT', interrupt);
     process.once('SIGTERM', interrupt);
+    interruptSignal?.addEventListener('abort', interrupt, { once: true });
     const timer = setTimeout(() => stop('deadline'), timeoutMs);
     const collect = (stream, chunk) => {
       if (reason) return;
@@ -251,6 +257,7 @@ export function runProcess(command, args, { cwd, timeoutMs, env = process.env, i
       clearTimeout(timer);
       process.removeListener('SIGINT', interrupt);
       process.removeListener('SIGTERM', interrupt);
+      interruptSignal?.removeEventListener('abort', interrupt);
       resolveResult({ exitCode: code, stdout, reason, wallMs: Date.now() - start });
     });
   });

@@ -1,13 +1,17 @@
 #!/usr/bin/env node
 import { readFile } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
 import { evaluateReplay } from '../lib/replay.mjs';
 
-const args = process.argv.slice(2);
-if (args.length === 1 && args[0] === '--help') {
-  console.log(
-    'Usage: node scripts/replay-traces.mjs [--reversal-window N] router-traces.json router-traces-*.json\nReads explicit files (shell-expanded globs), prints anonymous JSON; never changes router configuration.',
-  );
-} else {
+const USAGE =
+  'Usage: node scripts/replay-traces.mjs [--reversal-window N] router-traces.json router-traces-*.json\nReads explicit files (shell-expanded globs), prints anonymous JSON; never changes router configuration.';
+
+// Returns the exit status; `io` is where the output goes.
+export async function main(args, { log = console.log, error = console.error } = {}) {
+  if (args.length === 1 && args[0] === '--help') {
+    log(USAGE);
+    return 0;
+  }
   try {
     let reversalWindow = 3;
     const files = [];
@@ -26,10 +30,13 @@ if (args.length === 1 && args[0] === '--help') {
       }
     }
     const report = evaluateReplay(exports, { reversalWindow });
-    console.log(JSON.stringify(report, null, 2));
-    if (report.status !== 'ok') process.exitCode = 1;
-  } catch (error) {
-    console.error(error.message);
-    process.exitCode = 1;
+    log(JSON.stringify(report, null, 2));
+    return report.status === 'ok' ? 0 : 1;
+  } catch (e) {
+    error(e.message);
+    return 1;
   }
 }
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href)
+  process.exitCode = await main(process.argv.slice(2));

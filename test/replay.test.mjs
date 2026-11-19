@@ -2,12 +2,17 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { readDecisions } from '../lib/decisions.mjs';
 import { observedActivity, progressEvidence, routingBucket } from '../lib/facts.mjs';
 import { evaluateReplay, replayAuto, replayTable } from '../lib/replay.mjs';
 import { observedFromTrace, TRACE_PREFIX } from '../lib/replay-trace.mjs';
+import { main as replayCli } from '../scripts/replay-traces.mjs';
 import { answering, CONFIG, drain, harness, JEV_KEY, step } from './harness.mjs';
 import { assistant, jevResponse, user } from './helpers.mjs';
+
+const REPO = fileURLToPath(new URL('..', import.meta.url));
+const FIXTURE = fileURLToPath(new URL('./fixtures/replay-traces.json', import.meta.url));
 
 const exportOf = (record) => ({ version: 1, sessions: { [`${TRACE_PREFIX}private-session`]: record } });
 
@@ -437,13 +442,32 @@ test('a replay with a zero reversal window is refused', () => {
   assert.throws(() => evaluateReplay([], { reversalWindow: 0 }), /positive integer/);
 });
 
-test('CLI missing input and malformed input fail without leaking paths', () => {
-  const result = spawnSync(process.execPath, ['scripts/replay-traces.mjs', '/private/CANARY.json'], {
-    encoding: 'utf8',
+const runCli = async (args) => {
+  const out = [];
+  const err = [];
+  const status = await replayCli(args, { log: (text) => out.push(text), error: (text) => err.push(text) });
+  return { status, stdout: out.join('\n'), stderr: err.join('\n') };
+};
+
+for (const [name, args, message] of [
+  ['a missing input file', ['/private/CANARY.json'], /input 1/],
+  ['a malformed input file', [fileURLToPath(import.meta.url)], /input 1/],
+  ['no input files', [], /Provide all incremental trace export files/],
+  ['an unknown option', ['--nope', FIXTURE], /Unknown option/],
+])
+  test(`CLI with ${name} fails without leaking paths`, async () => {
+    const result = await runCli(args);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, message);
+    assert.equal(result.stderr.includes('CANARY'), false);
+    assert.equal(result.stderr.includes(REPO), false);
+    assert.equal(result.stdout, '');
   });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr, /input 1/);
-  assert.equal(result.stderr.includes('CANARY'), false);
+
+test('CLI --help prints usage and succeeds', async () => {
+  const result = await runCli(['--help']);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /^Usage: /);
 });
 
 async function oneTurn(config = {}, response = null, continuationModel = null, messagesAfter = null, answer = null) {
@@ -464,19 +488,21 @@ async function oneTurn(config = {}, response = null, continuationModel = null, m
   return { h, record: h.preferences.get(`${TRACE_PREFIX}s1`) };
 }
 
-test('synthetic exported fixture and CLI retain recorded mode history', () => {
+test('synthetic exported fixture and CLI retain recorded mode history', async () => {
   const fixture = JSON.parse(readFileSync(new URL('./fixtures/replay-traces.json', import.meta.url), 'utf8'));
   const result = evaluateReplay([fixture]);
   assert.equal(result.status, 'ok');
   assert.deepEqual(Object.keys(result.sessions[0].modes), ['balanced', 'quality']);
   assert.equal(result.sessions[0].modes.quality.table.switches.moves, 0);
-  const cli = spawnSync(
-    process.execPath,
-    ['scripts/replay-traces.mjs', '--reversal-window', '2', 'test/fixtures/replay-traces.json'],
-    { encoding: 'utf8' },
-  );
+  const inProcess = await runCli(['--reversal-window', '2', FIXTURE]);
+  assert.equal(inProcess.status, 0, inProcess.stderr);
+  assert.equal(JSON.parse(inProcess.stdout).reversalWindow, 2);
+  const cli = spawnSync(process.execPath, ['scripts/replay-traces.mjs', '--reversal-window', '2', FIXTURE], {
+    cwd: REPO,
+    encoding: 'utf8',
+  });
   assert.equal(cli.status, 0, cli.stderr);
-  assert.equal(JSON.parse(cli.stdout).reversalWindow, 2);
+  assert.equal(cli.stdout, `${inProcess.stdout}\n`);
 });
 
 test('routed null-stop suspends faithfully, and genuine third-model fallback is frozen for auto', async () => {
