@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Prompt keywords:** start a prompt with `morethink`, `highthink` or `maxthink` to move that turn one effort level up, one tier up or to the top tier, and with `lessthink`, `lowthink` or `nothink` to move it down. Unlike a pin, the routing mode and the turn's activity still pick the route, and the next turn routes as before. The band shows the keyword as the reason. See [Move one turn with a prompt keyword](docs/user-guide.md#move-one-turn-with-a-prompt-keyword).
+
 ## 1.27.1 (2026-11-19)
 
 ### Summary

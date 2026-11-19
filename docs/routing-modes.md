@@ -13,13 +13,16 @@ For requests selected by `table` and `shadow`, these route-table rules apply:
 - `micro` turns keep the configured `micro` route. Only the classifier makes a turn `micro`; `cost` never does.
 - A pin (`/router pin <tier>`) runs that tier's configured route. With routing off (`/router off`, `/model`),
   Claude's model runs, as before.
+- A [prompt keyword](user-guide.md#move-one-turn-with-a-prompt-keyword) runs the mode's route for the tier it lands
+  on, with the turn's activity: `maxthink` in `cost` runs the `high` row of the cost table.
 - A route never loses its effort: an effort level moves only within what the model lists in `models.<alias>.efforts`,
   skipping unsupported levels in the direction of the move. For example, `cost` moves `max → high → low`
   on a model listing only those three. A route with a `null` effort (the session's) or a model without efforts has no effort step.
 - [MiniMax, MiMo and Kimi tables](providers.md#new-provider-modes) show every new preset's mode/activity combination.
 
 For `auto`, `micro` is classifier demand 0, not a pinned table row. A tier pin sets exact demand for one turn,
-without a mode margin; eligible model-effort candidates still obey hard constraints.
+without a mode margin; eligible model-effort candidates still obey hard constraints. A prompt keyword also sets the
+turn's demand, from the demand the turn's advice gives, and keeps the mode margin.
 
 [Routing engines](configuration.md#routing-engine) are selected separately in the profile file. `auto` is opt-in;
 `shadow` records proposals while `table` routes. Auto uses the mode only as a capability margin: `cost` subtracts 0.5

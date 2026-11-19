@@ -114,6 +114,7 @@ import {
   releaseHold,
 } from '../lib/failover.mjs';
 import { heldCause, heldRows, holdsText, releaseRow } from '../lib/holds.mjs';
+import { KEYWORDS, keywordRaises, promptKeyword } from '../lib/keywords.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
@@ -153,6 +154,7 @@ import {
   ownRoute,
   prepareLoop,
   resetHistory,
+  servesOneTurn,
 } from '../lib/route.mjs';
 import { LINE_MODES, lineId, lineModeOf, lineOf, routeOf, showsLine } from '../lib/route-line.mjs';
 import {
@@ -1286,6 +1288,11 @@ async function saveConfig($, active, change) {
   }
 }
 
+const keywordList = (up) =>
+  Object.keys(KEYWORDS)
+    .filter((word) => keywordRaises(word) === up)
+    .join(', ');
+
 const unavailableText = (view) => `Routing unavailable: ${unavailableReason(view)}. Claude’s model is kept.`;
 
 function detailText(config, view, usage) {
@@ -1317,6 +1324,7 @@ function detailText(config, view, usage) {
     `Observed cache: ${view.cacheRead ?? 'unknown'} read, ${view.cacheWrite ?? 'unknown'} written tokens`,
     view.pendingPin ? `Next turn pin: ${view.pendingPin}` : 'No next-turn pin.',
     'Routing on picks a model for each turn. Routing off keeps Claude’s model. Pins serve one turn only.',
+    `Prompt keywords, as the first word, move one turn: ${keywordList(true)} up; ${keywordList(false)} down.`,
     'Cache lifetime is an estimate. Claude’s cost ledger owns session totals.',
   ].join('\n');
 }
@@ -1414,14 +1422,15 @@ function shadowProposal(
   }
   try {
     const projected = economicConfig(config, loop);
-    const beforePin = loop.decision?.pinned ? loop.route : null;
-    const model = loop.decision?.pinned && !beforePin ? nativeModel : (loop.decision?.model ?? nativeModel);
+    const oneTurn = servesOneTurn(loop.decision);
+    const beforePin = oneTurn ? loop.route : null;
+    const model = oneTurn && !beforePin ? nativeModel : (loop.decision?.model ?? nativeModel);
     const alias = Object.keys(config.models).find(
       (key) => isSameModel(config.models[key].id, model) || isSameModel(projected.models[key].id, model),
     );
     const incumbent = beforePin ?? {
       model: alias ?? model,
-      effort: loop.decision?.pinned ? (facts.effort ?? null) : (loop.decision?.effort ?? facts.effort ?? null),
+      effort: oneTurn ? (facts.effort ?? null) : (loop.decision?.effort ?? facts.effort ?? null),
     };
     const initial = TIERS.indexOf(config.baselineTier);
     const state =
@@ -1539,10 +1548,13 @@ async function decideTurn($, router, e, signal, step) {
     const previous = loop.decision;
     if (pin)
       router.turnConfigs.set(e.turnId, { config: { ...cfg, routingMode: step.cfg.routingMode }, configured: cfg });
+    // A keyword is read from a prompt a person or an agent sent, never from a progress report or a pinned turn.
+    const keyword = pin || isProgressOrigin(origin) ? null : promptKeyword(router.prompts.get(e.turnId));
     const traceInput = {
       facts,
       advice: result.advice,
       pin,
+      keyword,
       nativeModel,
       contextKnown: context.known,
       availableModels,
@@ -1615,6 +1627,7 @@ async function decideTurn($, router, e, signal, step) {
         reason: selected.decision.reason,
         route: `${selected.decision.model}@${selected.decision.effort ?? 'session'}`,
         pinned: selected.decision.pinned,
+        ...(selected.decision.keyword ? { keyword: selected.decision.keyword } : {}),
       })}`,
       { to: 'debug' },
     );
@@ -1761,7 +1774,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
   if (review?.answer) {
     router.reviews.delete(e.turnId);
     // An answer about a history that compaction or a rewind replaced is dropped.
-    if (!review.answer.advice || loop.decision?.pinned || review.generation !== loop.generation) return loop;
+    if (!review.answer.advice || servesOneTurn(loop.decision) || review.generation !== loop.generation) return loop;
     // Only the advice is from the review; the checkpoint, context and cache facts are read now.
     const messages = await transcript($);
     if (!messages || historySignature(messages, review.observedUpTo) !== review.prefix) return loop;
@@ -1839,7 +1852,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
     return { ...selected, observedFrom: review.observedUpTo };
   }
   const every = cfg.policy.reviewEveryRequests;
-  if (review || every === 0 || !loop.decision?.tier || loop.decision.pinned) return loop;
+  if (review || every === 0 || !loop.decision?.tier || servesOneTurn(loop.decision)) return loop;
   if ((loop.requests ?? 0) - (loop.reviewedAt ?? 0) < every) return loop;
   const job = {
     controller: new AbortController(),
