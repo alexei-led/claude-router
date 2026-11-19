@@ -8,7 +8,7 @@ import { observedActivity, progressEvidence, routingBucket } from '../lib/facts.
 import { evaluateReplay, replayAuto, replayTable } from '../lib/replay.mjs';
 import { observedFromTrace, TRACE_PREFIX } from '../lib/replay-trace.mjs';
 import { main as replayCli } from '../scripts/replay-traces.mjs';
-import { answering, CONFIG, drain, harness, JEV_KEY, step } from './harness.mjs';
+import { answering, CONFIG, drain, harness, JEV_KEY, shadowHarness, step } from './harness.mjs';
 import { assistant, jevResponse, user } from './helpers.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
@@ -17,9 +17,7 @@ const FIXTURE = fileURLToPath(new URL('./fixtures/replay-traces.json', import.me
 const exportOf = (record) => ({ version: 1, sessions: { [`${TRACE_PREFIX}private-session`]: record } });
 
 async function capture({ controls = false, continuations = false } = {}) {
-  const h = harness(JEV_KEY);
-  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 } }));
-  answering(h, jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'));
+  const h = shadowHarness();
   await h.event('session.start', { cwd: '/fixture' });
   for (let i = 0; i < 4; i++) {
     const turnId = `t${i}`;
@@ -471,9 +469,7 @@ test('CLI --help prints usage and succeeds', async () => {
 });
 
 async function oneTurn(config = {}, response = null, continuationModel = null, messagesAfter = null, answer = null) {
-  const h = harness(JEV_KEY);
-  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 }, ...config }));
-  answering(h, answer ?? jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'));
+  const h = shadowHarness(config, undefined, answer ?? undefined);
   await h.event('session.start', { cwd: '/fixture' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   h.messages(async () => [user('one')]);

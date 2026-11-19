@@ -3,19 +3,14 @@ import test from 'node:test';
 import { evaluateReplay } from '../lib/replay.mjs';
 import { TRACE_ACTIVE_MS, TRACE_PREFIX, TRACE_RETAIN_MS, traceBytes, usableTrace } from '../lib/replay-trace.mjs';
 import { chooseRoute, continueRoute, observeResponse, prepareLoop } from '../lib/route.mjs';
-import { answering, CONFIG, drain, harness, JEV_KEY, press, step } from './harness.mjs';
+import { answering, CONFIG, drain, harness, press, shadowHarness, step } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
 const record = (h, id = 's1') => h.preferences.get(TRACE_PREFIX + id);
 
 const answer = jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce');
 
-function setup(config = {}, preferences = new Map()) {
-  const h = harness(JEV_KEY, preferences);
-  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 }, ...config }));
-  answering(h, answer);
-  return h;
-}
+const setup = (config, preferences) => shadowHarness(config, preferences, answer);
 
 async function begin(h) {
   await h.event('session.start', { cwd: '/fixture' });
