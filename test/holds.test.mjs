@@ -119,6 +119,23 @@ for (const [word, expected] of [
     assert.equal(releaseRow(config, holds, word, now).row?.key, expected);
   });
 
+const twoOfOne = { accounts: { glm: balance }, models: { [glmId]: overloaded } };
+
+test('an account and a model of the same name release by different words, each its own hold', () => {
+  const own = loadConfig({ userFile: { models: { glm: { ...config.models.glm, account: undefined } } } });
+  const rows = heldRows(own, twoOfOne, now);
+  assert.deepEqual(
+    rows.map((row) => [row.scope, row.word]),
+    [
+      ['account', 'glm'],
+      ['model', glmId],
+    ],
+  );
+  assert.equal(new Set(rows.map((row) => row.word)).size, rows.length);
+  assert.equal(releaseRow(own, twoOfOne, 'glm', now).row?.scope, 'account');
+  assert.equal(releaseRow(own, twoOfOne, glmId, now).row?.scope, 'model');
+});
+
 for (const [name, word, held, expected] of [
   [
     'a model held through its account',
