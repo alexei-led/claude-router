@@ -618,6 +618,69 @@ const HIGH = jevResponse('high', { high: 0.99, medium: 0.01 });
 const opus = { ...step, model: 'claude-opus-5-5' };
 const sentModels = (h) => h.requests.map((r) => `${r.model}@${r.effort}`);
 
+test('settings that cannot be read pass the step through as Claude Code built it', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, HIGH);
+  await start(h);
+  const read = h.$.settings.read;
+  h.$.settings.read = async (args) => {
+    if (args === undefined) throw new Error('settings unreadable');
+    return read(args);
+  };
+  await drain(h.step(opus));
+  assert.deepEqual(h.requests, [opus]);
+});
+
+test('a transcript that cannot be read passes the first step through, and the next step decides', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, HIGH);
+  await start(h);
+  h.messages(async () => {
+    throw new Error('transcript unreadable');
+  });
+  await drain(h.step(opus));
+  h.messages(async () => [user('One edit.')]);
+  await drain(h.step({ ...opus, index: 1 }));
+  assert.deepEqual(sentModels(h), ['claude-opus-5-5@medium', 'claude-opus-5-5@xhigh']);
+});
+
+test('a decision that throws passes its step through and is made again at the next step', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, HIGH);
+  await start(h);
+  const set = h.$.state.set;
+  h.$.state.set = async (ref, value, options) => {
+    if (ref.key === 'loops') throw new Error('state unwritable');
+    return set(ref, value, options);
+  };
+  await drain(h.step(opus));
+  h.$.state.set = set;
+  await drain(h.step({ ...opus, index: 1 }));
+  assert.deepEqual(sentModels(h), ['claude-opus-5-5@medium', 'claude-opus-5-5@xhigh']);
+});
+
+test('routing turned off and on while the classifier answers routes the turn’s next step', async () => {
+  const h = harness(JEV_KEY);
+  let release;
+  h.http(
+    () =>
+      new Promise((resolve) => {
+        release = () => resolve({ ok: true, status: 200, text: JSON.stringify(HIGH), headers: {} });
+      }),
+  );
+  await start(h);
+  const running = drain(h.step(opus));
+  await new Promise((resolve) => setImmediate(resolve));
+  await h.event('command.run', { command: 'router', args: 'off' });
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  release();
+  await running;
+  const asked = answering(h, HIGH);
+  await drain(h.step({ ...opus, index: 1 }));
+  assert.equal(asked.length, 1);
+  assert.deepEqual([h.loop().turnId, h.view().phase, h.view().mode], ['t1', 'routed', 'auto']);
+});
+
 test('a saved mode that cannot be read starts the session by the start rule and is not written over', async () => {
   class ModeUnreadable extends Map {
     get(key) {

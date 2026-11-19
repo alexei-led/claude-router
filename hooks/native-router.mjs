@@ -1446,7 +1446,7 @@ function shadowProposal(
 }
 
 // One turn's classification and route, written to the loop at `loopVersion`: the loop and its new version, or null
-// when the turn was aborted, left the session or Auto, or lost the write. `signal` is the step's: its abort cancels
+// when the turn was aborted, left the session or Auto, lost the write, or its transcript could not be read. `signal` is the step's: its abort cancels
 // the classifier call. The pin is the one in `view`, the view as the step read it; it is used up only once the route
 // is written, so a turn interrupted before then leaves it for the next.
 async function decideTurn($, router, e, signal, step) {
@@ -1465,9 +1465,10 @@ async function decideTurn($, router, e, signal, step) {
     const pinPresses = router.pinPresses;
     const [credentials, messages] = await Promise.all([
       resolveCredentials(activeClassifier(cfg), (name) => settingOf($, router.options, name)),
-      $.session.messages({ as: 'api' }),
+      transcript($),
     ]);
-    if (!(await live())) return null;
+    // A turn whose transcript cannot be read has no facts to route on: its step goes out as Claude Code built it.
+    if (!messages || !(await live())) return null;
     validateGoal(router, e.turnId, messages);
     const origin = router.turnOrigins.get(e.turnId) ?? 'unknown';
     // A progress turn is the same task (sameTaskOf).
@@ -3028,6 +3029,22 @@ async function traceContinuation($, router, cfg, loop, e, traceInput) {
   }
 }
 
+// The turn's decision, made once for the steps that wait on it. Only a route serves the turn's later steps: a decision
+// that failed, was dropped or lost its write is made again at the next step, so routing turned off and on meanwhile
+// routes it.
+function decisionOf($, router, e, signal, step) {
+  const key = `${step.sessionId}:${e.turnId}:${step.loop.generation}`;
+  const held = router.decisions.get(key);
+  if (held) return held;
+  const job = decideTurn($, router, e, signal, step);
+  const forget = () => {
+    if (router.decisions.get(key) === job) router.decisions.delete(key);
+  };
+  job.then((selected) => selected || forget(), forget);
+  router.decisions.set(key, job);
+  return job;
+}
+
 async function* stepMain($, router, e, next) {
   if (!(await ensureInitialized($, router))) return yield* next(e);
   if (e.agentId) return yield* stepAgent($, router, e, next);
@@ -3073,26 +3090,22 @@ async function* stepMain($, router, e, next) {
   if (loop.turnId === e.turnId && isNativeFallback(loop, e.model)) {
     return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'native-fallback', router);
   }
-  const [context, settings] = await Promise.all([contextOf($, loop), $.settings.read()]);
+  // Settings that cannot be read may hold an availableModels list, so the step goes out as Claude Code built it.
+  const [context, settings] = await Promise.all([contextOf($, loop), $.settings.read().catch(() => null)]);
+  if (!settings) return yield* next(e);
   const availableModels = settings.availableModels;
-  const key = `${sessionId}:${e.turnId}:${loop.generation}`;
   if (loop.turnId !== e.turnId) {
-    let job = router.decisions.get(key);
-    if (!job) {
-      job = decideTurn($, router, e, next.signal, {
-        sessionId,
-        view,
-        cfg,
-        configured: turn.configured,
-        loop,
-        loopVersion,
-        context,
-        nativeModel,
-        availableModels,
-      });
-      router.decisions.set(key, job);
-    }
-    const selected = await job;
+    const selected = await decisionOf($, router, e, next.signal, {
+      sessionId,
+      view,
+      cfg,
+      configured: turn.configured,
+      loop,
+      loopVersion,
+      context,
+      nativeModel,
+      availableModels,
+    });
     if (!selected) {
       if (!next.signal.aborted && (await $.session.id()) === sessionId && router.view?.activeTurnId === e.turnId) {
         const reserved = await $.state.set(ref, loop, { ifVersion: loopVersion });
@@ -3502,8 +3515,20 @@ export function register(on, options) {
   // A hook failure spawns the agent as Claude Code would; next(e) replays a spawn already made.
   on('agent.spawn', ($, e, next) => spawnAgent($, router, e, next)).catch((_$, e, next) => next(e));
 
+  // A hook failure before the request goes out sends it as Claude Code built it; once it went out, no step sends twice.
   on('turn.step', async function* ($, e, next) {
-    return yield* stepMain($, router, e, next);
+    let sent = false;
+    const send = async function* (request) {
+      sent = true;
+      return yield* next(request);
+    };
+    send.signal = next.signal;
+    try {
+      return yield* stepMain($, router, e, send);
+    } catch (error) {
+      if (sent) throw error;
+      return yield* next(e);
+    }
   });
 
   on('turn.complete', async ($, e, next) => {
