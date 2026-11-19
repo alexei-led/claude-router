@@ -700,7 +700,7 @@ function clientOf(router, id) {
 // and outlives the turn that asked it; on the turn's client it would answer the next turn's decision `busy`.
 function reviewClientOf(router, id) {
   const key = `review:${id}`;
-  if (!router.clients.has(key)) router.clients.set(key, new ClassifierClient());
+  if (!router.clients.has(key)) router.clients.set(key, new ClassifierClient({ now: Date.now }));
   return router.clients.get(key);
 }
 
