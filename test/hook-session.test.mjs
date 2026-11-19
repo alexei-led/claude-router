@@ -731,3 +731,22 @@ test('a /router command that fails to register leaves routing ready', async () =
   await start(h);
   assert.equal(h.view().phase, 'ready');
 });
+
+test('session.start, turn.start and turn.complete pass their event on when the router’s bookkeeping throws', async () => {
+  const h = harness(JEV_KEY);
+  h.http(() => new Promise(() => {}));
+  await start(h);
+  const running = drain(h.step(opus));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(h.view().phase, 'choosing');
+  h.$.session.id = async () => {
+    throw new Error('session unreadable');
+  };
+  for (const [name, input] of [
+    ['turn.complete', { turnId: 't1' }],
+    ['turn.start', { turnId: 't2', text: 'Next.' }],
+    ['session.start', { cwd: '/fixture' }],
+  ])
+    assert.deepEqual(await h.event(name, input), input, name);
+  await running.catch(() => {});
+});

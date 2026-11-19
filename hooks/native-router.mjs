@@ -3447,24 +3447,67 @@ async function ensureInitialized($, router) {
   return router.initializing;
 }
 
+// A main turn's end: its pins, reviews and decision jobs go, and its route line, activity, usage, decisions and trace
+// are recorded. A subagent's end flushes its record.
+async function completeTurn($, router, e) {
+  if (e.agentId) {
+    await finishAgent($, router, e.agentId);
+    return;
+  }
+  router.turnConfigs.delete(e.turnId);
+  router.turnPins.delete(e.turnId);
+  router.reviews.get(e.turnId)?.controller.abort();
+  router.reviews.delete(e.turnId);
+  router.turnControllers.get(e.turnId)?.abort();
+  const held = router.view;
+  if (held !== null && held.activeTurnId === e.turnId && held.phase === 'choosing') {
+    router.view = { ...held, activeTurnId: null };
+    const mode = await modeOf($, router);
+    if (router.view?.activeTurnId === null)
+      await updateView($, router, { phase: mode === 'manual' ? 'manual' : 'ready', reason: 'interrupted' });
+  }
+  router.prompts.delete(e.turnId);
+  for (const key of router.decisions.keys()) if (key.includes(`:${e.turnId}:`)) router.decisions.delete(key);
+  // `off` asks nothing, so it records nothing; it only ends the watch after a cheaper activity move.
+  const turn = router.turnActivities.get(e.turnId);
+  router.turnActivities.delete(e.turnId);
+  await placeRouteLine($, router, e, turn);
+  if (turn?.mode === 'off') {
+    if ((await $.session.id()) === turn.sessionId) router.afterDown = advanceDown(router.afterDown, turn).after;
+  } else if (turn) await recordActivity($, router, turn);
+  if (router.turnUsage.has(e.turnId)) await flushUsage($, router, e.turnId, turn?.switched ?? null);
+  await flushDecisions($, router, e.turnId, turn);
+  if (router.config.routingEngine === 'shadow' && router.trace?.turns.has(e.turnId)) {
+    addTrace(router, e, { type: 'end', at: Date.now() });
+    await flushTrace($, router, e.turnId);
+  }
+  router.traceOperations.delete(e.turnId);
+}
+
+// A session start loads router.json again, a failed load included, and toasts when routing is unavailable.
+async function startSession($, router, e) {
+  router.trace = null;
+  router.traceOperations.clear();
+  router.lastRoute = null;
+  router.lastRequested = null;
+  router.mainTurnId = null;
+  router.initialized = false;
+  router.loadFailed = false;
+  router.noticeSurfaces.clear();
+  const sessionId = await $.session.id();
+  // Lazy profile loading is not a lifecycle signal; only a real Mod start can establish freshness.
+  router.traceFreshSession = router.traceStartedSession !== sessionId ? sessionId : null;
+  router.traceStartedSession = sessionId;
+  await ensureInitialized($, router);
+  await noticeUnavailable($, router, e);
+}
+
 export function register(on, options) {
   const router = createRouter(options);
 
+  // The router's bookkeeping never keeps a session or a turn from starting.
   on('session.start', async ($, e, next) => {
-    const sessionId = await $.session.id();
-    // Lazy profile loading is not a lifecycle signal; only a real Mod start can establish freshness.
-    router.traceFreshSession = router.traceStartedSession !== sessionId ? sessionId : null;
-    router.traceStartedSession = sessionId;
-    router.trace = null;
-    router.traceOperations.clear();
-    router.lastRoute = null;
-    router.lastRequested = null;
-    router.mainTurnId = null;
-    router.initialized = false;
-    router.loadFailed = false;
-    router.noticeSurfaces.clear();
-    await ensureInitialized($, router);
-    await noticeUnavailable($, router, e);
+    await startSession($, router, e).catch(() => {});
     return next(e);
   });
 
@@ -3516,7 +3559,7 @@ export function register(on, options) {
 
   // Since 2.1.321 a subagent's loop raises turn.start too, with its agentId; the goal and prompt state is the main loop's.
   on('turn.start', async ($, e, next) => {
-    if (e.agentId === undefined) await startTurn($, router, e);
+    if (e.agentId === undefined) await startTurn($, router, e).catch(() => {});
     return next(e);
   });
 
@@ -3542,38 +3585,8 @@ export function register(on, options) {
   });
 
   on('turn.complete', async ($, e, next) => {
-    if (e.agentId) {
-      await finishAgent($, router, e.agentId);
-      return next(e);
-    }
-    router.turnConfigs.delete(e.turnId);
-    router.turnPins.delete(e.turnId);
-    router.reviews.get(e.turnId)?.controller.abort();
-    router.reviews.delete(e.turnId);
-    router.turnControllers.get(e.turnId)?.abort();
-    const held = router.view;
-    if (held !== null && held.activeTurnId === e.turnId && held.phase === 'choosing') {
-      router.view = { ...held, activeTurnId: null };
-      const mode = await modeOf($, router);
-      if (router.view?.activeTurnId === null)
-        await updateView($, router, { phase: mode === 'manual' ? 'manual' : 'ready', reason: 'interrupted' });
-    }
-    router.prompts.delete(e.turnId);
-    for (const key of router.decisions.keys()) if (key.includes(`:${e.turnId}:`)) router.decisions.delete(key);
-    // `off` asks nothing, so it records nothing; it only ends the watch after a cheaper activity move.
-    const turn = router.turnActivities.get(e.turnId);
-    router.turnActivities.delete(e.turnId);
-    await placeRouteLine($, router, e, turn);
-    if (turn?.mode === 'off') {
-      if ((await $.session.id()) === turn.sessionId) router.afterDown = advanceDown(router.afterDown, turn).after;
-    } else if (turn) await recordActivity($, router, turn);
-    if (router.turnUsage.has(e.turnId)) await flushUsage($, router, e.turnId, turn?.switched ?? null);
-    await flushDecisions($, router, e.turnId, turn);
-    if (router.config.routingEngine === 'shadow' && router.trace?.turns.has(e.turnId)) {
-      addTrace(router, e, { type: 'end', at: Date.now() });
-      await flushTrace($, router, e.turnId);
-    }
-    router.traceOperations.delete(e.turnId);
+    // The router's bookkeeping never keeps the turn from completing.
+    await completeTurn($, router, e).catch(() => {});
     return next(e);
   });
 
