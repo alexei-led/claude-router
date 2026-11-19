@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.28.0 (2026-11-19)
+
+### Summary
+
+A minor release that adds prompt keywords: start a prompt with `morethink`, `highthink` or `maxthink` to move that one turn up, or with `lessthink`, `lowthink` or `nothink` to move it down, without a pin. Unlike a pin, the classifier still answers, so the routing mode and the turn's activity choose the route of the tier the keyword lands on. The keyword serves its turn and tool steps, and the next turn routes as before. It works with the `table`, `shadow` and `auto` engines, and shadow replays run keyword turns as they ran. No configuration change; Claude Code 2.1.321 or newer is still required.
 
 ### Added
 
