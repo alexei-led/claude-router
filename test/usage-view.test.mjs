@@ -11,7 +11,7 @@ import {
   spawnRecord,
 } from '../lib/subagents.mjs';
 import { recordUsage } from '../lib/usage.mjs';
-import { controls, ELEMENTS, screen } from './harness.mjs';
+import { controls, ELEMENTS, recorder, screen } from './harness.mjs';
 import { at, NOW, OTHER, reply, SESSION, STORE } from './usage-fixtures.mjs';
 
 const LEGACY = {
@@ -38,20 +38,7 @@ const view = (props = {}) => ({
   usagePeriod: 'session',
   ...props,
 });
-const recording = () => {
-  const calls = [];
-  const actions = new Proxy(
-    {},
-    {
-      get:
-        (_, name) =>
-        (...args) =>
-          calls.push([name, ...args]),
-    },
-  );
-  return { calls, actions };
-};
-const render = (props = {}, { columns = 100, actions = recording().actions } = {}) =>
+const render = (props = {}, { columns = 100, actions = recorder().actions } = {}) =>
   renderPanel(ELEMENTS, DEFAULTS, view(props), null, actions, { columns, now: NOW });
 const lines = (props, options) => screen(render(props, options));
 const after = (all, head, count) => all.slice(all.indexOf(head), all.indexOf(head) + count);
@@ -63,7 +50,7 @@ test('the period row offers six periods, marks the one shown, and p presses the 
     ['month', 'all'],
     ['all', 'session'],
   ]) {
-    const { calls, actions } = recording();
+    const { calls, actions } = recorder();
     const buttons = controls(render({ usagePeriod: period }, { actions })).filter((c) => c.key.startsWith('period-'));
     assert.deepEqual(
       buttons.map((b) => b.label),
@@ -115,7 +102,7 @@ test('the answer leads, then a cost table whose cents add up: cost − no routin
 test('on a Claude plan every amount in the cost table is API estimate with ≈, and only the differences go without', () => {
   const usage = { rateLimits: [{ kind: 'five_hour', percentUsed: 40 }], cost: { usd: 4.5 } };
   // Claude Code's own /cost is not shown: the router's total is the only one.
-  const all = screen(renderPanel(ELEMENTS, DEFAULTS, view(), usage, recording().actions, { columns: 100, now: NOW }));
+  const all = screen(renderPanel(ELEMENTS, DEFAULTS, view(), usage, recorder().actions, { columns: 100, now: NOW }));
   assert.deepEqual(after(all, 'main · 20 replies           ≈$4.30         −$4.70      ≈$9.00', 6), [
     'main · 20 replies           ≈$4.30         −$4.70      ≈$9.00',
     '  cheaper models                           −$4.92',
@@ -185,7 +172,7 @@ test('a models key that names another model later keeps the history under the mo
     models: { ...DEFAULTS.models, opus: { ...DEFAULTS.models.opus, id: 'claude-fable-5-1' } },
   };
   const all = screen(
-    renderPanel(ELEMENTS, config, view({ usageGroup: 'model' }), null, recording().actions, { columns: 100, now: NOW }),
+    renderPanel(ELEMENTS, config, view({ usageGroup: 'model' }), null, recorder().actions, { columns: 100, now: NOW }),
   );
   assert.ok(
     all.some((line) => line.includes('▸ Opus 5.5')),
@@ -225,7 +212,7 @@ test('without routed replies the tab says why, and below ten replies the answer 
 });
 
 test('the breakdown groups by activity, model or tier, g presses the next grouping, and a row opens to its parts', () => {
-  const { calls, actions } = recording();
+  const { calls, actions } = recorder();
   const tree = render({ usageOpen: 'activity:code' }, { actions });
   const groups = controls(tree).filter((c) => c.key.startsWith('group-'));
   assert.deepEqual(
@@ -274,7 +261,7 @@ test('the breakdown groups by activity, model or tier, g presses the next groupi
 });
 
 test('c switches the trend for What if: the same tokens on each model alone, against yours', () => {
-  const { calls, actions } = recording();
+  const { calls, actions } = recorder();
   const trend = render({}, { actions });
   assert.ok(screen(trend).includes('COST BY HOUR █▁▂█  peak ≈$2.00   [ What if ]'), screen(trend).join('\n'));
   const toggle = controls(trend).find((c) => c.key === 'usage-compare');
@@ -294,7 +281,7 @@ test('c switches the trend for What if: the same tokens on each model alone, aga
 });
 
 test('what is worth a look links to the tab that changes it, and never names a model to use', () => {
-  const { calls, actions } = recording();
+  const { calls, actions } = recorder();
   const tree = render({}, { actions });
   assert.deepEqual(after(screen(tree), 'WORTH A LOOK · from the numbers; answer quality is not measured', 2), [
     'WORTH A LOOK · from the numbers; answer quality is not measured',
@@ -324,7 +311,7 @@ test('what is worth a look links to the tab that changes it, and never names a m
 });
 
 test('Delete history asks once more before every session’s records go', () => {
-  const { calls, actions } = recording();
+  const { calls, actions } = recorder();
   const ask = controls(render({}, { actions })).find((c) => c.key === 'delete-history');
   assert.deepEqual([ask.label, ask.dimColor], ['Delete history', true]);
   ask.onPress();
@@ -392,7 +379,7 @@ test('the subagent block follows the period, with a strip by model, the verdict 
   const week = agentLines('7d');
   assert.equal(week[0], 'SUBAGENTS · all projects · Oct 7 – Oct 13   subagent routing on');
   assert.equal(week[2], '  6 agents · ■ 4 moved by the router · □ 2 on Claude Code’s pick');
-  assert.equal(week[4], '  per day ▁▁▃▁▃▁█  peak 4 on Oct 13');
+  assert.equal(week[4], '  per day ··▃·▃·█  peak 4 on Oct 13');
 });
 
 test('an open subagent row splits its agents and cost by model and lists its requests', () => {
@@ -410,6 +397,12 @@ test('a narrow pane drops the cost column and the reasons, and moves the model n
   const narrow = agentLines('today', {}, { columns: 40 });
   assert.equal(narrow[1], '  ■□■□');
   assert.equal(narrow[2], '  Haiku 5.5 1 · Sonnet 5.5 1 · Opus 5.5 2');
+  assert.deepEqual(narrow.slice(3, 7), [
+    '  4 agents · ■ 2 moved by the router',
+    '  □ 2 on Claude Code’s pick',
+    '  routing −$0.10 (−13%) vs Claude Code’s picks',
+    '  on 3 routed agents',
+  ]);
   const table = lines({ usagePeriod: 'today', subagentStore: AGENTS }, { columns: 50 });
   assert.ok(table.includes('  ▸ Explore            ■             1   −$0.40 ▼'), table.join('\n'));
   assert.ok(table.includes('  ▸ workflow agent     □             1'));

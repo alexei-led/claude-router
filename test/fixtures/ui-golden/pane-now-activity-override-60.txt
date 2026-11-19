@@ -42,13 +42,13 @@ Box flexDirection="column"
       "  "
     Text weight="semibold"
       "Sonnet 5.5 · high"
-    Box
-      Text
-        "   "
-      Text color="#d77757" italic=true
-        "code"
-      Text dimColor=true
-        "  phase build · route activity code"
+  Box
+    Text
+      "        "
+    Text color="#d77757" italic=true
+      "code"
+    Text dimColor=true
+      "  phase build · route activity code"
   Box
     Text dimColor=true
       "  why   "
@@ -57,7 +57,9 @@ Box flexDirection="column"
     Text dimColor=true
       "   Jev 88% ≥ 82% · switch ≈ $0.48"
   Text dimColor=true
-    "        code at low runs on Sonnet 5.5 · high · tier route Haiku 5.5 · high"
+    "        code at low runs on Sonnet 5.5 · high · tier route"
+  Text dimColor=true
+    "        Haiku 5.5 · high"
   Text dimColor=true
     "  pin next turn to a tier · now Sonnet 5.5 · high"
   Box

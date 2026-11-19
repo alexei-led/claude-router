@@ -202,9 +202,7 @@ test('a reply that joins the turn while its usage record is read is recorded wit
   const released = Promise.withResolvers();
   gate = { reached: reached.resolve, released: released.promise };
   const completing = h.event('turn.complete', { turnId: 't1' });
-  const timeout = setTimeout(() => reached.reject(new Error('the usage flush never read the reset marker')), 2000);
   await reached.promise;
-  clearTimeout(timeout);
   await drain(h.step({ ...step, index: 1, model: 'claude-haiku-5-5' }));
   released.resolve();
   await completing;

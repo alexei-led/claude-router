@@ -7,6 +7,7 @@ process.env.TZ = 'UTC';
 
 const { DEFAULTS } = await import('../lib/config.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
+const { policyOf } = await import('../lib/ui/model/policy.mjs');
 const { ELEMENTS, find, hangs, recorder, screen, texts } = await import('./harness.mjs');
 const { NOW } = await import('./usage-fixtures.mjs');
 
@@ -95,3 +96,13 @@ for (const [columns, boxed] of [
       [],
     );
   });
+
+test('the Mode and Start rows carry the labels the Policy model gives them', () => {
+  const { mode, baseline } = policyOf({ config: DEFAULTS, view: VIEW, actions: recorder().actions, now: NOW });
+  const lines = screen(policy(80));
+  for (const { label } of [mode, baseline])
+    assert.ok(
+      lines.some((line) => line.includes(`${label} `)),
+      label,
+    );
+});

@@ -90,3 +90,11 @@ test('the argument hint names every word of the table', () => {
   assert.equal(hint.startsWith('['), true);
   assert.equal(hint.endsWith(']'), true);
 });
+
+test('/router decisions takes a whole number from 1 to 60, 20 when none is given', async () => {
+  const h = await started();
+  const run = async (args) => (await h.event('command.run', { command: 'router', args })).text;
+  const choose = 'Choose decisions 1 to 60, or none for 20.';
+  for (const n of ['0', '-3', '2.5', '1e1', '0x10', 'many']) assert.equal(await run(`decisions ${n}`), choose, n);
+  for (const n of ['', ' 1', ' 60', ' 99']) assert.notEqual(await run(`decisions${n}`), choose, n);
+});

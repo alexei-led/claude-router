@@ -67,7 +67,7 @@ The directory is `CLAUDE_CONFIG_DIR` when set, otherwise `~/.claude`.
 
 | Provider name | Router file | Built-in model defaults |
 | --- | --- | --- |
-| Unset, empty, or `anthropic` | `router.json` | Haiku 5.5, Sonnet 5.5, Opus 5.5 |
+| Unset, empty, or `anthropic` | `router.json` | Haiku 5.5, Sonnet 5.5, Opus 5.5, and Fable 5.2, which no default route runs |
 | `deepseek` | `deepseek-router.json` | DeepSeek Flash |
 | `zai` | `zai-router.json` | GLM-5.3-Flash, GLM-5.3 |
 | `minimax` | `minimax-router.json` | MiniMax-M3.1-Flash |
@@ -131,6 +131,7 @@ Cross-provider history is a caveat for every other chain too. Claude Code resend
 | Anthropic | `haiku` | `claude-haiku-5-5` |
 | Anthropic | `sonnet` | `claude-sonnet-5-5` |
 | Anthropic | `opus` | `claude-opus-5-5` |
+| Anthropic | `fable` | `claude-fable-5-2` |
 | DeepSeek | `flash` | `deepseek-flash[1m]` |
 | z.ai | `flash` | `glm-5.3-flash[1m]` |
 | z.ai | `glm` | `glm-5.3[1m]` |
@@ -180,7 +181,7 @@ GLM-5.3 is text-only. Image-bearing history excludes it when the router can sele
 The default models all have a context window of at least 1M tokens.
 The four new model entries support image input at the provider; native image and near-limit context paths have not been tested.
 
-Subagent routing is on for built-in profiles:
+Subagent routing is on for built-in profiles, and every built-in profile classifies workflow agents like `general-purpose`:
 
 | Profile | Light | Standard | Heavy |
 | --- | --- | --- | --- |

@@ -11,7 +11,7 @@ They do not measure this router's answer quality or your bill.
 
 ## What it does
 
-For each new turn, Jev, Clef and OpenAI answer tier, continuation, goal and phase questions together. The existing
+For each new turn, Jev, Clef, Clef Flash, Clef Omni and OpenAI answer tier, continuation, goal and phase questions together. The existing
 `activity` field and route matrix name the goal; the phase can select the `ops` cell for bounded command-only work.
 Ollama asks tier and goal in two calls and does not provide a phase, so it cannot introduce a bounded-ops discount. A route is a model and an effort.
 
@@ -293,7 +293,7 @@ Limits:
   [Evaluation](evaluation.md#activity-probe-set). The **Tool compatibility** lines, on the
   Classifier tab for this session and across sessions, check your own turns against the tools they used.
 - Whether an effort change on the same model always keeps the cache. Claude Code's prompt-caching docs say it does on
-  the 5.5 models and Fable 5.1 with an API key or a subscription, and the router prices it so. On 2026-11-11 we counted
+  Fable 5.1 and later and the 5.5 models with an API key or a subscription, and the router prices it so. On 2026-11-11 we counted
   104 such changes with under 270 seconds between requests in 30 days of Claude Code transcripts, main thread only, up
   or down, inside a turn or at a turn start. The request after the change still read the cache in 102 of 104. The
   median share of the prompt written to the cache after a change was 0.4 to 0.5% on Opus and Haiku and 0.1 to 0.7% on

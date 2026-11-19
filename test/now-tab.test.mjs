@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { renderPanel } from '../lib/panel.mjs';
-import { emptyUsage, recordUsage } from '../lib/usage.mjs';
-import { controls, ELEMENTS, find, screen, texts, unboxed } from './harness.mjs';
+import { emptyUsage, recordUsage, replyEntry } from '../lib/usage.mjs';
+import { controls, ELEMENTS, find, recorder, screen, texts, unboxed } from './harness.mjs';
 import { at, NOW, reply, SESSION, STORE } from './usage-fixtures.mjs';
 
 const view = (props = {}) => ({
@@ -20,20 +20,7 @@ const view = (props = {}) => ({
   strip: { per: 1, cells: [{ low: 2 }, { medium: 1 }, { high: 1, low: 1 }, { none: 1 }] },
   ...props,
 });
-const recording = () => {
-  const calls = [];
-  const actions = new Proxy(
-    {},
-    {
-      get:
-        (_, name) =>
-        (...args) =>
-          calls.push([name, ...args]),
-    },
-  );
-  return { calls, actions };
-};
-const render = (props = {}, { columns = 100, actions = recording().actions, usage = null } = {}) =>
+const render = (props = {}, { columns = 100, actions = recorder().actions, usage = null } = {}) =>
   renderPanel(ELEMENTS, DEFAULTS, view(props), usage, actions, { columns, now: NOW });
 const lines = (props, options) => unboxed(screen(render(props, options)));
 const after = (all, head, count) => all.slice(all.indexOf(head), all.indexOf(head) + count);
@@ -92,7 +79,7 @@ for (const [value, call] of [
   ['none', ['unpin']],
 ])
   test(`picking ${value} in the pin dropdown asks for ${call.join(' ')}`, () => {
-    const { calls, actions } = recording();
+    const { calls, actions } = recorder();
     pinSelect({ pendingPin: 'medium' }, actions).onSelect(value);
     assert.deepEqual(calls, [call]);
   });
@@ -142,7 +129,7 @@ test('with routing off the next turn names the model you chose, not the last rou
 });
 
 test('the session leads with its total and how it is paid, then the difference against no routing and the parts', () => {
-  const { calls, actions } = recording();
+  const { calls, actions } = recorder();
   const tree = render({}, { actions });
   assert.deepEqual(block(unboxed(screen(tree)), 'SESSION'), [
     SESSION_HEAD,
@@ -200,7 +187,7 @@ test('an early session names its replies so far and why, and a narrow pane drops
 });
 
 test('the session counts the running turn’s replies and warns when the switches cost more than they saved', () => {
-  const { calls, actions } = recording();
+  const { calls, actions } = recorder();
   const lost = { ...reply(at(2026, 10, 13, 10), 'code'), sums: [1, 1, 0.5, -0.1, 0, 0.6, 0, 0, 0] };
   assert.deepEqual(block(lines({ usageSession: emptyUsage(), usageLive: [lost, lost] }), 'SESSION').slice(0, 3), [
     'SESSION  2 replies  [ band: 2 rows ]',
@@ -327,7 +314,7 @@ test('a hold until released says so, and nothing held or only ended holds draw n
 });
 
 test('Release on a row asks to release that account or model, and no other', () => {
-  const { calls, actions } = recording();
+  const { calls, actions } = recorder();
   const tree = render(HELD, { actions });
   const released = controls(tree).filter((c) => c.key.startsWith('release-'));
   assert.deepEqual(
@@ -364,7 +351,7 @@ test('a row too long for Release beside it puts the button on its own line', () 
   const balance = { kind: 'balance', error: 'billing_error', since: NOW, until: null, streak: 1 };
   const holds = { accounts: { 'zai-team-production': balance }, models: {} };
   const all = unboxed(
-    screen(renderPanel(ELEMENTS, config, view({ holds }), null, recording().actions, { columns: 60, now: NOW })),
+    screen(renderPanel(ELEMENTS, config, view({ holds }), null, recorder().actions, { columns: 60, now: NOW })),
   );
   assert.deepEqual(block(all, 'HELD OUT').slice(1, 5), [
     '  zai-team-production  no balance · until released',
@@ -378,4 +365,24 @@ test('the why names the held model and the chain step when a fallback runs, else
   const held = { reason: 'model-held', fallback: { from: 'opus', step: 1, of: 2 }, ...HELD };
   assert.equal(after(lines(held), 'NEXT TURN', 3)[2], '  why   ↷ Opus 5.5 held · fallback 1 of 2');
   assert.equal(after(lines({ ...held, fallback: null }), 'NEXT TURN', 3)[2], '  why   ! held out');
+});
+
+test('a session amount wider than its column still fits the pane: the difference is dropped before the row overflows', () => {
+  const when = at(2026, 10, 13, 10);
+  const big = replyEntry({
+    mode: 'balanced',
+    at: when,
+    activity: 'code',
+    tier: 'medium',
+    route: 'claude-sonnet-5-5@high',
+    yours: 'claude-opus-5-5',
+    reply: { strongerUsd: 0, routedUsd: 250, yoursUsd: 400, cheaperUsd: -150, switchUsd: 0 },
+    replies: { 'claude-opus-5-5': { yoursUsd: 400 } },
+    usage: { input_tokens: 100, cache_read_input_tokens: 800, cache_creation_input_tokens: 200, output_tokens: 10 },
+  });
+  const usageSession = recordUsage(emptyUsage(), [big], { now: when });
+  for (const columns of [50, 54, 55, 56, 60]) {
+    const [main] = lines({ usageSession }, { columns }).filter((line) => line.startsWith('  main'));
+    assert.ok(main.length <= columns, `${columns}: ${main}`);
+  }
 });

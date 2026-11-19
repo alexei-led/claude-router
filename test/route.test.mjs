@@ -144,6 +144,8 @@ test('fixing different tests keeps the route; repeating the same failure escalat
         assistant('running', ['Bash']),
         toolResult(failure('login at line 12'), { isError: true }),
         assistant('editing', ['Edit']),
+        toolResult('ok'),
+        assistant('running again', ['Bash']),
         toolResult(failure(nextTest), { isError: true }),
         user('continue'),
       ],
@@ -580,6 +582,8 @@ test('routing turned on for a model no tier routes to keeps it running: failures
     assistant('running', ['Bash']),
     toolResult(failure, { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult(failure, { isError: true }),
     user('continue'),
   ];
@@ -720,6 +724,8 @@ test('an escalation a hold turned away still escalates on the same failure once 
     assistant('running', ['Bash']),
     toolResult(failure, { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult(failure, { isError: true }),
     user('continue'),
   ];
@@ -1081,6 +1087,15 @@ test('a continuation whose model became held takes the nearest tier that runs, n
   const loop = runningOpus(config, held);
   const { decision } = continueRoute(config, loop, continueInput({ nativeModel: 'claude-haiku-5-5' }));
   assert.deepEqual([decision.model, decision.reason], ['claude-sonnet-5-5', 'model-held']);
+});
+
+test('a continuation whose model can no longer run takes the nearest tier that runs, not a held session model', () => {
+  const loop = { ...runningOpus(THREE_WAY, heldUntil('claude-haiku-5-5')), ineligible: [OPUS] };
+  const { decision } = continueRoute(THREE_WAY, loop, continueInput({ nativeModel: 'claude-haiku-5-5' }));
+  assert.deepEqual(
+    [decision.model, decision.reason, decision.fallback],
+    ['claude-sonnet-5-5', 'model-unavailable', undefined],
+  );
 });
 
 test('a continuation with nothing else to run keeps the held model rather than a held session model', () => {

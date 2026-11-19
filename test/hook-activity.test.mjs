@@ -378,6 +378,8 @@ test('a turn with activity routing off ends the watch after a cheaper activity m
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ];
@@ -415,6 +417,8 @@ test('turning routing off ends the watch after a cheaper activity move', async (
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ];
@@ -455,6 +459,8 @@ test('a Manual turn ends the watch a cheaper move started while routing was turn
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ];
@@ -494,6 +500,8 @@ test('turning routing off mid-turn and straight back on does not keep the watch 
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ];
@@ -533,6 +541,8 @@ test('turning routing off and back on before the turn finishes does not keep the
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ];
@@ -586,6 +596,8 @@ test('turning routing off and back on while the finished turn is recorded does n
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ];
@@ -640,4 +652,26 @@ test('with activity routing on, a continuation that falls back to the native mod
   h.settings({ availableModels: ['haiku'] });
   await drain(h.step({ ...step, index: 1, messageCount: 3 }));
   assert.deepEqual([h.requests[1].model, h.view().tier, h.view().activity], ['claude-haiku-5-5', null, null]);
+});
+
+test('a review still in flight when its turn ends does not keep the next turn from being classified', async () => {
+  const model = 'claude-haiku-5-5';
+  const h = harness(JEV_KEY);
+  h.model(model);
+  let calls = 0;
+  h.http(async () => {
+    calls += 1;
+    if (calls === 2) await new Promise(() => {});
+    const answer = calls === 1 ? jevResponse('low', LOW) : jevResponse('high', { high: 0.97, uncertain: 0.03 });
+    return { ok: true, status: 200, text: JSON.stringify(answer), headers: {} };
+  });
+  await start(h);
+  await longTurn(h, model, 7);
+  assert.equal(calls, 2);
+  await h.event('turn.complete', { turnId: 't1' });
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2', model }));
+  assert.equal(calls, 3);
+  assert.equal(h.view().error, null);
+  assert.equal(h.loop().decision.tier, 'high');
 });

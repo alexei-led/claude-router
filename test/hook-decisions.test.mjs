@@ -94,7 +94,8 @@ test('shadow uses the base demand policy in every mode and changes only the requ
   assert.equal(results[1].requirement - results[0].requirement, 1);
 });
 
-test('bounded execute demand does not depend on table pricing, cache or a held activity cell', async () => {
+test('bounded execute demand does not depend on table pricing, cache or a held activity cell', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
   const results = [];
   for (const input of [1, 1000]) {
     const h = harness(JEV_KEY);
@@ -489,7 +490,8 @@ test('Delete history removes every session decision record', async () => {
   );
 });
 
-test('session start lets go of expired and surplus decision records of other sessions', async () => {
+test('session start lets go of expired and surplus decision records of other sessions', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
   const h = harness(JEV_KEY);
   const now = Date.now();
   const record = (at) => ({ version: 1, since: at, rows: [{ at, kind: 'end', requests: 0, priced: 0, unpriced: {} }] });

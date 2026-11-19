@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { register } from '../hooks/native-router.mjs';
+import { jevResponse } from './helpers.mjs';
 
 // The engine refuses a prop it cannot read, and the whole pane with it, so the stubs refuse the same cheap cases: a
 // spacing that is neither a finite number nor a named step, a size that is not a finite number, a missing required
@@ -550,6 +551,18 @@ export function answering(h, ...answers) {
 }
 
 export const JEV_KEY = { typesafe_api_key: 'synthetic-key' };
+
+// A shadow-engine router with a key, no periodic review and a classifier that always answers `answer`.
+export function shadowHarness(
+  config = {},
+  preferences = new Map(),
+  answer = jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'),
+) {
+  const h = harness(JEV_KEY, preferences);
+  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 }, ...config }));
+  answering(h, answer);
+  return h;
+}
 
 // An element's children as a list, nulls dropped.
 export const kids = (node) =>

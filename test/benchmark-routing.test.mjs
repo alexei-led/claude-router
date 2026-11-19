@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PassThrough } from 'node:stream';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { ROUTING_MODES } from '../lib/config.mjs';
 import {
   casesFor,
   checkAnswer,
@@ -24,6 +28,19 @@ import {
 // stopped as soon as their first line arrives, so a long deadline costs nothing when the machine is idle.
 const SPAWN_MS = 5000;
 
+// A child that plays `script(child)` and closes when killed or told to, so runProcess is driven without a process.
+const fakeSpawn = (script) => () => {
+  const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() });
+  const close = (code) => setImmediate(() => child.emit('close', code));
+  child.kill = () => close(null);
+  child.end = (code = 0) => close(code);
+  setImmediate(() => script(child));
+  return child;
+};
+
+// Calls the handler runProcess registered, so the real signal path is exercised without a process-wide signal.
+const fireRegisteredInterrupt = (signal, before) => process.listeners(signal).find((l) => !before.includes(l))();
+
 const manifest = validateManifest(JSON.parse(await readFile(MANIFEST, 'utf8')));
 const result = (answer, cost = 0.1) =>
   JSON.stringify({
@@ -35,19 +52,26 @@ const result = (answer, cost = 0.1) =>
     modelUsage: { 'served-model': { costUSD: cost, inputTokens: 100, outputTokens: 10 } },
   });
 
-test('fixed proposed split and full paired matrix', () => {
+test('the matrix runs every task under every engine, mode and repeat exactly once', () => {
+  const key = (c) => [c.task.id, c.engine, c.mode, c.repeat].join('/');
   const cases = casesFor(manifest.tasks);
-  assert.equal(manifest.tasks.length, 24);
-  assert.equal(cases.length, 288);
-  assert.equal(cases.filter((c) => c.engine === 'auto').length, 144);
-  assert.deepEqual(
-    casesFor(manifest.tasks, { smoke: true }).map((c) => [c.task.id, c.engine, c.mode, c.repeat]),
-    [
-      ['json-sort', 'table', 'balanced', 1],
-      ['empty-sum', 'table', 'balanced', 1],
-      ['dedupe', 'table', 'balanced', 1],
-    ],
+  const expected = manifest.tasks.flatMap((task) =>
+    ['table', 'auto'].flatMap((engine) =>
+      ROUTING_MODES.flatMap((mode) => [1, 2].map((repeat) => key({ task, engine, mode, repeat }))),
+    ),
   );
+  assert.deepEqual(cases.map(key).sort(), expected.sort());
+  assert.equal(new Set(cases.map(key)).size, cases.length);
+});
+
+test('the smoke run is the table engine on the smoke-flagged tasks, once each', () => {
+  const smoke = casesFor(manifest.tasks, { smoke: true });
+  assert.deepEqual(
+    smoke.map((c) => c.task.id),
+    manifest.tasks.filter((t) => t.smoke).map((t) => t.id),
+  );
+  assert.ok(smoke.every((c) => c.engine === 'table' && c.mode === 'balanced' && c.repeat === 1));
+  assert.ok(smoke.every((c) => c.task.split === 'development'));
   assert.throws(() => validateManifest({ ...manifest, tasks: manifest.tasks.map((t) => ({ ...t, smoke: true })) }));
 });
 
@@ -89,16 +113,15 @@ test('discordances paired per repeat, split and mode; failures remain unpriced',
   assert.equal(summary.runWallMs, 6);
 });
 
-test('system boundary executes separately, accounts failures and refuses overspend', async () => {
+test('the case runner executes separately, accounts failures and refuses overspend', async () => {
   const root = await mkdtemp(join(tmpdir(), 'routing-bench-test-'));
   try {
     const cases = casesFor(manifest.tasks, { smoke: true });
-    const launch = async (item, cwd, timeoutMs) =>
-      runProcess(
-        process.execPath,
-        ['-e', 'process.stdout.write(process.argv[1])', result(JSON.stringify(item.task.check.expected))],
-        { cwd, timeoutMs },
-      );
+    const launch = async (item) => ({
+      exitCode: 0,
+      stdout: result(JSON.stringify(item.task.check.expected)),
+      wallMs: 1,
+    });
     await assert.rejects(
       executeCases(cases, { launcher: launch, root, budgetUsd: 0.2, reservationUsd: 0.1, timeoutMs: 3000 }),
     );
@@ -185,8 +208,9 @@ test('inspector failure, malformed metadata and interrupt restore active environ
     await writeFile(path, original);
     await restoreActiveEnv(path, async () => {
       await writeFile(path, 'changed');
-      const child = await runProcess(process.execPath, ['-e', 'console.log("init");setInterval(() => {}, 1000)'], {
+      const child = await runProcess('fake', [], {
         timeoutMs: SPAWN_MS,
+        spawnChild: fakeSpawn((c) => c.stdout.write('init\n')),
         inspectLine: () => {
           throw new Error('bad inspector');
         },
@@ -195,12 +219,14 @@ test('inspector failure, malformed metadata and interrupt restore active environ
     });
     assert.equal(await readFile(path, 'utf8'), original);
     assert.equal(parseResult(JSON.stringify({ type: 'result', modelUsage: { bad: null } }), 0).ok, false);
+    const before = process.listeners('SIGINT');
     await restoreActiveEnv(path, async () => {
       await writeFile(path, 'changed');
-      const child = await runProcess(process.execPath, ['-e', 'console.log("ready");setInterval(() => {}, 1000)'], {
+      const child = await runProcess('fake', [], {
         timeoutMs: SPAWN_MS,
+        spawnChild: fakeSpawn((c) => c.stdout.write('ready\n')),
         inspectLine: () => {
-          process.emit('SIGINT');
+          fireRegisteredInterrupt('SIGINT', before);
           return null;
         },
       });
@@ -212,20 +238,54 @@ test('inspector failure, malformed metadata and interrupt restore active environ
   }
 });
 
+test('an interrupt handler registered for each signal stops the run and is removed on close', async () => {
+  for (const signal of ['SIGINT', 'SIGTERM']) {
+    const before = process.listeners(signal);
+    let during = -1;
+    const done = runProcess('fake', [], {
+      timeoutMs: SPAWN_MS,
+      spawnChild: fakeSpawn(() => {
+        during = process.listenerCount(signal);
+        fireRegisteredInterrupt(signal, before);
+      }),
+    });
+    assert.equal((await done).reason, 'interrupted');
+    assert.equal(during, before.length + 1);
+    assert.deepEqual(process.listeners(signal), before);
+  }
+});
+
 test('UTF-8 chunks survive decoding, oversized output and spawn errors fail closed', async () => {
-  const child = await runProcess(
-    process.execPath,
-    [
-      '-e',
-      'const b=Buffer.from("é🙂");process.stdout.write(b.subarray(0,1));setTimeout(()=>process.stdout.write(b.subarray(1)),10);',
-    ],
-    { timeoutMs: SPAWN_MS },
-  );
-  assert.equal(child.stdout, 'é🙂');
-  const large = await runProcess(process.execPath, ['-e', 'process.stdout.write("x".repeat(2*1024*1024))'], {
+  const bytes = Buffer.from('é🙂');
+  const split = await runProcess('fake', [], {
     timeoutMs: SPAWN_MS,
+    spawnChild: fakeSpawn((c) => {
+      c.stdout.write(bytes.subarray(0, 1));
+      c.stdout.write(bytes.subarray(1, 4));
+      c.stdout.write(bytes.subarray(4));
+      c.end();
+    }),
+  });
+  assert.equal(split.stdout, 'é🙂');
+  const large = await runProcess('fake', [], {
+    timeoutMs: SPAWN_MS,
+    spawnChild: fakeSpawn((c) => c.stdout.write('x'.repeat(2 * 1024 * 1024))),
   });
   assert.equal(large.reason, 'output-limit');
+  const failed = await runProcess('fake', [], {
+    timeoutMs: SPAWN_MS,
+    spawnChild: fakeSpawn((c) => {
+      c.emit('error', new Error('ENOENT'));
+      c.end(null);
+    }),
+  });
+  assert.equal(failed.reason, 'spawn-error');
+});
+
+test('a real child runs, streams its output and is stopped on a missing executable', async () => {
+  const child = await runProcess(process.execPath, ['-e', 'process.stdout.write("é🙂")'], { timeoutMs: SPAWN_MS });
+  assert.equal(child.stdout, 'é🙂');
+  assert.equal(child.exitCode, 0);
   const missing = await runProcess('/not-a-real-benchmark-executable', [], { timeoutMs: SPAWN_MS });
   assert.equal(missing.reason, 'spawn-error');
 });
@@ -322,9 +382,14 @@ test('paired matrix reports both-repeat heldout regressions; rerun duplicates ca
 
 test('proposal split is hash-frozen before tuning; full live matrix refuses without launching', async () => {
   assert.equal(hash(await readFile(MANIFEST)), '2efac9527b671d5240441bae0430d89e35829356cde9abb1dfc54f5d5efcb97c');
-  const child = await runProcess(process.execPath, ['scripts/benchmark-routing.mjs', '--live'], {
-    timeoutMs: SPAWN_MS,
-  });
+  const child = await runProcess(
+    process.execPath,
+    [fileURLToPath(new URL('../scripts/benchmark-routing.mjs', import.meta.url)), '--live'],
+    {
+      cwd: fileURLToPath(new URL('..', import.meta.url)),
+      timeoutMs: SPAWN_MS,
+    },
+  );
   assert.equal(child.exitCode, 1);
   assert.equal(child.stdout, '');
   await assert.rejects(cli(['--live']), /checkout\/profile isolation is not implemented; approval is required/);

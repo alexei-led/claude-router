@@ -243,10 +243,9 @@ Box flexDirection="column"
       " · "
     Text
       "■ 5 moved by the router"
-    Text dimColor=true
-      " · "
+  Box
     Text
-      "□ 2 on Claude Code’s pick"
+      "  □ 2 on Claude Code’s pick"
   Box
     Text
       "  "
@@ -254,13 +253,13 @@ Box flexDirection="column"
       "routing −$1.00 (−50%)"
     Text
       " vs Claude Code’s picks"
-    Text dimColor=true
-      " on 6 routed agents"
+  Text dimColor=true
+    "  on 6 routed agents"
   Box
     Text
       "  per day "
     Text weight="semibold"
-      "▂▁▂▁█"
+      "▂·▂·█"
     Text dimColor=true
       "  peak 5 on Oct 13"
   Text

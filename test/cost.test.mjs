@@ -152,7 +152,7 @@ test('an all-credits policy with no plan fallback stays rather than returning an
     config,
     facts,
     advice: adviceOf('high', { high: 1 }),
-    state: initialState(),
+    state: { ...initialState(), votes: [{ tier: 'high', turn: 0 }] },
     baseline: 'medium',
     now,
     costs: native,

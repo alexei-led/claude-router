@@ -309,11 +309,17 @@ function createRouter(options) {
     options,
     initialized: false,
     initializing: null,
+    // router.json failed to load at this session's start: it is not read again before the next start.
+    loadFailed: false,
     config: loadConfig(),
     // Each turn's config, fixed at turn.start, so a pane save mid-turn does not change the turn.
     turnConfigs: new Map(),
+    // The main turns whose turn.complete runs and has not yet taken their decision rows: a failure row added meanwhile
+    // goes out with them and the turn's end row.
+    completing: new Set(),
     // One client per classifier, each with its own breaker and in-flight slot: a turn that started under one
-    // classifier finishes with it, and its answer, failures or pause never land on another.
+    // classifier finishes with it, and its answer, failures or pause never land on another. Reviews and spawns have
+    // clients of their own (reviewClientOf, spawnClientOf).
     clients: new Map(),
     prompts: new Map(),
     decisions: new Map(),
@@ -686,8 +692,16 @@ async function exportTraces($, router) {
 }
 
 function clientOf(router, id) {
-  if (!router.clients.has(id)) router.clients.set(id, new ClassifierClient());
+  if (!router.clients.has(id)) router.clients.set(id, new ClassifierClient({ now: Date.now }));
   return router.clients.get(id);
+}
+
+// The mid-turn review's classifier client: an in-flight slot of its own, since a review's HTTP call cannot be aborted
+// and outlives the turn that asked it; on the turn's client it would answer the next turn's decision `busy`.
+function reviewClientOf(router, id) {
+  const key = `review:${id}`;
+  if (!router.clients.has(key)) router.clients.set(key, new ClassifierClient({ now: Date.now }));
+  return router.clients.get(key);
 }
 
 // `router.view` is a write-through cache of $.state, because state reads are frozen within one dispatch.
@@ -695,36 +709,45 @@ async function readView($, router) {
   return (await $.state.get(VIEW)).value ?? router.view ?? initialView(await $.session.model());
 }
 
-// Only a saved mode is cached: the engine can draw the band before session.start, and a cached fallback from that
-// render would override the start rule.
-async function modeOf($, router, fallback = /** @type {string | null} */ ('auto')) {
+// The session's mode as held or saved: null when none is saved, undefined when the store cannot be read. Only a saved
+// mode is cached: the engine can draw the band before session.start, and a cached fallback from that render would
+// override the start rule.
+async function savedMode($, router) {
   const sessionId = await $.session.id();
   if (router.modes.has(sessionId)) return router.modes.get(sessionId);
+  let saved;
   try {
-    const saved = await $.store.get(`${MODE_PREFIX}${sessionId}`);
-    if (saved !== 'manual' && saved !== 'auto') return fallback;
-    router.modes.set(sessionId, saved);
-    return saved;
+    saved = await $.store.get(`${MODE_PREFIX}${sessionId}`);
   } catch {
-    return 'manual';
+    return undefined;
   }
+  if (saved !== 'manual' && saved !== 'auto') return null;
+  router.modes.set(sessionId, saved);
+  return saved;
+}
+
+// A store that cannot be read gives `fallback`, as no saved mode does: one failed read never turns routing off.
+async function modeOf($, router, fallback = /** @type {string | null} */ ('auto')) {
+  return (await savedMode($, router)) ?? fallback;
 }
 
 // A saved preference wins. A fresh auto-engine session starts on for any catalog model; table/shadow require a tier
-// route or, with activity routing on, an activity override. Other models start with routing off.
+// route or, with activity routing on, an activity override. Other models start with routing off. A mode the store could
+// not give is not held, so a later read can still find the saved one.
 async function startMode($, router, model) {
   const listed =
     router.config.routingEngine === 'auto'
       ? Object.values(router.config.models).some((spec) => isSameModel(spec.id, model))
       : cellForModel(router.config, model) !== null;
-  const mode = await modeOf($, router, listed ? 'auto' : 'manual');
-  router.modes.set(await $.session.id(), mode);
+  const saved = await savedMode($, router);
+  const mode = saved ?? (listed ? 'auto' : 'manual');
+  if (saved !== undefined) router.modes.set(await $.session.id(), mode);
   return mode;
 }
 
 // A fresh Manual start on a non-tier model gets a reason the band can show; a saved mode carries none.
 async function startView($, router, model) {
-  const fresh = (await modeOf($, router, null)) === null;
+  const fresh = (await savedMode($, router)) == null;
   const mode = await startMode($, router, model);
   return fresh && mode === 'manual' ? { mode, reason: NOT_A_TIER_REASON } : { mode };
 }
@@ -1203,23 +1226,42 @@ async function effortSplitsCacheOf($) {
   return flags.some(isSet) || Boolean(await $.env.get('ANTHROPIC_BASE_URL'));
 }
 
-async function loadNativeConfig($) {
+// The Claude Code profile directory this session runs under.
+async function profileDir($) {
+  return (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${await $.env.get('HOME')}/.claude`;
+}
+
+// A router.json that does not validate, a redirect or a missing provider file stays so until it is edited: the failure is
+// held in `router.loadFailed` until the next session start. A read that failed is tried again at the next event.
+async function loadNativeConfig($, router) {
+  const invalid = (error) => {
+    router.loadFailed = true;
+    return error;
+  };
   for (const source of ['project', 'local']) {
     const settings = await $.settings.read({ source });
     if (
       settings.env &&
       ['HOME', 'CLAUDE_CONFIG_DIR', 'CLAUDE_ROUTER_PROVIDER'].some((key) => Object.hasOwn(settings.env, key))
     )
-      throw new Error('project settings cannot redirect the router profile');
+      throw invalid(new Error('project settings cannot redirect the router profile'));
   }
-  const home = await $.env.get('HOME');
-  const profile = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${home}/.claude`;
+  const profile = await profileDir($);
   const provider = providerName(await $.env.get('CLAUDE_ROUTER_PROVIDER'));
   const path = `${profile}/${providerFile(provider)}`;
-  if (provider !== 'anthropic' && !(await $.fs.exists(path)))
-    throw new Error('selected provider router file is missing');
-  const userFile = (await $.fs.exists(path)) ? JSON.parse(await $.fs.read(path)) : null;
-  return { ...loadConfig({ userFile, provider }), nativePath: path, effortSplitsCache: await effortSplitsCacheOf($) };
+  const exists = await $.fs.exists(path);
+  if (provider !== 'anthropic' && !exists) throw invalid(new Error('selected provider router file is missing'));
+  const text = exists ? await $.fs.read(path) : null;
+  const effortSplitsCache = await effortSplitsCacheOf($);
+  try {
+    return {
+      ...loadConfig({ userFile: text === null ? null : JSON.parse(text), provider }),
+      nativePath: path,
+      effortSplitsCache,
+    };
+  } catch (error) {
+    throw invalid(error);
+  }
 }
 
 // Writes router.json through `change(previousFile)` once the result validates. Returns the new config or an error
@@ -1437,7 +1479,7 @@ function shadowProposal(
 }
 
 // One turn's classification and route, written to the loop at `loopVersion`: the loop and its new version, or null
-// when the turn was aborted, left the session or Auto, or lost the write. `signal` is the step's: its abort cancels
+// when the turn was aborted, left the session or Auto, lost the write, or its transcript could not be read. `signal` is the step's: its abort cancels
 // the classifier call. The pin is the one in `view`, the view as the step read it; it is used up only once the route
 // is written, so a turn interrupted before then leaves it for the next.
 async function decideTurn($, router, e, signal, step) {
@@ -1456,23 +1498,14 @@ async function decideTurn($, router, e, signal, step) {
     const pinPresses = router.pinPresses;
     const [credentials, messages] = await Promise.all([
       resolveCredentials(activeClassifier(cfg), (name) => settingOf($, router.options, name)),
-      $.session.messages({ as: 'api' }),
+      transcript($),
     ]);
-    if (!(await live())) return null;
+    // A turn whose transcript cannot be read has no facts to route on: its step goes out as Claude Code built it.
+    if (!messages || !(await live())) return null;
     validateGoal(router, e.turnId, messages);
     const origin = router.turnOrigins.get(e.turnId) ?? 'unknown';
     // A progress turn is the same task (sameTaskOf).
-    const facts = {
-      ...nativeFacts(cfg, loop, {
-        messages,
-        prompt: router.prompts.get(e.turnId),
-        effort: e.effort,
-        turnId: e.turnId,
-        contextTokens: context.tokens,
-        progress: isProgressOrigin(origin),
-      }),
-      progress: isProgressOrigin(origin),
-    };
+    const facts = stepFacts(cfg, router, loop, e, messages, context);
     const asked = progressInput(
       facts,
       { goal: router.prompts.get(e.turnId), note: router.progressNotes.get(e.turnId) },
@@ -1649,7 +1682,7 @@ async function decideTurn($, router, e, signal, step) {
   }
 }
 
-// Facts for a step of the running turn, read from the transcript as it is now.
+// Facts for a step of the running turn, read from the transcript as it is now; `progress` on a progress turn.
 function stepFacts(cfg, router, loop, e, messages, context) {
   return nativeFacts(cfg, loop, {
     messages,
@@ -1823,7 +1856,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
     ]);
     Object.assign(job, { observedUpTo: messages.length, prefix: historySignature(messages) });
     const facts = stepFacts(cfg, router, loop, e, messages, context);
-    clientOf(router, cfg.classifier)
+    reviewClientOf(router, cfg.classifier)
       .ask({
         request: (url, init) => $.http.fetch(url, init),
         sleep: (ms, args) => $.clock.sleep(ms, args),
@@ -2049,6 +2082,8 @@ async function startTurn($, router, e) {
   const origin = originOfTurn(router, e.text);
   router.turnOrigins.set(e.turnId, origin);
   const sessionId = await $.session.id();
+  // A turn started meanwhile owns the goal; this turn still asks the classifier about its own prompt.
+  router.prompts.set(e.turnId, text);
   if (router.goalEpoch !== epoch || router.goalTurnId !== e.turnId) return;
   const previous = router.goal?.sessionId === sessionId ? router.goal.text : null;
   const candidate = isGoalOrigin(origin) ? text : null;
@@ -2062,9 +2097,7 @@ async function startTurn($, router, e) {
   if (isProgressOrigin(origin) && previous) {
     router.prompts.set(e.turnId, router.goal.text);
     router.progressNotes.set(e.turnId, text);
-    return;
   }
-  router.prompts.set(e.turnId, text);
 }
 
 function validateGoal(router, turnId, messages) {
@@ -2247,7 +2280,9 @@ async function paneDecisionRows($, router) {
 }
 
 async function decisionsText($, router, value) {
-  const n = Math.min(MAX_ROWS, Math.max(1, Number.parseInt(value, 10) || 20));
+  const asked = value === undefined ? 20 : /^\d+$/.test(value) ? Number(value) : 0;
+  if (asked < 1) return `Choose decisions 1 to ${MAX_ROWS}, or none for 20.`;
+  const n = Math.min(MAX_ROWS, asked);
   try {
     const sessionId = await $.session.id();
     const stored =
@@ -2351,8 +2386,7 @@ async function agentDefinition($, router, e) {
 // profile's agents. Every match must agree on the model, or the definition is unknown. Limit: a plugin that keeps its
 // agents outside `agents/` reads as unknown, so its agents pass through. Throws when a file cannot be read.
 async function findDefinition($, plugin, type) {
-  const home = await $.env.get('HOME');
-  const profile = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${home}/.claude`;
+  const profile = await profileDir($);
   const name = type.slice(type.indexOf(':') + 1);
   const fromPlugin = plugin.includes('@');
   const dirs = fromPlugin
@@ -2379,7 +2413,7 @@ async function findDefinition($, plugin, type) {
 // in-flight slot, so a parent that spawns several agents at once gets an answer for each.
 function spawnClientOf(router, id) {
   const key = `spawn:${id}`;
-  if (!router.clients.has(key)) router.clients.set(key, new ClassifierClient({ exclusive: false }));
+  if (!router.clients.has(key)) router.clients.set(key, new ClassifierClient({ now: Date.now, exclusive: false }));
   return router.clients.get(key);
 }
 
@@ -2934,6 +2968,7 @@ async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, session
   const request = { ...e, model: loop.decision.model };
   if (loop.decision.effort === null) delete request.effort;
   else request.effort = loop.decision.effort;
+  // Read again, not `turn`: a pinned turn's decision (decideTurn) fixed its pin's configs during this step.
   if (cfg.routingEngine === 'shadow' && !next.signal.aborted && (await $.session.id()) === sessionId)
     traceRequest(router, e, router.turnConfigs.get(e.turnId) ?? turn, request, 'auto', loop);
   // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
@@ -3017,6 +3052,27 @@ async function traceContinuation($, router, cfg, loop, e, traceInput) {
   }
 }
 
+// The turn's decision, made once for the steps that wait on it. Only a route serves the turn's later steps: a decision
+// that failed, was dropped or lost its write is made again at the next step, so routing turned off and on meanwhile
+// routes it.
+function decisionOf($, router, e, signal, step) {
+  const key = `${step.sessionId}:${e.turnId}:${step.loop.generation}`;
+  const held = router.decisions.get(key);
+  if (held) return held;
+  const job = decideTurn($, router, e, signal, step);
+  const forget = () => {
+    if (router.decisions.get(key) === job) router.decisions.delete(key);
+  };
+  job.then((selected) => selected || forget(), forget);
+  router.decisions.set(key, job);
+  return job;
+}
+
+// A main step sent as Claude Code built it leaves no trace request, though the trace may already hold the turn.
+function traceGap(router, engine) {
+  if (engine === 'shadow') router.trace?.reasons.add('gap');
+}
+
 async function* stepMain($, router, e, next) {
   if (!(await ensureInitialized($, router))) return yield* next(e);
   if (e.agentId) return yield* stepAgent($, router, e, next);
@@ -3027,18 +3083,20 @@ async function* stepMain($, router, e, next) {
   const turn = router.turnConfigs.get(e.turnId) ?? (await turnConfigOf($, router));
   const cfg = turn.config;
   const [sessionId, nativeModel, view] = await Promise.all([$.session.id(), $.session.model(), readView($, router)]);
-  const mode = await modeOf($, router, view.mode);
+  const saved = await savedMode($, router);
+  const mode = saved ?? view.mode;
   const freshTrace =
     router.traceFreshSession === sessionId ||
     (router.traceClearSession !== null && router.traceClearSession !== sessionId);
   router.traceFreshSession = null;
   router.traceClearSession = null;
   if (e.index === 0) {
-    const saved = await rememberMode($, mode);
+    // A mode the store could not give is not written over the saved one it may hide.
+    const remembered = saved === undefined || (await rememberMode($, mode));
     await updateView($, router, {
       mode,
       nativeEffort: e.effort ?? null,
-      ...(!saved ? { notice: 'Resume preference could not be saved. Current mode remains active.' } : {}),
+      ...(!remembered ? { notice: 'Resume preference could not be saved. Current mode remains active.' } : {}),
     });
   }
   const ref = { ...LOOP, id: 'main' };
@@ -3060,31 +3118,31 @@ async function* stepMain($, router, e, next) {
   if (loop.turnId === e.turnId && isNativeFallback(loop, e.model)) {
     return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'native-fallback', router);
   }
-  const [context, settings] = await Promise.all([contextOf($, loop), $.settings.read()]);
+  // Settings that cannot be read may hold an availableModels list, so the step goes out as Claude Code built it.
+  const [context, settings] = await Promise.all([contextOf($, loop), $.settings.read().catch(() => null)]);
+  if (!settings) {
+    traceGap(router, cfg.routingEngine);
+    return yield* next(e);
+  }
   const availableModels = settings.availableModels;
-  const key = `${sessionId}:${e.turnId}:${loop.generation}`;
   if (loop.turnId !== e.turnId) {
-    let job = router.decisions.get(key);
-    if (!job) {
-      job = decideTurn($, router, e, next.signal, {
-        sessionId,
-        view,
-        cfg,
-        configured: turn.configured,
-        loop,
-        loopVersion,
-        context,
-        nativeModel,
-        availableModels,
-      });
-      router.decisions.set(key, job);
-    }
-    const selected = await job;
+    const selected = await decisionOf($, router, e, next.signal, {
+      sessionId,
+      view,
+      cfg,
+      configured: turn.configured,
+      loop,
+      loopVersion,
+      context,
+      nativeModel,
+      availableModels,
+    });
     if (!selected) {
       if (!next.signal.aborted && (await $.session.id()) === sessionId && router.view?.activeTurnId === e.turnId) {
         const reserved = await $.state.set(ref, loop, { ifVersion: loopVersion });
         if (reserved.isSet) return yield* passMain($, e, next, loop, reserved.version, nativeModel, 'manual', router);
       }
+      traceGap(router, cfg.routingEngine);
       return yield* next(e);
     }
     loop = selected.loop;
@@ -3120,16 +3178,19 @@ async function* stepMain($, router, e, next) {
 
 async function initializeSession($, router) {
   router.definitions.clear();
-  await $.command.register({
-    name: 'router',
-    description:
-      'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>, line <mode>; decisions [n] lists the last routing decisions; holds lists what is held out of routing, release <model|account> ends a hold.',
-    argumentHint: argumentHint(),
-    immediate: true,
-  });
-  const model = await $.session.model();
   try {
-    const config = await loadNativeConfig($);
+    // A command that fails to register leaves routing as it is: the band still opens the pane.
+    try {
+      await $.command.register({
+        name: 'router',
+        description:
+          'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>, line <mode>; decisions [n] lists the last routing decisions; holds lists what is held out of routing, release <model|account> ends a hold.',
+        argumentHint: argumentHint(),
+        immediate: true,
+      });
+    } catch {}
+    const model = await $.session.model();
+    const config = await loadNativeConfig($, router);
     const project = await readProject($, config.nativePath);
     const existing = await readView($, router);
     // A successful reload adopts this config even for the current turn; stale jobs must not route with the old engine.
@@ -3178,7 +3239,7 @@ async function initializeSession($, router) {
     await updateView($, router, {
       phase: 'unavailable',
       error: configurationError(error),
-    });
+    }).catch(() => {});
     return false;
   }
 }
@@ -3253,11 +3314,7 @@ async function holdFailedModel($, router, e) {
         : await applyHold($, router, failure, e.error, failure.scope === 'account' ? account : model, now).catch(
             () => null,
           );
-    // A loop read later in this event sees the state from before the write, so a model hold takes the holds just written.
-    if (held) {
-      const read = await readHolds($, router);
-      await updateView($, router, { holds: held.models ? { ...read, models: held.models } : read });
-    }
+    if (held) await updateView($, router, { holds: await holdsAfter($, router, held.models) });
     const turnId = router.mainTurnId;
     if (turnId === null) return;
     addDecision(
@@ -3273,8 +3330,9 @@ async function holdFailedModel($, router, e) {
         held: held?.key ?? null,
       }),
     );
-    // A turn that already completed will not flush its rows again.
-    if (!router.turnConfigs.has(turnId)) await flushDecisions($, router, turnId, null);
+    // A turn that already completed will not flush its rows again; one completing now flushes them with its end row.
+    if (!router.turnConfigs.has(turnId) && !router.completing.has(turnId))
+      await flushDecisions($, router, turnId, null);
   } catch {}
 }
 
@@ -3298,37 +3356,46 @@ async function readHolds($, router) {
   return { accounts: await accountHoldsOf($, router.config), models: loaded?.value?.held ?? {} };
 }
 
-// Writes the hold of an account (in $.store) or a model (in the loop), or ends it with null. A loop write that lost to a
-// step's own write reads the loop again. With `keepRunning`, a hold running now is not replaced: returns false then.
+// The holds after a write in this event: a loop read in the same event sees the loop from before it, so the model holds
+// just written (`models`, when the write was to the loop) stand in for the ones read.
+async function holdsAfter($, router, models) {
+  const read = await readHolds($, router);
+  return models ? { ...read, models } : read;
+}
+
+// Writes the hold of an account (in $.store) or a model (in the loop), or ends it with null, and returns `{ models }`:
+// the loop's model holds as written, or null when the loop was not written. With `keepRunning`, a hold running now is
+// not replaced: returns null then. A loop write that lost to another throws: reads are frozen for the event, so reading
+// the loop again would only lose again.
 async function writeHold($, scope, key, hold, keepRunning = false) {
   const runs = (current) => keepRunning && current && isActive(current, Date.now());
   if (scope === 'account') {
     const store = `${HOLDS_PREFIX}${key}`;
-    if (runs(readHold(await $.store.get(store)))) return false;
+    if (runs(readHold(await $.store.get(store)))) return null;
     await (hold ? $.store.set(store, hold) : $.store.delete(store));
-    return true;
+    return { models: null };
   }
   const ref = { ...LOOP, id: 'main' };
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { value: loop, version } = await $.state.get(ref);
-    if (!loop) return true;
-    if (runs(loop.held?.[key])) return false;
-    const held = hold ? { ...loop.held, [key]: hold } : releaseHold(loop.held, key);
-    if ((await $.state.set(ref, { ...loop, held }, { ifVersion: version })).isSet) return true;
-  }
-  throw new Error('the hold changed while it was written');
+  const { value: loop, version } = await $.state.get(ref);
+  if (!loop) return { models: null };
+  if (runs(loop.held?.[key])) return null;
+  const held = hold ? { ...loop.held, [key]: hold } : releaseHold(loop.held, key);
+  if (!(await $.state.set(ref, { ...loop, held }, { ifVersion: version })).isSet)
+    throw new Error('the hold changed while it was written');
+  return { models: held };
 }
 
 // Ends the hold of `row` (lib/holds.mjs) and keeps it for Undo in the pane. Returns what happened, in words.
 async function releaseHeld($, router, row) {
+  let written;
   try {
-    await writeHold($, row.scope, row.key, null);
+    written = await writeHold($, row.scope, row.key, null);
   } catch {
     return `${row.name} could not be released.`;
   }
   const notice = `Released ${row.name}: routing may use it from the next turn.`;
   await updateView($, router, {
-    holds: await readHolds($, router),
+    holds: await holdsAfter($, router, written?.models),
     lastWrite: {
       label: `released ${row.name}`,
       restore: { scope: row.scope, key: row.key, hold: row.hold },
@@ -3350,10 +3417,8 @@ async function releaseKey($, router, scope, key) {
 // Undo of a release puts the hold back as it was, unless another hold on the same name was set since.
 async function undoRelease($, router, last) {
   const { scope, key, hold } = last.restore;
-  const outcome = await writeHold($, scope, key, hold, true).then(
-    (written) => (written ? 'done' : 'held'),
-    () => 'failed',
-  );
+  const written = await writeHold($, scope, key, hold, true).catch(() => undefined);
+  const outcome = written === undefined ? 'failed' : written ? 'done' : 'held';
   const name = last.label.replace(/^released /, '');
   const notices = {
     done: `Undid: ${last.label}.`,
@@ -3361,7 +3426,7 @@ async function undoRelease($, router, last) {
     failed: `Not saved: ${last.label} could not be undone.`,
   };
   return updateView($, router, {
-    holds: await readHolds($, router),
+    holds: await holdsAfter($, router, written?.models),
     lastWrite: outcome === 'failed' ? last : null,
     notice: notices[outcome],
   });
@@ -3388,47 +3453,97 @@ async function applyHold($, router, failure, error, key, now) {
     return { key, models: null };
   }
   const ref = { ...LOOP, id: 'main' };
-  // A write that lost to a step's own write reads the loop again.
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { value: loop, version } = await $.state.get(ref);
-    if (!loop) return null;
-    const at = Date.now();
-    const held = holdModel(loop.held, key, failure, error, at);
-    const written = await $.state.set(ref, { ...loop, held }, { ifVersion: version });
-    if (!written.isSet) continue;
-    const hold = activeHolds(held, at)[key];
-    if (hold && (await modeOf($, router)) === 'auto')
-      $.ui.toast(`${modelName(key)} held out of routing: ${holdText(hold, at)}`);
-    return { key, models: held };
-  }
-  return null;
+  // A write that lost to another holds nothing: reads are frozen for the event, so reading the loop again would only
+  // lose again.
+  const { value: loop, version } = await $.state.get(ref);
+  if (!loop) return null;
+  const at = Date.now();
+  const held = holdModel(loop.held, key, failure, error, at);
+  const written = await $.state.set(ref, { ...loop, held }, { ifVersion: version });
+  if (!written.isSet) return null;
+  const hold = activeHolds(held, at)[key];
+  if (hold && (await modeOf($, router)) === 'auto')
+    $.ui.toast(`${modelName(key)} held out of routing: ${holdText(hold, at)}`);
+  return { key, models: held };
 }
 
 async function ensureInitialized($, router) {
   if (router.initialized) return true;
+  if (router.loadFailed) return false;
   router.initializing ??= initializeSession($, router).finally(() => {
     router.initializing = null;
   });
   return router.initializing;
 }
 
+// A main turn's end: its pins, reviews and decision jobs go, and its route line, activity, usage, decisions and trace
+// are recorded. A subagent's end flushes its record.
+async function completeTurn($, router, e) {
+  if (e.agentId) {
+    await finishAgent($, router, e.agentId);
+    return;
+  }
+  // Until flushDecisions takes the rows, which it does before its first await, a failure row joins them.
+  router.completing.add(e.turnId);
+  const turn = router.turnActivities.get(e.turnId);
+  try {
+    router.turnConfigs.delete(e.turnId);
+    router.turnPins.delete(e.turnId);
+    router.reviews.get(e.turnId)?.controller.abort();
+    router.reviews.delete(e.turnId);
+    router.turnControllers.get(e.turnId)?.abort();
+    const held = router.view;
+    if (held !== null && held.activeTurnId === e.turnId && held.phase === 'choosing') {
+      router.view = { ...held, activeTurnId: null };
+      const mode = await modeOf($, router);
+      if (router.view?.activeTurnId === null)
+        await updateView($, router, { phase: mode === 'manual' ? 'manual' : 'ready', reason: 'interrupted' });
+    }
+    router.prompts.delete(e.turnId);
+    for (const key of router.decisions.keys()) if (key.includes(`:${e.turnId}:`)) router.decisions.delete(key);
+    // `off` asks nothing, so it records nothing; it only ends the watch after a cheaper activity move.
+    router.turnActivities.delete(e.turnId);
+    await placeRouteLine($, router, e, turn);
+    if (turn?.mode === 'off') {
+      if ((await $.session.id()) === turn.sessionId) router.afterDown = advanceDown(router.afterDown, turn).after;
+    } else if (turn) await recordActivity($, router, turn);
+    if (router.turnUsage.has(e.turnId)) await flushUsage($, router, e.turnId, turn?.switched ?? null);
+  } finally {
+    // The turn's rows leave it even when its bookkeeping failed, so none stay pending for the rest of the session.
+    router.completing.delete(e.turnId);
+    await flushDecisions($, router, e.turnId, turn);
+  }
+  if (router.config.routingEngine === 'shadow' && router.trace?.turns.has(e.turnId)) {
+    addTrace(router, e, { type: 'end', at: Date.now() });
+    await flushTrace($, router, e.turnId);
+  }
+  router.traceOperations.delete(e.turnId);
+}
+
+// A session start loads router.json again, a failed load included, and toasts when routing is unavailable.
+async function startSession($, router, e) {
+  router.trace = null;
+  router.traceOperations.clear();
+  router.lastRoute = null;
+  router.lastRequested = null;
+  router.mainTurnId = null;
+  router.initialized = false;
+  router.loadFailed = false;
+  router.noticeSurfaces.clear();
+  const sessionId = await $.session.id();
+  // Lazy profile loading is not a lifecycle signal; only a real Mod start can establish freshness.
+  router.traceFreshSession = router.traceStartedSession !== sessionId ? sessionId : null;
+  router.traceStartedSession = sessionId;
+  await ensureInitialized($, router);
+  await noticeUnavailable($, router, e);
+}
+
 export function register(on, options) {
   const router = createRouter(options);
 
+  // The router's bookkeeping never keeps a session or a turn from starting.
   on('session.start', async ($, e, next) => {
-    const sessionId = await $.session.id();
-    // Lazy profile loading is not a lifecycle signal; only a real Mod start can establish freshness.
-    router.traceFreshSession = router.traceStartedSession !== sessionId ? sessionId : null;
-    router.traceStartedSession = sessionId;
-    router.trace = null;
-    router.traceOperations.clear();
-    router.lastRoute = null;
-    router.lastRequested = null;
-    router.mainTurnId = null;
-    router.initialized = false;
-    router.noticeSurfaces.clear();
-    await ensureInitialized($, router);
-    await noticeUnavailable($, router, e);
+    await startSession($, router, e).catch(() => {});
     return next(e);
   });
 
@@ -3480,7 +3595,7 @@ export function register(on, options) {
 
   // Since 2.1.321 a subagent's loop raises turn.start too, with its agentId; the goal and prompt state is the main loop's.
   on('turn.start', async ($, e, next) => {
-    if (e.agentId === undefined) await startTurn($, router, e);
+    if (e.agentId === undefined) await startTurn($, router, e).catch(() => {});
     return next(e);
   });
 
@@ -3489,43 +3604,26 @@ export function register(on, options) {
   // A hook failure spawns the agent as Claude Code would; next(e) replays a spawn already made.
   on('agent.spawn', ($, e, next) => spawnAgent($, router, e, next)).catch((_$, e, next) => next(e));
 
+  // A hook failure before the request goes out sends it as Claude Code built it; once it went out, no step sends twice.
   on('turn.step', async function* ($, e, next) {
-    return yield* stepMain($, router, e, next);
+    let sent = false;
+    const send = async function* (request) {
+      sent = true;
+      return yield* next(request);
+    };
+    send.signal = next.signal;
+    try {
+      return yield* stepMain($, router, e, send);
+    } catch (error) {
+      if (sent) throw error;
+      if (!e.agentId) traceGap(router, router.config.routingEngine);
+      return yield* next(e);
+    }
   });
 
   on('turn.complete', async ($, e, next) => {
-    if (e.agentId) {
-      await finishAgent($, router, e.agentId);
-      return next(e);
-    }
-    router.turnConfigs.delete(e.turnId);
-    router.turnPins.delete(e.turnId);
-    router.reviews.get(e.turnId)?.controller.abort();
-    router.reviews.delete(e.turnId);
-    router.turnControllers.get(e.turnId)?.abort();
-    const held = router.view;
-    if (held !== null && held.activeTurnId === e.turnId && held.phase === 'choosing') {
-      router.view = { ...held, activeTurnId: null };
-      const mode = await modeOf($, router);
-      if (router.view?.activeTurnId === null)
-        await updateView($, router, { phase: mode === 'manual' ? 'manual' : 'ready', reason: 'interrupted' });
-    }
-    router.prompts.delete(e.turnId);
-    for (const key of router.decisions.keys()) if (key.includes(`:${e.turnId}:`)) router.decisions.delete(key);
-    // `off` asks nothing, so it records nothing; it only ends the watch after a cheaper activity move.
-    const turn = router.turnActivities.get(e.turnId);
-    router.turnActivities.delete(e.turnId);
-    await placeRouteLine($, router, e, turn);
-    if (turn?.mode === 'off') {
-      if ((await $.session.id()) === turn.sessionId) router.afterDown = advanceDown(router.afterDown, turn).after;
-    } else if (turn) await recordActivity($, router, turn);
-    if (router.turnUsage.has(e.turnId)) await flushUsage($, router, e.turnId, turn?.switched ?? null);
-    await flushDecisions($, router, e.turnId, turn);
-    if (router.config.routingEngine === 'shadow' && router.trace?.turns.has(e.turnId)) {
-      addTrace(router, e, { type: 'end', at: Date.now() });
-      await flushTrace($, router, e.turnId);
-    }
-    router.traceOperations.delete(e.turnId);
+    // The router's bookkeeping never keeps the turn from completing.
+    await completeTurn($, router, e).catch(() => {});
     return next(e);
   });
 
@@ -3547,10 +3645,11 @@ export function register(on, options) {
         router.traceClearSession = null;
       }
       const ref = { ...LOOP, id: 'main' };
-      const loop = (await $.state.get(ref)).value;
-      if (loop) {
-        const reset = resetHistory(loop);
-        await $.state.set(ref, reset);
+      const { value: loop, version } = await $.state.get(ref);
+      // A reset that lost to a newer write is not written over it: the next step finds the history shorter
+      // (prepareLoop) and resets it then.
+      const reset = loop ? resetHistory(loop) : null;
+      if (reset && (await $.state.set(ref, reset, { ifVersion: version })).isSet) {
         if (router.config.routingEngine === 'shadow' && router.trace) {
           const event = { type: 'reset', at: Date.now(), cause: 'compact', loop: reset, generation: reset.generation };
           traceReset(router, event);
@@ -3632,6 +3731,7 @@ export function register(on, options) {
               agent: router.agents.get(e.props.view?.agentId) ?? null,
               agents: e.props.view?.agentId ? [] : await runningAgents($, router),
               back: true,
+              now: Date.now(),
             },
             {
               open: () => openPane($, router),
@@ -3668,6 +3768,7 @@ export function register(on, options) {
       columns: e.props.bodyColumns,
       surface: e.surface,
       onFallback: logFallback($, 'pane'),
+      now: Date.now(),
       pluginId: pluginIdOf({ name: $.plugin.name, root: $.plugin.root }, settings?.enabledPlugins ?? null),
     });
   });

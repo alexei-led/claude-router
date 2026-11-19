@@ -93,3 +93,16 @@ test('a submission that finishes first leaves the later one its origin', async (
   await h.event('turn.complete', { turnId: 't2' });
   assert.equal(h.preferences.get(`${DECISIONS_PREFIX}s1`).rows[0].origin, 'composer');
 });
+
+test('a turn whose start overlaps the next one’s still gives the classifier its prompt', async () => {
+  const h = harness(JEV_KEY);
+  const bodies = answering(h, jevResponse('high', { high: 0.99, medium: 0.01 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await Promise.all([
+    h.event('turn.start', { turnId: 't1', text: 'Plan the migration.' }),
+    h.event('turn.start', { turnId: 't2', text: 'Something else.' }),
+  ]);
+  h.messages(async () => [user('From the transcript.')]);
+  await drain(h.step(step));
+  assert.equal(bodies[0].state.currentRequest.text, 'Plan the migration.');
+});

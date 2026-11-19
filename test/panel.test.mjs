@@ -7,7 +7,7 @@ import { isSameModel } from '../lib/route.mjs';
 import { bandSegments } from '../lib/ui/model/band.mjs';
 import { routeDraftOf, routingChanges } from '../lib/ui/model/draft.mjs';
 import { TIER_COLOR } from '../lib/ui/tokens.mjs';
-import { controls, ELEMENTS, quiet, screen, texts, unboxed } from './harness.mjs';
+import { controls, ELEMENTS, quiet, recorder, screen, texts, unboxed } from './harness.mjs';
 
 const KEYS_SET = { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null };
 const view = (props = {}) => ({ mode: 'auto', phase: 'routed', credentials: KEYS_SET, tab: 'now', ...props });
@@ -157,21 +157,6 @@ test('the Now tab says what runs next turn and why: the tier, the model, the sup
   assert.ok(!off.some((line) => line.includes('82%')));
 });
 
-const recording = () => {
-  const calls = [];
-  return {
-    calls,
-    actions: new Proxy(
-      {},
-      {
-        get:
-          (_, name) =>
-          (...args) =>
-            calls.push([name, ...args]),
-      },
-    ),
-  };
-};
 const sonnetLow = { tier: 'low', selectedModel: 'claude-sonnet-5-5', effort: 'high', activity: 'code' };
 const haikuLow = { tier: 'low', selectedModel: 'claude-haiku-5-5', effort: 'high', activity: 'code' };
 const reading = { activityChoice: 'code', activityProbabilities: { code: 0.81, ops: 0.09, explore: 0.06, plan: 0 } };
@@ -193,6 +178,20 @@ test('the Now tab names the activity with its share and marks an override with t
     assert.equal(lines[4], first, name);
     assert.equal(lines.includes(override), override !== null, name);
   }
+  const narrow = unboxed(
+    screen(
+      renderPanel(ELEMENTS, { ...DEFAULTS, activityRouting: 'on' }, view({ ...sonnetLow, ...reading }), null, quiet, {
+        columns: 40,
+      }),
+    ),
+  );
+  assert.deepEqual(narrow.slice(4, 9), [
+    '  ▂▄  Sonnet 5.5 · high',
+    '        code 81%  ops 9%',
+    '        code at low runs on Sonnet 5.5 ·',
+    '        high · tier route Haiku 5.5 ·',
+    '        high',
+  ]);
   const why = unboxed(
     screen(renderPanel(ELEMENTS, DEFAULTS, view({ ...sonnetLow, reason: 'activity-up' }), null, quiet)),
   );
@@ -450,7 +449,7 @@ test('the one-more-cache warning counts the overrides in every activity mode', (
 });
 
 test('the Routes controls call the pane quiet with the cell they edit', () => {
-  const { calls, actions: recorded } = recording();
+  const { calls, actions: recorded } = recorder();
   const found = (key, routeCell) =>
     controls(routesTab(DEFAULTS, null, { routeCell }, recorded)).find((c) => c.key === key);
   found('activity-mode').onSelect('off');
@@ -526,7 +525,7 @@ test('the Policy tab puts each control in its sentence and names the default bes
   assert.deepEqual(lines.slice(at + 2, at + 14), [
     'Mode         balanced ▾  saved at once',
     '             each tier runs its route as configured',
-    'Start        at low ▾',
+    'Start tier   at low ▾',
     '             when the session’s model is no tier’s model',
     'Going down   after 2 ▾ agreeing turns',
     '             if a cache write pays back within 5 ▾',
@@ -542,7 +541,7 @@ test('the Policy tab puts each control in its sentence and names the default bes
       policy({ tuning: { downgradeVotes: 3 }, routeDraft: { ...routeDraftOf(DEFAULTS, {}), baselineTier: 'micro' } }),
     ),
   );
-  assert.ok(changed.includes('Start        at micro ▾ ● default low'));
+  assert.ok(changed.includes('Start tier   at micro ▾ ● default low'));
   const overridden = unboxed(screen(policy({ routingMode: { mode: 'cost', source: 'session' } })));
   assert.ok(overridden.includes('             this session runs cost (session)'));
   assert.ok(changed.includes('Going down   after 3 ▾ agreeing turns ● default 2'));
@@ -551,7 +550,7 @@ test('the Policy tab puts each control in its sentence and names the default bes
     models: { ...DEFAULTS.models, opus: { ...DEFAULTS.models.opus, billing: 'credits' } },
   };
   assert.ok(unboxed(screen(policy({}, credits))).includes('             on a model that bills credits'));
-  const { calls, actions: recorded } = recording();
+  const { calls, actions: recorded } = recorder();
   const found = (key) => controls(policy({}, DEFAULTS, recorded)).find((c) => c.key === key);
   found('baseline').onSelect('medium');
   found('horizon').onSelect('10');
@@ -603,7 +602,7 @@ test('the Now tab keeps Claude’s readings on one line, and details show them w
   const folded = unboxed(screen(renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'now', ...props }), usage, quiet)));
   assert.ok(folded.includes('  cache  90% last reply   [ details ]'), folded.join('\n'));
   assert.ok(!folded.some((line) => line.startsWith('Compared tiers') || line.startsWith('INPUT PER REPLY')));
-  const { calls, actions: recorded } = recording();
+  const { calls, actions: recorded } = recorder();
   const tree = renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'now', usageDetail: true, ...props }), usage, recorded);
   const lines = texts(tree);
   const at = lines.indexOf('Compared tiers        low → high');
@@ -795,6 +794,13 @@ test('with every target held the status says so, and a held target of another ac
   const lines = fallbackLines(CHAINED, { holds });
   assert.match(lines[1] ?? '', /^ {2}opus {6}held · 5h limit · back \d\d:\d\d · every target held$/);
   assert.equal(lines[2], '            1 glm·max ✕   2 sonnet ✕');
+});
+
+test('a model key wider than the FALLBACKS column is cut with an ellipsis and keeps a gap before its status', () => {
+  const long = 'a-very-long-model-key';
+  const config = loadConfig({ userFile: { models: { [long]: GLM, glm: GLM }, fallbacks: { [long]: ['glm@max'] } } });
+  const [, row] = fallbackLines(config);
+  assert.match(row, /^ {2}a-very-l… ready$/);
 });
 
 test('the FALLBACKS lines fit a 60 column pane', () => {

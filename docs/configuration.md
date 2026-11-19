@@ -59,7 +59,7 @@ is separate from `strength`, which still controls the current table routing. Cap
 ### Provider prices
 
 All non-Anthropic built-in model windows are at least 1M tokens.
-Every built-in price, Claude and provider, comes from [`lib/prices.mjs`](../lib/prices.mjs), which names each vendor's official price page and the date the prices were last checked: 2026-11-04 for all of them. See [Keep prices current](#keep-prices-current).
+Every built-in price, Claude and provider, comes from [`lib/prices.mjs`](../lib/prices.mjs), which names each vendor's official price page and the date the prices were last checked: 2026-11-04 for the provider prices and 2026-11-10 for Anthropic. See [Keep prices current](#keep-prices-current).
 
 | Model | Input / output / cached input, USD per million tokens |
 | --- | --- |
@@ -250,7 +250,7 @@ An override for a cell with no built-in names both fields, or inherits the missi
 - A cell cannot be `null`. To drop a built-in override, set it to the base route, for example `"ops": { "medium": { "model": "opus", "effort": "medium" } }`. The pane writes this for you when you press **Use tier model** on a built-in cell. The cell keeps that route if you later change the tier's route; drop it again then.
 - An override applies to whatever the tier's route is. If you move `routes.low` to Opus, the built-in `code` override at `low` still runs Sonnet. Set it to match, or remove it.
 - Unknown activities and tiers, unknown model aliases, and invalid efforts make the file invalid, like any other invalid setting. The pane refuses to save one and names it, such as `activities.code.low.model is not in models`.
-- The Routes tab counts the prompt caches the routes use: one per model on Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.1 and Fable 5.2, one per (model, effort) pair on a provider that caches each effort apart.
+- The Routes tab counts the prompt caches the routes use: one per model on Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.2, one per (model, effort) pair on a provider that caches each effort apart.
 
 `policy.activityMass` (default `0.6`) is the lowest probability at which an activity applies. The Policy tab sets it under **Activities**, from 50% to 80%. It has not been tuned on any classifier, and the probe results do not record probabilities, so there is no data to tune it on yet.
 
@@ -372,7 +372,7 @@ Workflow agents are routed by default, classified like `general-purpose`. The ke
 - A classifier failure or a missing key keeps the model Claude Code gives the agent, and so does a model that `availableModels` blocks, or settings the router cannot read. So does routing off: `/router off`, or a `/model` choice.
 - A spawn sets a model, not an effort. An agent's `effort` frontmatter still applies.
 
-The Usage tab's **SUBAGENTS** section shows, per agent type, what routing cost against the model Claude Code would have used, and which agents passed through and why. [Evaluation](evaluation.md#subagent-routing) says what to look for. To stop it, set `"off"`. Router 1.8 rejects both keys as unknown, so remove `subagentRouting` and `subagents` before you downgrade. Subagent routing needs the `agent.spawn` hook: it is checked on Claude Code 2.1.293 and 2.1.296, and unverified on older builds.
+The Usage tab's **SUBAGENTS** section shows, per agent type, what routing cost against the model Claude Code would have used, and which agents passed through and why. [Evaluation](evaluation.md#subagent-routing) says what to look for. To stop it, set `"off"`. Router 1.8 rejects both keys as unknown, so remove `subagentRouting` and `subagents` before you downgrade. Subagent routing needs the `agent.spawn` hook: it is checked on Claude Code 2.1.321, the minimum version.
 
 ## Optional `router.json`
 
@@ -395,7 +395,7 @@ The Mod validates the whole file. Unknown keys and invalid values make routing u
 | `mode`                         | `cost`, `balanced`, `quality` ([Routing modes](routing-modes.md))                    | `balanced`                                               |
 | `modes.<cost\|quality>.policy` | any `policy` field, used while that mode is active                                   | [Routing modes](routing-modes.md#policy-per-mode); not tuned |
 | `activities.<activity>.<tier>` | optional `model` and `effort`, as in `routes`                                        | The overrides in [Activity routing](#activity-routing)   |
-| `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, optional `longContext` (`above`, `multiplier`, or `null`), optional `offPeak` (`multiplier`, `peakDays` as UTC weekdays 0–6 from Sunday, `peakHoursUtc` as `[from, to)` hour ranges, or `null`), `contextWindow`, `billing`, `efforts`, optional `strength`, optional `capability`, `imageInput`, optional `account`, optional `requiresOwnHistory` | Three defaults above                                     |
+| `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, optional `longContext` (`above`, `multiplier`, or `null`), optional `offPeak` (`multiplier`, `peakDays` as UTC weekdays 0–6 from Sunday, `peakHoursUtc` as `[from, to)` hour ranges, or `null`), `contextWindow`, `billing`, `efforts`, optional `strength`, optional `capability`, `imageInput`, optional `account`, optional `requiresOwnHistory` | Four defaults above                                     |
 | `fallbacks.<alias>`            | A list of `alias` or `alias@effort` entries: the models that stand in when `<alias>` is held out | `{}` (none)                                      |
 | `accounts.<name>.reset`        | `monthly` (day 1-28) and `tz` (an IANA time zone)                                     | `{}` (none)                                              |
 | `cache`                        | `mode`, `effortScope`, `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms |
@@ -431,13 +431,13 @@ The pane writes a subset of these settings. The **Routes** and **Policy** tabs s
 
 A project can set the routing mode, and only that, in `.claude/router.json` in the directory Claude Code runs in: `{ "mode": "cost" }`. Any other content is ignored with a notice; it never makes routing unavailable. A session's `/router mode` beats it, and it beats the profile's `mode`. See [Routing modes](routing-modes.md).
 
-Opus 5.5, Sonnet 5.5, Haiku 5.5, Fable 5.1 and Fable 5.2 keep one prompt cache across effort levels, so the policy prices an effort-only move, such as Opus at `medium` to Opus at `high`, as no cache write. Transcripts support that price, with limits; see [What we do not know yet](activity-routing.md#what-we-do-not-know-yet). On Amazon Bedrock, Google Cloud, Microsoft Foundry, a custom `ANTHROPIC_BASE_URL`, or with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`, each effort has its own cache and the move pays its write. A HIPAA configuration cannot be detected; the router then prices those moves as free.
+Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.2 keep one prompt cache across effort levels, so the policy prices an effort-only move, such as Opus at `medium` to Opus at `high`, as no cache write. Transcripts support that price, with limits; see [What we do not know yet](activity-routing.md#what-we-do-not-know-yet). On Amazon Bedrock, Google Cloud, Microsoft Foundry, a custom `ANTHROPIC_BASE_URL`, or with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`, each effort has its own cache and the move pays its write. A HIPAA configuration cannot be detected; the router then prices those moves as free.
 
 Native cache freshness is unknown after 270 seconds or after a history reset. Claude usage does not report the cache TTL. The policy evaluates price bounds for five-minute and one-hour writes, but the one-hour case is not observed fact. See the [architecture](architecture.md#cache-and-cost) for the estimate rules.
 
 ### Accounts and fallback chains
 
-When a model is held out of routing ([When a model fails](user-guide.md#when-a-model-fails)), its turn can run a stand-in you choose. Four settings describe it. This file is valid on the default Anthropic profile as it stands, because each added model is defined in full (`id`, prices, `contextWindow`, `billing`, `efforts`). Under a provider profile that already defines `glm` or `kimi`, a shorter entry such as `"glm": { "account": "zai" }` is enough:
+When a model is held out of routing ([When a model fails](user-guide.md#when-a-model-fails)), its turn can run a stand-in you choose. Four settings describe it. This file is valid on the default Anthropic profile as it stands, because each added model is defined in full (`id`, prices, `contextWindow`, `billing`, `efforts`). Under a provider profile that already defines `glm` or `k3`, a shorter entry such as `"glm": { "account": "zai" }` is enough:
 
 ```json
 {
@@ -456,7 +456,7 @@ When a model is held out of routing ([When a model fails](user-guide.md#when-a-m
       "efforts": ["low", "high", "max"],
       "account": "zai"
     },
-    "kimi": {
+    "k3": {
       "id": "kimi-k3.1-pro[1m]",
       "input": 2,
       "output": 10,
@@ -474,7 +474,7 @@ When a model is held out of routing ([When a model fails](user-guide.md#when-a-m
 ```
 
 - **`fallbacks`:** per source model key, an ordered list of targets; the router takes the first one that is allowed and not held. An entry is `alias` or `alias@effort`; the effort must be one of the target's `efforts`. A bare `alias` runs at the source's effort; one the target does not support moves down to the nearest it does, or to its lowest when none is below. A target is a route of its own and need not appear in any tier. The list is not followed through: a target's own chain is not used. Subagents and the `auto` engine use no chains.
-- **`models.<alias>.account`:** the quota account the model belongs to, a name of letters, digits, dots, dashes and underscores. A model with `billing: "plan"` is on the account `plan` by default; any other model is its own account, named by its key. Models that share an account are held out together when its quota is used up.
+- **`models.<alias>.account`:** the quota account the model belongs to, a name of letters, digits, dots, dashes and underscores. A model with `billing: "plan"` is on the account `plan` by default; any other model is its own account, named by its key. `plan` is the Claude plan's account, so a credits model cannot use it, and a credits model keyed `plan` must set another account. Models that share an account are held out together when its quota is used up.
 - **`accounts.<name>.reset`:** `{ "monthly": <1-28>, "tz": "<IANA zone>" }`, the day a monthly spend limit resets. Only a failure that says "spend limit" uses it; without it that hold lasts 24 hours and the next turn tries again. The reset is midnight in `tz` on that day.
 - **`models.<alias>.requiresOwnHistory`:** `true` for a model that reads only its own thinking history. The Kimi preset sets it ([providers](providers.md#kimi-and-history)). The router never switches into or out of it from another model in a fallback or nearest-tier stand-in.
 
@@ -491,6 +491,7 @@ Each of these makes the file invalid, and routing unavailable, until fixed. The 
 | `fallbacks.<alias>[i] effort is not supported by its model`              | The effort is not in the target's `efforts`.                     |
 | `fallbacks.<alias> mixes a model that requires its own history with another model` | A chain holds such a model together with another.      |
 | `models.<alias>.account must be a name of letters, digits, dots, dashes and underscores` | A bad account name.                        |
+| `models.<alias>.account must not be plan for a credits model: plan is the Claude plan's account` | A credits model names the account `plan`, or is keyed `plan` without an account of its own. |
 | `models.<alias>.requiresOwnHistory must be a boolean`                    | Not `true` or `false`.                                           |
 | `accounts.<name>.reset.monthly must be a day from 1 to 28`               | The day is not a whole number from 1 to 28.                      |
 | `accounts.<name>.reset.tz must be an IANA time zone`                     | The zone is missing or unknown.                                  |

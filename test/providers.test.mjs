@@ -8,6 +8,7 @@ import { cacheState, coldWriteUsd, inputBounds } from '../lib/cost.mjs';
 import { unpricedLine } from '../lib/display.mjs';
 import { isSameModel } from '../lib/route.mjs';
 import { compareReply } from '../lib/savings.mjs';
+import { passReason, typeRoute } from '../lib/subagents.mjs';
 import { drain, harness, press, start, step, texts } from './harness.mjs';
 
 test('provider models match sourced modalities and live-accepted efforts', () => {
@@ -36,6 +37,20 @@ test('provider presets replace the Claude catalog, routes and subagent defaults'
     assert.equal(resolveRoute(config, 'high').effort, provider === 'mimo' ? null : 'max');
   }
   assert.equal(Object.keys(loadConfig({ provider: 'deepseek' }).models).length, 1);
+});
+
+test('provider presets route workflow agents by default, as the Claude defaults do', () => {
+  const workflowAgent = {
+    subagentType: 'general-purpose',
+    provider: { plugin: 'engine', tier: 'core' },
+    workflow: { runId: 'wf_1', agentIndex: 0 },
+    fork: false,
+  };
+  for (const provider of ['anthropic', 'deepseek', 'zai', 'minimax', 'mimo', 'kimi']) {
+    const config = loadConfig({ provider });
+    assert.equal(passReason(config, workflowAgent), null, provider);
+    assert.deepEqual(typeRoute(config, workflowAgent), { route: 'classify' }, provider);
+  }
 });
 
 test('capability rank, not a price increase, orders models that declare strength', () => {
