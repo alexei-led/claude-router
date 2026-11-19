@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.27.0 (2026-11-19)
+
+### Summary
+
+When a model fails, the router now tells an outage from a used-up limit, runs the fallback models you list for it, and returns on its own when the provider recovers or the limit resets. A used-up Claude plan window holds every plan model until its reset, in every session. The Now tab shows what is held with Release and Undo, and Routes lists the fallback chains. No upgrade steps; Claude Code 2.1.321 or newer is still required.
 
 ### Added
 
