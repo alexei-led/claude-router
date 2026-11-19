@@ -695,36 +695,45 @@ async function readView($, router) {
   return (await $.state.get(VIEW)).value ?? router.view ?? initialView(await $.session.model());
 }
 
-// Only a saved mode is cached: the engine can draw the band before session.start, and a cached fallback from that
-// render would override the start rule.
-async function modeOf($, router, fallback = /** @type {string | null} */ ('auto')) {
+// The session's mode as held or saved: null when none is saved, undefined when the store cannot be read. Only a saved
+// mode is cached: the engine can draw the band before session.start, and a cached fallback from that render would
+// override the start rule.
+async function savedMode($, router) {
   const sessionId = await $.session.id();
   if (router.modes.has(sessionId)) return router.modes.get(sessionId);
+  let saved;
   try {
-    const saved = await $.store.get(`${MODE_PREFIX}${sessionId}`);
-    if (saved !== 'manual' && saved !== 'auto') return fallback;
-    router.modes.set(sessionId, saved);
-    return saved;
+    saved = await $.store.get(`${MODE_PREFIX}${sessionId}`);
   } catch {
-    return 'manual';
+    return undefined;
   }
+  if (saved !== 'manual' && saved !== 'auto') return null;
+  router.modes.set(sessionId, saved);
+  return saved;
+}
+
+// A store that cannot be read gives `fallback`, as no saved mode does: one failed read never turns routing off.
+async function modeOf($, router, fallback = /** @type {string | null} */ ('auto')) {
+  return (await savedMode($, router)) ?? fallback;
 }
 
 // A saved preference wins. A fresh auto-engine session starts on for any catalog model; table/shadow require a tier
-// route or, with activity routing on, an activity override. Other models start with routing off.
+// route or, with activity routing on, an activity override. Other models start with routing off. A mode the store could
+// not give is not held, so a later read can still find the saved one.
 async function startMode($, router, model) {
   const listed =
     router.config.routingEngine === 'auto'
       ? Object.values(router.config.models).some((spec) => isSameModel(spec.id, model))
       : cellForModel(router.config, model) !== null;
-  const mode = await modeOf($, router, listed ? 'auto' : 'manual');
-  router.modes.set(await $.session.id(), mode);
+  const saved = await savedMode($, router);
+  const mode = saved ?? (listed ? 'auto' : 'manual');
+  if (saved !== undefined) router.modes.set(await $.session.id(), mode);
   return mode;
 }
 
 // A fresh Manual start on a non-tier model gets a reason the band can show; a saved mode carries none.
 async function startView($, router, model) {
-  const fresh = (await modeOf($, router, null)) === null;
+  const fresh = (await savedMode($, router)) == null;
   const mode = await startMode($, router, model);
   return fresh && mode === 'manual' ? { mode, reason: NOT_A_TIER_REASON } : { mode };
 }
@@ -3029,18 +3038,20 @@ async function* stepMain($, router, e, next) {
   const turn = router.turnConfigs.get(e.turnId) ?? (await turnConfigOf($, router));
   const cfg = turn.config;
   const [sessionId, nativeModel, view] = await Promise.all([$.session.id(), $.session.model(), readView($, router)]);
-  const mode = await modeOf($, router, view.mode);
+  const saved = await savedMode($, router);
+  const mode = saved ?? view.mode;
   const freshTrace =
     router.traceFreshSession === sessionId ||
     (router.traceClearSession !== null && router.traceClearSession !== sessionId);
   router.traceFreshSession = null;
   router.traceClearSession = null;
   if (e.index === 0) {
-    const saved = await rememberMode($, mode);
+    // A mode the store could not give is not written over the saved one it may hide.
+    const remembered = saved === undefined || (await rememberMode($, mode));
     await updateView($, router, {
       mode,
       nativeEffort: e.effort ?? null,
-      ...(!saved ? { notice: 'Resume preference could not be saved. Current mode remains active.' } : {}),
+      ...(!remembered ? { notice: 'Resume preference could not be saved. Current mode remains active.' } : {}),
     });
   }
   const ref = { ...LOOP, id: 'main' };

@@ -2,7 +2,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readUsage, summarize } from '../lib/usage.mjs';
-import { band, CONFIG, drain, harness, start, step, substituted, TINY_ROUTER, texts } from './harness.mjs';
+import {
+  answering,
+  band,
+  CONFIG,
+  drain,
+  harness,
+  JEV_KEY,
+  start,
+  step,
+  substituted,
+  TINY_ROUTER,
+  texts,
+} from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
 // One whole turn on the session's `model`: its prompt, a routed step, then turn.complete over a transcript where the
@@ -600,4 +612,24 @@ test('a 1.1 router.json makes routing unavailable and points to the migration sc
   await start(h);
   assert.equal(h.view().phase, 'unavailable');
   assert.match(h.view().error, /migrate-config\.mjs/);
+});
+
+const HIGH = jevResponse('high', { high: 0.99, medium: 0.01 });
+const opus = { ...step, model: 'claude-opus-5-5' };
+const sentModels = (h) => h.requests.map((r) => `${r.model}@${r.effort}`);
+
+test('a saved mode that cannot be read starts the session by the start rule and is not written over', async () => {
+  class ModeUnreadable extends Map {
+    get(key) {
+      if (key === 'mode:s1') throw new Error('store unreadable');
+      return super.get(key);
+    }
+  }
+  const h = harness(JEV_KEY, new ModeUnreadable([['mode:s1', 'manual']]));
+  answering(h, HIGH);
+  await start(h);
+  assert.equal(h.view().mode, 'auto');
+  await drain(h.step(opus));
+  assert.deepEqual(sentModels(h), ['claude-opus-5-5@xhigh']);
+  assert.equal(Map.prototype.get.call(h.preferences, 'mode:s1'), 'manual');
 });
