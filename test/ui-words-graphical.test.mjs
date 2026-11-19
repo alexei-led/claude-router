@@ -18,6 +18,7 @@ const VIEW = { ...ROUTED, credentials: { jev: null }, usageSession: SESSION, usa
 const draw = (props, surface) =>
   renderPanel(ELEMENTS, DEFAULTS, { ...VIEW, ...props }, CLAUDE, quiet, { columns: 100, now: NOW, surface });
 const GRAPHICAL = new URL('../lib/ui/graphical/', import.meta.url);
+const TERMINAL = new URL('../lib/ui/terminal/', import.meta.url);
 
 test('the graphical renderers neither capitalise nor hold the wording the models decide', () => {
   for (const file of readdirSync(GRAPHICAL)) {
@@ -77,21 +78,15 @@ for (const surface of SURFACES) {
 }
 
 // The renderers draw a model; they never read the config or the raw view. The band takes both only to hand them to the
-// band model, and reads the one flag that picks its second row.
-test('the graphical renderers read neither the config nor the view', () => {
-  for (const file of readdirSync(GRAPHICAL)) {
-    const source = readFileSync(new URL(file, GRAPHICAL), 'utf8')
-      .replace(/^import .*$/gm, (line) => line.replace(/config\.mjs/, ''))
-      .replace(/^\s*\/\/.*$/gm, '');
-    if (file === 'band.mjs') {
-      assert.deepEqual(
-        [...source.matchAll(/\bview\.(\w+)/g)].map((m) => m[1]),
-        ['bandDetail', 'bandDetail'],
-        file,
-      );
-      assert.doesNotMatch(source, /\bconfig\.\w/, file);
-      continue;
+// band model, so there it is the property reads that are barred.
+test('the renderers read neither the config nor the view', () => {
+  for (const dir of [GRAPHICAL, TERMINAL])
+    for (const file of readdirSync(dir)) {
+      const source = readFileSync(new URL(file, dir), 'utf8')
+        .replace(/^import .*$/gm, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+      const name = `${dir.pathname.split('/').at(-2)}/${file}`;
+      if (file === 'band.mjs') assert.doesNotMatch(source, /\b(config|view)\.\w/, name);
+      else assert.doesNotMatch(source, /\b(config|view)\b/, name);
     }
-    assert.doesNotMatch(source, /\b(config|view)\b/, file);
-  }
 });
