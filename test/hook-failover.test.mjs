@@ -621,3 +621,43 @@ test('a switch to a chain target is announced with the holder and its end, then 
   await turn(h, 't3');
   assert.equal(h.view().fallback, null);
 });
+
+test('a released model hold leaves the held-out view and the typeahead at once, and Undo brings it back', async (t) => {
+  const h = await started(t);
+  await turn(h, 't1', { error: 'overloaded' });
+  assert.deepEqual(await typeahead(h, '/router release o'), ['opus']);
+  await command(h, 'release opus');
+  assert.deepEqual(h.view().holds.models, {});
+  assert.deepEqual(await typeahead(h, '/router release o'), []);
+  await press(h, 'undo');
+  assert.deepEqual(Object.keys(h.view().holds.models), [OPUS]);
+  assert.deepEqual(await typeahead(h, '/router release o'), ['opus']);
+});
+
+// Every write of the loop loses to a write made since it was read, as when a step of the next turn writes it first.
+function loseLoopWrites(h) {
+  const set = h.$.state.set;
+  h.$.state.set = async (ref, value, options) => {
+    const stored = h.state.get('loops:main');
+    if (ref.key === 'loops' && stored) h.state.set('loops:main', { ...stored, version: stored.version + 1 });
+    return set(ref, value, options);
+  };
+}
+
+test('a release whose loop write loses to another write says so and keeps the hold', async (t) => {
+  const h = await started(t);
+  await turn(h, 't1', { error: 'overloaded' });
+  loseLoopWrites(h);
+  assert.equal((await command(h, 'release opus')).text, 'Opus 5.5 could not be released.');
+  assert.deepEqual(Object.keys(h.loop().held), [OPUS]);
+});
+
+test('a model hold whose loop write loses to another write holds nothing and claims nothing', async (t) => {
+  const h = await started(t);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't1', model: OPUS }));
+  loseLoopWrites(h);
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded' });
+  assert.equal(h.loop().held, undefined);
+  assert.deepEqual(h.toasts, []);
+});

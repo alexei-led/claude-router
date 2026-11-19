@@ -3287,11 +3287,7 @@ async function holdFailedModel($, router, e) {
         : await applyHold($, router, failure, e.error, failure.scope === 'account' ? account : model, now).catch(
             () => null,
           );
-    // A loop read later in this event sees the state from before the write, so a model hold takes the holds just written.
-    if (held) {
-      const read = await readHolds($, router);
-      await updateView($, router, { holds: held.models ? { ...read, models: held.models } : read });
-    }
+    if (held) await updateView($, router, { holds: await holdsAfter($, router, held.models) });
     const turnId = router.mainTurnId;
     if (turnId === null) return;
     addDecision(
@@ -3332,37 +3328,46 @@ async function readHolds($, router) {
   return { accounts: await accountHoldsOf($, router.config), models: loaded?.value?.held ?? {} };
 }
 
-// Writes the hold of an account (in $.store) or a model (in the loop), or ends it with null. A loop write that lost to a
-// step's own write reads the loop again. With `keepRunning`, a hold running now is not replaced: returns false then.
+// The holds after a write in this event: a loop read in the same event sees the loop from before it, so the model holds
+// just written (`models`, when the write was to the loop) stand in for the ones read.
+async function holdsAfter($, router, models) {
+  const read = await readHolds($, router);
+  return models ? { ...read, models } : read;
+}
+
+// Writes the hold of an account (in $.store) or a model (in the loop), or ends it with null, and returns `{ models }`:
+// the loop's model holds as written, or null when the loop was not written. With `keepRunning`, a hold running now is
+// not replaced: returns null then. A loop write that lost to another throws: reads are frozen for the event, so reading
+// the loop again would only lose again.
 async function writeHold($, scope, key, hold, keepRunning = false) {
   const runs = (current) => keepRunning && current && isActive(current, Date.now());
   if (scope === 'account') {
     const store = `${HOLDS_PREFIX}${key}`;
-    if (runs(readHold(await $.store.get(store)))) return false;
+    if (runs(readHold(await $.store.get(store)))) return null;
     await (hold ? $.store.set(store, hold) : $.store.delete(store));
-    return true;
+    return { models: null };
   }
   const ref = { ...LOOP, id: 'main' };
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { value: loop, version } = await $.state.get(ref);
-    if (!loop) return true;
-    if (runs(loop.held?.[key])) return false;
-    const held = hold ? { ...loop.held, [key]: hold } : releaseHold(loop.held, key);
-    if ((await $.state.set(ref, { ...loop, held }, { ifVersion: version })).isSet) return true;
-  }
-  throw new Error('the hold changed while it was written');
+  const { value: loop, version } = await $.state.get(ref);
+  if (!loop) return { models: null };
+  if (runs(loop.held?.[key])) return null;
+  const held = hold ? { ...loop.held, [key]: hold } : releaseHold(loop.held, key);
+  if (!(await $.state.set(ref, { ...loop, held }, { ifVersion: version })).isSet)
+    throw new Error('the hold changed while it was written');
+  return { models: held };
 }
 
 // Ends the hold of `row` (lib/holds.mjs) and keeps it for Undo in the pane. Returns what happened, in words.
 async function releaseHeld($, router, row) {
+  let written;
   try {
-    await writeHold($, row.scope, row.key, null);
+    written = await writeHold($, row.scope, row.key, null);
   } catch {
     return `${row.name} could not be released.`;
   }
   const notice = `Released ${row.name}: routing may use it from the next turn.`;
   await updateView($, router, {
-    holds: await readHolds($, router),
+    holds: await holdsAfter($, router, written?.models),
     lastWrite: {
       label: `released ${row.name}`,
       restore: { scope: row.scope, key: row.key, hold: row.hold },
@@ -3384,10 +3389,8 @@ async function releaseKey($, router, scope, key) {
 // Undo of a release puts the hold back as it was, unless another hold on the same name was set since.
 async function undoRelease($, router, last) {
   const { scope, key, hold } = last.restore;
-  const outcome = await writeHold($, scope, key, hold, true).then(
-    (written) => (written ? 'done' : 'held'),
-    () => 'failed',
-  );
+  const written = await writeHold($, scope, key, hold, true).catch(() => undefined);
+  const outcome = written === undefined ? 'failed' : written ? 'done' : 'held';
   const name = last.label.replace(/^released /, '');
   const notices = {
     done: `Undid: ${last.label}.`,
@@ -3395,7 +3398,7 @@ async function undoRelease($, router, last) {
     failed: `Not saved: ${last.label} could not be undone.`,
   };
   return updateView($, router, {
-    holds: await readHolds($, router),
+    holds: await holdsAfter($, router, written?.models),
     lastWrite: outcome === 'failed' ? last : null,
     notice: notices[outcome],
   });
@@ -3422,20 +3425,18 @@ async function applyHold($, router, failure, error, key, now) {
     return { key, models: null };
   }
   const ref = { ...LOOP, id: 'main' };
-  // A write that lost to a step's own write reads the loop again.
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const { value: loop, version } = await $.state.get(ref);
-    if (!loop) return null;
-    const at = Date.now();
-    const held = holdModel(loop.held, key, failure, error, at);
-    const written = await $.state.set(ref, { ...loop, held }, { ifVersion: version });
-    if (!written.isSet) continue;
-    const hold = activeHolds(held, at)[key];
-    if (hold && (await modeOf($, router)) === 'auto')
-      $.ui.toast(`${modelName(key)} held out of routing: ${holdText(hold, at)}`);
-    return { key, models: held };
-  }
-  return null;
+  // A write that lost to another holds nothing: reads are frozen for the event, so reading the loop again would only
+  // lose again.
+  const { value: loop, version } = await $.state.get(ref);
+  if (!loop) return null;
+  const at = Date.now();
+  const held = holdModel(loop.held, key, failure, error, at);
+  const written = await $.state.set(ref, { ...loop, held }, { ifVersion: version });
+  if (!written.isSet) return null;
+  const hold = activeHolds(held, at)[key];
+  if (hold && (await modeOf($, router)) === 'auto')
+    $.ui.toast(`${modelName(key)} held out of routing: ${holdText(hold, at)}`);
+  return { key, models: held };
 }
 
 async function ensureInitialized($, router) {
