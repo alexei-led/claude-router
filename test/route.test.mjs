@@ -675,7 +675,7 @@ for (const [name, until, expected] of [
   });
 
 for (const [name, until, expected] of [
-  ['a held-out route is not taken', now + 300_000, [null, model]],
+  ['a held-out route is not taken, the nearest tier that runs is', now + 300_000, ['micro', model]],
   ['an ended hold lets the route run', now, ['medium', OPUS]],
 ])
   test(`a tool continuation the context outgrows into Opus: ${name}`, () => {
@@ -965,7 +965,7 @@ test('an account hold covers a chain’s own source model and the stand-in ends 
   assert.deepEqual([decision.tier, decision.model], ['medium', GLM.id]);
 });
 
-test('an account hold keeps a turn’s own tool calls and a growing context off the models it covers', () => {
+test('an account hold keeps a turn’s own tool calls off the models it covers, and a turn with every model held stays', () => {
   const routed = {
     ...emptyLoop(DEFAULTS, model),
     lastRoute: 'medium',
@@ -990,5 +990,89 @@ test('an account hold keeps a turn’s own tool calls and a growing context off 
       now,
     },
   ).decision;
-  assert.deepEqual([continued.tier, continued.model], [null, model]);
+  assert.deepEqual([continued.tier, continued.model], ['medium', OPUS]);
+});
+
+const heldUntil = (id) => ({ [id]: { error: 'overloaded', until: now + 300_000 } });
+const continueInput = (overrides) => ({
+  nativeModel: OPUS,
+  contextTokens: 20_000,
+  contextKnown: true,
+  effort: 'medium',
+  now,
+  ...overrides,
+});
+
+for (const [name, config, held, native, expected] of [
+  [
+    'a model that reads only its own history, with another model as the session’s',
+    loadConfig({ userFile: { models: { kimi: KIMI }, routes: { low: { model: 'kimi', effort: 'high' } } } }),
+    KIMI.id,
+    OPUS,
+    [KIMI.id, 'model-held'],
+  ],
+  [
+    'another model, with one that reads only its own history as the session’s',
+    loadConfig({
+      userFile: {
+        models: { kimi: KIMI },
+        routes: { micro: { model: 'kimi' }, low: { model: 'kimi' }, high: { model: 'kimi' } },
+      },
+    }),
+    OPUS,
+    KIMI.id,
+    [OPUS, 'model-held'],
+  ],
+])
+  test(`a held-out source with no cell to stand in keeps the turn on its route, not the session model: ${name}`, () => {
+    const loop = { ...emptyLoop(config, native), held: heldUntil(held) };
+    const advice = adviceOf(held === KIMI.id ? 'low' : 'medium', { low: 0.97, medium: 0.97 });
+    const { decision } = chooseRoute(config, loop, input(loop, { nativeModel: native, advice }, config));
+    assert.deepEqual([decision.model, decision.reason], expected);
+    const continued = continueRoute(config, { ...loop, decision }, continueInput({ nativeModel: native })).decision;
+    assert.equal(continued.model, expected[0]);
+  });
+
+const THREE_WAY = loadConfig({
+  userFile: {
+    models: { glm: GLM, kimi: KIMI },
+    routes: { medium: { model: 'opus', effort: 'medium' }, low: { model: 'sonnet', effort: 'high' } },
+    fallbacks: { opus: ['glm@high'] },
+  },
+});
+const runningOpus = (config, held) => ({
+  ...emptyLoop(config, OPUS),
+  held,
+  decision: {
+    tier: 'medium',
+    activity: null,
+    route: { model: 'opus', effort: 'medium' },
+    model: OPUS,
+    effort: 'medium',
+  },
+});
+
+test('a continuation whose model became held takes the source’s chain first', () => {
+  const loop = runningOpus(THREE_WAY, heldUntil(OPUS));
+  const { decision } = continueRoute(THREE_WAY, loop, continueInput({ nativeModel: 'claude-haiku-5-5' }));
+  assert.deepEqual([decision.model, decision.reason, decision.fallback?.step], [GLM.id, 'model-held', 1]);
+});
+
+test('a continuation whose model became held takes the nearest tier that runs, not a held session model', () => {
+  const config = loadConfig({ userFile: { routes: { low: { model: 'sonnet', effort: 'high' } } } });
+  const held = { ...heldUntil(OPUS), ...heldUntil('claude-haiku-5-5') };
+  const loop = runningOpus(config, held);
+  const { decision } = continueRoute(config, loop, continueInput({ nativeModel: 'claude-haiku-5-5' }));
+  assert.deepEqual([decision.model, decision.reason], ['claude-sonnet-5-5', 'model-held']);
+});
+
+test('a continuation with nothing else to run keeps the held model rather than a held session model', () => {
+  const config = chained({});
+  const held = { ...heldUntil(OPUS), ...heldUntil('claude-haiku-5-5') };
+  const { decision } = continueRoute(
+    config,
+    runningOpus(config, held),
+    continueInput({ nativeModel: 'claude-haiku-5-5' }),
+  );
+  assert.equal(decision.model, OPUS);
 });
