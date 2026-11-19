@@ -3497,9 +3497,10 @@ async function completeTurn($, router, e) {
     } else if (turn) await recordActivity($, router, turn);
     if (router.turnUsage.has(e.turnId)) await flushUsage($, router, e.turnId, turn?.switched ?? null);
   } finally {
+    // The turn's rows leave it even when its bookkeeping failed, so none stay pending for the rest of the session.
     router.completing.delete(e.turnId);
+    await flushDecisions($, router, e.turnId, turn);
   }
-  await flushDecisions($, router, e.turnId, turn);
   if (router.config.routingEngine === 'shadow' && router.trace?.turns.has(e.turnId)) {
     addTrace(router, e, { type: 'end', at: Date.now() });
     await flushTrace($, router, e.turnId);

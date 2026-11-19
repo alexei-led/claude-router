@@ -700,6 +700,23 @@ test('a shadow step outside a started turn that decides nothing leaves the trace
   assert.ok(trace.incomplete.includes('gap'));
 });
 
+test('a turn whose completion fails leaves none of its decision rows pending', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'auto', activityRouting: 'off' }));
+  answering(h, HIGH);
+  await start(h);
+  h.messages(async () => [user('One edit.')]);
+  await drain(h.step(step));
+  const id = h.$.session.id;
+  h.$.session.id = async () => {
+    throw new Error('session unreadable');
+  };
+  await h.event('turn.complete', { turnId: 't1' });
+  h.$.session.id = id;
+  const listed = await h.event('command.run', { command: 'router', args: 'decisions' });
+  assert.equal(listed.text, 'No routing decisions recorded in this session yet.');
+});
+
 test('routing turned off and on while the classifier answers routes the turn’s next step', async () => {
   const h = harness(JEV_KEY);
   let release;
