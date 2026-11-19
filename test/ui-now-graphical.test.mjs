@@ -393,3 +393,67 @@ for (const surface of SURFACES)
     // Every border on the tab is the card's round one.
     assert.ok(find(tree, (n) => n.props.borderStyle).every((n) => n.props.borderStyle === 'round'));
   });
+
+const HELD = {
+  holds: {
+    accounts: {
+      plan: { kind: 'window', window: 'five_hour', error: 'rate_limit', since: NOW, until: NOW + 3600e3, streak: 1 },
+    },
+    models: {
+      'claude-sonnet-5-5': { kind: 'availability', error: 'overloaded', since: NOW, until: NOW + 600e3, streak: 2 },
+    },
+  },
+};
+
+for (const surface of SURFACES) {
+  test(`${surface}: a Held out card after Next turn lists each hold with its cause, end, covered models and Release`, () => {
+    const tree = draw(HELD, { surface });
+    const held = card(tree, 'Held out');
+    assert.ok(held, 'Held out card');
+    const words = texts(held);
+    for (const line of [
+      'Routing skips these until they are back',
+      'Claude plan',
+      '5h limit · back 17:00',
+      'Covers Fable 5.2, Opus 5.5, Sonnet 5.5, Haiku 5.5',
+      'Sonnet 5.5',
+      'overloaded ×2 · back 16:10',
+    ])
+      assert.ok(words.includes(line), line);
+    assert.ok(words.at(-1)?.startsWith('Fallback chains are set in router.json → fallbacks.'));
+    const titles = find(tree, (n) => n.props.borderStyle === 'round').map((n) => texts(kids(n)[0])[0]);
+    assert.ok(titles.indexOf('Next turn') < titles.indexOf('Held out'));
+    assert.ok(titles.indexOf('Held out') < titles.indexOf('Plan usage'));
+  });
+
+  test(`${surface}: Release on a Held out row asks to release that account or model, and no other`, () => {
+    calls.length = 0;
+    const held = card(draw(HELD, { surface }), 'Held out');
+    const buttons = find(held, (n) => n.type === 'Button');
+    assert.deepEqual(
+      buttons.map((b) => [b.props.key, b.props.label]),
+      [
+        ['release-account-plan', 'Release'],
+        ['release-model-claude-sonnet-5-5', 'Release'],
+      ],
+    );
+    for (const button of buttons) button.props.onPress();
+    assert.deepEqual(calls, [
+      ['release', 'account', 'plan'],
+      ['release', 'model', 'claude-sonnet-5-5'],
+    ]);
+  });
+
+  test(`${surface}: with nothing held there is no Held out card`, () => {
+    for (const holds of [undefined, { accounts: {}, models: {} }])
+      assert.equal(card(draw({ holds }, { surface }), 'Held out'), undefined);
+  });
+
+  test(`${surface}: the why line names the held model and the chain step`, () => {
+    const next = card(
+      draw({ ...HELD, reason: 'model-held', fallback: { from: 'opus', step: 1, of: 2 } }, { surface }),
+      'Next turn',
+    );
+    assert.ok(texts(next).some((line) => line.startsWith('↷ Opus 5.5 held · fallback 1 of 2')));
+  });
+}

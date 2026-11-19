@@ -92,6 +92,17 @@ test('desktop Now: every card draws in the engine and its controls answer', asyn
   await pane.redraw();
   expect(await pane.find({ type: 'Text', text: 'Next-turn difference' })).toBeUndefined();
   expect(await pane.find({ type: 'Text', text: 'Cache hits saved' })).toBeDefined();
+  const planHold = { kind: 'window', window: 'five_hour', error: 'rate_limit', streak: 1 };
+  state.view = {
+    ...state.view,
+    holds: { accounts: { plan: { ...planHold, since: Date.now(), until: Date.now() + 3600e3 } }, models: {} },
+  } as unknown as View;
+  await pane.redraw();
+  expect(await pane.find({ type: 'Text', text: 'Held out' })).toBeDefined();
+  expect(await pane.find({ key: 'release-account-plan' })).toBeDefined();
+  state.view = { ...state.view, holds: null } as unknown as View;
+  await pane.redraw();
+  expect(await pane.find({ type: 'Text', text: 'Held out' })).toBeUndefined();
   state.view = { ...state.view, mode: 'manual', phase: 'manual' };
   await pane.redraw();
   expect(await pane.find({ type: 'Text', text: /Routing off/ })).toBeDefined();

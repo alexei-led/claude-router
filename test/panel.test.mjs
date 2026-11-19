@@ -731,3 +731,89 @@ test('the Classifier tab says this session’s tool agreement once a turn was la
   assert.equal(lines[at + 1], 'Tool compatibility (not accuracy): 19 of 22 turns (86%)');
   assert.ok(!classifierLines({ activityStats: stats(0, 0) }).includes('THIS SESSION'));
 });
+
+const HOUR = 3_600_000;
+const ROUTES_NOW = Date.parse('2026-11-19T10:00:00Z');
+const GLM = {
+  id: 'glm-5.3[1m]',
+  input: 1,
+  output: 2,
+  cacheRead: 0.1,
+  contextWindow: 1_000_000,
+  billing: 'credits',
+  efforts: ['high', 'max'],
+  account: 'zai',
+};
+const CHAINED = loadConfig({
+  userFile: { models: { glm: GLM }, fallbacks: { opus: ['glm@max', 'sonnet'], sonnet: ['glm@high'] } },
+});
+const planHeld = {
+  kind: 'window',
+  window: 'five_hour',
+  error: 'rate_limit',
+  since: ROUTES_NOW,
+  until: ROUTES_NOW + 3 * HOUR,
+  streak: 1,
+};
+const fallbackLines = (config, props = {}, columns = 80) => {
+  const lines = unboxed(screen(routesTab(config, null, props, quiet, { columns, now: ROUTES_NOW })));
+  const at = lines.findIndex((line) => line.startsWith('FALLBACKS'));
+  return at < 0 ? [] : lines.slice(at, lines.indexOf('', at));
+};
+
+test('the Routes tab lists each chain read-only under the editor, a model that is not held ready', () => {
+  assert.deepEqual(fallbackLines(CHAINED), [
+    'FALLBACKS  read-only · router.json → fallbacks',
+    '  opus      ready',
+    '            1 glm·max   2 sonnet',
+    '  sonnet    ready',
+    '            1 glm·high',
+  ]);
+  assert.deepEqual(fallbackLines(DEFAULTS), []);
+  const tree = routesTab(CHAINED, null, {}, quiet, { columns: 80, now: ROUTES_NOW });
+  assert.ok(!controls(tree).some((c) => /fallback|chain/i.test(`${c.key} ${c.label ?? ''}`)));
+});
+
+test('a held model shows its cause and end, a held target ✕, and the target standing in ◀ runs', () => {
+  const holds = { accounts: { plan: planHeld }, models: {} };
+  const back = new Date(ROUTES_NOW + 3 * HOUR).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  assert.deepEqual(
+    fallbackLines(CHAINED, { holds, reason: 'model-held', fallback: { from: 'opus', step: 1, of: 2 } }),
+    [
+      'FALLBACKS  read-only · router.json → fallbacks',
+      `  opus      held · 5h limit · back ${back}`,
+      '            1 glm·max ◀ runs   2 sonnet ✕',
+      `  sonnet    held · 5h limit · back ${back}`,
+      '            1 glm·high',
+    ],
+  );
+});
+
+test('with every target held the status says so, and a held target of another account is marked', () => {
+  const zai = { kind: 'balance', error: 'billing_error', since: ROUTES_NOW, until: null, streak: 1 };
+  const holds = { accounts: { plan: planHeld, zai }, models: {} };
+  const lines = fallbackLines(CHAINED, { holds });
+  assert.match(lines[1] ?? '', /^ {2}opus {6}held · 5h limit · back \d\d:\d\d · every target held$/);
+  assert.equal(lines[2], '            1 glm·max ✕   2 sonnet ✕');
+});
+
+test('the FALLBACKS lines fit a 60 column pane', () => {
+  const holds = { accounts: { plan: planHeld }, models: {} };
+  for (const line of fallbackLines(CHAINED, { holds }, 60)) assert.ok(line.length <= 60, line);
+});
+
+test('a held model’s cells in the grid get ↷, those that only run the tier’s model do not, and the legend says it', () => {
+  const holds = {
+    accounts: {},
+    models: { 'claude-opus-5-5': { ...planHeld, kind: 'availability', error: 'overloaded' } },
+  };
+  const lines = screen(routesTab(CHAINED, null, { holds }, quiet, { columns: 100, now: ROUTES_NOW }));
+  const row = lines.find((line) => line.startsWith('every turn')) ?? '';
+  assert.deepEqual(
+    row.split(/\s{2,}/).filter((cell) => cell.endsWith('↷')),
+    ['opus·medium↷', 'opus·xhigh↷'],
+  );
+  assert.ok(lines.some((line) => line.includes('↷ held out now')));
+  const calm = screen(routesTab(CHAINED, null, {}, quiet, { columns: 100, now: ROUTES_NOW }));
+  assert.ok(!calm.some((line) => line.includes('↷')));
+});

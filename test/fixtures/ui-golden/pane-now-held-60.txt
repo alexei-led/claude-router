@@ -1,0 +1,237 @@
+Box flexDirection="column"
+  Box
+    Text color="suggestion" weight="semibold"
+      "ROUTER"
+    Text
+      "  "
+    Button hotkey="o" key="auto" label="◉ on" variant="primary"
+    Text
+      " "
+    Button hotkey="f" key="manual" label="○ off" variant="secondary"
+    Text
+      "  "
+    Text color="success"
+      "Jev ready · 347 ms"
+  Box
+    Button hotkey="1" key="tab-now" label="Now" variant="primary"
+    Text
+      " "
+    Button hotkey="2" key="tab-routes" label="Routes" variant="secondary"
+    Text
+      " "
+    Button hotkey="3" key="tab-policy" label="Policy" variant="secondary"
+    Text
+      " "
+    Button hotkey="4" key="tab-classifier" label="Classifier" variant="secondary"
+    Text
+      " "
+    Button hotkey="5" key="tab-usage" label="Usage" variant="secondary"
+    Text
+      " "
+    Button key="help" label="?" variant="secondary"
+  Text
+    " "
+  Text color="suggestion" weight="semibold"
+    "NEXT TURN"
+  Box
+    Text
+      "  "
+    Text color="#e0708a"
+      "▂▄▆█"
+    Text
+      "  "
+    Text weight="semibold"
+      "GLM 5.3 · max"
+    Box
+      Text
+        "   "
+      Text color="#d77757" italic=true
+        "code"
+  Box
+    Text dimColor=true
+      "  why   "
+    Text
+      "↷ Opus 5.5 held · fallback 1 of 2"
+    Text dimColor=true
+      "   Jev 88% ≥ 82% · switch ≈ $0.48"
+  Text dimColor=true
+    "  pin next turn to a tier · now GLM 5.3 · max"
+  Box
+    Text
+      "    "
+    Select key="pin" options=[{"value":"none","label":"Pin to a tier"},{"value":"micro","label":"▂ Haiku·medium —"},{"value":"low","label":"▂▄ Haiku·high 3%"},{"value":"medium","label":"▂▄▆ Opus·medium 7%"},{"value":"high","label":"▶ ▂▄▆█ Opus·xhigh 88%"}] value="none"
+  Text dimColor=true
+    "    other models: /model, with routing off"
+  Text
+    " "
+  Box
+    Text color="suggestion" weight="semibold"
+      "HELD OUT"
+    Text dimColor=true
+      "  routing skips these until they are back"
+  Box
+    Text weight="semibold"
+      "  Claude plan"
+    Text dimColor=true
+      "  5h limit · back 19:00"
+    Text
+      "  "
+    Button key="release-account-plan" label="Release"
+  Text dimColor=true
+    "    covers Fable 5.2, Opus 5.5, Sonnet 5.5, Haiku 5.5"
+  Box
+    Text weight="semibold"
+      "  GLM 5.3"
+    Text dimColor=true
+      "  overloaded ×2 · back 16:10"
+    Text
+      "  "
+    Button key="release-model-glm-5.3[1m]" label="Release"
+  Text dimColor=true
+    "  chains: router.json → fallbacks · /router holds"
+  Text
+    " "
+  Text color="suggestion" weight="semibold"
+    "RECENT DECISIONS"
+  Text
+    "15:50:00  start     composer  asked code 91% code 80%  new task  -> medium code claude-sonnet-5-5@high  (jump)"
+  Text
+    "15:55:00  start     composer  asked timeout  -> medium claude-sonnet-5-5@high  (no-advice)"
+  Text
+    " "
+  Box
+    Text color="suggestion" weight="semibold"
+      "PLAN"
+    Text dimColor=true
+      "  Claude plan usage"
+  Box
+    Text
+      "  5h    "
+    Text color="success"
+      "▰▰▰▰▰▰▰"
+    Text dimColor=true
+      "▱▱▱▱▱▱▱▱▱▱▱▱▱"
+    Text color="success"
+      "  37%"
+    Text dimColor=true
+      "   resets 17:00"
+  Box
+    Text
+      "  7d    "
+    Text color="warning"
+      "▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰"
+    Text dimColor=true
+      "▱▱▱▱"
+    Text color="warning"
+      "  81%"
+  Text
+    " "
+  Box
+    Text color="suggestion" weight="semibold"
+      "SESSION"
+    Text dimColor=true
+      "  since 09:00 · 20 replies · 7 agents · 4 switches"
+    Text
+      "  "
+    Button key="band-detail-toggle" label="band: 2 rows"
+  Box
+    Text
+      "  "
+    Text weight="semibold"
+      "≈$5.80"
+    Text dimColor=true
+      "  API estimate · credits ≈$0.00  "
+    Button key="usage-session" label="Usage"
+  Box
+    Text
+      "  "
+    Text color="success" weight="semibold"
+      "−$5.70 (−50%)"
+    Text
+      " vs unrouted"
+    Text dimColor=true
+      " ≈$11.50"
+  Box
+    Text
+      "  main  "
+    Text
+      " ≈$4.30"
+    Text
+      "  "
+    Text color="suggestion"
+      "████████████████"
+    Text dimColor=true
+      ""
+  Box
+    Text
+      "  agents"
+    Text
+      " ≈$1.50"
+    Text
+      "  "
+    Text color="suggestion"
+      "██████"
+    Text dimColor=true
+      "░░░░░░░░░░"
+    Box
+      Text
+        "  "
+      Text color="success"
+        "−$1.00"
+      Text dimColor=true
+        " vs their picks"
+  Box
+    Text dimColor=true
+      "  tiers "
+    Text color="#5f9fe0" weight="semibold"
+      "█"
+    Text color="#d7af5f" weight="semibold"
+      "█"
+    Text color="#e0708a" weight="semibold"
+      "█"
+    Text dimColor=true
+      "·"
+  Box
+    Text
+      "        "
+    Text color="#5f9fe0"
+      "▂▄"
+    Text dimColor=true
+      " 3   "
+    Text color="#d7af5f"
+      "▂▄▆"
+    Text dimColor=true
+      " 1   "
+    Text color="#e0708a"
+      "▂▄▆█"
+    Text dimColor=true
+      " 1   "
+    Text dimColor=true
+      "· not routed 1"
+  Text
+    " "
+  Text color="suggestion" weight="semibold"
+    "CONTEXT"
+  Box
+    Text
+      "  ctx    "
+    Text dimColor=true
+      "no reading yet"
+  Box
+    Text
+      "  cache  "
+    Box
+      Text color="success"
+        "90%"
+      Text dimColor=true
+        " last reply"
+    Box
+      Text dimColor=true
+        " · "
+      Text
+        "73%"
+      Text dimColor=true
+        " session"
+    Text
+      "   "
+    Button key="usage-detail" label="details" variant="secondary"

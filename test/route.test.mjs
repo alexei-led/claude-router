@@ -675,7 +675,7 @@ for (const [name, until, expected] of [
   });
 
 for (const [name, until, expected] of [
-  ['a held-out route is not taken', now + 300_000, [null, model]],
+  ['a held-out route is not taken, the nearest tier that runs is', now + 300_000, ['micro', model]],
   ['an ended hold lets the route run', now, ['medium', OPUS]],
 ])
   test(`a tool continuation the context outgrows into Opus: ${name}`, () => {
@@ -750,3 +750,346 @@ for (const [name, held, expected] of [
       [expected, 'no-advice', expected],
     );
   });
+
+test('a real reply from a held model drops its hold and streak; an empty or substituted reply keeps them', () => {
+  const hold = { kind: 'availability', error: 'overloaded', since: now - 600_000, until: now - 300_000, streak: 2 };
+  const loop = { ...emptyLoop(DEFAULTS, model), held: { [model]: hold } };
+  const reply = (extra = {}, usageOver = {}) =>
+    observeResponse(DEFAULTS, loop, {
+      usage: usage({ model, ...usageOver }),
+      requestedModel: model,
+      effort: 'medium',
+      stopReason: 'end_turn',
+      now,
+      ...extra,
+    });
+  assert.deepEqual(reply().held, {});
+  assert.deepEqual(reply({ usage: null }).held, { [model]: hold });
+  assert.deepEqual(reply({}, { model: 'claude-sonnet-5-5' }).held, { [model]: hold });
+  assert.equal(
+    observeResponse(DEFAULTS, emptyLoop(DEFAULTS, model), {
+      usage: usage({ model }),
+      requestedModel: model,
+      effort: 'medium',
+      stopReason: 'end_turn',
+      now,
+    }).held,
+    undefined,
+  );
+});
+
+const GLM = {
+  id: 'glm-5.3[1m]',
+  input: 1,
+  output: 2,
+  cacheRead: 0.1,
+  contextWindow: 1_000_000,
+  billing: 'credits',
+  efforts: ['high', 'max'],
+};
+const KIMI = { ...GLM, id: 'kimi-k3.1-pro[1m]', requiresOwnHistory: true };
+const chained = (userFile) => loadConfig({ userFile: { models: { glm: GLM }, ...userFile } });
+const FALLBACKS = chained({ fallbacks: { opus: ['glm@max', 'sonnet'] } });
+const planHold = (until = now + 300_000) => ({ kind: 'window', error: 'rate_limit', since: now, until, streak: 1 });
+const standInDecision = (config, loop, overrides) => {
+  const facts = nativeFacts(config, loop, context);
+  return chooseRoute(config, loop, {
+    ...opusInput(loop, { facts, ...overrides }),
+  });
+};
+
+test('a fallback target in no tier stands in for the held-out model and its continuation, then routing returns', () => {
+  const loop = heldOpus();
+  const result = standInDecision(FALLBACKS, loop);
+  const { decision } = result;
+  assert.deepEqual(
+    [decision.tier, decision.model, decision.effort, decision.reason, decision.fallback],
+    ['medium', GLM.id, 'max', 'model-held', { from: 'opus', step: 1, of: 2 }],
+  );
+  assert.deepEqual(decision.route, { model: 'glm', effort: 'max' });
+  assert.equal(result.route, loop.route);
+  assert.equal(result.lastRoute, loop.lastRoute);
+  const continued = continueRoute(FALLBACKS, result, {
+    nativeModel: OPUS,
+    contextTokens: 20_000,
+    contextKnown: true,
+    effort: 'medium',
+    now: now + 1000,
+  });
+  assert.deepEqual(
+    [continued.decision.model, continued.decision.effort, continued.decision.reason],
+    [GLM.id, 'max', 'model-held'],
+  );
+  const after = standInDecision(FALLBACKS, result, { now: now + 300_000 }).decision;
+  assert.deepEqual([after.tier, after.model, after.fallback], ['medium', OPUS, undefined]);
+});
+
+test('a bare chain entry runs at the source’s effort, clamped to what the target supports', () => {
+  const loop = heldOpus();
+  for (const [target, model, effort] of [
+    ['sonnet', 'claude-sonnet-5-5', 'medium'],
+    ['glm', GLM.id, 'high'],
+  ]) {
+    const { decision } = standInDecision(chained({ fallbacks: { opus: [target] } }), loop);
+    assert.deepEqual(
+      [decision.model, decision.effort, decision.route],
+      [model, effort, { model: target, effort: null }],
+    );
+  }
+});
+
+test('a pinned turn keeps its tier and the stand-in runs it', () => {
+  const loop = heldOpus();
+  const { decision } = standInDecision(FALLBACKS, loop, { pin: 'high' });
+  assert.deepEqual(
+    [decision.pinned, decision.tier, decision.model, decision.reason],
+    [true, 'high', GLM.id, 'model-held'],
+  );
+});
+
+test('an account hold skips every model of the account in a chain', () => {
+  const config = chained({ fallbacks: { opus: ['sonnet', 'haiku', 'glm@high'] } });
+  const loop = emptyLoop(config, OPUS);
+  const { decision } = standInDecision(config, loop, { accountHolds: { plan: planHold() } });
+  assert.deepEqual(
+    [decision.model, decision.reason, decision.fallback],
+    [GLM.id, 'model-held', { from: 'opus', step: 3, of: 3 }],
+  );
+});
+
+test('an account hold that ended holds nothing', () => {
+  const config = chained({ fallbacks: { opus: ['glm@high'] } });
+  const loop = emptyLoop(config, OPUS);
+  const { decision } = standInDecision(config, loop, { accountHolds: { plan: planHold(now) } });
+  assert.deepEqual([decision.model, decision.fallback], [OPUS, undefined]);
+});
+
+for (const [name, change] of [
+  ['one the session is not allowed to use', { availableModels: ['opus', 'sonnet'] }],
+  ['one this turn sent too much context to', { loopOver: { ineligible: [GLM.id] } }],
+  ['one that is itself held out', { loopOver: { held: { [GLM.id]: { error: 'overloaded', until: now + 60_000 } } } }],
+])
+  test(`a chain skips ${name}, to the next target`, () => {
+    const loop = { ...heldOpus(), ...change.loopOver, held: { ...heldOpus().held, ...change.loopOver?.held } };
+    const config = chained({ fallbacks: { opus: ['glm@max', 'sonnet'] } });
+    const { decision } = standInDecision(config, loop, { availableModels: change.availableModels });
+    assert.deepEqual([decision.model, decision.fallback], ['claude-sonnet-5-5', { from: 'opus', step: 2, of: 2 }]);
+  });
+
+test('a chain skips a target that takes no images, or whose window the context fills', () => {
+  const noImages = chained({ models: { glm: { ...GLM, imageInput: false } }, fallbacks: { opus: ['glm', 'sonnet'] } });
+  const loop = heldOpus();
+  const facts = { ...nativeFacts(noImages, loop, context), hasImages: true };
+  assert.equal(standInDecision(noImages, loop, { facts }).decision.model, 'claude-sonnet-5-5');
+  const small = chained({
+    models: { glm: { ...GLM, contextWindow: 100_000 } },
+    fallbacks: { opus: ['glm', 'sonnet'] },
+  });
+  const full = { ...nativeFacts(small, loop, context), contextTokens: 95_000 };
+  assert.equal(standInDecision(small, loop, { facts: full }).decision.model, 'claude-sonnet-5-5');
+});
+
+test('a chain skips a smaller window while the context is unmeasured', () => {
+  const small = chained({
+    models: { glm: { ...GLM, contextWindow: 200_000 } },
+    fallbacks: { opus: ['glm', 'sonnet'] },
+  });
+  const loop = { ...heldOpus(), historyMeasured: true };
+  assert.equal(standInDecision(small, loop, { contextKnown: false }).decision.model, 'claude-sonnet-5-5');
+  assert.equal(standInDecision(small, { ...loop, historyMeasured: false }).decision.model, 'claude-sonnet-5-5');
+  assert.equal(standInDecision(small, loop).decision.model, small.models.glm.id);
+});
+
+test('a chain with every target skipped falls back to the nearest tier', () => {
+  const config = chained({ fallbacks: { opus: ['glm@max'] } });
+  const loop = { ...heldOpus(), ineligible: [GLM.id] };
+  const { decision } = standInDecision(config, loop);
+  assert.deepEqual(
+    [decision.tier, decision.model, decision.reason, decision.fallback],
+    ['low', 'claude-haiku-5-5', 'model-held', undefined],
+  );
+});
+
+test('a model without a chain still falls to the nearest tier', () => {
+  const loop = heldOpus();
+  const { decision } = standInDecision(chained({ fallbacks: { sonnet: ['glm'] } }), loop);
+  assert.deepEqual([decision.tier, decision.model, decision.fallback], ['low', 'claude-haiku-5-5', undefined]);
+});
+
+test('the nearest tier never switches into a model that reads only its own history', () => {
+  const config = loadConfig({
+    userFile: { models: { kimi: KIMI }, routes: { low: { model: 'kimi', effort: 'high' } } },
+  });
+  const loop = heldOpus();
+  const { decision } = standInDecision(config, loop);
+  assert.deepEqual([decision.tier, decision.model, decision.reason], ['micro', 'claude-haiku-5-5', 'model-held']);
+});
+
+test('a held model that reads only its own history gets no stand-in from another model', () => {
+  const config = loadConfig({
+    userFile: { models: { kimi: KIMI }, routes: { low: { model: 'kimi', effort: 'high' } } },
+  });
+  const loop = { ...emptyLoop(config, KIMI.id), held: { [KIMI.id]: { error: 'overloaded', until: now + 300_000 } } };
+  const { decision } = chooseRoute(
+    config,
+    loop,
+    input(loop, { nativeModel: KIMI.id, advice: adviceOf('low', { low: 0.97, medium: 0.03 }) }, config),
+  );
+  assert.deepEqual([decision.tier, decision.model, decision.reason], [null, KIMI.id, 'model-held']);
+});
+
+test('routing returns to the source model when its hold ends, whether or not a model reads only its own history', () => {
+  const config = loadConfig({
+    userFile: { models: { kimi: KIMI }, routes: { low: { model: 'kimi', effort: 'high' } } },
+  });
+  const opus = heldOpus();
+  const stoodIn = standInDecision(config, opus).decision;
+  assert.equal(stoodIn.model, 'claude-haiku-5-5');
+  assert.equal(standInDecision(config, opus, { now: now + 300_000 }).decision.model, OPUS);
+
+  const held = { ...emptyLoop(config, KIMI.id), held: { [KIMI.id]: { error: 'overloaded', until: now + 300_000 } } };
+  const decideKimi = (at) =>
+    chooseRoute(
+      config,
+      held,
+      input(held, { nativeModel: KIMI.id, advice: adviceOf('low', { low: 0.97, medium: 0.03 }), now: at }, config),
+    ).decision;
+  assert.deepEqual([decideKimi(now).tier, decideKimi(now).reason], [null, 'model-held']);
+  assert.deepEqual([decideKimi(now + 300_000).tier, decideKimi(now + 300_000).model], ['low', KIMI.id]);
+});
+
+test('an account hold covers a chain’s own source model and the stand-in ends up on another account', () => {
+  const config = chained({ fallbacks: { sonnet: ['glm@high'] }, routes: { medium: { model: 'sonnet' } } });
+  const loop = emptyLoop(config, 'claude-sonnet-5-5');
+  const { decision } = standInDecision(config, loop, { accountHolds: { plan: planHold() } });
+  assert.deepEqual([decision.tier, decision.model], ['medium', GLM.id]);
+});
+
+test('an account hold keeps a turn’s own tool calls off the models it covers, and a turn with every model held stays', () => {
+  const routed = {
+    ...emptyLoop(DEFAULTS, model),
+    lastRoute: 'medium',
+    lastActivity: 'ops',
+    decision: { tier: 'medium', activity: 'ops', model, effort: 'high', reason: 'activity-down', pinned: false },
+  };
+  const facts = nativeFacts(DEFAULTS, routed, context);
+  const accountHolds = { plan: planHold() };
+  const moved = observedMove(DEFAULTS, routed, { observed: 'code', facts, contextKnown: true, accountHolds, now });
+  assert.equal(moved, routed);
+  const config = loadConfig({ userFile: { models: { tiny }, routes: { low: { model: 'tiny' } } } });
+  const tiny200 = { tier: 'low', activity: null, route: { model: 'tiny' }, model: tiny.id, effort: null };
+  const continued = continueRoute(
+    config,
+    { ...emptyLoop(config, model), decision: tiny200 },
+    {
+      nativeModel: model,
+      contextTokens: 300_000,
+      contextKnown: true,
+      effort: 'medium',
+      accountHolds,
+      now,
+    },
+  ).decision;
+  assert.deepEqual([continued.tier, continued.model], ['medium', OPUS]);
+});
+
+const heldUntil = (id) => ({ [id]: { error: 'overloaded', until: now + 300_000 } });
+const continueInput = (overrides) => ({
+  nativeModel: OPUS,
+  contextTokens: 20_000,
+  contextKnown: true,
+  effort: 'medium',
+  now,
+  ...overrides,
+});
+
+for (const [name, config, held, native, expected] of [
+  [
+    'a model that reads only its own history, with another model as the session’s',
+    loadConfig({ userFile: { models: { kimi: KIMI }, routes: { low: { model: 'kimi', effort: 'high' } } } }),
+    KIMI.id,
+    OPUS,
+    [KIMI.id, 'model-held'],
+  ],
+  [
+    'another model, with one that reads only its own history as the session’s',
+    loadConfig({
+      userFile: {
+        models: { kimi: KIMI },
+        routes: { micro: { model: 'kimi' }, low: { model: 'kimi' }, high: { model: 'kimi' } },
+      },
+    }),
+    OPUS,
+    KIMI.id,
+    [OPUS, 'model-held'],
+  ],
+])
+  test(`a held-out source with no cell to stand in keeps the turn on its route, not the session model: ${name}`, () => {
+    const loop = { ...emptyLoop(config, native), held: heldUntil(held) };
+    const advice = adviceOf(held === KIMI.id ? 'low' : 'medium', { low: 0.97, medium: 0.97 });
+    const { decision } = chooseRoute(config, loop, input(loop, { nativeModel: native, advice }, config));
+    assert.deepEqual([decision.model, decision.reason], expected);
+    const continued = continueRoute(config, { ...loop, decision }, continueInput({ nativeModel: native })).decision;
+    assert.equal(continued.model, expected[0]);
+  });
+
+const THREE_WAY = loadConfig({
+  userFile: {
+    models: { glm: GLM, kimi: KIMI },
+    routes: { medium: { model: 'opus', effort: 'medium' }, low: { model: 'sonnet', effort: 'high' } },
+    fallbacks: { opus: ['glm@high'] },
+  },
+});
+const runningOpus = (config, held) => ({
+  ...emptyLoop(config, OPUS),
+  held,
+  decision: {
+    tier: 'medium',
+    activity: null,
+    route: { model: 'opus', effort: 'medium' },
+    model: OPUS,
+    effort: 'medium',
+  },
+});
+
+test('a continuation whose model became held takes the source’s chain first', () => {
+  const loop = runningOpus(THREE_WAY, heldUntil(OPUS));
+  const { decision } = continueRoute(THREE_WAY, loop, continueInput({ nativeModel: 'claude-haiku-5-5' }));
+  assert.deepEqual([decision.model, decision.reason, decision.fallback?.step], [GLM.id, 'model-held', 1]);
+});
+
+test('a continuation whose model became held skips a smaller window while the context is unmeasured', () => {
+  const config = loadConfig({
+    userFile: {
+      models: { glm: { ...GLM, contextWindow: 200_000 } },
+      routes: { medium: { model: 'opus', effort: 'medium' }, low: { model: 'sonnet', effort: 'high' } },
+      fallbacks: { opus: ['glm@high'] },
+    },
+  });
+  const loop = { ...runningOpus(config, heldUntil(OPUS)), historyMeasured: true };
+  const native = { nativeModel: 'claude-haiku-5-5' };
+  const unknown = continueRoute(config, loop, continueInput({ ...native, contextKnown: false })).decision;
+  assert.equal(unknown.model, 'claude-sonnet-5-5');
+  const unmeasured = continueRoute(config, { ...loop, historyMeasured: false }, continueInput(native)).decision;
+  assert.equal(unmeasured.model, 'claude-sonnet-5-5');
+  assert.equal(continueRoute(config, loop, continueInput(native)).decision.model, GLM.id);
+});
+
+test('a continuation whose model became held takes the nearest tier that runs, not a held session model', () => {
+  const config = loadConfig({ userFile: { routes: { low: { model: 'sonnet', effort: 'high' } } } });
+  const held = { ...heldUntil(OPUS), ...heldUntil('claude-haiku-5-5') };
+  const loop = runningOpus(config, held);
+  const { decision } = continueRoute(config, loop, continueInput({ nativeModel: 'claude-haiku-5-5' }));
+  assert.deepEqual([decision.model, decision.reason], ['claude-sonnet-5-5', 'model-held']);
+});
+
+test('a continuation with nothing else to run keeps the held model rather than a held session model', () => {
+  const config = chained({});
+  const held = { ...heldUntil(OPUS), ...heldUntil('claude-haiku-5-5') };
+  const { decision } = continueRoute(
+    config,
+    runningOpus(config, held),
+    continueInput({ nativeModel: 'claude-haiku-5-5' }),
+  );
+  assert.equal(decision.model, OPUS);
+});

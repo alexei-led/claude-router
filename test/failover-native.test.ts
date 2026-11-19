@@ -5,8 +5,18 @@ type Engine = Parameters<Parameters<typeof test>[1]>;
 
 // An Opus session whose classifier answers medium: the models each step sent, the toasts, the loop's holds, and one
 // whole turn.
-function session($: Engine[0], on: Engine[1]) {
-  mock.store(on);
+function session($: Engine[0], on: Engine[1], rateLimits: object[] = []) {
+  const store = new Map<string, unknown>();
+  on('store.get', (_$, e) => ({ value: store.get(e.key) }));
+  on('store.set', (_$, e) => {
+    store.set(e.key, e.value);
+    return { value: undefined };
+  });
+  on('store.delete', (_$, e) => {
+    store.delete(e.key);
+    return { value: undefined };
+  });
+  on('store.keys', () => ({ value: [...store.keys()] }));
   const state = new Map<string, { value: unknown; version: number }>();
   on('state.get', (_$, e) => ({ value: state.get(`${e.key}:${e.id ?? ''}`) ?? { value: undefined, version: 0 } }));
   on('state.set', (_$, e) => {
@@ -25,7 +35,7 @@ function session($: Engine[0], on: Engine[1]) {
   on('session.version', () => ({ value: { version: '2.1.321' } }));
   on('session.messages', () => ({ value: [user('Synthetic task.')] }));
   on('session.usage', () => ({
-    value: { context: { tokens: 8000, breakdown: { totalTokens: 8000 } }, rateLimits: [] },
+    value: { context: { tokens: 8000, breakdown: { totalTokens: 8000 } }, rateLimits },
   }));
   on('settings.read', () => ({ value: {} }));
   on('ui.log', () => ({ value: undefined }));
@@ -73,18 +83,20 @@ function session($: Engine[0], on: Engine[1]) {
     await $.turn.complete({ turnId, answer: 'ok', durationMs: 1, isAborted: false, reason: 'answer' });
   };
   const held = () => (state.get('loops:main')?.value as { held?: object } | undefined)?.held;
-  return { sent, toasts, held, request };
+  return { sent, toasts, held, request, store };
 }
 
 // The engine raises classic.StopFailure for a main turn that ended on an API error: an overloaded model is held out, so
-// the next turn runs another; a billing error holds nothing.
+// the next turn runs another; a billing error holds the account, not a model, until it is released.
 test('a turn that ends on an overloaded model routes the next turn to another model', async ($, on) => {
-  const { sent, toasts, held, request } = session($, on);
+  const { sent, toasts, held, request, store } = session($, on);
   await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
   await request('t1');
   expect(sent.at(-1)).toBe('claude-opus-5-5');
   await $.classic.StopFailure({ error: 'billing_error' });
   expect(held()).toBeUndefined();
+  expect((store.get('holds/plan') as { kind: string } | undefined)?.kind).toBe('balance');
+  store.delete('holds/plan');
   await $.classic.StopFailure({ error: 'overloaded' });
   expect(Object.keys(held() ?? {})).toEqual(['claude-opus-5-5']);
   expect(toasts.at(-1)).toBe('Opus 5.5 held out of routing: overloaded, 5 min');
@@ -100,4 +112,17 @@ test('the hold is on the model the failed request ran, not on the session’s mo
   expect(sent.at(-1)).toBe('claude-haiku-5-5');
   await $.classic.StopFailure({ error: 'overloaded' });
   expect(Object.keys(held() ?? {})).toEqual(['claude-haiku-5-5']);
+});
+
+test('a used-up 5h plan window holds the plan account in the engine’s store, not a model in the loop', async ($, on) => {
+  const resetsAt = new Date(Date.now() + 3 * 60 * 60_000).toISOString();
+  const { held, toasts, request, store } = session($, on, [{ kind: 'five_hour', percentUsed: 100, resetsAt }]);
+  await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
+  await request('t1');
+  await $.classic.StopFailure({ error: 'rate_limit' });
+  const stored = store.get('holds/plan') as { kind: string; until: number } | undefined;
+  expect(stored?.kind).toBe('window');
+  expect(stored?.until).toBe(Date.parse(resetsAt) + 60_000);
+  expect(held()).toBeUndefined();
+  expect(toasts.at(-1)).toMatch(/^Claude plan held out of routing: usage limit, /);
 });

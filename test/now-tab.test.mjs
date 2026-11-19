@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULTS } from '../lib/config.mjs';
+import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { emptyUsage, recordUsage } from '../lib/usage.mjs';
 import { controls, ELEMENTS, find, screen, texts, unboxed } from './harness.mjs';
@@ -285,3 +285,97 @@ for (const [columns, main] of [
   test(`at ${columns} columns the main cost bar ${main.includes(' vs ') ? 'keeps' : 'drops'} its note against no routing`, () => {
     assert.ok(lines({}, { columns }).includes(main));
   });
+
+const clock = (ms) => new Date(ms).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+const planWindow = {
+  kind: 'window',
+  window: 'five_hour',
+  error: 'rate_limit',
+  since: NOW,
+  until: NOW + 3600e3,
+  streak: 1,
+};
+const overloaded = { kind: 'availability', error: 'overloaded', since: NOW, until: NOW + 600e3, streak: 2 };
+const HELD = { holds: { accounts: { plan: planWindow }, models: { 'claude-sonnet-5-5': overloaded } } };
+
+test('a held account and a held model get a HELD OUT section after NEXT TURN: cause, end, what is covered, Release', () => {
+  const all = lines(HELD, { usage: PLAN });
+  assert.deepEqual(block(all, 'HELD OUT'), [
+    'HELD OUT  routing skips these until they are back',
+    `  Claude plan  5h limit · back ${clock(NOW + 3600e3)}  [ Release ]`,
+    '    covers Fable 5.2, Opus 5.5, Sonnet 5.5, Haiku 5.5',
+    `  Sonnet 5.5  overloaded ×2 · back ${clock(NOW + 600e3)}  [ Release ]`,
+    '  chains: router.json → fallbacks · /router holds',
+  ]);
+  assert.ok(all.indexOf('NEXT TURN') < all.indexOf('HELD OUT  routing skips these until they are back'));
+  assert.ok(all.indexOf('HELD OUT  routing skips these until they are back') < all.indexOf('PLAN  Claude plan usage'));
+});
+
+test('a hold until released says so, and nothing held or only ended holds draw no HELD OUT section', () => {
+  const balance = { kind: 'balance', error: 'billing_error', since: NOW, until: null, streak: 1 };
+  assert.equal(
+    block(lines({ holds: { accounts: { plan: balance }, models: {} } }), 'HELD OUT')[1],
+    '  Claude plan  no balance · until released  [ Release ]',
+  );
+  for (const holds of [
+    undefined,
+    null,
+    { accounts: {}, models: {} },
+    { models: { 'claude-opus-5-5': { ...overloaded, until: NOW } } },
+  ])
+    assert.ok(!lines({ holds }).some((line) => line.startsWith('HELD OUT')), JSON.stringify(holds));
+});
+
+test('Release on a row asks to release that account or model, and no other', () => {
+  const { calls, actions } = recording();
+  const tree = render(HELD, { actions });
+  const released = controls(tree).filter((c) => c.key.startsWith('release-'));
+  assert.deepEqual(
+    released.map((c) => [c.key, c.label]),
+    [
+      ['release-account-plan', 'Release'],
+      ['release-model-claude-sonnet-5-5', 'Release'],
+    ],
+  );
+  for (const control of released) control.onPress();
+  assert.deepEqual(calls, [
+    ['release', 'account', 'plan'],
+    ['release', 'model', 'claude-sonnet-5-5'],
+  ]);
+});
+
+test('a row too long for Release beside it puts the button on its own line', () => {
+  const config = loadConfig({
+    userFile: {
+      models: {
+        glm: {
+          id: 'glm-5.3[1m]',
+          input: 1,
+          output: 2,
+          cacheRead: 0.1,
+          contextWindow: 1_000_000,
+          billing: 'credits',
+          efforts: ['high', 'max'],
+          account: 'zai-team-production',
+        },
+      },
+    },
+  });
+  const balance = { kind: 'balance', error: 'billing_error', since: NOW, until: null, streak: 1 };
+  const holds = { accounts: { 'zai-team-production': balance }, models: {} };
+  const all = unboxed(
+    screen(renderPanel(ELEMENTS, config, view({ holds }), null, recording().actions, { columns: 60, now: NOW })),
+  );
+  assert.deepEqual(block(all, 'HELD OUT').slice(1, 5), [
+    '  zai-team-production  no balance · until released',
+    '    covers GLM 5.3',
+    '    [ Release ]',
+    '  chains: router.json → fallbacks · /router holds',
+  ]);
+});
+
+test('the why names the held model and the chain step when a fallback runs, else the reason', () => {
+  const held = { reason: 'model-held', fallback: { from: 'opus', step: 1, of: 2 }, ...HELD };
+  assert.equal(after(lines(held), 'NEXT TURN', 3)[2], '  why   ↷ Opus 5.5 held · fallback 1 of 2');
+  assert.equal(after(lines({ ...held, fallback: null }), 'NEXT TURN', 3)[2], '  why   ! held out');
+});

@@ -5,6 +5,7 @@ import {
   ACTIVITIES,
   ACTIVITY_MODES,
   ACTIVITY_VALUES,
+  accountOf,
   activeClassifier,
   CLASSIFIER_OPTIONS,
   DEFAULTS,
@@ -778,4 +779,139 @@ test('absent effort and model declarations remain unknown and zero remains decla
   assert.equal(models.sonnet.capability.medium, undefined);
   assert.equal(models.opus.capability.high, undefined);
   assert.equal(models.missing?.capability, undefined);
+});
+
+const glm = {
+  id: 'glm-5.3[1m]',
+  input: 1,
+  output: 2,
+  cacheRead: 0.1,
+  contextWindow: 1_000_000,
+  billing: 'credits',
+  efforts: ['high', 'max'],
+};
+const plain = { ...glm, id: 'deepseek-flash', efforts: [] };
+const withChains = (file) => loadConfig({ userFile: { ...file, models: { glm, deepseek: plain, ...file.models } } });
+
+test('no fallbacks or accounts are configured by default', () => {
+  const config = loadConfig();
+  assert.deepEqual([config.fallbacks, config.accounts], [{}, {}]);
+});
+
+test('a chain of aliases, with and without an effort, loads as written', () => {
+  const config = withChains({ fallbacks: { opus: ['glm@max', 'deepseek'], sonnet: ['glm@high'] } });
+  assert.deepEqual(config.fallbacks, { opus: ['glm@max', 'deepseek'], sonnet: ['glm@high'] });
+});
+
+test('a plan model is on the plan account and any other model on its own, unless it names one', () => {
+  const config = withChains({ models: { glm: { ...glm, account: 'zai' }, deepseek: plain } });
+  assert.deepEqual(
+    ['opus', 'haiku', 'glm', 'deepseek'].map((alias) => accountOf(config, alias)),
+    ['plan', 'plan', 'zai', 'deepseek'],
+  );
+  assert.equal(accountOf(config, 'unlisted'), 'unlisted');
+  assert.equal(accountOf(withChains({ models: { opus: { account: 'work' } } }), 'opus'), 'work');
+});
+
+test('an account keeps a monthly reset in a time zone', () => {
+  const accounts = { zai: { reset: { monthly: 28, tz: 'Asia/Tokyo' } }, plan: {} };
+  assert.deepEqual(withChains({ accounts }).accounts, accounts);
+});
+
+for (const [name, file, message] of [
+  ['a chain for an unknown model', { fallbacks: { gpt: ['glm'] } }, /fallbacks\.gpt is not in models/],
+  ['an unknown target', { fallbacks: { opus: ['gpt'] } }, /fallbacks\.opus\[0\] is not in models/],
+  ['the second target unknown', { fallbacks: { opus: ['glm', 'gpt@max'] } }, /fallbacks\.opus\[1\] is not in models/],
+  [
+    'an effort the target lacks',
+    { fallbacks: { opus: ['glm@xhigh'] } },
+    /fallbacks\.opus\[0\] effort is not supported/,
+  ],
+  ['an effort on a target with no efforts', { fallbacks: { opus: ['deepseek@high'] } }, /effort is not supported/],
+  ['an empty effort', { fallbacks: { opus: ['glm@'] } }, /effort is not supported/],
+  [
+    'a model standing in for itself',
+    { fallbacks: { opus: ['glm', 'opus@high'] } },
+    /fallbacks\.opus\[1\] is the model/,
+  ],
+  ['a target listed twice', { fallbacks: { opus: ['glm@high', 'glm@max'] } }, /fallbacks\.opus\[1\] is listed twice/],
+  ['a chain that is not a list', { fallbacks: { opus: 'glm' } }, /fallbacks\.opus must be a list/],
+  ['an entry that is not a string', { fallbacks: { opus: [7] } }, /fallbacks\.opus\[0\] must be a models key/],
+  ['an entry with two efforts', { fallbacks: { opus: ['glm@high@max'] } }, /fallbacks\.opus\[0\] must be a models key/],
+  ['an empty entry', { fallbacks: { opus: [''] } }, /fallbacks\.opus\[0\] must be a models key/],
+  ['fallbacks that is not an object', { fallbacks: ['glm'] }, /fallbacks must be an object/],
+  [
+    'a model that needs its own history as the source',
+    { models: { glm: { ...glm, requiresOwnHistory: true } }, fallbacks: { glm: ['deepseek'] } },
+    /fallbacks\.glm mixes a model that requires its own history/,
+  ],
+  [
+    'a model that needs its own history as a target',
+    { models: { glm: { ...glm, requiresOwnHistory: true } }, fallbacks: { opus: ['deepseek', 'glm'] } },
+    /fallbacks\.opus mixes a model that requires its own history/,
+  ],
+  [
+    'two models that each need their own history',
+    {
+      models: { glm: { ...glm, requiresOwnHistory: true }, deepseek: { ...plain, requiresOwnHistory: true } },
+      fallbacks: { glm: ['deepseek'] },
+    },
+    /mixes a model that requires its own history/,
+  ],
+  [
+    'a flag that is not a boolean',
+    { models: { glm: { ...glm, requiresOwnHistory: 'yes' } } },
+    /models\.glm\.requiresOwnHistory must be a boolean/,
+  ],
+  [
+    'an account name with a slash',
+    { models: { glm: { ...glm, account: 'a/b' } } },
+    /models\.glm\.account must be a name/,
+  ],
+  [
+    'an account name that is empty',
+    { models: { glm: { ...glm, account: '' } } },
+    /models\.glm\.account must be a name/,
+  ],
+  [
+    'a reset on day 0',
+    { accounts: { zai: { reset: { monthly: 0, tz: 'UTC' } } } },
+    /accounts\.zai\.reset\.monthly must be a day from 1 to 28/,
+  ],
+  ['a reset on day 29', { accounts: { zai: { reset: { monthly: 29, tz: 'UTC' } } } }, /accounts\.zai\.reset\.monthly/],
+  ['a reset on a part of a day', { accounts: { zai: { reset: { monthly: 1.5, tz: 'UTC' } } } }, /reset\.monthly/],
+  ['a reset with no day', { accounts: { zai: { reset: { tz: 'UTC' } } } }, /reset\.monthly/],
+  [
+    'a reset in an unknown zone',
+    { accounts: { zai: { reset: { monthly: 1, tz: 'Mars/Olympus' } } } },
+    /accounts\.zai\.reset\.tz must be an IANA time zone/,
+  ],
+  ['a reset with no zone', { accounts: { zai: { reset: { monthly: 1 } } } }, /reset\.tz/],
+  [
+    'a reset with an unknown key',
+    { accounts: { zai: { reset: { monthly: 1, tz: 'UTC', weekly: 1 } } } },
+    /accounts\.zai\.reset\.weekly is not a known key/,
+  ],
+  ['an account with an unknown key', { accounts: { zai: { limit: 1 } } }, /accounts\.zai\.limit is not a known key/],
+  ['accounts that is not an object', { accounts: [] }, /accounts must be an object/],
+])
+  test(`rejects ${name}`, () => {
+    assert.throws(() => withChains(file), message);
+  });
+
+test('an error names the setting, never its value', () => {
+  assert.throws(
+    () => withChains({ fallbacks: { opus: ['sekret-model'] } }),
+    (error) => !error.message.includes('sekret'),
+  );
+});
+
+test('the Kimi preset needs its own history, so a chain through it is refused', () => {
+  const config = loadConfig({ provider: 'kimi', userFile: {} });
+  assert.equal(config.models.k3.requiresOwnHistory, true);
+  assert.equal(loadConfig({ provider: 'deepseek', userFile: {} }).models.flash.requiresOwnHistory, undefined);
+  assert.throws(
+    () => loadConfig({ provider: 'kimi', userFile: { models: { glm }, fallbacks: { k3: ['glm'] } } }),
+    /fallbacks\.k3 mixes a model that requires its own history/,
+  );
 });

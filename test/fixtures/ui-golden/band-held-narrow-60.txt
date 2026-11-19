@@ -1,0 +1,25 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="#e0708a"
+      "▂"
+    Text color="#e0708a"
+      "▄"
+    Text color="#e0708a"
+      "▆"
+    Text color="#e0708a"
+      "█"
+    Text
+      " "
+    Text weight="semibold"
+      "GLM 5.3"
+    Text
+      " · max"
+    Text color="warning"
+      " fallback"
+    Text
+      "  "
+    Button key="details" label="Router"
+    Box display="none" hover={"display":"flex"} left=41 position="absolute" top=0
+      Button key="band-manual" label="Turn off"
+      Text
+        "       "

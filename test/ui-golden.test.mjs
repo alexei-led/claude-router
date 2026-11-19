@@ -118,6 +118,38 @@ const AGENTS = agentStore([
 ]);
 
 // A live reply whose cache rebuild cost more than the cheaper model saved.
+// A model on its own account with a fallback chain from each plan model: the plan used up, GLM overloaded or out of
+// balance, so each hold shows.
+const CHAINED = loadConfig({
+  userFile: {
+    models: {
+      glm: {
+        id: 'glm-5.3[1m]',
+        input: 1,
+        output: 2,
+        cacheRead: 0.1,
+        contextWindow: 1_000_000,
+        billing: 'credits',
+        efforts: ['high', 'max'],
+        account: 'zai',
+      },
+    },
+    fallbacks: { opus: ['glm@max', 'sonnet'], sonnet: ['glm@high'] },
+  },
+});
+const HOLD = { error: 'rate_limit', since: NOW, streak: 1 };
+const HELD = {
+  fallback: { from: 'opus', step: 1, of: 2 },
+  reason: 'model-held',
+  selectedModel: 'glm-5.3[1m]',
+  actualModel: 'glm-5.3[1m]',
+  effort: 'max',
+  holds: {
+    accounts: { plan: { ...HOLD, kind: 'window', window: 'five_hour', until: NOW + 3 * 3600e3 } },
+    models: { 'glm-5.3[1m]': { ...HOLD, kind: 'availability', error: 'overloaded', until: NOW + 600e3, streak: 2 } },
+  },
+};
+
 const LOST = { ...reply(at(2026, 10, 13, 10), 'code'), sums: [1, 1, 0.5, -0.1, 0, 0.6, 0, 0, 0] };
 
 const DECISIONS = [
@@ -363,6 +395,8 @@ const EXTRAS = {
   'now-unavailable': { tab: 'now', phase: 'unavailable', error: GATEWAY_SETTINGS, tier: null },
   'now-unavailable-plain': { tab: 'now', phase: 'unavailable', error: 'bad router.json', tier: null },
   'now-no-classifier-key': { tab: 'now', credentials: {} },
+  'now-held': { tab: 'now', ...HELD },
+  'routes-fallbacks': { tab: 'routes', ...HELD, holds: { ...HELD.holds, models: {} } },
   // The warnings sit under the tab row on every tab, not only Now.
   'routes-warnings': {
     tab: 'routes',
@@ -436,6 +470,8 @@ const EXTRAS = {
   'usage-unpriced-model': { tab: 'usage', usageSession: null, nativeModel: 'claude-unlisted-1' },
 };
 const OWN_CONFIG = {
+  'now-held': CHAINED,
+  'routes-fallbacks': CHAINED,
   'now-mixed-billing': MIXED_BILLING,
   'usage-mixed-billing': MIXED_BILLING,
   'classifier-slow': SLOW,
@@ -513,6 +549,13 @@ const BAND_EXTRAS = {
   'detail-not-a-tier': { view: { ...NOT_A_TIER, bandDetail: true }, usage: CLAUDE },
   'routed-unbounded': { view: { ...ROUTED, ...SESSION_RECORDS, bandDetail: true }, usage: CLAUDE, columns: null },
   'off-unbounded': { view: NOT_A_TIER, columns: null },
+  held: { config: CHAINED, view: { ...ROUTED, ...HELD, selectedModel: 'claude-sonnet-5-5' }, usage: CLAUDE },
+  'held-narrow': {
+    config: CHAINED,
+    view: { ...ROUTED, ...HELD, selectedModel: 'claude-sonnet-5-5' },
+    usage: CLAUDE,
+    columns: 60,
+  },
 };
 for (const [name, { config = DEFAULTS, view, usage = null, columns = 100 }] of Object.entries(BAND_EXTRAS))
   test(`band ${name}`, () => {
