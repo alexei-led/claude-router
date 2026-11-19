@@ -2049,6 +2049,8 @@ async function startTurn($, router, e) {
   const origin = originOfTurn(router, e.text);
   router.turnOrigins.set(e.turnId, origin);
   const sessionId = await $.session.id();
+  // A turn started meanwhile owns the goal; this turn still asks the classifier about its own prompt.
+  router.prompts.set(e.turnId, text);
   if (router.goalEpoch !== epoch || router.goalTurnId !== e.turnId) return;
   const previous = router.goal?.sessionId === sessionId ? router.goal.text : null;
   const candidate = isGoalOrigin(origin) ? text : null;
@@ -2062,9 +2064,7 @@ async function startTurn($, router, e) {
   if (isProgressOrigin(origin) && previous) {
     router.prompts.set(e.turnId, router.goal.text);
     router.progressNotes.set(e.turnId, text);
-    return;
   }
-  router.prompts.set(e.turnId, text);
 }
 
 function validateGoal(router, turnId, messages) {
