@@ -1,6 +1,7 @@
 # Fallback chains and quota-aware holds
 
-Status: design agreed, not built. Reviewed in a peer chat (Pi, GPT-6.2 Astra) on 2026-11-18; the TUI choice is
+Status: built on branch `feat-fallback-chains`; steps 1-8 are done, the live check (step 9) and the real-failure check
+of step 1 are not. Reviewed in a peer chat (Pi, GPT-6.2 Astra) on 2026-11-18; the TUI choice is
 the user's (option C with a read-only chain list, 2026-11-19). Prototype:
 https://claude.ai/artifact/XLmDCfDEULG6dexf223P2m (private).
 
@@ -161,6 +162,18 @@ Each step lands with its tests; the gate after each is `npm run check`, `npm run
 
 ## Open questions
 
-- Whether `$.store` writes from two sessions need a version check; read the engine's `store.set` contract in step 4.
-- The `calendar` text match depends on step 1; if `error_details` carries no text, `calendar` needs a reading or
-  stays config-driven only.
+- Answered: `$.store` writes from two sessions are not versioned. The store has no atomic update, so two sessions that
+  fail together can each write their own hold; the later write stands, and both say the same account is out. The user
+  guide says so (`docs/user-guide.md`, When a model fails) and `applyHold` in `hooks/native-router.mjs` notes it.
+- Answered: the `calendar` text match stays, and every path also works without `error_details`. `calendar` then needs
+  a configured account `reset`, or it holds for 24 hours.
+
+## Not verified
+
+- Step 1's gate: what `error_details` holds, and whether a rejected request moves a `rateLimits` reading to 100%, were
+  not checked against a real failure. The `window`, `calendar` and `balance` rules rely on both. Tests use the shapes
+  in the local transcripts. The `failure` row in the decision trace records both, so the first real failure checks
+  them.
+- Step 9: the three live checks in agterm (a chain run after a forced `model_not_found`, Release from the pane, a new
+  session that sees an account hold) were not run. A real 5h limit, an `overloaded` and a chain on a provider that
+  reads another model's thinking history could not be forced.

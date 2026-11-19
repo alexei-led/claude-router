@@ -938,6 +938,26 @@ test('a held model that reads only its own history gets no stand-in from another
   assert.deepEqual([decision.tier, decision.model, decision.reason], [null, KIMI.id, 'model-held']);
 });
 
+test('routing returns to the source model when its hold ends, whether or not a model reads only its own history', () => {
+  const config = loadConfig({
+    userFile: { models: { kimi: KIMI }, routes: { low: { model: 'kimi', effort: 'high' } } },
+  });
+  const opus = heldOpus();
+  const stoodIn = standInDecision(config, opus).decision;
+  assert.equal(stoodIn.model, 'claude-haiku-5-5');
+  assert.equal(standInDecision(config, opus, { now: now + 300_000 }).decision.model, OPUS);
+
+  const held = { ...emptyLoop(config, KIMI.id), held: { [KIMI.id]: { error: 'overloaded', until: now + 300_000 } } };
+  const decideKimi = (at) =>
+    chooseRoute(
+      config,
+      held,
+      input(held, { nativeModel: KIMI.id, advice: adviceOf('low', { low: 0.97, medium: 0.03 }), now: at }, config),
+    ).decision;
+  assert.deepEqual([decideKimi(now).tier, decideKimi(now).reason], [null, 'model-held']);
+  assert.deepEqual([decideKimi(now + 300_000).tier, decideKimi(now + 300_000).model], ['low', KIMI.id]);
+});
+
 test('an account hold covers a chain’s own source model and the stand-in ends up on another account', () => {
   const config = chained({ fallbacks: { sonnet: ['glm@high'] }, routes: { medium: { model: 'sonnet' } } });
   const loop = emptyLoop(config, 'claude-sonnet-5-5');

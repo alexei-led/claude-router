@@ -3450,7 +3450,13 @@ export function register(on, options) {
   on('prompt.autocomplete', async (_$, e, next) => {
     const mine = routerSuggestions(e, {
       describe: (name, value) => (name === 'pin' && router.view ? pinCard(router.config, value) : undefined),
-      sources: { held: heldRows(router.config, router.view?.holds, Date.now()).map((row) => row.word) },
+      sources: {
+        held: heldRows(
+          router.config,
+          /** @type {import('../lib/holds.mjs').HoldSet | null | undefined} */ (router.view?.holds),
+          Date.now(),
+        ).map((row) => row.word),
+      },
     });
     if (!mine.length) return next(e);
     return { suggestions: [...(await next(e)).suggestions, ...mine] };
