@@ -13,21 +13,12 @@ const { graphicalKit } = await import('../lib/ui/graphical/kit.mjs');
 const { kit } = await import('../lib/ui/terminal/kit.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { CLAUDE, ROUTED } = await import('./band-states.mjs');
-const { byKey, controls, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
+const { byKey, controls, ELEMENTS, find, kids, recorder, texts, unique } = await import('./harness.mjs');
 const { at, NOW, OTHER, reply, SESSION, STORE } = await import('./usage-fixtures.mjs');
 const { emptyUsage, recordUsage, replyEntry } = await import('../lib/usage.mjs');
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
-const calls = [];
-const actions = new Proxy(
-  {},
-  {
-    get:
-      (_, name) =>
-      (...args) =>
-        calls.push([name, ...args]),
-  },
-);
+const { actions, calls } = recorder();
 
 // Subagent records: `[day, type or pass:reason, model, core model]` per agent, one flush each.
 function agentStore(agents) {

@@ -7,7 +7,7 @@ import { isSameModel } from '../lib/route.mjs';
 import { bandSegments } from '../lib/ui/model/band.mjs';
 import { routeDraftOf, routingChanges } from '../lib/ui/model/draft.mjs';
 import { TIER_COLOR } from '../lib/ui/tokens.mjs';
-import { controls, ELEMENTS, quiet, screen, texts, unboxed } from './harness.mjs';
+import { controls, ELEMENTS, quiet, recorder, screen, texts, unboxed } from './harness.mjs';
 
 const KEYS_SET = { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null };
 const view = (props = {}) => ({ mode: 'auto', phase: 'routed', credentials: KEYS_SET, tab: 'now', ...props });
@@ -157,21 +157,6 @@ test('the Now tab says what runs next turn and why: the tier, the model, the sup
   assert.ok(!off.some((line) => line.includes('82%')));
 });
 
-const recording = () => {
-  const calls = [];
-  return {
-    calls,
-    actions: new Proxy(
-      {},
-      {
-        get:
-          (_, name) =>
-          (...args) =>
-            calls.push([name, ...args]),
-      },
-    ),
-  };
-};
 const sonnetLow = { tier: 'low', selectedModel: 'claude-sonnet-5-5', effort: 'high', activity: 'code' };
 const haikuLow = { tier: 'low', selectedModel: 'claude-haiku-5-5', effort: 'high', activity: 'code' };
 const reading = { activityChoice: 'code', activityProbabilities: { code: 0.81, ops: 0.09, explore: 0.06, plan: 0 } };
@@ -450,7 +435,7 @@ test('the one-more-cache warning counts the overrides in every activity mode', (
 });
 
 test('the Routes controls call the pane quiet with the cell they edit', () => {
-  const { calls, actions: recorded } = recording();
+  const { calls, actions: recorded } = recorder();
   const found = (key, routeCell) =>
     controls(routesTab(DEFAULTS, null, { routeCell }, recorded)).find((c) => c.key === key);
   found('activity-mode').onSelect('off');
@@ -551,7 +536,7 @@ test('the Policy tab puts each control in its sentence and names the default bes
     models: { ...DEFAULTS.models, opus: { ...DEFAULTS.models.opus, billing: 'credits' } },
   };
   assert.ok(unboxed(screen(policy({}, credits))).includes('             on a model that bills credits'));
-  const { calls, actions: recorded } = recording();
+  const { calls, actions: recorded } = recorder();
   const found = (key) => controls(policy({}, DEFAULTS, recorded)).find((c) => c.key === key);
   found('baseline').onSelect('medium');
   found('horizon').onSelect('10');
@@ -603,7 +588,7 @@ test('the Now tab keeps Claude’s readings on one line, and details show them w
   const folded = unboxed(screen(renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'now', ...props }), usage, quiet)));
   assert.ok(folded.includes('  cache  90% last reply   [ details ]'), folded.join('\n'));
   assert.ok(!folded.some((line) => line.startsWith('Compared tiers') || line.startsWith('INPUT PER REPLY')));
-  const { calls, actions: recorded } = recording();
+  const { calls, actions: recorded } = recorder();
   const tree = renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'now', usageDetail: true, ...props }), usage, recorded);
   const lines = texts(tree);
   const at = lines.indexOf('Compared tiers        low → high');

@@ -9,21 +9,12 @@ const { DEFAULTS } = await import('../lib/config.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { CLAUDE, ROUTED } = await import('./band-states.mjs');
-const { byKey, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
+const { byKey, ELEMENTS, find, kids, recorder, texts, unique } = await import('./harness.mjs');
 const { NOW, SESSION, STORE } = await import('./usage-fixtures.mjs');
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
 const KEYS_SET = { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null };
-const calls = [];
-const actions = new Proxy(
-  {},
-  {
-    get:
-      (_, name) =>
-      (...args) =>
-        calls.push([name, ...args]),
-  },
-);
+const { actions, calls } = recorder();
 const RICH = {
   ...ROUTED,
   tab: 'now',

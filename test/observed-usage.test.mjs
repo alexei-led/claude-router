@@ -75,7 +75,7 @@ test('band and pane show observed-only totals without invented savings in every 
   assert.equal(band, 'session ≈$0.00 API estimate   effort low 1   1 reply');
   for (const period of ['session', 'today', '7d', '30d', 'month', 'all']) {
     const lines = screen(
-      renderPanel(ELEMENTS, config, { ...view, usagePeriod: period }, null, new Proxy({}, { get: () => () => {} }), {
+      renderPanel(ELEMENTS, config, { ...view, usagePeriod: period }, null, quiet, {
         columns: 62,
         now: NOW,
       }),
