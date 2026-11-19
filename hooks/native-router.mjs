@@ -109,6 +109,7 @@ import {
   holdModel,
   holdText,
   isActive,
+  planAccountsOf,
   readHold,
   releaseHold,
 } from '../lib/failover.mjs';
@@ -3241,6 +3242,7 @@ async function holdFailedModel($, router, e) {
       details: e.error_details,
       limits,
       billing: billingOf(config, usage),
+      planAccounts: planAccountsOf(config),
       account,
       accounts: config.accounts,
       now,

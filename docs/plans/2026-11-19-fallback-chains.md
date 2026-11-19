@@ -46,14 +46,17 @@ Step 1 records both before the classifier depends on them.
 | `availability` | `overloaded`, `server_error`, `model_not_found`, or `rate_limit` with no quota signal                 | the model                  | fixed time, doubled per consecutive failed retry (cap 60 min) |
 | `window`       | `rate_limit`, and a `five_hour` or `seven_day` reading at `percentUsed >= 100` with a future reset    | the account                | the latest such `resetsAt` + 1 min, capped at 7 days          |
 | `calendar`     | `rate_limit` with "spend limit" in `error_details` and no window at 100%, on an account with `reset` | the account                | the account's configured reset                               |
-| `balance`      | `billing_error`, or `error_details` matching balance, recharge or credit                             | the account                | a release                                                    |
+| `balance`      | `billing_error`, or a `rate_limit` whose `error_details` match balance, recharge or credit           | the account                | a release                                                    |
 | none           | `authentication_failed`, `oauth_org_not_allowed`, `account_on_hold`, `invalid_request`, `unknown`, … | nothing                    | not held: another model would not help                       |
 
 - The classifier tries, in order: (1) the plan readings, (2) `error_details` text, (3) the `error` word. Reset times
   come only from readings or config, never from localized text.
-- A `window` hold applies only when the failed model's account is the plan account and the session pays only
-  through the plan (`billingOf` is `plan`). In a mixed proxy session the readings name no account, so the failure is
-  `availability`.
+- A `window` hold applies only when the failed model's account is the plan account and every model billed to a plan
+  (`billing: "plan"`) is in that one account, whether the session pays only through the plan or also through credits
+  (`billingOf` is `plan` or `mixed`). Only the Anthropic plan reports `five_hour` and `seven_day` readings, so with one
+  plan account the reading is unambiguous: a used-up window in an Opus-on-plan, GLM-on-credits session holds the plan,
+  and the chain moves to the credits model. With plan-billed models in two or more accounts the reading cannot say
+  which one it is, so the failure is `availability`.
 - A `calendar` failure on an account without `reset` holds for 24 hours, then the next turn tries again.
 - Availability backoff: 5 → 10 → 20 → 40 → 60 min for consecutive failed retries of that model with the same error.
   A successful reply from the model clears the streak. A quota hold is never doubled.
@@ -140,7 +143,7 @@ Each step lands with its tests; the gate after each is `npm run check`, `npm run
 1. **Record failure payloads.** On `StopFailure`, add to the decision trace: `error`, `error_details` (first 300
    characters), the `rateLimits` readings at that moment, and the model held. Keep it in the local trace only.
    Check against one real failure of each kind available before step 2 relies on `error_details` or a 100% reading.
-2. **Classifier** in `lib/failover.mjs`: `classifyFailure({ error, details, limits, billing, account, accounts, now })`
+2. **Classifier** in `lib/failover.mjs`: `classifyFailure({ error, details, limits, billing, planAccounts, account, accounts, now })`
    → `{ kind, scope: 'model' | 'account', until }`. Table test with the transcript shapes above, including the z.ai
    balance 429 and a mixed-billing session.
 3. **Config**: `fallbacks`, `account`, `requiresOwnHistory`, `accounts`, defaults, and `validate` errors. Kimi preset

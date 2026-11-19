@@ -318,8 +318,26 @@ const GLM = {
   efforts: ['high', 'max'],
 };
 
-test('in a session that also pays credits, a full plan window is only an availability hold', async (t) => {
+const HAIKU_PLAN = {
+  id: 'team-haiku-5-5',
+  input: 1,
+  output: 5,
+  cacheRead: 0.1,
+  contextWindow: 200_000,
+  billing: 'plan',
+  efforts: [],
+};
+
+test('in a session that also pays credits, a full plan window holds the plan account', async (t) => {
   const h = await started(t, { models: { glm: GLM } });
+  h.usage(planReadings(['five_hour', 100, 3 * HOUR]));
+  await turn(h, 't1', { error: 'rate_limit' });
+  assert.equal(h.preferences.get(HOLDS_PLAN).kind, 'window');
+  assert.equal(h.loop().held?.[OPUS], undefined);
+});
+
+test('with plan models in two accounts, a full plan window is only an availability hold', async (t) => {
+  const h = await started(t, { models: { glm: GLM, haikuTeam: { ...HAIKU_PLAN, account: 'team' } } });
   h.usage(planReadings(['five_hour', 100, 3 * HOUR]));
   await turn(h, 't1', { error: 'rate_limit' });
   assert.equal(h.preferences.has(HOLDS_PLAN), false);

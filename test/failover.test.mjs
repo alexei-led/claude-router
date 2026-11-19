@@ -32,6 +32,7 @@ const classify = (error, extra = {}) =>
     details: undefined,
     limits: [],
     billing: 'plan',
+    planAccounts: ['plan'],
     account: 'plan',
     accounts: {},
     now,
@@ -143,8 +144,28 @@ for (const [name, input, expected] of [
     { kind: 'balance', scope: 'account', until: null },
   ],
   [
-    'a full window in a session that also bills credits',
+    'a full window in a session that also bills credits, with one plan account',
     { error: 'rate_limit', billing: 'mixed', limits: [reading('five_hour', 100, now + HOUR)] },
+    { kind: 'window', scope: 'account', until: now + HOUR + MINUTE, window: 'five_hour' },
+  ],
+  [
+    'a full window in a session that bills credits, with plan models in two accounts',
+    {
+      error: 'rate_limit',
+      billing: 'mixed',
+      planAccounts: ['plan', 'team'],
+      limits: [reading('five_hour', 100, now + HOUR)],
+    },
+    availability,
+  ],
+  [
+    'a full window while the plan models are all in an account other than the plan',
+    {
+      error: 'rate_limit',
+      billing: 'mixed',
+      planAccounts: ['team'],
+      limits: [reading('five_hour', 100, now + HOUR)],
+    },
     availability,
   ],
   [
