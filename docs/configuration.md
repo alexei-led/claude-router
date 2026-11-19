@@ -456,7 +456,7 @@ When a model is held out of routing ([When a model fails](user-guide.md#when-a-m
       "efforts": ["low", "high", "max"],
       "account": "zai"
     },
-    "kimi": {
+    "k3": {
       "id": "kimi-k3.1-pro[1m]",
       "input": 2,
       "output": 10,

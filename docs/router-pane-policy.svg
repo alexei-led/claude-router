@@ -41,7 +41,7 @@
 <text x="141.0" y="167" fill="#7c7c7c" xml:space="preserve">each tier runs its route as configured</text>
 <path d="M893.7 153V172" fill="none" stroke="#7c7c7c"/>
 <path d="M27.9 172V191" fill="none" stroke="#7c7c7c"/>
-<text x="39.6" y="186" fill="#d0d0d0" font-weight="700" xml:space="preserve">Start</text>
+<text x="39.6" y="186" fill="#d0d0d0" font-weight="700" xml:space="preserve">Start tier</text>
 <text x="141.0" y="186" fill="#d0d0d0" xml:space="preserve">at </text>
 <text x="164.4" y="186" fill="#d0d0d0" xml:space="preserve">low ▾</text>
 <path d="M893.7 172V191" fill="none" stroke="#7c7c7c"/>
