@@ -108,6 +108,7 @@ import {
   HOLDS_PREFIX,
   holdModel,
   holdText,
+  isActive,
   readHold,
   releaseHold,
 } from '../lib/failover.mjs';
@@ -3292,19 +3293,22 @@ async function readHolds($, router) {
 }
 
 // Writes the hold of an account (in $.store) or a model (in the loop), or ends it with null. A loop write that lost to a
-// step's own write reads the loop again.
-async function writeHold($, scope, key, hold) {
+// step's own write reads the loop again. With `keepRunning`, a hold running now is not replaced: returns false then.
+async function writeHold($, scope, key, hold, keepRunning = false) {
+  const runs = (current) => keepRunning && current && isActive(current, Date.now());
   if (scope === 'account') {
     const store = `${HOLDS_PREFIX}${key}`;
+    if (runs(readHold(await $.store.get(store)))) return false;
     await (hold ? $.store.set(store, hold) : $.store.delete(store));
-    return;
+    return true;
   }
   const ref = { ...LOOP, id: 'main' };
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const { value: loop, version } = await $.state.get(ref);
-    if (!loop) return;
+    if (!loop) return true;
+    if (runs(loop.held?.[key])) return false;
     const held = hold ? { ...loop.held, [key]: hold } : releaseHold(loop.held, key);
-    if ((await $.state.set(ref, { ...loop, held }, { ifVersion: version })).isSet) return;
+    if ((await $.state.set(ref, { ...loop, held }, { ifVersion: version })).isSet) return true;
   }
   throw new Error('the hold changed while it was written');
 }
@@ -3337,17 +3341,23 @@ async function releaseKey($, router, scope, key) {
   return undefined;
 }
 
-// Undo of a release puts the hold back as it was.
+// Undo of a release puts the hold back as it was, unless another hold on the same name was set since.
 async function undoRelease($, router, last) {
   const { scope, key, hold } = last.restore;
-  const done = await writeHold($, scope, key, hold).then(
-    () => true,
-    () => false,
+  const outcome = await writeHold($, scope, key, hold, true).then(
+    (written) => (written ? 'done' : 'held'),
+    () => 'failed',
   );
+  const name = last.label.replace(/^released /, '');
+  const notices = {
+    done: `Undid: ${last.label}.`,
+    held: `Not undone: ${name} is held again.`,
+    failed: `Not saved: ${last.label} could not be undone.`,
+  };
   return updateView($, router, {
     holds: await readHolds($, router),
-    lastWrite: done ? null : last,
-    notice: done ? `Undid: ${last.label}.` : `Not saved: ${last.label} could not be undone.`,
+    lastWrite: outcome === 'failed' ? last : null,
+    notice: notices[outcome],
   });
 }
 

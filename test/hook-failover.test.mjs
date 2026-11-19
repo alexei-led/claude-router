@@ -539,6 +539,34 @@ test('the pane lists a hold from its failure, Release ends it with Undo, and Und
   assert.ok(texts(await h.render()).includes('HELD OUT'));
 });
 
+test('Undo of a release keeps an account hold set since, and says so', async (t) => {
+  const h = await started(t);
+  h.usage(planReadings(['five_hour', 100, 3 * HOUR]));
+  await turn(h, 't1', { error: 'rate_limit' });
+  await press(h, 'release-account-plan');
+  const newer = { kind: 'balance', error: 'billing_error', since: 1_000_000, until: null, streak: 1 };
+  h.preferences.set(HOLDS_PLAN, newer);
+  await press(h, 'undo');
+  assert.deepEqual(h.preferences.get(HOLDS_PLAN), newer);
+  assert.equal(h.view().notice, 'Not undone: Claude plan is held again.');
+  assert.equal(h.view().lastWrite ?? null, null);
+});
+
+test('Undo of a release keeps a model hold set since, and says so', async (t) => {
+  const h = await started(t);
+  await turn(h, 't1', { error: 'overloaded' });
+  await h.event('command.run', { command: 'router', args: '' });
+  await press(h, `release-model-${OPUS}`);
+  assert.equal(h.loop().held[OPUS], undefined);
+  await turn(h, 't2', { error: 'overloaded' });
+  const newer = h.loop().held[OPUS];
+  assert.ok(newer);
+  await press(h, 'undo');
+  assert.deepEqual(h.loop().held[OPUS], newer);
+  assert.equal(h.view().notice, 'Not undone: Opus 5.5 is held again.');
+  assert.equal(h.view().lastWrite ?? null, null);
+});
+
 test('Release in the pane on a hold another session ended says so and draws no Undo', async (t) => {
   const h = await started(t);
   h.usage(planReadings(['five_hour', 100, 3 * HOUR]));
