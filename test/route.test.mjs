@@ -1058,6 +1058,23 @@ test('a continuation whose model became held takes the source’s chain first', 
   assert.deepEqual([decision.model, decision.reason, decision.fallback?.step], [GLM.id, 'model-held', 1]);
 });
 
+test('a continuation whose model became held skips a smaller window while the context is unmeasured', () => {
+  const config = loadConfig({
+    userFile: {
+      models: { glm: { ...GLM, contextWindow: 200_000 } },
+      routes: { medium: { model: 'opus', effort: 'medium' }, low: { model: 'sonnet', effort: 'high' } },
+      fallbacks: { opus: ['glm@high'] },
+    },
+  });
+  const loop = { ...runningOpus(config, heldUntil(OPUS)), historyMeasured: true };
+  const native = { nativeModel: 'claude-haiku-5-5' };
+  const unknown = continueRoute(config, loop, continueInput({ ...native, contextKnown: false })).decision;
+  assert.equal(unknown.model, 'claude-sonnet-5-5');
+  const unmeasured = continueRoute(config, { ...loop, historyMeasured: false }, continueInput(native)).decision;
+  assert.equal(unmeasured.model, 'claude-sonnet-5-5');
+  assert.equal(continueRoute(config, loop, continueInput(native)).decision.model, GLM.id);
+});
+
 test('a continuation whose model became held takes the nearest tier that runs, not a held session model', () => {
   const config = loadConfig({ userFile: { routes: { low: { model: 'sonnet', effort: 'high' } } } });
   const held = { ...heldUntil(OPUS), ...heldUntil('claude-haiku-5-5') };
