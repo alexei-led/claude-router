@@ -770,14 +770,21 @@ test('failed session-end tracing does not prevent session lifecycle and resume s
   assert.ok(record(resumed).incomplete.includes('resume'));
 });
 
-test('recorder isolation does not swallow routing failures', async () => {
+test('a step that passes through on a routing failure leaves the trace incomplete', async () => {
   const h = setup();
   await begin(h);
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task.' });
+  const read = h.$.settings.read;
   h.$.settings.read = async () => {
     throw new Error('routing settings failure');
   };
-  await assert.rejects(drain(h.step(step)), /routing settings failure/);
+  await drain(h.step(step));
+  assert.deepEqual(h.requests, [step]);
+  await h.event('turn.complete', { turnId: 't1' });
+  h.$.settings.read = read;
+  await turn(h, 't2');
+  assert.equal(usableTrace(record(h)), false);
+  assert.ok(record(h).incomplete.includes('gap'));
 });
 
 test('pins/mode/off-on/config changes and compaction carry explicit replay boundaries', async () => {

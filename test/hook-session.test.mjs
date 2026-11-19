@@ -1,8 +1,21 @@
 // The native router hook's session life: start mode, pins, fallbacks, resume and clear, and what it does when routing is unavailable.
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { TRACE_PREFIX, usableTrace } from '../lib/replay-trace.mjs';
 import { readUsage, summarize } from '../lib/usage.mjs';
-import { band, CONFIG, drain, harness, start, step, substituted, TINY_ROUTER, texts } from './harness.mjs';
+import {
+  answering,
+  band,
+  CONFIG,
+  drain,
+  harness,
+  JEV_KEY,
+  start,
+  step,
+  substituted,
+  TINY_ROUTER,
+  texts,
+} from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
 // One whole turn on the session's `model`: its prompt, a routed step, then turn.complete over a transcript where the
@@ -600,4 +613,234 @@ test('a 1.1 router.json makes routing unavailable and points to the migration sc
   await start(h);
   assert.equal(h.view().phase, 'unavailable');
   assert.match(h.view().error, /migrate-config\.mjs/);
+});
+
+const HIGH = jevResponse('high', { high: 0.99, medium: 0.01 });
+const opus = { ...step, model: 'claude-opus-5-5' };
+const sentModels = (h) => h.requests.map((r) => `${r.model}@${r.effort}`);
+
+test('settings that cannot be read pass the step through as Claude Code built it', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, HIGH);
+  await start(h);
+  const read = h.$.settings.read;
+  h.$.settings.read = async (args) => {
+    if (args === undefined) throw new Error('settings unreadable');
+    return read(args);
+  };
+  await drain(h.step(opus));
+  assert.deepEqual(h.requests, [opus]);
+});
+
+test('a transcript that cannot be read passes the first step through, and the next step decides', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, HIGH);
+  await start(h);
+  h.messages(async () => {
+    throw new Error('transcript unreadable');
+  });
+  await drain(h.step(opus));
+  h.messages(async () => [user('One edit.')]);
+  await drain(h.step({ ...opus, index: 1 }));
+  assert.deepEqual(sentModels(h), ['claude-opus-5-5@medium', 'claude-opus-5-5@xhigh']);
+});
+
+test('a decision that throws passes its step through and is made again at the next step', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, HIGH);
+  await start(h);
+  const set = h.$.state.set;
+  h.$.state.set = async (ref, value, options) => {
+    if (ref.key === 'loops') throw new Error('state unwritable');
+    return set(ref, value, options);
+  };
+  await drain(h.step(opus));
+  h.$.state.set = set;
+  await drain(h.step({ ...opus, index: 1 }));
+  assert.deepEqual(sentModels(h), ['claude-opus-5-5@medium', 'claude-opus-5-5@xhigh']);
+});
+
+test('a shadow decision that throws passes its step through and leaves the trace incomplete', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 } }));
+  answering(h, HIGH);
+  await start(h);
+  const set = h.$.state.set;
+  h.$.state.set = async (ref, value, options) => {
+    if (ref.key === 'loops') throw new Error('state unwritable');
+    return set(ref, value, options);
+  };
+  await drain(h.step(opus));
+  h.$.state.set = set;
+  await h.event('turn.complete', { turnId: 't1' });
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...opus, turnId: 't2' }));
+  await h.event('turn.complete', { turnId: 't2' });
+  const trace = h.preferences.get(`${TRACE_PREFIX}s1`);
+  assert.deepEqual(h.requests[0], opus);
+  assert.equal(usableTrace(trace), false);
+  assert.ok(trace.incomplete.includes('gap'));
+});
+
+test('a shadow step outside a started turn that decides nothing leaves the trace incomplete', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 } }));
+  answering(h, HIGH);
+  await start(h);
+  h.messages(async () => {
+    throw new Error('transcript unreadable');
+  });
+  await drain(h.step(opus));
+  h.messages(async () => [user('Next.')]);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...opus, turnId: 't2' }));
+  await h.event('turn.complete', { turnId: 't2' });
+  const trace = h.preferences.get(`${TRACE_PREFIX}s1`);
+  assert.deepEqual(h.requests[0], opus);
+  assert.ok(trace.incomplete.includes('gap'));
+});
+
+test('a turn whose completion fails leaves none of its decision rows pending', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'auto', activityRouting: 'off' }));
+  answering(h, HIGH);
+  await start(h);
+  h.messages(async () => [user('One edit.')]);
+  await drain(h.step(step));
+  const id = h.$.session.id;
+  h.$.session.id = async () => {
+    throw new Error('session unreadable');
+  };
+  await h.event('turn.complete', { turnId: 't1' });
+  h.$.session.id = id;
+  const listed = await h.event('command.run', { command: 'router', args: 'decisions' });
+  assert.equal(listed.text, 'No routing decisions recorded in this session yet.');
+});
+
+test('routing turned off and on while the classifier answers routes the turn’s next step', async () => {
+  const h = harness(JEV_KEY);
+  let release;
+  h.http(
+    () =>
+      new Promise((resolve) => {
+        release = () => resolve({ ok: true, status: 200, text: JSON.stringify(HIGH), headers: {} });
+      }),
+  );
+  await start(h);
+  const running = drain(h.step(opus));
+  await new Promise((resolve) => setImmediate(resolve));
+  await h.event('command.run', { command: 'router', args: 'off' });
+  await h.event('command.run', { command: 'router', args: 'auto' });
+  release();
+  await running;
+  const asked = answering(h, HIGH);
+  await drain(h.step({ ...opus, index: 1 }));
+  assert.equal(asked.length, 1);
+  assert.deepEqual([h.loop().turnId, h.view().phase, h.view().mode], ['t1', 'routed', 'auto']);
+});
+
+test('a saved mode that cannot be read starts the session by the start rule and is not written over', async () => {
+  class ModeUnreadable extends Map {
+    get(key) {
+      if (key === 'mode:s1') throw new Error('store unreadable');
+      return super.get(key);
+    }
+  }
+  const h = harness(JEV_KEY, new ModeUnreadable([['mode:s1', 'manual']]));
+  answering(h, HIGH);
+  await start(h);
+  assert.equal(h.view().mode, 'auto');
+  await drain(h.step(opus));
+  assert.deepEqual(sentModels(h), ['claude-opus-5-5@xhigh']);
+  assert.equal(Map.prototype.get.call(h.preferences, 'mode:s1'), 'manual');
+});
+
+test('a router.json that does not load is read once per session start, and a fixed file loads at the next', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, '{');
+  const reads = [];
+  const read = h.$.fs.read;
+  h.$.fs.read = async (path) => {
+    reads.push(path);
+    return read(path);
+  };
+  let registered = 0;
+  h.$.command.register = async () => {
+    registered += 1;
+    return {};
+  };
+  await start(h);
+  await drain(h.step(step));
+  await h.event('turn.complete', { turnId: step.turnId });
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.deepEqual([reads.filter((path) => path === CONFIG).length, registered], [1, 1]);
+  assert.equal(h.view().phase, 'unavailable');
+  h.files.set(CONFIG, JSON.stringify({}));
+  await h.event('session.start', { cwd: '/fixture' });
+  assert.equal(h.view().phase, 'ready');
+});
+
+test('a router.json read that fails at session start is tried again at the next event', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({}));
+  answering(h, HIGH);
+  const read = h.$.fs.read;
+  let failing = true;
+  h.$.fs.read = async (path) => {
+    if (failing && path === CONFIG) throw new Error('EIO: i/o error');
+    return read(path);
+  };
+  await start(h);
+  assert.equal(h.view().phase, 'unavailable');
+  failing = false;
+  await h.event('turn.complete', { turnId: step.turnId });
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.equal(h.view().phase, 'routed');
+});
+
+test('a /router command that fails to register leaves routing ready', async () => {
+  const h = harness(JEV_KEY);
+  h.$.command.register = async () => {
+    throw new Error('register failed');
+  };
+  await start(h);
+  assert.equal(h.view().phase, 'ready');
+});
+
+test('session.start, turn.start and turn.complete pass their event on when the router’s bookkeeping throws', async () => {
+  const h = harness(JEV_KEY);
+  h.http(() => new Promise(() => {}));
+  await start(h);
+  const running = drain(h.step(opus));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(h.view().phase, 'choosing');
+  h.$.session.id = async () => {
+    throw new Error('session unreadable');
+  };
+  for (const [name, input] of [
+    ['turn.complete', { turnId: 't1' }],
+    ['turn.start', { turnId: 't2', text: 'Next.' }],
+    ['session.start', { cwd: '/fixture' }],
+  ])
+    assert.deepEqual(await h.event(name, input), input, name);
+  await running.catch(() => {});
+});
+
+test('a compaction does not write its history reset over a loop write made since it read the loop', async () => {
+  const h = harness();
+  await start(h);
+  await drain(h.step(step));
+  const get = h.$.state.get;
+  h.$.state.get = async (ref) => {
+    const read = await get(ref);
+    const stored = h.state.get('loops:main');
+    if (ref.key === 'loops' && stored)
+      h.state.set('loops:main', { value: { ...stored.value, requests: 99 }, version: stored.version + 1 });
+    return read;
+  };
+  await h.event('session.compact', { trigger: 'auto' });
+  h.$.state.get = get;
+  assert.equal(h.loop().requests, 99);
 });
