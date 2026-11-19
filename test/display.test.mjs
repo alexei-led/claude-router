@@ -66,6 +66,28 @@ test('a small-window model is measured against its own window, not the native se
   assert.equal(metrics.cacheBenefit, 0.108);
 });
 
+test('a model no route runs, such as a fallback stand-in, is measured against its own window', () => {
+  const glm = {
+    id: 'glm-5.3',
+    input: 1,
+    output: 4,
+    cacheRead: 0.2,
+    longContext: null,
+    contextWindow: 200_000,
+    efforts: ['high'],
+    billing: 'credits',
+  };
+  const config = loadConfig({ userFile: { models: { glm }, fallbacks: { opus: ['glm'] } } });
+  const metrics = usageMetrics(
+    config,
+    { actualModel: 'glm-5.3', contextTokens: 100_000, inputTokens: 100_000, cacheRead: 50_000 },
+    { context: { window: 1_000_000, tokens: 100_000 } },
+  );
+  assert.equal(metrics.window, 200_000);
+  assert.equal(metrics.contextBar.percent, 50);
+  assert.equal(metrics.cacheBenefit, 0.04);
+});
+
 test('an unpriced model produces no fake savings', () => {
   const metrics = usageMetrics(DEFAULTS, { nativeModel: 'unknown-model' }, { context: { window: 1_000_000 } });
   assert.equal(metrics.window, null);
