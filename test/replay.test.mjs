@@ -16,7 +16,7 @@ const FIXTURE = fileURLToPath(new URL('./fixtures/replay-traces.json', import.me
 
 const exportOf = (record) => ({ version: 1, sessions: { [`${TRACE_PREFIX}private-session`]: record } });
 
-async function capture({ controls = false, continuations = false } = {}) {
+async function capture({ controls = false, continuations = false, keyword = false } = {}) {
   const h = shadowHarness();
   await h.event('session.start', { cwd: '/fixture' });
   for (let i = 0; i < 4; i++) {
@@ -30,7 +30,8 @@ async function capture({ controls = false, continuations = false } = {}) {
       await h.event('command.run', { command: 'router', args: 'auto' });
       await h.event('session.compact', { trigger: 'auto' });
     }
-    await h.event('turn.start', { turnId, text: 'Synthetic task' });
+    const text = keyword && i === 1 ? 'maxthink synthetic task' : 'Synthetic task';
+    await h.event('turn.start', { turnId, text });
     const messages = i ? [user('one'), assistant('two'), user('three')] : [user('one')];
     h.messages(async () => messages);
     await drain(h.step({ ...step, turnId, messageCount: messages.length }));
@@ -303,6 +304,13 @@ test('fidelity evolves real captured multi-turn, pin, mode, manual, reset and co
   assert.equal(result.coverage.allSessions.usableSessionRatio, null);
   assert.equal(result.coverage.allSessions.gate80Percent, 'unavailable');
   assert.equal(JSON.stringify(result).includes('private-session'), false);
+});
+
+test('a shadow keyword turn replays as it ran', async () => {
+  const record = await capture({ keyword: true, continuations: true });
+  const result = evaluateReplay([exportOf(record)]);
+  assert.deepEqual(result.fidelity.mismatches, []);
+  assert.equal(result.status, 'ok');
 });
 
 test('unexplained mismatch retains fidelity denominator and blocks ALL auto totals', async () => {

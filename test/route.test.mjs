@@ -1108,3 +1108,65 @@ test('a continuation with nothing else to run keeps the held model rather than a
   );
   assert.equal(decision.model, OPUS);
 });
+
+test('a keyword turn keeps the policy state as a pin does, so the next turn routes as if it had not run', () => {
+  const loop = emptyLoop(DEFAULTS, model);
+  const keyed = chooseRoute(DEFAULTS, loop, input(loop, { keyword: 'maxthink' }));
+  assert.equal(keyed.decision.tier, 'high');
+  assert.deepEqual(keyed.state, { ...loop.state, turn: loop.state.turn + 1 });
+});
+
+const smallEfforts = { ...tiny, efforts: ['low', 'medium', 'high'] };
+const SMALL_EFFORTS = loadConfig({
+  userFile: { models: { small: smallEfforts }, routes: { micro: { model: 'small', effort: 'low' } } },
+});
+
+test('an effort keyword leaves a route on the session’s effort at that effort', () => {
+  const config = loadConfig({ userFile: { routes: { micro: { model: 'haiku', effort: null } } } });
+  const loop = emptyLoop(config, model);
+  const keyed = chooseRoute(config, loop, input(loop, { keyword: 'morethink' }, config));
+  assert.deepEqual([keyed.decision.tier, keyed.decision.effort], ['micro', 'medium']);
+});
+
+test('a keyword turn that outgrows its window mid-turn keeps the keyword’s effort move', () => {
+  const loop = { ...emptyLoop(SMALL_EFFORTS, model), lastRoute: 'micro', historyMeasured: true };
+  const keyed = chooseRoute(SMALL_EFFORTS, loop, input(loop, { keyword: 'morethink' }, SMALL_EFFORTS));
+  assert.deepEqual([keyed.decision.model, keyed.decision.effort], ['claude-haiku-4-5', 'medium']);
+  const fitted = continueRoute(SMALL_EFFORTS, keyed, {
+    nativeModel: model,
+    contextTokens: 300_000,
+    contextKnown: true,
+    effort: 'medium',
+    now,
+  });
+  assert.deepEqual(
+    [fitted.decision.model, fitted.decision.effort, fitted.decision.reason],
+    [model, 'xhigh', 'context-fit'],
+  );
+});
+
+test('with the context unmeasured, a keyword never sends a smaller window than the route running', () => {
+  const running = { model: 'haiku', effort: 'high' };
+  const loop = {
+    ...emptyLoop(SMALL_EFFORTS, model),
+    lastRoute: 'micro',
+    route: running,
+    historyMeasured: false,
+    decision: {
+      tier: 'micro',
+      model,
+      effort: 'high',
+      route: running,
+      activity: null,
+      floorActivity: null,
+      pinned: false,
+      reason: 'same-tier',
+    },
+  };
+  const keyed = chooseRoute(
+    SMALL_EFFORTS,
+    loop,
+    input(loop, { keyword: 'nothink', contextKnown: false }, SMALL_EFFORTS),
+  );
+  assert.deepEqual([keyed.decision.model, keyed.decision.reason], [model, 'context-unknown']);
+});

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { EFFORTS } from '../lib/config.mjs';
 import { answering, CONFIG, drain, harness, JEV_KEY, step } from './harness.mjs';
 import { jevResponse, user } from './helpers.mjs';
 
@@ -149,3 +150,27 @@ test('with Auto, a keyword serves its turn’s tool steps and leaves demand as i
   assert.equal(h.loop().auto.state.demand, demand);
   assert.equal(h.loop().decision.keyword, undefined);
 });
+
+test('with Auto, morethink moves the effort once for the whole turn, not again at each tool step', async () => {
+  const h = setup(AUTO, jevResponse('low', { low: 1 }));
+  await h.event('session.start', { cwd: '/fixture' });
+  await run(h, 't1', 'morethink fix the flaky test', { steps: 2 });
+  const [first, ...rest] = sent(h);
+  assert.deepEqual(rest, [first, first]);
+});
+
+const EXECUTE = jevResponse('medium', { medium: 1 }, 0, { code: 1 }, 'execute');
+const stepped = (route, by) => {
+  const [model, effort] = route.split('@');
+  return `${model}@${EFFORTS[EFFORTS.indexOf(effort) + by]}`;
+};
+
+for (const [keyword, by] of [
+  ['morethink', 1],
+  ['lessthink', -1],
+])
+  test(`with Auto in a bounded execute phase, ${keyword} moves the router’s own route one effort level`, async () => {
+    const plain = await routeOf('Run the tests', { config: AUTO, answer: EXECUTE });
+    const moved = await routeOf(`${keyword} run the tests`, { config: AUTO, answer: EXECUTE });
+    assert.deepEqual(sent(moved), [stepped(sent(plain)[0] ?? '', by)]);
+  });
