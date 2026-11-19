@@ -392,7 +392,7 @@ test('the subagent block follows the period, with a strip by model, the verdict 
   const week = agentLines('7d');
   assert.equal(week[0], 'SUBAGENTS · all projects · Oct 7 – Oct 13   subagent routing on');
   assert.equal(week[2], '  6 agents · ■ 4 moved by the router · □ 2 on Claude Code’s pick');
-  assert.equal(week[4], '  per day ▁▁▃▁▃▁█  peak 4 on Oct 13');
+  assert.equal(week[4], '  per day ··▃·▃·█  peak 4 on Oct 13');
 });
 
 test('an open subagent row splits its agents and cost by model and lists its requests', () => {

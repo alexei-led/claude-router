@@ -256,7 +256,7 @@ Box flexDirection="column"
     Text
       "  per day "
     Text weight="semibold"
-      "▁▁▁▁▁▁▁▁▂▁▂▁█"
+      "········▂·▂·█"
     Text dimColor=true
       "  peak 5 on Oct 13"
   Text

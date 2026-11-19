@@ -514,4 +514,10 @@ test('the trend Svg stays under the size limit with 400 points, and states its f
     );
   // The terminal draws the same points as one row of blocks, a dot for an empty bucket.
   assert.equal(kit(ELEMENTS).trend({ points: [0, 1, 2], labels, alt: 'x', tone: 'accent' }).props.children, '·▅█');
+  // A reading that is not a finite number is an empty bucket, as the Svg draws it.
+  assert.equal(
+    kit(ELEMENTS).trend({ points: [Number.NaN, 2, Number.POSITIVE_INFINITY], labels, alt: 'x', tone: 'accent' }).props
+      .children,
+    '·█·',
+  );
 });
