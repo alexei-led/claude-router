@@ -267,6 +267,15 @@ for (const surface of SURFACES) {
     assert.ok(texts(trend).includes('Oct 13'));
   });
 
+  test(`${surface}: a period with one bucket says so in a Trend card instead of drawing nothing`, () => {
+    const trend = card(draw({ usageStore: EARLY, usagePeriod: 'all' }, { surface }), 'Trend');
+    assert.deepEqual(
+      texts(trend).filter((t) => /so far/.test(t)),
+      ['One day so far'],
+    );
+    assert.deepEqual(svgs(trend), []);
+  });
+
   test(`${surface}: Breakdown is a table of name, replies, cost, saving and a bar with its figure beside it`, () => {
     const tree = draw({}, { surface });
     const breakdown = card(tree, 'Breakdown');
