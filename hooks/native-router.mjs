@@ -309,6 +309,8 @@ function createRouter(options) {
     options,
     initialized: false,
     initializing: null,
+    // router.json failed to load at this session's start: it is not read again before the next start.
+    loadFailed: false,
     config: loadConfig(),
     // Each turn's config, fixed at turn.start, so a pane save mid-turn does not change the turn.
     turnConfigs: new Map(),
@@ -3146,16 +3148,22 @@ async function* stepMain($, router, e, next) {
 
 async function initializeSession($, router) {
   router.definitions.clear();
-  await $.command.register({
-    name: 'router',
-    description:
-      'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>, line <mode>; decisions [n] lists the last routing decisions; holds lists what is held out of routing, release <model|account> ends a hold.',
-    argumentHint: argumentHint(),
-    immediate: true,
-  });
-  const model = await $.session.model();
   try {
-    const config = await loadNativeConfig($);
+    // A command that fails to register leaves routing as it is: the band still opens the pane.
+    try {
+      await $.command.register({
+        name: 'router',
+        description:
+          'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>, line <mode>; decisions [n] lists the last routing decisions; holds lists what is held out of routing, release <model|account> ends a hold.',
+        argumentHint: argumentHint(),
+        immediate: true,
+      });
+    } catch {}
+    const model = await $.session.model();
+    const config = await loadNativeConfig($).catch((error) => {
+      router.loadFailed = true;
+      throw error;
+    });
     const project = await readProject($, config.nativePath);
     const existing = await readView($, router);
     // A successful reload adopts this config even for the current turn; stale jobs must not route with the old engine.
@@ -3204,7 +3212,7 @@ async function initializeSession($, router) {
     await updateView($, router, {
       phase: 'unavailable',
       error: configurationError(error),
-    });
+    }).catch(() => {});
     return false;
   }
 }
@@ -3432,6 +3440,7 @@ async function applyHold($, router, failure, error, key, now) {
 
 async function ensureInitialized($, router) {
   if (router.initialized) return true;
+  if (router.loadFailed) return false;
   router.initializing ??= initializeSession($, router).finally(() => {
     router.initializing = null;
   });
@@ -3452,6 +3461,7 @@ export function register(on, options) {
     router.lastRequested = null;
     router.mainTurnId = null;
     router.initialized = false;
+    router.loadFailed = false;
     router.noticeSurfaces.clear();
     await ensureInitialized($, router);
     await noticeUnavailable($, router, e);

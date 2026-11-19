@@ -696,3 +696,38 @@ test('a saved mode that cannot be read starts the session by the start rule and 
   assert.deepEqual(sentModels(h), ['claude-opus-5-5@xhigh']);
   assert.equal(Map.prototype.get.call(h.preferences, 'mode:s1'), 'manual');
 });
+
+test('a router.json that does not load is read once per session start, and a fixed file loads at the next', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, '{');
+  const reads = [];
+  const read = h.$.fs.read;
+  h.$.fs.read = async (path) => {
+    reads.push(path);
+    return read(path);
+  };
+  let registered = 0;
+  h.$.command.register = async () => {
+    registered += 1;
+    return {};
+  };
+  await start(h);
+  await drain(h.step(step));
+  await h.event('turn.complete', { turnId: step.turnId });
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.deepEqual([reads.filter((path) => path === CONFIG).length, registered], [1, 1]);
+  assert.equal(h.view().phase, 'unavailable');
+  h.files.set(CONFIG, JSON.stringify({}));
+  await h.event('session.start', { cwd: '/fixture' });
+  assert.equal(h.view().phase, 'ready');
+});
+
+test('a /router command that fails to register leaves routing ready', async () => {
+  const h = harness(JEV_KEY);
+  h.$.command.register = async () => {
+    throw new Error('register failed');
+  };
+  await start(h);
+  assert.equal(h.view().phase, 'ready');
+});
