@@ -3053,6 +3053,11 @@ function decisionOf($, router, e, signal, step) {
   return job;
 }
 
+// A main step sent as Claude Code built it leaves no trace request, though the trace may already hold the turn.
+function traceGap(router, engine) {
+  if (engine === 'shadow') router.trace?.reasons.add('gap');
+}
+
 async function* stepMain($, router, e, next) {
   if (!(await ensureInitialized($, router))) return yield* next(e);
   if (e.agentId) return yield* stepAgent($, router, e, next);
@@ -3100,7 +3105,10 @@ async function* stepMain($, router, e, next) {
   }
   // Settings that cannot be read may hold an availableModels list, so the step goes out as Claude Code built it.
   const [context, settings] = await Promise.all([contextOf($, loop), $.settings.read().catch(() => null)]);
-  if (!settings) return yield* next(e);
+  if (!settings) {
+    traceGap(router, cfg.routingEngine);
+    return yield* next(e);
+  }
   const availableModels = settings.availableModels;
   if (loop.turnId !== e.turnId) {
     const selected = await decisionOf($, router, e, next.signal, {
@@ -3119,6 +3127,7 @@ async function* stepMain($, router, e, next) {
         const reserved = await $.state.set(ref, loop, { ifVersion: loopVersion });
         if (reserved.isSet) return yield* passMain($, e, next, loop, reserved.version, nativeModel, 'manual', router);
       }
+      traceGap(router, cfg.routingEngine);
       return yield* next(e);
     }
     loop = selected.loop;
@@ -3594,6 +3603,7 @@ export function register(on, options) {
       return yield* stepMain($, router, e, send);
     } catch (error) {
       if (sent) throw error;
+      if (!e.agentId) traceGap(router, router.config.routingEngine);
       return yield* next(e);
     }
   });

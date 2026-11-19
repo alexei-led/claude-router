@@ -1,6 +1,7 @@
 // The native router hook's session life: start mode, pins, fallbacks, resume and clear, and what it does when routing is unavailable.
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { TRACE_PREFIX, usableTrace } from '../lib/replay-trace.mjs';
 import { readUsage, summarize } from '../lib/usage.mjs';
 import {
   answering,
@@ -657,6 +658,46 @@ test('a decision that throws passes its step through and is made again at the ne
   h.$.state.set = set;
   await drain(h.step({ ...opus, index: 1 }));
   assert.deepEqual(sentModels(h), ['claude-opus-5-5@medium', 'claude-opus-5-5@xhigh']);
+});
+
+test('a shadow decision that throws passes its step through and leaves the trace incomplete', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 } }));
+  answering(h, HIGH);
+  await start(h);
+  const set = h.$.state.set;
+  h.$.state.set = async (ref, value, options) => {
+    if (ref.key === 'loops') throw new Error('state unwritable');
+    return set(ref, value, options);
+  };
+  await drain(h.step(opus));
+  h.$.state.set = set;
+  await h.event('turn.complete', { turnId: 't1' });
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...opus, turnId: 't2' }));
+  await h.event('turn.complete', { turnId: 't2' });
+  const trace = h.preferences.get(`${TRACE_PREFIX}s1`);
+  assert.deepEqual(h.requests[0], opus);
+  assert.equal(usableTrace(trace), false);
+  assert.ok(trace.incomplete.includes('gap'));
+});
+
+test('a shadow step outside a started turn that decides nothing leaves the trace incomplete', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', policy: { reviewEveryRequests: 0 } }));
+  answering(h, HIGH);
+  await start(h);
+  h.messages(async () => {
+    throw new Error('transcript unreadable');
+  });
+  await drain(h.step(opus));
+  h.messages(async () => [user('Next.')]);
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...opus, turnId: 't2' }));
+  await h.event('turn.complete', { turnId: 't2' });
+  const trace = h.preferences.get(`${TRACE_PREFIX}s1`);
+  assert.deepEqual(h.requests[0], opus);
+  assert.ok(trace.incomplete.includes('gap'));
 });
 
 test('routing turned off and on while the classifier answers routes the turn’s next step', async () => {
