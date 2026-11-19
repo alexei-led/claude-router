@@ -1226,6 +1226,11 @@ async function effortSplitsCacheOf($) {
   return flags.some(isSet) || Boolean(await $.env.get('ANTHROPIC_BASE_URL'));
 }
 
+// The Claude Code profile directory this session runs under.
+async function profileDir($) {
+  return (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${await $.env.get('HOME')}/.claude`;
+}
+
 async function loadNativeConfig($) {
   for (const source of ['project', 'local']) {
     const settings = await $.settings.read({ source });
@@ -1235,8 +1240,7 @@ async function loadNativeConfig($) {
     )
       throw new Error('project settings cannot redirect the router profile');
   }
-  const home = await $.env.get('HOME');
-  const profile = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${home}/.claude`;
+  const profile = await profileDir($);
   const provider = providerName(await $.env.get('CLAUDE_ROUTER_PROVIDER'));
   const path = `${profile}/${providerFile(provider)}`;
   if (provider !== 'anthropic' && !(await $.fs.exists(path)))
@@ -1486,17 +1490,7 @@ async function decideTurn($, router, e, signal, step) {
     validateGoal(router, e.turnId, messages);
     const origin = router.turnOrigins.get(e.turnId) ?? 'unknown';
     // A progress turn is the same task (sameTaskOf).
-    const facts = {
-      ...nativeFacts(cfg, loop, {
-        messages,
-        prompt: router.prompts.get(e.turnId),
-        effort: e.effort,
-        turnId: e.turnId,
-        contextTokens: context.tokens,
-        progress: isProgressOrigin(origin),
-      }),
-      progress: isProgressOrigin(origin),
-    };
+    const facts = stepFacts(cfg, router, loop, e, messages, context);
     const asked = progressInput(
       facts,
       { goal: router.prompts.get(e.turnId), note: router.progressNotes.get(e.turnId) },
@@ -1673,7 +1667,7 @@ async function decideTurn($, router, e, signal, step) {
   }
 }
 
-// Facts for a step of the running turn, read from the transcript as it is now.
+// Facts for a step of the running turn, read from the transcript as it is now; `progress` on a progress turn.
 function stepFacts(cfg, router, loop, e, messages, context) {
   return nativeFacts(cfg, loop, {
     messages,
@@ -2377,8 +2371,7 @@ async function agentDefinition($, router, e) {
 // profile's agents. Every match must agree on the model, or the definition is unknown. Limit: a plugin that keeps its
 // agents outside `agents/` reads as unknown, so its agents pass through. Throws when a file cannot be read.
 async function findDefinition($, plugin, type) {
-  const home = await $.env.get('HOME');
-  const profile = (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${home}/.claude`;
+  const profile = await profileDir($);
   const name = type.slice(type.indexOf(':') + 1);
   const fromPlugin = plugin.includes('@');
   const dirs = fromPlugin
@@ -2960,6 +2953,7 @@ async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, session
   const request = { ...e, model: loop.decision.model };
   if (loop.decision.effort === null) delete request.effort;
   else request.effort = loop.decision.effort;
+  // Read again, not `turn`: a pinned turn's decision (decideTurn) fixed its pin's configs during this step.
   if (cfg.routingEngine === 'shadow' && !next.signal.aborted && (await $.session.id()) === sessionId)
     traceRequest(router, e, router.turnConfigs.get(e.turnId) ?? turn, request, 'auto', loop);
   // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
