@@ -1,0 +1,29 @@
+Box flexDirection="column" key="router-band"
+  Box
+    Text color="#e0708a"
+      "▂"
+    Text color="#e0708a"
+      "▄"
+    Text color="#e0708a"
+      "▆"
+    Text color="#e0708a"
+      "█"
+    Text
+      " "
+    Text weight="semibold"
+      "GLM 5.3"
+    Text
+      " · max"
+    Text color="warning"
+      " fallback"
+    Text
+      "   "
+    Text dimColor=true
+      "↷ Claude plan 5h limit · back 19:00"
+    Text
+      "  "
+    Button key="details" label="Router"
+    Box display="none" hover={"display":"flex"} left=30 position="absolute" top=0
+      Button key="band-manual" label="Turn off"
+      Text
+        "                       "

@@ -397,3 +397,47 @@ for (const [name, ends] of [
     assert.ok(drawn(main).endsWith(ends), drawn(main));
     assert.ok(drawn(main).length <= 100);
   });
+
+const HOLD_NOW = Date.parse('2026-11-19T10:00:00Z');
+const heldBand = {
+  mode: 'auto',
+  phase: 'routed',
+  tier: 'high',
+  selectedModel: 'glm-5.3[1m]',
+  effort: 'max',
+  reason: 'model-held',
+  fallback: { from: 'opus', step: 1, of: 2 },
+  holds: {
+    accounts: {
+      plan: {
+        kind: 'window',
+        window: 'five_hour',
+        error: 'rate_limit',
+        since: HOLD_NOW,
+        until: HOLD_NOW + 3_600_000,
+        streak: 1,
+      },
+    },
+    models: {},
+  },
+};
+const reasonOf = (view, now = HOLD_NOW) =>
+  bandSegments(DEFAULTS, view, null, quiet, now).find((s) => s.priority === 1 && s.parts[0]?.text)?.parts[0]?.text;
+
+test('a model held out names who holds it and until when in the band, the plain reason when nothing says', () => {
+  const back = new Date(HOLD_NOW + 3_600_000).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  assert.equal(reasonOf(heldBand), `↷ Claude plan 5h limit · back ${back}`);
+  assert.equal(reasonOf({ ...heldBand, holds: null }), '! held out');
+  assert.equal(reasonOf({ ...heldBand, reason: 'same-tier' }), '= fits');
+  assert.equal(reasonOf(heldBand, HOLD_NOW + 3_600_000), '! held out');
+});
+
+test('the toast of a switch to a fallback names the holder and its end before the route that runs', () => {
+  const opus = { model: 'claude-opus-5-5', effort: 'medium' };
+  const glm = { model: 'glm-5.3[1m]', effort: 'max', reason: 'model-held' };
+  assert.equal(
+    switchToast(DEFAULTS, opus, glm, null, 'Claude plan 5h limit · back 19:00'),
+    'Claude plan 5h limit · back 19:00 → GLM 5.3 · max',
+  );
+  assert.equal(switchToast(DEFAULTS, opus, glm, null), 'Model changed: Opus 5.5 · medium → GLM 5.3 · max · ! held out');
+});

@@ -3,6 +3,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+// A hold's end prints in the local zone.
+process.env.TZ = 'UTC';
+
 const { ACTIVITIES, DEFAULTS, TIERS } = await import('../lib/config.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
 const { routeDraftOf } = await import('../lib/ui/model/draft.mjs');
@@ -23,9 +26,9 @@ const actions = new Proxy(
   },
 );
 const VIEW = { ...ROUTED, tab: 'routes', credentials: { jev: null } };
-const draw = (props = {}, { surface = 'desktop', config = DEFAULTS, columns = 100 } = {}) =>
+const draw = (props = {}, { surface = 'desktop', config = DEFAULTS, columns = 100, now = undefined } = {}) =>
   // Every tree a test draws holds each key and hotkey once.
-  unique(renderPanel(ELEMENTS, config, { ...VIEW, ...props }, null, actions, { columns, surface }));
+  unique(renderPanel(ELEMENTS, config, { ...VIEW, ...props }, null, actions, { columns, surface, now }));
 
 const isCard = (n) => n.props.borderStyle === 'round';
 const titleOf = (n) => texts(kids(n)[0])[0];
@@ -293,5 +296,88 @@ for (const surface of SURFACES) {
     const words = texts(card(draw({ routeCell: 'tier.medium' }, { surface, config: unpriced }), /^Edit /)).join(' ');
     assert.doesNotMatch(words, /\?/);
     assert.match(words, /\$4 in per M tokens · 1M window/);
+  });
+}
+
+const { loadConfig } = await import('../lib/config.mjs');
+
+const HOUR = 3_600_000;
+const T = Date.parse('2026-11-19T10:00:00Z');
+const CHAINED = loadConfig({
+  userFile: {
+    models: {
+      glm: {
+        id: 'glm-5.3[1m]',
+        input: 1,
+        output: 2,
+        cacheRead: 0.1,
+        contextWindow: 1_000_000,
+        billing: 'credits',
+        efforts: ['high', 'max'],
+        account: 'zai',
+      },
+    },
+    fallbacks: { opus: ['glm@max', 'sonnet'], sonnet: ['glm@high'] },
+  },
+});
+const PLAN_HELD = {
+  kind: 'window',
+  window: 'five_hour',
+  error: 'rate_limit',
+  since: T,
+  until: T + 3 * HOUR,
+  streak: 1,
+};
+const opusHeld = {
+  holds: { accounts: {}, models: { 'claude-opus-5-5': { ...PLAN_HELD, kind: 'availability', error: 'overloaded' } } },
+};
+
+for (const surface of SURFACES) {
+  test(`${surface}: a Fallbacks card lists each chain read-only with a Button for nothing in it`, () => {
+    const fallbacks = card(draw({}, { surface, config: CHAINED, now: T }), 'Fallbacks');
+    assert.ok(fallbacks, 'Fallbacks card');
+    assert.deepEqual(
+      texts(fallbacks).filter((line) => line !== 'Fallbacks'),
+      [
+        'Read-only · set in router.json → fallbacks',
+        'opus',
+        'ready',
+        '1 glm·max',
+        '2 sonnet',
+        'sonnet',
+        'ready',
+        '1 glm·high',
+      ],
+    );
+    assert.deepEqual(
+      find(fallbacks, (n) => n.type === 'Button' || n.type === 'Select'),
+      [],
+    );
+  });
+
+  test(`${surface}: a held model reads held with its cause and end, a held target ✕ and the running one ◀ runs`, () => {
+    const props = {
+      holds: { accounts: { plan: PLAN_HELD }, models: {} },
+      reason: 'model-held',
+      fallback: { from: 'opus', step: 1, of: 2 },
+    };
+    const words = texts(card(draw(props, { surface, config: CHAINED, now: T }), 'Fallbacks'));
+    for (const line of ['held · 5h limit · back 13:00', '1 glm·max ◀ runs', '2 sonnet ✕'])
+      assert.ok(words.includes(line), line);
+  });
+
+  test(`${surface}: no chain draws no Fallbacks card`, () => {
+    assert.equal(card(draw({}, { surface }), 'Fallbacks'), undefined);
+  });
+
+  test(`${surface}: a held model’s grid cells get ↷ and the legend names it`, () => {
+    const tree = draw(opusHeld, { surface, config: CHAINED, now: T });
+    const marked = find(byKey(tree, 'routes-grid'), (n) => n.type === 'Button' && texts(n).includes('↷'));
+    assert.deepEqual(
+      marked.map((n) => n.props.key),
+      ['cell-tier-medium', 'cell-tier-high'],
+    );
+    assert.ok(texts(card(tree, 'Routes')).some((line) => line.includes('↷ held out now')));
+    assert.ok(!texts(draw({}, { surface, config: CHAINED, now: T })).some((line) => line.includes('↷')));
   });
 }

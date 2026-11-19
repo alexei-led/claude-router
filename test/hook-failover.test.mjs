@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DECISIONS_PREFIX } from '../lib/decisions.mjs';
-import { answering, CONFIG, drain, harness, JEV_KEY, step } from './harness.mjs';
+import { answering, CONFIG, controls, drain, harness, JEV_KEY, press, step, texts } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
 // Times in toasts print in the local zone.
@@ -523,6 +523,33 @@ test('/router release opus ends a model hold, and says why a model held through 
   assert.equal((await command(h, 'release')).text, 'Name what to release: plan.');
 });
 
+test('the pane lists a hold from its failure, Release ends it with Undo, and Undo puts it back', async (t) => {
+  const h = await started(t);
+  h.usage(planReadings(['five_hour', 100, 3 * HOUR]));
+  await turn(h, 't1', { error: 'rate_limit' });
+  const stored = h.preferences.get(HOLDS_PLAN);
+  assert.ok(texts(await h.render()).includes('HELD OUT'));
+  await press(h, 'release-account-plan');
+  assert.equal(h.preferences.has(HOLDS_PLAN), false);
+  assert.equal(h.view().notice, 'Released Claude plan: routing may use it from the next turn.');
+  assert.ok(!texts(await h.render()).includes('HELD OUT'));
+  await press(h, 'undo');
+  assert.deepEqual(h.preferences.get(HOLDS_PLAN), stored);
+  assert.equal(h.view().notice, 'Undid: released Claude plan.');
+  assert.ok(texts(await h.render()).includes('HELD OUT'));
+});
+
+test('Release in the pane on a hold another session ended says so and draws no Undo', async (t) => {
+  const h = await started(t);
+  h.usage(planReadings(['five_hour', 100, 3 * HOUR]));
+  await turn(h, 't1', { error: 'rate_limit' });
+  const release = controls(await h.render()).find((c) => c.key === 'release-account-plan');
+  h.preferences.delete(HOLDS_PLAN);
+  await release.onPress();
+  assert.equal(h.view().notice, 'Already released.');
+  assert.equal(h.view().lastWrite ?? null, null);
+});
+
 test('a switch to a chain target is announced with the holder and its end, then the route that runs', async (t) => {
   const h = await started(t, { models: { glm: GLM }, fallbacks: { opus: ['sonnet', 'glm@max'] } });
   await turn(h, 't1');
@@ -537,6 +564,7 @@ test('a switch to a chain target is announced with the holder and its end, then 
   assert.deepEqual(await turn(h, 't2').then((r) => [r.model, r.effort]), [GLM_ID, 'max']);
   assert.equal(h.toasts.at(-1), 'Claude plan 5h limit · back 03:17 → GLM 5.3 · max');
   assert.deepEqual(h.view().fallback, { from: 'opus', step: 2, of: 2 });
+  assert.ok(texts(await h.render()).includes('↷ Opus 5.5 held · fallback 2 of 2'));
   t.mock.timers.tick(3 * HOUR + MINUTE);
   await turn(h, 't3');
   assert.equal(h.view().fallback, null);

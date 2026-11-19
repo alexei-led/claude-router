@@ -19,6 +19,7 @@ const ROUTER_JSON = JSON.stringify({
     },
   },
   routes: { medium: { model: 'long', effort: 'high' } },
+  fallbacks: { long: ['haiku@high'] },
 });
 
 // The graphical Routes tab mounted on desktop: the engine accepts the grid, its cell Buttons and the editor card's
@@ -68,6 +69,8 @@ test('desktop Routes: the grid and the editor draw in the engine and their contr
   };
   await has({ type: 'Text', text: 'Routes' });
   await has({ type: 'Text', text: 'Prompt caches' });
+  await has({ type: 'Text', text: 'Fallbacks' });
+  await has({ type: 'Text', text: '1 haiku·high' });
   await has({ type: 'Text', text: /prompt caches in use/ });
   await has({ type: 'Text', text: 'Default' });
   await has({ type: 'Text', text: /^Vendor Very Long Model Name .* · high$/ });
