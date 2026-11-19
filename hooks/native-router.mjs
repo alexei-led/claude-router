@@ -318,7 +318,8 @@ function createRouter(options) {
     // goes out with them and the turn's end row.
     completing: new Set(),
     // One client per classifier, each with its own breaker and in-flight slot: a turn that started under one
-    // classifier finishes with it, and its answer, failures or pause never land on another.
+    // classifier finishes with it, and its answer, failures or pause never land on another. Reviews and spawns have
+    // clients of their own (reviewClientOf, spawnClientOf).
     clients: new Map(),
     prompts: new Map(),
     decisions: new Map(),
@@ -693,6 +694,14 @@ async function exportTraces($, router) {
 function clientOf(router, id) {
   if (!router.clients.has(id)) router.clients.set(id, new ClassifierClient());
   return router.clients.get(id);
+}
+
+// The mid-turn review's classifier client: an in-flight slot of its own, since a review's HTTP call cannot be aborted
+// and outlives the turn that asked it; on the turn's client it would answer the next turn's decision `busy`.
+function reviewClientOf(router, id) {
+  const key = `review:${id}`;
+  if (!router.clients.has(key)) router.clients.set(key, new ClassifierClient());
+  return router.clients.get(key);
 }
 
 // `router.view` is a write-through cache of $.state, because state reads are frozen within one dispatch.
@@ -1838,7 +1847,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
     ]);
     Object.assign(job, { observedUpTo: messages.length, prefix: historySignature(messages) });
     const facts = stepFacts(cfg, router, loop, e, messages, context);
-    clientOf(router, cfg.classifier)
+    reviewClientOf(router, cfg.classifier)
       .ask({
         request: (url, init) => $.http.fetch(url, init),
         sleep: (ms, args) => $.clock.sleep(ms, args),
