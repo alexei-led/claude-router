@@ -30,7 +30,7 @@ Needs Node 22 or newer (`engines`; CI runs 24.15.0) and `claude` on `PATH` for `
 
 `scripts/git-hooks/` holds `pre-commit` (staged Biome, ShellCheck, gitleaks) and `pre-push` (`check`, `typecheck`, `test`, `pack:dry`, `validate`, `test:plugin`, gitleaks). Enable them with `git config core.hooksPath scripts/git-hooks`; they need `gitleaks` installed.
 
-**Claude Code floor.** The minimum version is `MIN_CLAUDE_CODE` in `lib/config.mjs` (2.1.321). CI installs exactly that build for `validate`, `test:plugin` and `test:providers`. Never use an engine API that exists only in a newer build; `BACKLOG.md` lists what waits for a higher floor. `test:plugin` uses the `claude` on your `PATH`, so a green run on a newer build does not prove the floor.
+**Claude Code floor.** The minimum version is `MIN_CLAUDE_CODE` in `lib/config.mjs` (2.1.321). CI installs exactly that build for `validate` and `test:plugin`. Never use an engine API that exists only in a newer build; `BACKLOG.md` lists what waits for a higher floor. `test:plugin` uses the `claude` on your `PATH`, so a green run on a newer build does not prove the floor.
 
 ## Architecture
 
