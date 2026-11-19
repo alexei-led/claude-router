@@ -462,14 +462,23 @@ for (const [name, args, message] of [
     assert.equal(result.stdout, '');
   });
 
+test('the CLI process exits 1 on a failing input and writes no stdout', () => {
+  const cli = spawnSync(process.execPath, ['scripts/replay-traces.mjs', '/private/CANARY.json'], {
+    cwd: REPO,
+    encoding: 'utf8',
+  });
+  assert.equal(cli.status, 1);
+  assert.equal(cli.stdout, '');
+});
+
 test('CLI --help prints usage and succeeds', async () => {
   const result = await runCli(['--help']);
   assert.equal(result.status, 0);
   assert.match(result.stdout, /^Usage: /);
 });
 
-async function oneTurn(config = {}, response = null, continuationModel = null, messagesAfter = null, answer = null) {
-  const h = shadowHarness(config, undefined, answer ?? undefined);
+async function oneTurn(config = {}, response = null, continuationModel = null, messagesAfter = null, answer) {
+  const h = shadowHarness(config, undefined, answer);
   await h.event('session.start', { cwd: '/fixture' });
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   h.messages(async () => [user('one')]);

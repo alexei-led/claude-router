@@ -24,6 +24,7 @@ for (const [name, since, resetAt, resets] of [
   ['began exactly at the reset', 100, 100, false],
   ['began after the reset', 101, 100, false],
   ['has no first count', null, 100, false],
+  ['predates the first count', undefined, 100, false],
   ['began before a reset at 0 ms', -1, 0, true],
   ['began before a reset that is not set', 1, undefined, false],
   ['began before a reset that is null', 1, null, false],
