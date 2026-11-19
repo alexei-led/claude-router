@@ -515,6 +515,17 @@ for (const [name, row, expected] of [
     assert.match(lineOf(row), expected);
   });
 
+for (const [name, cost] of [
+  ['a negative lower bound', { minUsd: -1, maxUsd: 1.25 }],
+  ['a missing lower bound', { maxUsd: 1.25 }],
+  ['a missing upper bound', { minUsd: 0.5 }],
+])
+  test(`a stored automatic row with ${name} reads its estimate as unknown`, () => {
+    const stored = { ...BARE, engine: 'auto', auto: { demand: 'low', outcome: 'held', move: 'none', ...cost } };
+    const [row] = readDecisions({ version: 1, since: T, rows: [stored] }).rows;
+    assert.match(lineOf(row), /move none; next-turn estimate unknown$/);
+  });
+
 test('a failure row keeps the error, 300 characters of its text, the readings and what was held', () => {
   const row = failureRow({
     at: T,
