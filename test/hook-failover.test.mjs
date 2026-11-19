@@ -661,3 +661,32 @@ test('a model hold whose loop write loses to another write holds nothing and cla
   assert.equal(h.loop().held, undefined);
   assert.deepEqual(h.toasts, []);
 });
+
+test('a failure that arrives while its turn completes keeps the turn’s end row', async (t) => {
+  const h = await started(t);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't1', model: OPUS }));
+  const get = h.$.store.get;
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let waiting = false;
+  h.$.store.get = async (key) => {
+    if (!key.startsWith(DECISIONS_PREFIX)) {
+      waiting = true;
+      await gate;
+    }
+    return get(key);
+  };
+  const completing = h.event('turn.complete', { turnId: 't1', isAborted: false });
+  while (!waiting) await new Promise((resolve) => setImmediate(resolve));
+  h.$.store.get = get;
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded' });
+  release();
+  await completing;
+  assert.deepEqual(
+    decisions(h).rows.map((row) => row.kind),
+    ['start', 'failure', 'end'],
+  );
+});

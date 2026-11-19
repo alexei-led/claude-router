@@ -314,6 +314,9 @@ function createRouter(options) {
     config: loadConfig(),
     // Each turn's config, fixed at turn.start, so a pane save mid-turn does not change the turn.
     turnConfigs: new Map(),
+    // The main turns whose turn.complete runs and has not yet taken their decision rows: a failure row added meanwhile
+    // goes out with them and the turn's end row.
+    completing: new Set(),
     // One client per classifier, each with its own breaker and in-flight slot: a turn that started under one
     // classifier finishes with it, and its answer, failures or pause never land on another.
     clients: new Map(),
@@ -3303,8 +3306,9 @@ async function holdFailedModel($, router, e) {
         held: held?.key ?? null,
       }),
     );
-    // A turn that already completed will not flush its rows again.
-    if (!router.turnConfigs.has(turnId)) await flushDecisions($, router, turnId, null);
+    // A turn that already completed will not flush its rows again; one completing now flushes them with its end row.
+    if (!router.turnConfigs.has(turnId) && !router.completing.has(turnId))
+      await flushDecisions($, router, turnId, null);
   } catch {}
 }
 
@@ -3455,28 +3459,34 @@ async function completeTurn($, router, e) {
     await finishAgent($, router, e.agentId);
     return;
   }
-  router.turnConfigs.delete(e.turnId);
-  router.turnPins.delete(e.turnId);
-  router.reviews.get(e.turnId)?.controller.abort();
-  router.reviews.delete(e.turnId);
-  router.turnControllers.get(e.turnId)?.abort();
-  const held = router.view;
-  if (held !== null && held.activeTurnId === e.turnId && held.phase === 'choosing') {
-    router.view = { ...held, activeTurnId: null };
-    const mode = await modeOf($, router);
-    if (router.view?.activeTurnId === null)
-      await updateView($, router, { phase: mode === 'manual' ? 'manual' : 'ready', reason: 'interrupted' });
-  }
-  router.prompts.delete(e.turnId);
-  for (const key of router.decisions.keys()) if (key.includes(`:${e.turnId}:`)) router.decisions.delete(key);
-  // `off` asks nothing, so it records nothing; it only ends the watch after a cheaper activity move.
+  // Until flushDecisions takes the rows, which it does before its first await, a failure row joins them.
+  router.completing.add(e.turnId);
   const turn = router.turnActivities.get(e.turnId);
-  router.turnActivities.delete(e.turnId);
-  await placeRouteLine($, router, e, turn);
-  if (turn?.mode === 'off') {
-    if ((await $.session.id()) === turn.sessionId) router.afterDown = advanceDown(router.afterDown, turn).after;
-  } else if (turn) await recordActivity($, router, turn);
-  if (router.turnUsage.has(e.turnId)) await flushUsage($, router, e.turnId, turn?.switched ?? null);
+  try {
+    router.turnConfigs.delete(e.turnId);
+    router.turnPins.delete(e.turnId);
+    router.reviews.get(e.turnId)?.controller.abort();
+    router.reviews.delete(e.turnId);
+    router.turnControllers.get(e.turnId)?.abort();
+    const held = router.view;
+    if (held !== null && held.activeTurnId === e.turnId && held.phase === 'choosing') {
+      router.view = { ...held, activeTurnId: null };
+      const mode = await modeOf($, router);
+      if (router.view?.activeTurnId === null)
+        await updateView($, router, { phase: mode === 'manual' ? 'manual' : 'ready', reason: 'interrupted' });
+    }
+    router.prompts.delete(e.turnId);
+    for (const key of router.decisions.keys()) if (key.includes(`:${e.turnId}:`)) router.decisions.delete(key);
+    // `off` asks nothing, so it records nothing; it only ends the watch after a cheaper activity move.
+    router.turnActivities.delete(e.turnId);
+    await placeRouteLine($, router, e, turn);
+    if (turn?.mode === 'off') {
+      if ((await $.session.id()) === turn.sessionId) router.afterDown = advanceDown(router.afterDown, turn).after;
+    } else if (turn) await recordActivity($, router, turn);
+    if (router.turnUsage.has(e.turnId)) await flushUsage($, router, e.turnId, turn?.switched ?? null);
+  } finally {
+    router.completing.delete(e.turnId);
+  }
   await flushDecisions($, router, e.turnId, turn);
   if (router.config.routingEngine === 'shadow' && router.trace?.turns.has(e.turnId)) {
     addTrace(router, e, { type: 'end', at: Date.now() });
