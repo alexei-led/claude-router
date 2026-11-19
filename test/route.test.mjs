@@ -1089,6 +1089,15 @@ test('a continuation whose model became held takes the nearest tier that runs, n
   assert.deepEqual([decision.model, decision.reason], ['claude-sonnet-5-5', 'model-held']);
 });
 
+test('a continuation whose model can no longer run takes the nearest tier that runs, not a held session model', () => {
+  const loop = { ...runningOpus(THREE_WAY, heldUntil('claude-haiku-5-5')), ineligible: [OPUS] };
+  const { decision } = continueRoute(THREE_WAY, loop, continueInput({ nativeModel: 'claude-haiku-5-5' }));
+  assert.deepEqual(
+    [decision.model, decision.reason, decision.fallback],
+    ['claude-sonnet-5-5', 'model-unavailable', undefined],
+  );
+});
+
 test('a continuation with nothing else to run keeps the held model rather than a held session model', () => {
   const config = chained({});
   const held = { ...heldUntil(OPUS), ...heldUntil('claude-haiku-5-5') };
