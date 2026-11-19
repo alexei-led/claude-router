@@ -397,6 +397,12 @@ test('a narrow pane drops the cost column and the reasons, and moves the model n
   const narrow = agentLines('today', {}, { columns: 40 });
   assert.equal(narrow[1], '  ■□■□');
   assert.equal(narrow[2], '  Haiku 5.5 1 · Sonnet 5.5 1 · Opus 5.5 2');
+  assert.deepEqual(narrow.slice(3, 7), [
+    '  4 agents · ■ 2 moved by the router',
+    '  □ 2 on Claude Code’s pick',
+    '  routing −$0.10 (−13%) vs Claude Code’s picks',
+    '  on 3 routed agents',
+  ]);
   const table = lines({ usagePeriod: 'today', subagentStore: AGENTS }, { columns: 50 });
   assert.ok(table.includes('  ▸ Explore            ■             1   −$0.40 ▼'), table.join('\n'));
   assert.ok(table.includes('  ▸ workflow agent     □             1'));
