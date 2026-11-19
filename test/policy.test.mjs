@@ -232,6 +232,50 @@ test('a cold metered model above the cash cap is gated, which only a user-billed
   }
 });
 
+test('a blocked downgrade stays on the incumbent even when a plan tier ranks above it', () => {
+  const haikuMetered = loadConfig({
+    userFile: { models: { haiku: { billing: 'credits', input: 10, longContext: null } } },
+  });
+  const f = facts({ lastRoute: 'medium', tokens: 300_000, servedBy: 'claude-opus-5-5', effort: 'medium' });
+  const downgrade = advice('low', { low: 0.99 });
+  const d = runTurns(f, [downgrade, downgrade], initialState(), haikuMetered).at(-1);
+  assert.deepEqual([d.tier, d.reason], ['medium', 'cash-gate']);
+});
+
+test('an upgrade to a gated credits tier still needs its votes and mass before the gate moves it', () => {
+  const f = facts({ lastRoute: 'micro', tokens: 300_000, servedBy: 'claude-haiku-4-5-20251001' });
+  const weak = advice('high', { high: 0.5, micro: 0.5 });
+  const strong = advice('medium', { medium: 0.9, micro: 0.1 });
+  assert.deepEqual(
+    runTurns(f, [weak, weak], initialState(), metered).map((d) => [d.tier, d.reason]),
+    [
+      ['micro', 'upgrade-pending'],
+      ['micro', 'upgrade-pending'],
+    ],
+  );
+  assert.deepEqual(
+    runTurns(f, [strong, strong], initialState(), metered).map((d) => [d.tier, d.reason]),
+    [
+      ['micro', 'upgrade-pending'],
+      ['low', 'cash-gate'],
+    ],
+  );
+});
+
+test('a vote streak longer than three still moves', () => {
+  const cfg = loadConfig({ userFile: { policy: { upgradeVotes: 4, downgradeVotes: 5 } } });
+  const up = advice('medium', { medium: 0.9, low: 0.1 });
+  const down = advice('low', { low: 0.95, high: 0.05 });
+  assert.deepEqual(
+    runTurns(facts({ lastRoute: 'low' }), Array(4).fill(up), initialState(), cfg).map((d) => d.reason),
+    ['upgrade-pending', 'upgrade-pending', 'upgrade-pending', 'upgrade'],
+  );
+  assert.deepEqual(
+    runTurns(facts({ lastRoute: 'high' }), Array(5).fill(down), initialState(), cfg).map((d) => d.reason),
+    ['downgrade-pending', 'downgrade-pending', 'downgrade-pending', 'downgrade-pending', 'downgrade'],
+  );
+});
+
 test('a metered model warm at the routed effort passes the cash gate; warm at another effort is gated only where efforts split the cache', () => {
   const warmAt = (effort, effortSplits) =>
     facts({

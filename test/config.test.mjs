@@ -811,6 +811,8 @@ test('a plan model is on the plan account and any other model on its own, unless
   );
   assert.equal(accountOf(config, 'unlisted'), 'unlisted');
   assert.equal(accountOf(withChains({ models: { opus: { account: 'work' } } }), 'opus'), 'work');
+  assert.equal(accountOf(withChains({ models: { opus: { account: 'plan' } } }), 'opus'), 'plan');
+  assert.equal(accountOf(withChains({ models: { plan: { ...glm, account: 'zai' } } }), 'plan'), 'zai');
 });
 
 test('an account keeps a monthly reset in a time zone', () => {
@@ -894,6 +896,16 @@ for (const [name, file, message] of [
   ],
   ['an account with an unknown key', { accounts: { zai: { limit: 1 } } }, /accounts\.zai\.limit is not a known key/],
   ['accounts that is not an object', { accounts: [] }, /accounts must be an object/],
+  [
+    'a credits model on the plan account',
+    { models: { glm: { ...glm, account: 'plan' } } },
+    /models\.glm\.account must not be plan for a credits model/,
+  ],
+  [
+    'a credits model keyed plan with no account of its own',
+    { models: { plan: glm } },
+    /models\.plan\.account must not be plan for a credits model/,
+  ],
 ])
   test(`rejects ${name}`, () => {
     assert.throws(() => withChains(file), message);
