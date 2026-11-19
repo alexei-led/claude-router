@@ -10,19 +10,11 @@ const { DEFAULTS } = await import('../lib/config.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
 const { toneColor } = await import('../lib/ui/tokens.mjs');
 const { ROUTED } = await import('./band-states.mjs');
-const { byKey, controls, ELEMENTS, find, kids, texts, unique } = await import('./harness.mjs');
+const { byKey, controls, ELEMENTS, find, kids, recorder, texts, unique } = await import('./harness.mjs');
 
 const SURFACES = ['desktop', 'vscode', 'mobile'];
-const calls = [];
-const actions = new Proxy(
-  {},
-  {
-    get:
-      (_, name) =>
-      (...args) =>
-        calls.push([name, ...args]),
-  },
-);
+const { actions, calls } = recorder();
+const NOW = Date.UTC(2026, 0, 5, 13, 40);
 const KEYS = { jev: null, clef: 'missing-key', 'clef-flash': 'missing-account', 'clef-omni': null, openai: null };
 const STORE = {
   version: 1,
@@ -47,7 +39,7 @@ const VIEW = {
 };
 const draw = (props = {}, { surface = 'desktop', config = DEFAULTS } = {}) =>
   // Every tree a test draws holds each key and hotkey once.
-  unique(renderPanel(ELEMENTS, config, { ...VIEW, ...props }, null, actions, { columns: 100, surface }));
+  unique(renderPanel(ELEMENTS, config, { ...VIEW, ...props }, null, actions, { columns: 100, surface, now: NOW }));
 
 const isCard = (n) => n.props.borderStyle === 'round';
 const titleOf = (n) => texts(kids(n)[0])[0];
@@ -132,8 +124,8 @@ for (const surface of SURFACES) {
       assert.equal(line.props.children, words, id);
       assert.equal(line.props.color, toneColor(tone, 'graphical'), id);
     }
-    const paused = draw({ health: { failures: 3, pausedUntil: Date.now() + 60e3 } }, { surface });
-    assert.match(status(paused).props.children, /^Paused until \d/);
+    const paused = draw({ health: { failures: 3, pausedUntil: NOW + 60e3 } }, { surface });
+    assert.equal(status(paused).props.children, 'Paused until 13:41');
     assert.equal(status(paused).props.color, toneColor('warning', 'graphical'));
     const failed = draw({ error: 'timeout' }, { surface });
     assert.equal(status(failed).props.children, 'Last error: Jev timed out');
@@ -225,7 +217,7 @@ for (const surface of SURFACES) {
   });
 
   test(`${surface}: the body uses tones, never terminal colours or dim text`, () => {
-    const tree = draw({ health: { failures: 3, pausedUntil: Date.now() + 60e3 } }, { surface });
+    const tree = draw({ health: { failures: 3, pausedUntil: NOW + 60e3 } }, { surface });
     const graphical = new Set(
       ['primary', 'muted', 'accent', 'success', 'warning', 'danger', 'activity'].map((t) => toneColor(t, 'graphical')),
     );
