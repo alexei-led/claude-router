@@ -2,7 +2,7 @@ import { ClassifierClient } from '../lib/classifier-client.mjs';
 import { loadConfig } from '../lib/config.mjs';
 
 export function registerAcceptance(on) {
-  const classifier = new ClassifierClient();
+  const classifier = new ClassifierClient({ now: Date.now });
   const lifecycle = [];
   on('session.start', { isInteractive: [true, false] }, async ($, e, next) => {
     await $.command.register({

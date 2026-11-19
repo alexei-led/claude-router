@@ -328,6 +328,40 @@ test('a repeated failure needs an edit attempt between the two failing calls, no
   assert.equal(factsFromRequest(body([user('fix'), ...editRetried, ...editRetried]), memory(), CONTEXT).failure, null);
 });
 
+test('two failures in one step repeat only with an edit attempt run between them', () => {
+  const unread = 'File has not been read yet. Read it first before writing to it.';
+  const results = (...ids) => ({
+    role: 'user',
+    content: ids.map((id) => ({
+      type: 'tool_result',
+      tool_use_id: id,
+      is_error: true,
+      content: [{ type: 'text', text: unread }],
+    })),
+  });
+  for (const [name, calls, ids, repeated] of [
+    ['two failing edits in parallel', [edit('/repo/a.js'), edit('/repo/b.js')], ['t0', 't1'], false],
+    ['an edit before both failing runs', [edit('/repo/a.js'), bash('npm test'), bash('npm test')], ['t1', 't2'], false],
+    ['an edit between the failing runs', [bash('npm test'), edit('/repo/a.js'), bash('npm test')], ['t0', 't2'], true],
+    [
+      'a second edit between the failing runs',
+      [edit('/repo/b.js'), bash('npm test'), edit('/repo/a.js'), bash('npm test')],
+      ['t1', 't3'],
+      true,
+    ],
+  ]) {
+    const facts = factsFromRequest(body([user('fix'), step(...calls), results(...ids)]), memory(), CONTEXT);
+    assert.equal(facts.failure !== null, repeated, name);
+  }
+  const first = [step(bash('npm test'), edit('/repo/a.js')), results('t0')];
+  const second = [step(bash('npm test')), results('t0')];
+  assert.notEqual(
+    factsFromRequest(body([user('fix'), ...first, ...second]), memory(), CONTEXT).failure,
+    null,
+    'an edit after the first failing call in its step runs before the next step',
+  );
+});
+
 test('observedActivity labels a finished turn from its tool calls, first match wins', () => {
   for (const [name, calls, expected] of [
     ['no tools', [], 'talk'],

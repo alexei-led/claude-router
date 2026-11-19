@@ -178,6 +178,20 @@ test('the Now tab names the activity with its share and marks an override with t
     assert.equal(lines[4], first, name);
     assert.equal(lines.includes(override), override !== null, name);
   }
+  const narrow = unboxed(
+    screen(
+      renderPanel(ELEMENTS, { ...DEFAULTS, activityRouting: 'on' }, view({ ...sonnetLow, ...reading }), null, quiet, {
+        columns: 40,
+      }),
+    ),
+  );
+  assert.deepEqual(narrow.slice(4, 9), [
+    '  ▂▄  Sonnet 5.5 · high',
+    '        code 81%  ops 9%',
+    '        code at low runs on Sonnet 5.5 ·',
+    '        high · tier route Haiku 5.5 ·',
+    '        high',
+  ]);
   const why = unboxed(
     screen(renderPanel(ELEMENTS, DEFAULTS, view({ ...sonnetLow, reason: 'activity-up' }), null, quiet)),
   );

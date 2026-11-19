@@ -5,7 +5,7 @@
 ### Fixed
 
 - **Policy:** a downgrade blocked by the cash gate stays on the running tier instead of moving up to a plan tier. One weak vote for a gated credits tier no longer jumps to the strongest plan tier; the gate waits for the votes and the bar. `upgradeVotes` or `downgradeVotes` above 3 now work in the table engine.
-- **Escalation:** repeated tool errors escalate only when an edit attempt (an edit tool, or a command that writes a file) sits between the two failures. Rerunning the same failing command, reading or installing does not count.
+- **Escalation:** repeated tool errors escalate only when an edit attempt (an edit tool, or a command that writes a file) runs between the two failing calls, also inside one step of parallel calls. Rerunning the same failing command, reading or installing does not count.
 - **Plan accounts:** `router.json` now rejects a credits model on the account `plan`, or keyed `plan` with no account of its own. Such a file no longer loads; give the model another `account`.
 - **Workflow agents** are routed on every built-in profile (DeepSeek, z.ai, MiniMax, MiMo and Kimi too), classified like `general-purpose`.
 - **Classifier answers:** route probabilities that add up to more than 1 are rejected as malformed.
@@ -15,7 +15,7 @@
 - **Decisions:** `/router decisions n` takes a whole number; a larger one shows 60 rows, and 0 or anything that is not a whole number gets a reply instead of 20 rows. A stored `auto` row with no lower cost bound no longer fails the command. A turn that ends on an API error keeps its end row. A turn whose completion fails no longer leaves its rows pending in `/router decisions`.
 - **Reviews:** a mid-turn review still running when a turn ends no longer makes the next turn's classification `busy`. Reviews have their own classifier slot, failure count and pause.
 - **Traces and scripts:** a pass-through step marks the shadow trace with a `gap`, which changes exported traces. `scripts/replay-traces.mjs` works through a symlink. A compaction's history reset no longer overwrites a newer loop write. An Svg tone without a hex falls back to accent.
-- **UI:** the classifier pause reads `Paused until 13:41` in 24h time. The terminal Policy tab row `Start` is `Start tier`. The agents-per-day row starts at zero, with `·` for a day with none. The Usage tab on desktop shows a Trend card with **One day so far** for one bucket. Long classifier and model names, large session amounts and bar figures no longer overflow their cells.
+- **UI:** the classifier pause reads `Paused until 13:41` in 24h time. The terminal Policy tab row `Start` is `Start tier`. The agents-per-day row starts at zero, with `·` for a day with none. The Usage tab on desktop shows a Trend card with **One day so far** for one bucket. Long classifier and model names, large session amounts and bar figures no longer overflow their cells. In a narrow pane the Now tab's NEXT TURN puts the activity reading under the route and wraps the override line, instead of breaking the tier meter and words apart.
 
 ## 1.27.0 (2026-11-19)
 

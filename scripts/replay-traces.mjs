@@ -7,7 +7,7 @@ import { evaluateReplay } from '../lib/replay.mjs';
 const USAGE =
   'Usage: node scripts/replay-traces.mjs [--reversal-window N] router-traces.json router-traces-*.json\nReads explicit files (shell-expanded globs), prints anonymous JSON; never changes router configuration.';
 
-// Returns the exit status; `io` is where the output goes.
+// Returns the exit status; `log` and `error` take the output.
 export async function main(args, { log = console.log, error = console.error } = {}) {
   if (args.length === 1 && args[0] === '--help') {
     log(USAGE);

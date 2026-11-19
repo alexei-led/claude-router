@@ -632,6 +632,19 @@ test('settings that cannot be read pass the step through as Claude Code built it
   assert.deepEqual(h.requests, [opus]);
 });
 
+test('a failure after the request went out never sends the step again', async () => {
+  const h = harness(JEV_KEY);
+  answering(h, HIGH);
+  await start(h);
+  const id = h.$.session.id;
+  h.$.session.id = async (...args) => {
+    if (h.requests.length > 0) throw new Error('session unreadable');
+    return id(...args);
+  };
+  await assert.rejects(drain(h.step(opus)), /session unreadable/);
+  assert.equal(h.requests.length, 1);
+});
+
 test('a transcript that cannot be read passes the first step through, and the next step decides', async () => {
   const h = harness(JEV_KEY);
   answering(h, HIGH);

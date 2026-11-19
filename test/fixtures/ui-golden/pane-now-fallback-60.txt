@@ -48,13 +48,13 @@ Box flexDirection="column"
       "  "
     Text weight="semibold"
       "Opus 5.5 · xhigh"
-    Box
-      Text
-        "   "
-      Text color="#d77757" italic=true
-        "code"
-      Text dimColor=true
-        "  phase build · route activity code"
+  Box
+    Text
+      "        "
+    Text color="#d77757" italic=true
+      "code"
+    Text dimColor=true
+      "  phase build · route activity code"
   Box
     Text dimColor=true
       "  why   "
