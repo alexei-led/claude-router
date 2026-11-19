@@ -1231,22 +1231,37 @@ async function profileDir($) {
   return (await $.env.get('CLAUDE_CONFIG_DIR')) ?? `${await $.env.get('HOME')}/.claude`;
 }
 
-async function loadNativeConfig($) {
+// A router.json that does not validate, a redirect or a missing provider file stays so until it is edited: the failure is
+// held in `router.loadFailed` until the next session start. A read that failed is tried again at the next event.
+async function loadNativeConfig($, router) {
+  const invalid = (error) => {
+    router.loadFailed = true;
+    return error;
+  };
   for (const source of ['project', 'local']) {
     const settings = await $.settings.read({ source });
     if (
       settings.env &&
       ['HOME', 'CLAUDE_CONFIG_DIR', 'CLAUDE_ROUTER_PROVIDER'].some((key) => Object.hasOwn(settings.env, key))
     )
-      throw new Error('project settings cannot redirect the router profile');
+      throw invalid(new Error('project settings cannot redirect the router profile'));
   }
   const profile = await profileDir($);
   const provider = providerName(await $.env.get('CLAUDE_ROUTER_PROVIDER'));
   const path = `${profile}/${providerFile(provider)}`;
-  if (provider !== 'anthropic' && !(await $.fs.exists(path)))
-    throw new Error('selected provider router file is missing');
-  const userFile = (await $.fs.exists(path)) ? JSON.parse(await $.fs.read(path)) : null;
-  return { ...loadConfig({ userFile, provider }), nativePath: path, effortSplitsCache: await effortSplitsCacheOf($) };
+  const exists = await $.fs.exists(path);
+  if (provider !== 'anthropic' && !exists) throw invalid(new Error('selected provider router file is missing'));
+  const text = exists ? await $.fs.read(path) : null;
+  const effortSplitsCache = await effortSplitsCacheOf($);
+  try {
+    return {
+      ...loadConfig({ userFile: text === null ? null : JSON.parse(text), provider }),
+      nativePath: path,
+      effortSplitsCache,
+    };
+  } catch (error) {
+    throw invalid(error);
+  }
 }
 
 // Writes router.json through `change(previousFile)` once the result validates. Returns the new config or an error
@@ -3175,10 +3190,7 @@ async function initializeSession($, router) {
       });
     } catch {}
     const model = await $.session.model();
-    const config = await loadNativeConfig($).catch((error) => {
-      router.loadFailed = true;
-      throw error;
-    });
+    const config = await loadNativeConfig($, router);
     const project = await readProject($, config.nativePath);
     const existing = await readView($, router);
     // A successful reload adopts this config even for the current turn; stale jobs must not route with the old engine.

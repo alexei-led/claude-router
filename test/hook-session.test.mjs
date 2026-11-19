@@ -781,6 +781,25 @@ test('a router.json that does not load is read once per session start, and a fix
   assert.equal(h.view().phase, 'ready');
 });
 
+test('a router.json read that fails at session start is tried again at the next event', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, JSON.stringify({}));
+  answering(h, HIGH);
+  const read = h.$.fs.read;
+  let failing = true;
+  h.$.fs.read = async (path) => {
+    if (failing && path === CONFIG) throw new Error('EIO: i/o error');
+    return read(path);
+  };
+  await start(h);
+  assert.equal(h.view().phase, 'unavailable');
+  failing = false;
+  await h.event('turn.complete', { turnId: step.turnId });
+  await h.event('turn.start', { turnId: 't2', text: 'Next.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.equal(h.view().phase, 'routed');
+});
+
 test('a /router command that fails to register leaves routing ready', async () => {
   const h = harness(JEV_KEY);
   h.$.command.register = async () => {
