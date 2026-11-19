@@ -232,6 +232,16 @@ test('a cold metered model above the cash cap is gated, which only a user-billed
   }
 });
 
+test('a blocked downgrade stays on the incumbent even when a plan tier ranks above it', () => {
+  const haikuMetered = loadConfig({
+    userFile: { models: { haiku: { billing: 'credits', input: 10, longContext: null } } },
+  });
+  const f = facts({ lastRoute: 'medium', tokens: 300_000, servedBy: 'claude-opus-5-5', effort: 'medium' });
+  const downgrade = advice('low', { low: 0.99 });
+  const d = runTurns(f, [downgrade, downgrade], initialState(), haikuMetered).at(-1);
+  assert.deepEqual([d.tier, d.reason], ['medium', 'cash-gate']);
+});
+
 test('a metered model warm at the routed effort passes the cash gate; warm at another effort is gated only where efforts split the cache', () => {
   const warmAt = (effort, effortSplits) =>
     facts({
