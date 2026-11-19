@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.27.1 (2026-11-19)
+
+### Summary
+
+A patch release from a full audit of the plugin, fixing routing, hold, hook and pane defects. Routing no longer jumps up a tier when a cheaper move is blocked by the cash gate. Repeated errors escalate only after a real fix attempt. Workflow agents are routed on every built-in profile. Hook failures pass the request through instead of failing the step. Narrow panes no longer break their rows. One upgrade step: a `router.json` that puts a credits model on the account `plan` no longer loads; give that model another `account`. Claude Code 2.1.321 or newer is still required.
 
 ### Fixed
 
@@ -16,6 +20,10 @@
 - **Reviews:** a mid-turn review still running when a turn ends no longer makes the next turn's classification `busy`. Reviews have their own classifier slot, failure count and pause.
 - **Traces and scripts:** a pass-through step marks the shadow trace with a `gap`, which changes exported traces. `scripts/replay-traces.mjs` works through a symlink. A compaction's history reset no longer overwrites a newer loop write. An Svg tone without a hex falls back to accent.
 - **UI:** the classifier pause reads `Paused until 13:41` in 24h time. The terminal Policy tab row `Start` is `Start tier`. The agents-per-day row starts at zero, with `·` for a day with none. The Usage tab on desktop shows a Trend card with **One day so far** for one bucket. Long classifier and model names, large session amounts and bar figures no longer overflow their cells. In a narrow pane the Now tab's NEXT TURN puts the activity reading under the route and wraps the override line, instead of breaking the tier meter and words apart. The Usage tab's SUBAGENTS summary and verdict rows break onto a second line the same way.
+
+### Notes
+
+- Not checked live: the error text of a real Claude plan rate limit that names credits, and how a live OpenAI Decisions answer rounds against the 0.001 probability tolerance.
 
 ## 1.27.0 (2026-11-19)
 
