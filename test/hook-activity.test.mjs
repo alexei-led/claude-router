@@ -378,6 +378,8 @@ test('a turn with activity routing off ends the watch after a cheaper activity m
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ];
@@ -415,6 +417,8 @@ test('turning routing off ends the watch after a cheaper activity move', async (
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ];
@@ -455,6 +459,8 @@ test('a Manual turn ends the watch a cheaper move started while routing was turn
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ];
@@ -494,6 +500,8 @@ test('turning routing off mid-turn and straight back on does not keep the watch 
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ];
@@ -533,6 +541,8 @@ test('turning routing off and back on before the turn finishes does not keep the
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ];
@@ -586,6 +596,8 @@ test('turning routing off and back on while the finished turn is recorded does n
     assistant('running', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult('error: test_login failed', { isError: true }),
     user('Next.'),
   ];

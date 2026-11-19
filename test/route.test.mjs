@@ -144,6 +144,8 @@ test('fixing different tests keeps the route; repeating the same failure escalat
         assistant('running', ['Bash']),
         toolResult(failure('login at line 12'), { isError: true }),
         assistant('editing', ['Edit']),
+        toolResult('ok'),
+        assistant('running again', ['Bash']),
         toolResult(failure(nextTest), { isError: true }),
         user('continue'),
       ],
@@ -580,6 +582,8 @@ test('routing turned on for a model no tier routes to keeps it running: failures
     assistant('running', ['Bash']),
     toolResult(failure, { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult(failure, { isError: true }),
     user('continue'),
   ];
@@ -720,6 +724,8 @@ test('an escalation a hold turned away still escalates on the same failure once 
     assistant('running', ['Bash']),
     toolResult(failure, { isError: true }),
     assistant('editing', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult(failure, { isError: true }),
     user('continue'),
   ];

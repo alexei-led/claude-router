@@ -557,11 +557,13 @@ test('real repeated-failure evidence stores only its hash and occurrence index',
     assistant('run', ['Bash']),
     toolResult(diagnostic, { isError: true }),
     assistant('edit', ['Edit']),
+    toolResult('ok'),
+    assistant('running again', ['Bash']),
     toolResult(diagnostic, { isError: true }),
   ]);
   const failure = record(h).events.find((e) => e.type === 'request').operations[0].facts.failure;
   assert.match(failure.signature, /^[a-f0-9]{1,16}$/);
-  assert.equal(failure.index, 4);
+  assert.equal(failure.index, 6);
   assert.equal(JSON.stringify(record(h)).includes('CANARY'), false);
 });
 

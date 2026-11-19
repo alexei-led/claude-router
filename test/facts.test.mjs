@@ -84,16 +84,18 @@ test('repeated failure needs the same signature with an edit attempt between', (
     assistant('a', ['Bash']),
     toolResult('Error: test_login failed\n    at login (test/login.mjs:12:4)', { isError: true }),
     assistant('b', ['Edit']),
+    toolResult('ok'),
+    assistant('c', ['Bash']),
     toolResult('Error: test_login failed\n    at login (test/login.mjs:40:9)', { isError: true }),
   ]);
   const failure = factsFromRequest(same, memory(), CONTEXT).failure;
-  assert.equal(failure.index, 4);
+  assert.equal(failure.index, 6);
   assert.ok(failure.signature);
   const noEdit = body([
     user('go'),
     assistant('a', ['Bash']),
     toolResult('Error: x', { isError: true }),
-    assistant('b'),
+    assistant('b', ['Bash']),
     toolResult('Error: x', { isError: true }),
   ]);
   assert.equal(factsFromRequest(noEdit, memory(), CONTEXT).failure, null);
@@ -177,6 +179,8 @@ test('failure matching uses the whole diagnostic without erasing test names or e
         assistant('running', ['Bash']),
         toolResult(before, { isError: true }),
         assistant('editing', ['Edit']),
+        toolResult('ok'),
+        assistant('running again', ['Bash']),
         toolResult(after, { isError: true }),
       ]),
       memory(),
@@ -184,7 +188,7 @@ test('failure matching uses the whole diagnostic without erasing test names or e
     );
     assert.equal(facts.failure !== null, repeated, name);
     if (repeated) {
-      assert.equal(facts.failure.index, 4, name);
+      assert.equal(facts.failure.index, 6, name);
       assert.ok(facts.failure.signature.length > 0 && facts.failure.signature.length <= 120, name);
     }
   }
@@ -192,8 +196,8 @@ test('failure matching uses the whole diagnostic without erasing test names or e
 
 test('repeated failures must fall within the 40-message lookback', () => {
   for (const [extra, repeated] of [
-    [38, true],
-    [39, false],
+    [36, true],
+    [37, false],
     [41, false],
   ]) {
     const facts = factsFromRequest(
@@ -202,6 +206,8 @@ test('repeated failures must fall within the 40-message lookback', () => {
         assistant('running', ['Bash']),
         toolResult('Error: login', { isError: true }),
         assistant('editing', ['Edit']),
+        toolResult('ok'),
+        assistant('running again', ['Bash']),
         toolResult('Error: login', { isError: true }),
         ...Array.from({ length: extra }, () => assistant('waiting')),
       ]),
@@ -285,6 +291,24 @@ const step = (...calls) => ({
 });
 const edit = (path, name = 'Edit') => [name, { file_path: path }];
 const bash = (command) => ['Bash', { command }];
+
+test('a repeated failure needs an edit attempt between the two failing calls, not the failing call itself', () => {
+  const failed = (text) => toolResult(text, { isError: true });
+  const run = [step(bash('npm test')), failed('Error: test_login failed')];
+  for (const [name, between, repeated] of [
+    ['the same failing command rerun', [], false],
+    ['a read between the runs', [step(bash('cat lib/login.mjs')), toolResult('export {}')], false],
+    ['a command that writes no file between the runs', [step(bash('npm install')), toolResult('ok')], false],
+    ['an edit between the runs', [step(edit('/repo/lib/login.mjs')), toolResult('ok')], true],
+    ['a failed edit between the runs', [step(edit('/repo/lib/login.mjs')), failed('String not found')], true],
+    ['an in-place sed between the runs', [step(bash("sed -i 's/a/b/' lib/login.mjs")), toolResult('')], true],
+  ]) {
+    const facts = factsFromRequest(body([user('fix the tests'), ...run, ...between, ...run]), memory(), CONTEXT);
+    assert.equal(facts.failure !== null, repeated, name);
+  }
+  const editRetried = [step(edit('/repo/lib/login.mjs')), failed('String to replace not found in file')];
+  assert.equal(factsFromRequest(body([user('fix'), ...editRetried, ...editRetried]), memory(), CONTEXT).failure, null);
+});
 
 test('observedActivity labels a finished turn from its tool calls, first match wins', () => {
   for (const [name, calls, expected] of [
