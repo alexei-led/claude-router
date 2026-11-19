@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { renderPanel } from '../lib/panel.mjs';
-import { emptyUsage, recordUsage } from '../lib/usage.mjs';
+import { emptyUsage, recordUsage, replyEntry } from '../lib/usage.mjs';
 import { controls, ELEMENTS, find, screen, texts, unboxed } from './harness.mjs';
 import { at, NOW, reply, SESSION, STORE } from './usage-fixtures.mjs';
 
@@ -378,4 +378,24 @@ test('the why names the held model and the chain step when a fallback runs, else
   const held = { reason: 'model-held', fallback: { from: 'opus', step: 1, of: 2 }, ...HELD };
   assert.equal(after(lines(held), 'NEXT TURN', 3)[2], '  why   ↷ Opus 5.5 held · fallback 1 of 2');
   assert.equal(after(lines({ ...held, fallback: null }), 'NEXT TURN', 3)[2], '  why   ! held out');
+});
+
+test('a session amount wider than its column still fits the pane: the difference is dropped before the row overflows', () => {
+  const when = at(2026, 10, 13, 10);
+  const big = replyEntry({
+    mode: 'balanced',
+    at: when,
+    activity: 'code',
+    tier: 'medium',
+    route: 'claude-sonnet-5-5@high',
+    yours: 'claude-opus-5-5',
+    reply: { strongerUsd: 0, routedUsd: 250, yoursUsd: 400, cheaperUsd: -150, switchUsd: 0 },
+    replies: { 'claude-opus-5-5': { yoursUsd: 400 } },
+    usage: { input_tokens: 100, cache_read_input_tokens: 800, cache_creation_input_tokens: 200, output_tokens: 10 },
+  });
+  const usageSession = recordUsage(emptyUsage(), [big], { now: when });
+  for (const columns of [50, 54, 55, 56, 60]) {
+    const [main] = lines({ usageSession }, { columns }).filter((line) => line.startsWith('  main'));
+    assert.ok(main.length <= columns, `${columns}: ${main}`);
+  }
 });

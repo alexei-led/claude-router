@@ -5,7 +5,7 @@ import test from 'node:test';
 
 process.env.TZ = 'UTC';
 
-const { DEFAULTS } = await import('../lib/config.mjs');
+const { DEFAULTS, loadConfig } = await import('../lib/config.mjs');
 const { renderPanel } = await import('../lib/panel.mjs');
 const { classifierTwoLine } = await import('../lib/ui/terminal/classifier.mjs');
 const { CLAUDE } = await import('./band-states.mjs');
@@ -127,4 +127,18 @@ test('at 88 columns the comparison rows stay wide and no line of the active box 
     screen(tree).filter((line) => [...line].length > 88),
     [],
   );
+});
+
+test('a classifier label wider than its name cell is cut with an ellipsis, not wrapped into the next cell', () => {
+  const config = loadConfig({ userFile: { classifiers: { jev: { label: 'A classifier with a long name' } } } });
+  const tree = renderPanel(
+    ELEMENTS,
+    config,
+    { mode: 'auto', phase: 'routed', tab: 'classifier', credentials: MISSING },
+    CLAUDE,
+    recorder().actions,
+    { columns: 120, now: NOW },
+  );
+  const [name] = find(tree, (node) => node.type === 'Button' && node.props.key === 'classifier-jev');
+  assert.equal(name.props.label, '◉ A classif…');
 });

@@ -797,6 +797,13 @@ test('with every target held the status says so, and a held target of another ac
   assert.equal(lines[2], '            1 glm·max ✕   2 sonnet ✕');
 });
 
+test('a model key wider than the FALLBACKS column is cut with an ellipsis and keeps a gap before its status', () => {
+  const long = 'a-very-long-model-key';
+  const config = loadConfig({ userFile: { models: { [long]: GLM, glm: GLM }, fallbacks: { [long]: ['glm@max'] } } });
+  const [, row] = fallbackLines(config);
+  assert.match(row, /^ {2}a-very-l… ready$/);
+});
+
 test('the FALLBACKS lines fit a 60 column pane', () => {
   const holds = { accounts: { plan: planHeld }, models: {} };
   for (const line of fallbackLines(CHAINED, { holds }, 60)) assert.ok(line.length <= 60, line);

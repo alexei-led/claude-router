@@ -521,3 +521,15 @@ test('the trend Svg stays under the size limit with 400 points, and states its f
     '·█·',
   );
 });
+
+test('a bar figure wider than its column grows the column instead of wrapping', () => {
+  const ui = graphicalKit(ELEMENTS);
+  for (const figure of ['$0.42', '≈$1234.56']) {
+    const meter = ui.meter({ label: 'Main', value: 0.5, tone: 'accent', text: figure });
+    const [text] = find(meter, (n) => n.type === 'Text' && n.props.children === figure);
+    const column = find(meter, (n) => n.type === 'Box' && kids(n).includes(text))[0];
+    assert.equal(column.props.width, undefined, figure);
+    assert.ok(column.props.minWidth >= 7, figure);
+    assert.equal(column.props.flexShrink, 0, figure);
+  }
+});
