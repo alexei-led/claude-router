@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { keywordSent } from '../lib/auto-route.mjs';
 import { DEFAULTS } from '../lib/config.mjs';
 import { REASONS, shortReason } from '../lib/display.mjs';
 import { KEYWORDS, keywordEffort, keywordRaises, keywordTier, promptKeyword } from '../lib/keywords.mjs';
@@ -74,4 +75,17 @@ for (const [keyword, band] of [
   test(`the band says ${band} for a ${keyword} turn, and /router says why`, () => {
     assert.equal(shortReason(keyword, null), band);
     assert.match(REASONS[keyword], new RegExp(`^${keyword} in the prompt: .+ for this turn$`));
+  });
+
+const candidate = (effort, eligible) => ({ route: { model: 'opus', effort }, eligible });
+for (const [name, candidates, expected] of [
+  ['an eligible moved route is sent', [candidate('medium', true), candidate('high', true)], 'high'],
+  [
+    'a moved route the cash cap rejected keeps the selected one',
+    [candidate('medium', true), candidate('high', false)],
+    'medium',
+  ],
+])
+  test(`with Auto, ${name}`, () => {
+    assert.equal(keywordSent(DEFAULTS, 'morethink', { model: 'opus', effort: 'medium' }, candidates).effort, expected);
   });
