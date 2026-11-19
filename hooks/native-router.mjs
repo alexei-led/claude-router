@@ -2265,8 +2265,8 @@ async function paneDecisionRows($, router) {
 }
 
 async function decisionsText($, router, value) {
-  const asked = value === undefined ? 20 : Number(value);
-  if (!Number.isInteger(asked) || asked < 1) return `Choose decisions 1 to ${MAX_ROWS}, or none for 20.`;
+  const asked = value === undefined ? 20 : /^\d+$/.test(value) ? Number(value) : 0;
+  if (asked < 1) return `Choose decisions 1 to ${MAX_ROWS}, or none for 20.`;
   const n = Math.min(MAX_ROWS, asked);
   try {
     const sessionId = await $.session.id();
