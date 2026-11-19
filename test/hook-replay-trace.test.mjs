@@ -316,7 +316,8 @@ test('mid-session/resume/reload cannot become usable even when the saved prefix 
   assert.equal(usableTrace(record(late)), false);
 });
 
-test('retention expires old whole sessions including killed active leases, not decision-row counts', async () => {
+test('retention expires old whole sessions including killed active leases, not decision-row counts', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
   const h = setup();
   await begin(h);
   await turn(h);
@@ -428,7 +429,8 @@ test('explicit Delete history clears stored traces even in table but leaves expo
   assert.equal(h.files.get('/fixture/team/router-traces.json'), saved);
 });
 
-test('concurrent active session records are never evicted to admit a new trace', async () => {
+test('concurrent active session records are never evicted to admit a new trace', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
   const h = setup();
   await begin(h);
   await turn(h);
@@ -451,7 +453,8 @@ test('concurrent active session records are never evicted to admit a new trace',
   assert.ok(record(h).incomplete.includes('store-guard'));
 });
 
-test('eviction rereads changed records and keeps a newly active writer', async () => {
+test('eviction rereads changed records and keeps a newly active writer', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
   const h = setup();
   await begin(h);
   await turn(h);
