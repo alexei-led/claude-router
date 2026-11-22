@@ -88,6 +88,61 @@ Example weekly schedule (macOS `launchd` or `cron`), keeping the key in the file
 - **A model missing** — the free tier may not evaluate it yet, or its display name did not match. The adapter
   lists only attested ids; add an alias mapping deliberately.
 
+## Local probe
+
+Public benchmarks do not cover every `(model, effort, activity)` cell: GLM at high, DeepSeek at low, Kimi at
+low and high, and the review and docs activities have no direct suite. The probe measures the missing cells
+on this machine, against the endpoint the router actually uses.
+
+### How a probe task looks
+
+`data/probes/manifest.json` holds tasks with an `activity` (code, debug, explore, plan, review, ops, docs), a
+`tier` (micro, low, medium, high — the router's demand scale), a prompt, a deterministic check (`exact`,
+`json-equal`, `contains`, `regex`) and an `estimateUsd` ceiling. Tasks marked `example: true` are scaffolds:
+the runner refuses them without `--include-examples`. Write real tasks before measuring; keep checks
+deterministic where possible, and grade docs/review with a rubric only as a last resort and at low
+confidence.
+
+### Run it
+
+```
+# 1. See the cases and the estimated ceiling; spends nothing.
+npm run evidence:probe -- --plan --model glm=zai-org/GLM-5.3@max
+
+# 2. Run a bounded probe. Repeat --model for more pairs.
+npm run evidence:probe -- --run \
+  --model glm=zai-org/GLM-5.3@max \
+  --model glm=zai-org/GLM-5.3@high \
+  --profile ~/.claude-team \
+  --repeats 3 --budget-usd 1
+
+# 3. Re-aggregate an existing raw file without spending.
+npm run evidence:probe -- --aggregate ~/.config/claude-router/evidence.probe.raw.json
+```
+
+The runner spawns the Claude Code CLI once per case with `--model` and `--effort`, one turn, no tools, and a
+per-case budget. It stops before the estimated spend exceeds `--budget-usd`, after `--max-cases`, or after
+three consecutive launch errors. Raw rows and the aggregate land in
+`~/.config/claude-router/evidence.probe.{raw,}.json` (mode 600).
+
+### How results become capability
+
+For each `(model, effort, activity)` the probe counts passes per tier. Capability is the highest tier whose
+pass rate clears 80% with at least three attempts; a next tier that clears 40% adds a half-step. With no
+passing tier but enough micro attempts the value is 0; with too few attempts it stays unknown. `default`
+aggregates every activity. Confidence grows with attempts: high at 12, medium at 6, low below.
+
+The next `npm run evidence:aa` (use `--force` to bypass the age guard) merges probe results into
+`evidence.local.mjs`: a probe value replaces the benchmark prior for the same cell, its statistics are kept
+under `probe`, and the entry's `sources` list `probe`. Cells the probe did not measure keep their Artificial
+Analysis value.
+
+### When to run the probe
+
+On demand, not on a schedule: after adding a model or effort, after a provider changes a snapshot, or
+quarterly. Keep the task set fixed between runs so values are comparable; add tasks deliberately and
+re-run the affected pairs rather than the whole grid.
+
 ## Limits
 
 The overlay is personal routing input. It is not redistributed, not committed, and not used to build a

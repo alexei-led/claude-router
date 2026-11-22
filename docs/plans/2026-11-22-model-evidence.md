@@ -169,6 +169,29 @@ Recommended instead:
 3. **Sampling only as an experiment**, behind an explicit setting and a PRNG seeded from session and turn, in
    shadow first.
 
+## Local probe
+
+Public benchmarks leave cells empty: GLM at high, DeepSeek at low, Kimi at low and high, review and docs.
+The probe measures them locally against the endpoint the router uses, and joins the same update path.
+
+- **Manifest** (`data/probes/manifest.json`): tasks with `activity`, `tier` (micro..high), a prompt, a
+  deterministic check (`exact`, `json-equal`, `contains`, `regex`) and an `estimateUsd` ceiling. Example
+  tasks are marked and refused unless explicitly allowed.
+- **Runner** (`scripts/evidence-probe.mjs`): `--plan` lists cases and the estimated ceiling and spends
+  nothing; `--run` spawns the Claude Code CLI per case with `--model`/`--effort`, one turn, no tools, a
+  per-case budget, `--budget-usd`, `--max-cases` and a three-consecutive-error stop. Raw rows and the
+  aggregate land under `~/.config/claude-router/` with mode 600.
+- **Aggregation** (`lib/evidence-probe.mjs`): pass rate per tier; capability is the highest tier clearing
+  80% with at least three attempts, plus a half-step for a next tier at 40% or more; too few attempts stays
+  unknown. `default` aggregates every activity; confidence grows with attempts.
+- **Merge:** the next `npm run evidence:aa --force` merges probe values over the benchmark prior for the
+  cells it measured, keeps the statistics under `probe`, and records `probe` in `sources`.
+- **Cadence:** on demand — after adding a model or effort, after a provider snapshot change, or quarterly.
+  Keep the task set fixed between runs for comparability.
+
+The overlay also keeps every index the AA row carries, plus its pricing and performance, so later work can
+add a dimension without another request.
+
 ## Plan
 
 1. Source matrix and adapters (research in progress). Each adapter: fetch, parse, fixture, provenance.

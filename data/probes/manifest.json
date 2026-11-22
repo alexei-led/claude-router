@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "id": "code-micro-01",
+      "activity": "code",
+      "tier": "micro",
+      "prompt": "Add 17 and 25. Reply with only JSON {\"sum\": <number>}.",
+      "check": { "kind": "json-equal", "expected": { "sum": 42 } },
+      "estimateUsd": 0.01,
+      "example": true
+    },
+    {
+      "id": "debug-low-01",
+      "activity": "debug",
+      "tier": "low",
+      "prompt": "A loop `for (let i = 1; i < items.length; i += 1)` must visit every item. Reply with only JSON {\"start\": <integer>} giving the start index that visits every item.",
+      "check": { "kind": "json-equal", "expected": { "start": 0 } },
+      "estimateUsd": 0.01,
+      "example": true
+    },
+    {
+      "id": "explore-micro-01",
+      "activity": "explore",
+      "tier": "micro",
+      "prompt": "The text says: 'The router started in 2024 and moved to v1.28 in 2026.' Reply with only JSON {\"year\": <number>} for the year v1.28 shipped.",
+      "check": { "kind": "json-equal", "expected": { "year": 2026 } },
+      "estimateUsd": 0.01,
+      "example": true
+    },
+    {
+      "id": "plan-low-01",
+      "activity": "plan",
+      "tier": "low",
+      "prompt": "Two tasks: A must run before B. Reply with only JSON {\"order\": [\"A\", \"B\"]} giving the valid order.",
+      "check": { "kind": "json-equal", "expected": { "order": ["A", "B"] } },
+      "estimateUsd": 0.01,
+      "example": true
+    },
+    {
+      "id": "review-low-01",
+      "activity": "review",
+      "tier": "low",
+      "prompt": "A function `add(a, b) { return a - b; }` is meant to add. Reply with only JSON {\"operator\": \"+\" | \"-\"} for the correct operator.",
+      "check": { "kind": "json-equal", "expected": { "operator": "+" } },
+      "estimateUsd": 0.01,
+      "example": true
+    },
+    {
+      "id": "ops-micro-01",
+      "activity": "ops",
+      "tier": "micro",
+      "prompt": "Which single shell command prints the current directory? Reply with the command only.",
+      "check": { "kind": "exact", "expected": "pwd" },
+      "estimateUsd": 0.01,
+      "example": true
+    },
+    {
+      "id": "docs-low-01",
+      "activity": "docs",
+      "tier": "low",
+      "prompt": "Write one sentence that contains the word 'router'. Reply with the sentence only.",
+      "check": { "kind": "regex", "expected": "\\brouter\\b" },
+      "estimateUsd": 0.01,
+      "example": true
+    }
+  ]
+}

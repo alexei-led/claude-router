@@ -42,6 +42,7 @@
     "docs:desktop-images": "node scripts/render-desktop-images.mjs",
     "prices:check": "node scripts/check-prices.mjs",
     "evidence:aa": "node scripts/aa-evidence.mjs",
+    "evidence:probe": "node scripts/evidence-probe.mjs",
     "docs:modes": "node scripts/mode-matrix.mjs",
     "probe:results": "node scripts/probe-results.mjs",
     "pack:dry": "npm pack --dry-run",

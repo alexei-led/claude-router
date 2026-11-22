@@ -9,6 +9,7 @@ import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'n
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { aaCapability, parseAaName } from '../lib/evidence-aa.mjs';
+import { mergeProbe } from '../lib/evidence-probe.mjs';
 
 const ENDPOINT = 'https://artificialanalysis.ai/api/v2/language/models/free';
 const OUT_DIR = join(homedir(), '.config', 'claude-router');
@@ -96,20 +97,39 @@ async function fetchPage(key, page) {
   return res.json();
 }
 
-const EVALUATION_KEYS = {
-  intelligence: 'artificial_analysis_intelligence_index',
-  engineering: 'artificial_analysis_engineering_index',
-  strategy: 'artificial_analysis_strategy_and_ops_index',
+const AA_INDEX = /^artificial_analysis_(.+)_index$/;
+const PROBE_FILE = join(OUT_DIR, 'evidence.probe.json');
+const PERFORMANCE = {
+  outputTokensPerSecond: 'median_output_tokens_per_second',
+  timeToFirstTokenSec: 'median_time_to_first_token_seconds',
+  timeToFirstAnswerSec: 'median_time_to_first_answer_token_seconds',
+  endToEndSec: 'median_end_to_end_response_time_seconds',
 };
 
+// Every index the row carries, plus the published pricing, cost per task and performance, so a later decision can
+// use a different dimension without another request.
 function scoresOf(row) {
   const scores = {};
-  for (const [name, key] of Object.entries(EVALUATION_KEYS)) {
-    const value = row?.evaluations?.[key];
-    if (Number.isFinite(value)) scores[name] = value;
+  for (const [key, value] of Object.entries(row?.evaluations ?? {})) {
+    const match = AA_INDEX.exec(key);
+    if (match?.[1] && Number.isFinite(value)) scores[match[1]] = value;
   }
   const costPerTaskUsd = row?.artificial_analysis_intelligence_index_cost?.cost_per_task?.total_cost;
   if (Number.isFinite(costPerTaskUsd)) scores.costPerTaskUsd = costPerTaskUsd;
+  const pricing = {
+    input: row?.pricing?.price_1m_input_tokens,
+    output: row?.pricing?.price_1m_output_tokens,
+    cacheRead: row?.pricing?.price_1m_cache_hit_tokens,
+    cacheWrite: row?.pricing?.price_1m_cache_write_tokens,
+  };
+  const prices = Object.fromEntries(Object.entries(pricing).filter(([, value]) => Number.isFinite(value)));
+  if (Object.keys(prices).length) scores.pricing = prices;
+  const performance = {};
+  for (const [name, key] of Object.entries(PERFORMANCE)) {
+    const value = row?.performance?.[key];
+    if (Number.isFinite(value)) performance[name] = value;
+  }
+  if (Object.keys(performance).length) scores.performance = performance;
   return scores;
 }
 
@@ -129,7 +149,7 @@ function build(rows, checked) {
     if (!id) continue;
     let entry = entries[id];
     if (!entry) {
-      entry = { aliases, capability: {}, scores: {}, confidence: {}, notes: [] };
+      entry = { aliases, capability: {}, scores: {}, confidence: {}, notes: [], sources: ['artificial_analysis'] };
       entries[id] = entry;
     }
     entry.capability[effort] = capability;
@@ -165,6 +185,14 @@ if (!Number.isSafeInteger(totalPages) || totalPages < 1 || totalPages > MAX_PAGE
 const rows = [...first.data];
 for (let page = 2; page <= totalPages; page += 1) rows.push(...(await fetchPage(key, page)).data);
 const overlay = build(rows, new Date().toISOString().slice(0, 10));
+// Probe results are local task measurements; where they cover a cell they replace the benchmark prior.
+try {
+  const probe = JSON.parse(readFileSync(PROBE_FILE, 'utf8'));
+  if (probe?.entries && Object.keys(probe.entries).length) {
+    mergeProbe(overlay.entries, probe.entries);
+    console.log(`aa evidence: merged probe results for ${Object.keys(probe.entries).length} models`);
+  }
+} catch {}
 write(overlay);
 const efforts = Object.values(overlay.entries).reduce((sum, entry) => sum + Object.keys(entry.capability).length, 0);
 console.log(
