@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   aggregateProbe,
   gradeAnswer,
+  isSaturated,
   mergeProbe,
   probeCapability,
   validateProbeManifest,
@@ -27,10 +28,14 @@ test('capability is the highest tier that clears the bar, with a half-step for a
   assert.equal(probeCapability({ micro: tiers(3, 3), low: tiers(3, 3), medium: tiers(3, 3), high: tiers(3, 3) }), 3);
   assert.equal(probeCapability({ micro: tiers(3, 3), low: tiers(3, 3), medium: tiers(3, 3) }), 2);
   assert.equal(probeCapability({ micro: tiers(3, 3), low: tiers(3, 3), medium: tiers(2, 3) }), 1.5);
-  assert.equal(probeCapability({ micro: tiers(1, 3), low: tiers(3, 3) }), 0);
+  assert.equal(probeCapability({ micro: tiers(1, 3), low: tiers(3, 3) }), 1);
   assert.equal(probeCapability({ micro: tiers(3, 3), low: tiers(1, 3) }), 0);
+  assert.equal(probeCapability({ micro: tiers(3, 3), medium: tiers(3, 3) }), 2);
   assert.equal(probeCapability({ micro: tiers(2, 2) }), null);
   assert.equal(probeCapability({}), null);
+  assert.equal(isSaturated({ micro: tiers(3, 3), high: tiers(3, 3) }), true);
+  assert.equal(isSaturated({ micro: tiers(3, 3), high: tiers(2, 3) }), false);
+  assert.equal(isSaturated({ micro: tiers(2, 2) }), false);
 });
 
 test('a probe manifest is validated before any model runs', () => {
@@ -91,8 +96,48 @@ test('graded rows aggregate per activity, effort and tier, and merge over a benc
     },
   };
   mergeProbe(prior, probe);
-  assert.deepEqual(prior['glm-5.3'].capability.max, { default: 0.5, code: 0.5, docs: 0 });
+  // A benchmark prior is never replaced: probe values only fill cells the prior leaves unknown.
+  assert.deepEqual(prior['glm-5.3'].capability.max, { default: 1, code: 1, docs: 1 });
+  assert.deepEqual(prior['glm-5.3'].probeDisagreements, [{ effort: 'max', activity: 'docs', probe: 0, prior: 1 }]);
   assert.deepEqual(prior['glm-5.3'].capability.low, { default: 0.5 });
   assert.deepEqual(prior['glm-5.3'].sources, ['artificial_analysis', 'probe']);
-  assert.equal(prior['glm-5.3'].confidence.max, 'high');
+  assert.equal(prior['glm-5.3'].confidence.max, 'low');
+  // A model the benchmark overlay does not have takes the probe values.
+  const unknown = {};
+  mergeProbe(unknown, probe);
+  assert.deepEqual(unknown['glm-5.3'].capability.max, { default: 0.5, code: 0.5, docs: 0 });
+});
+
+test('a launch error measures nothing and a large disagreement keeps the benchmark prior', () => {
+  const rows = [];
+  const add = (tier, passed) => rows.push({ model: 'm', effort: 'high', activity: 'code', tier, passed });
+  for (let i = 0; i < 3; i += 1) add('micro', true);
+  for (let i = 0; i < 3; i += 1) add('low', true);
+  add('medium', true);
+  add('medium', false);
+  add('medium', false);
+  for (let i = 0; i < 3; i += 1) add('high', true);
+  rows.push({ model: 'm', effort: 'high', activity: 'code', tier: 'high', passed: null });
+  const probe = aggregateProbe(rows, { checked: '2026-11-22' });
+  assert.equal(probe.m.capability.high.code, 3);
+  assert.equal(probe.m.probe.high.activities.code.attempts, 12);
+  const prior = { m: { aliases: ['m'], capability: { high: { code: 2 } }, scores: {}, confidence: { high: 'low' } } };
+  mergeProbe(prior, probe);
+  assert.equal(prior.m.capability.high.code, 2);
+  assert.deepEqual(prior.m.probeDisagreements, [{ effort: 'high', activity: 'code', probe: 3, prior: 2 }]);
+});
+
+test('a saturated probe keeps the benchmark prior for that cell', () => {
+  const rows = [];
+  for (const activity of ['code', 'docs']) {
+    for (const tier of ['micro', 'low', 'medium', 'high']) {
+      for (let i = 0; i < 3; i += 1) rows.push({ model: 'm', effort: 'high', activity, tier, passed: true });
+    }
+  }
+  const probe = aggregateProbe(rows, { checked: '2026-11-22' });
+  assert.deepEqual(probe.m.capability.high, {});
+  assert.equal(probe.m.probe.high.activities.code.saturated, true);
+  const prior = { m: { aliases: ['m'], capability: { high: { code: 1 } }, scores: {}, confidence: { high: 'low' } } };
+  mergeProbe(prior, probe);
+  assert.deepEqual(prior.m.capability.high, { code: 1 });
 });

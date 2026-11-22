@@ -31,6 +31,8 @@ function usage() {
   --wrapper <name>       run the CLI through a zsh function such as claude-work
   --no-router            disable the router plugin so --model and --effort reach the API unchanged
   --repeats <n>          attempts per task (default 2)
+  --concurrency <n>      parallel CLI runs, 1..16 (default 1)
+  --case-budget-usd <n>  per-case CLI budget cap (default 0.25)
   --fresh                discard the accumulated raw results before this run
   --budget-usd <n>       stop before the estimated spend exceeds this (default 1)
   --max-cases <n>        stop after this many cases
@@ -56,11 +58,13 @@ function parseArgs(argv) {
     budgetUsd: 1,
     maxCases: Number.POSITIVE_INFINITY,
     timeoutMs: 180_000,
+    caseBudgetUsd: 0.25,
     examples: false,
     aggregate: null,
     wrapper: null,
     fresh: false,
     noRouter: false,
+    concurrency: 1,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -89,12 +93,17 @@ function parseArgs(argv) {
     else if (arg === '--wrapper') options.wrapper = value();
     else if (arg === '--fresh') options.fresh = true;
     else if (arg === '--no-router') options.noRouter = true;
+    else if (arg === '--concurrency') options.concurrency = Number(value());
+    else if (arg === '--case-budget-usd') options.caseBudgetUsd = Number(value());
     else fail(`unknown argument ${arg} (try --help)`);
   }
   if (!Number.isInteger(options.repeats) || options.repeats < 1) fail('--repeats must be a positive integer');
   if (!Number.isFinite(options.budgetUsd) || options.budgetUsd <= 0) fail('--budget-usd must be positive');
   if (!(options.maxCases >= 1)) fail('--max-cases must be positive');
   if (!Number.isInteger(options.timeoutMs) || options.timeoutMs <= 0) fail('--timeout-ms must be positive');
+  if (!Number.isInteger(options.concurrency) || options.concurrency < 1 || options.concurrency > 16)
+    fail('--concurrency must be an integer from 1 to 16');
+  if (!Number.isFinite(options.caseBudgetUsd) || options.caseBudgetUsd <= 0) fail('--case-budget-usd must be positive');
   if (options.wrapper !== null && !/^[a-z0-9-]+$/.test(options.wrapper))
     fail('--wrapper must be a shell function name of lowercase letters, digits and dashes');
   return options;
@@ -182,7 +191,7 @@ async function runCase(item, options) {
     '--system-prompt',
     SYSTEM_PROMPT,
     '--max-budget-usd',
-    String(Math.max(item.task.estimateUsd, 0.01)),
+    String(options.caseBudgetUsd),
   ];
   if (options.noRouter) args.push('--settings', '{"enabledPlugins":{"router@alexei-led-claude-router":false}}');
   if (item.model.modelId) args.push('--model', item.model.modelId);
@@ -218,26 +227,36 @@ async function run(options) {
   const manifest = loadManifest(options);
   const models = options.models.map(parseModel);
   const cases = casesFor(manifest, models, options.repeats).slice(0, options.maxCases);
-  let spent = 0;
   const rows = [];
+  let spent = 0;
   let consecutiveErrors = 0;
-  for (const item of cases) {
-    if (spent + item.task.estimateUsd > options.budgetUsd) {
-      console.log(`stopped before ${item.task.id}: estimated spend would exceed $${options.budgetUsd}`);
-      break;
+  let stopped = false;
+  let next = 0;
+  const worker = async () => {
+    while (!stopped) {
+      const index = next;
+      next += 1;
+      if (index >= cases.length) return;
+      const item = cases[index];
+      if (spent + item.task.estimateUsd > options.budgetUsd) {
+        stopped = true;
+        console.log(`stopped before ${item.task.id}: estimated spend would exceed $${options.budgetUsd}`);
+        return;
+      }
+      const row = await runCase(item, options);
+      rows.push(row);
+      spent += Number.isFinite(row.costUsd) ? row.costUsd : item.task.estimateUsd;
+      consecutiveErrors = row.error === null ? 0 : consecutiveErrors + 1;
+      console.log(
+        `${row.model}@${row.effort ?? 'default'} ${row.activity}/${row.tier} ${row.taskId} #${row.repeat}: ${row.passed === null ? `error ${row.error}` : row.passed ? 'pass' : 'fail'} $${(row.costUsd ?? 0).toFixed(4)}`,
+      );
+      if (consecutiveErrors >= 3) {
+        stopped = true;
+        console.log('stopped after three consecutive launch errors');
+      }
     }
-    const row = await runCase(item, options);
-    rows.push(row);
-    spent += Number.isFinite(row.costUsd) ? row.costUsd : item.task.estimateUsd;
-    consecutiveErrors = row.error === null ? 0 : consecutiveErrors + 1;
-    console.log(
-      `${row.model}@${row.effort ?? 'default'} ${row.activity}/${row.tier} ${row.taskId} #${row.repeat}: ${row.passed === null ? `error ${row.error}` : row.passed ? 'pass' : 'fail'} $${(row.costUsd ?? 0).toFixed(4)}`,
-    );
-    if (consecutiveErrors >= 3) {
-      console.log('stopped after three consecutive launch errors');
-      break;
-    }
-  }
+  };
+  await Promise.all(Array.from({ length: Math.min(options.concurrency, cases.length) }, worker));
   writeResults(rows, { fresh: options.fresh });
   return rows;
 }

@@ -122,10 +122,12 @@ npm run evidence:probe -- --aggregate ~/.config/claude-router/evidence.probe.raw
 ```
 
 The runner spawns the Claude Code CLI once per case with `--model` and `--effort`, one turn, no tools, and a
-per-case budget. It stops before the estimated spend exceeds `--budget-usd`, after `--max-cases`, or after
-three consecutive launch errors. Raw rows accumulate across runs (`--fresh` starts over) and the aggregate
-lands in `~/.config/claude-router/evidence.probe.{raw,}.json` (mode 600). `--wrapper <zsh-function>` runs
-the CLI through a provider wrapper such as `claude-mp-work`.
+per-case budget (`--case-budget-usd`, default 0.25, must cover the model's reply or the CLI stops without an
+answer). `--concurrency` runs several cases at once; launch errors measure nothing and are excluded from the
+aggregate. It stops before the estimated spend exceeds `--budget-usd`, after `--max-cases`, or after three
+consecutive launch errors. Raw rows accumulate across runs (`--fresh` starts over) and the aggregate lands in
+`~/.config/claude-router/evidence.probe.{raw,}.json` (mode 600). `--wrapper <zsh-function>` runs the CLI
+through a provider wrapper such as `claude-work`.
 
 Anthropic pairs probe exactly: `--wrapper claude-work --no-router --model claude-opus-5-5 --effort medium`
 disables the router plugin through a settings override, so the requested model and effort reach the API
@@ -143,10 +145,12 @@ pass rate clears 80% with at least three attempts; a next tier that clears 40% a
 passing tier but enough micro attempts the value is 0; with too few attempts it stays unknown. `default`
 aggregates every activity. Confidence grows with attempts: high at 12, medium at 6, low below.
 
-The next `npm run evidence:aa` (use `--force` to bypass the age guard) merges probe results into
-`evidence.local.mjs`: a probe value replaces the benchmark prior for the same cell, its statistics are kept
-under `probe`, and the entry's `sources` list `probe`. Cells the probe did not measure keep their Artificial
-Analysis value.
+The next `npm run evidence:aa` (use `--force` to bypass the age guard) copies probe statistics into
+`evidence.local.mjs` under `probe`, and the entry's `sources` list `probe`. A probe value **never replaces an
+existing benchmark prior**: it fills only cells the prior leaves unknown. A set where every measured tier
+passes is marked saturated and also changes nothing — it cannot tell a capable model from a stronger one. A
+disagreement larger than one half-step is recorded under `probeDisagreements` for the next task-set
+revision. This keeps a small local task set from silently overriding a broader benchmark.
 
 ### When to run the probe
 
