@@ -104,8 +104,10 @@ import {
   accountOfModel,
   activeHolds,
   classifyFailure,
+  clearedModel,
   failureHold,
   HOLDS_PREFIX,
+  heldAsSeen,
   heldIds,
   holdModel,
   holdText,
@@ -1462,7 +1464,7 @@ function shadowProposal(
       contextKnown,
       availableModels,
       nativeModel,
-      held: heldIds(projected, loop.held, accountHolds ?? {}, now),
+      held: heldAsSeen(heldIds(projected, loop.held, accountHolds ?? {}, now), loop.resolutions),
     });
     const target = selectTarget({
       candidates,
@@ -2483,8 +2485,8 @@ async function decideSpawn($, router, cfg, e, definition, signal) {
   const settings = await $.settings.read().catch(() => null);
   if (!model || !settings || !isModelAllowed(model, settings.availableModels, e.parentModel))
     return { choice: 'core', model: null, failed };
-  // A model held out right now is never sent an agent, as main routing never sends one: the spawn keeps Claude
-  // Code's own model, and a resumed agent keeps the model its first spawn had.
+  // The router's own override is suppressed when its chosen model is held out right now: the spawn keeps Claude
+  // Code's model, which may itself be the held one (main routing reaches the same conclusion for its own requests).
   const { value: loop } = await $.state.get({ ...LOOP, id: 'main' });
   const held = heldIds(cfg, loop?.held, await accountHoldsOf($, cfg), Date.now());
   if (held.some((id) => isSameModel(id, model))) return { choice: 'core', model: null, failed };
@@ -2607,7 +2609,24 @@ async function* stepAgent($, router, e, next) {
       if (agent && !agent.running) await showRunning($, router);
     } catch {}
   }
+  // A reply from the model itself clears its failure streak, as a main reply does (observeResponse): a hold written
+  // from this agent's failure is over, and the next one starts at the base time again.
+  if (response?.usage && typeof e.model === 'string' && isSameModel(e.model, response.usage.model))
+    await clearAgentHeld($, e.model);
   return response;
+}
+
+// The model holds without `model`'s, as a main reply leaves them: the model answered, so its streak starts over. A
+// write that lost to another leaves the loop as it is.
+async function clearAgentHeld($, model) {
+  try {
+    const ref = { ...LOOP, id: 'main' };
+    const { value: loop, version } = await $.state.get(ref);
+    if (!loop?.held) return;
+    const held = clearedModel(loop.held, model);
+    if (held === loop.held) return;
+    await $.state.set(ref, { ...loop, held }, { ifVersion: version });
+  } catch {}
 }
 
 // A subagent's turn ended: its counts since the last flush go to this session's record kept across sessions.
@@ -3579,6 +3598,7 @@ async function startSession($, router, e) {
   router.initialized = false;
   router.loadFailed = false;
   router.noticeSurfaces.clear();
+  router.capabilityNoticed = false;
   const sessionId = await $.session.id();
   // Lazy profile loading is not a lifecycle signal; only a real Mod start can establish freshness.
   router.traceFreshSession = router.traceStartedSession !== sessionId ? sessionId : null;

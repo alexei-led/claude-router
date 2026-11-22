@@ -67,8 +67,8 @@ Subagent routing is a separate subsystem (its own type table and classifier), so
 not as a selection policy:
 
 - **Spawn:** `decideSpawn` reads `heldIds` (model and account holds) and keeps Claude Code's own model
-  (`core`) when the routed model is held. An agent is never sent to a model known to be out, and no second
-  stand-in policy is invented — core is already hold-aware through main routing.
+  (`core`) when the routed model is held: the router's override is suppressed, and no second stand-in policy
+  is invented. Core's own choice may still be the held model, as for main routing's native requests.
 - **Failure:** `stepAgent` records the model each agent's last request ran; a `StopFailure` for that agent
   holds it through the same `classifyFailure`. The failure writes no main-turn decision row: that evidence
   belongs to the agent's turn, which the router does not record.

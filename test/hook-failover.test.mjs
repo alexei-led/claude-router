@@ -517,6 +517,9 @@ test('a subagent’s failure holds the model its agent ran, and writes no failur
   await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded', agent_id: 'a1' });
   assert.deepEqual(Object.keys(h.loop().held), [HAIKU]);
   assert.deepEqual(failureRows(h), []);
+  // A reply from that model ends its streak, as a main reply does: the next failure starts at the base time.
+  await drain(h.step({ ...step, turnId: 'a1-t2', agentId: 'a1', model: HAIKU }));
+  assert.deepEqual(Object.keys(h.loop().held), []);
 });
 
 test('a subagent failure whose request is unknown holds nothing, and the plan stays usable', async (t) => {

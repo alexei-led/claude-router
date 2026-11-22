@@ -8,6 +8,7 @@ import {
   classifyFailure,
   clearedModel,
   failureHold,
+  heldAsSeen,
   heldIds,
   heldModels,
   holdCause,
@@ -529,3 +530,17 @@ for (const [hold, words] of [
   test(`a ${hold.kind} hold is caused by "${words}"`, () => {
     assert.equal(holdCause(hold), words);
   });
+
+test('a held id is named too by the snapshot its reply resolved it to', () => {
+  assert.deepEqual(heldAsSeen(['claude-haiku-4-5'], { 'claude-haiku-4-5': 'claude-haiku-4-5-20251001' }), [
+    'claude-haiku-4-5',
+    'claude-haiku-4-5-20251001',
+  ]);
+  assert.deepEqual(heldAsSeen(['claude-opus-5-5'], {}), ['claude-opus-5-5']);
+  assert.deepEqual(heldAsSeen(['a', 'b'], { a: 'a-dated', b: 'b-dated', c: 'c-dated' }), [
+    'a',
+    'b',
+    'a-dated',
+    'b-dated',
+  ]);
+});
