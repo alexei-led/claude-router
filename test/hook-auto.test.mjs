@@ -215,6 +215,82 @@ test('auto opt-in sends the catalog target model and effort, not the high route 
   assert.match(rows.text, /demand 3.*target.*move/);
 });
 
+// A catalog that declares no capability anywhere cannot rank candidates: every selection lands in the
+// unknown-only pool, cheapest first (2026-11-22-auto-holds-design.md). The session says so once, not silently.
+test('a catalog with no declared capability warns once that auto falls back to the cheapest', async () => {
+  const h = setup({
+    models: {
+      haiku: { capability: {} },
+      sonnet: { capability: {} },
+      opus: { capability: {} },
+      fable: { capability: {} },
+    },
+  });
+  await start(h);
+  await drain(h.step(step));
+  assert.equal(h.loop().decision.auto.outcome, 'unknown-only');
+  assert.deepEqual(h.toasts, [
+    'Auto cannot rank models: declare models.<alias>.capability; selection falls back to cheapest.',
+  ]);
+  await h.event('turn.start', { turnId: 't2', text: 'Second task.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.equal(h.toasts.length, 1);
+});
+
+test('the unknown-capability notice comes again in a new session, as the flag is per session', async () => {
+  const h = setup({
+    models: {
+      haiku: { capability: {} },
+      sonnet: { capability: {} },
+      opus: { capability: {} },
+      fable: { capability: {} },
+    },
+  });
+  await start(h);
+  await drain(h.step(step));
+  assert.equal(h.toasts.length, 1);
+  await h.event('session.end', { reason: 'clear' });
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('turn.start', { turnId: 't2', text: 'Second session.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.equal(h.toasts.length, 2);
+});
+
+test('a hold on the requested model covers the dated snapshot its reply resolved to', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-22T12:00:00Z') });
+  const h = setup({
+    models: {
+      haiku: { id: 'claude-haiku-4-5', capability: { low: 1, medium: 1.5, high: 2, xhigh: 2, max: 2 } },
+      sonnet: { capability: { low: 0, medium: 0.5, high: 0.5, xhigh: 0.5, max: 0.5 } },
+    },
+  });
+  h.model('claude-haiku-4-5');
+  answering(h, jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'));
+  await start(h);
+  // The reply serves the dated snapshot of the requested model, which the loop records as its resolution.
+  await drain(
+    h.step(step, {
+      usage: {
+        model: 'claude-haiku-4-5-20251001',
+        input_tokens: 100,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        output_tokens: 10,
+      },
+    }),
+  );
+  assert.equal(h.requests.at(-1).model, 'claude-haiku-4-5');
+  assert.equal(h.loop().resolutions['claude-haiku-4-5'], 'claude-haiku-4-5-20251001');
+  // The request fails afterwards: the hold is written under the requested id, candidates carry the resolved one.
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded' });
+  assert.deepEqual(Object.keys(h.loop().held), ['claude-haiku-4-5']);
+  await h.event('turn.complete', { turnId: 't1' });
+  await h.event('turn.start', { turnId: 't2', text: 'Second task.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.notEqual(h.requests.at(-1).model, 'claude-haiku-4-5-20251001');
+  assert.equal(h.loop().decision.reason, 'forced');
+});
+
 test('auto decision rows retain bounded catalog aliases with spaces, Unicode and slash, but reject controls', async () => {
   for (const alias of ['modèle / local', 'bad\nline', 'bad\u202eline', 'x'.repeat(65), '😀'.repeat(33)]) {
     const h = setup();

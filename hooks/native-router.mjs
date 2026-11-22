@@ -104,8 +104,12 @@ import {
   accountOfModel,
   activeHolds,
   classifyFailure,
+  clearedModel,
+  clearedSince,
   failureHold,
   HOLDS_PREFIX,
+  heldAsSeen,
+  heldIds,
   holdModel,
   holdText,
   isActive,
@@ -355,6 +359,8 @@ function createRouter(options) {
     traceOperations: new Map(),
     // The surfaces that showed the unavailable toast this session, so an attach never repeats it on the same one.
     noticeSurfaces: new Set(),
+    // Whether this session already said its auto catalog declares no capability, so it says it once.
+    capabilityNoticed: false,
     controllers: new Set(),
     turnControllers: new Map(),
     view: /** @type {Record<string, unknown> | null} */ (null),
@@ -392,6 +398,11 @@ function createRouter(options) {
     // each parent loop last finished an agent of a type, for respawns.
     agents: new Map(),
     finished: new Map(),
+    // The model each agent's last request ran, for holding after a StopFailure, which names no model.
+    agentRequests: new Map(),
+    // Main steps in flight, and the agent's hold clears they must merge into their own loop write (clearAgentHeld).
+    mainInFlight: 0,
+    agentClears: new Map(),
     // Each agent type's definition frontmatter by provider and type, read once per session (agentDefinition).
     definitions: new Map(),
   };
@@ -1394,7 +1405,13 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
     // Routing chose nothing here, so the reply is not counted; your model's cache still follows it.
     const compared = await compareYours($, router, loop, response, e.effort ?? null, nativeModel, cfg);
     if (compared) observed.yoursBy = compared.states;
+    const pending = mergeAgentClears(router, observed);
+    observed = pending.loop;
     const written = await $.state.set(ref, observed, { ifVersion: version });
+    if (written.isSet && pending.applied) {
+      router.agentClears.clear();
+      await updateView($, router, { holds: await holdsAfter($, router, observed.held) }).catch(() => {});
+    }
     if (turn.config.routingEngine === 'shadow') {
       if (written.isSet) recordTraceResponse(router, e, e, response, compared?.ttl, at);
       else router.trace?.reasons.add('gap');
@@ -1409,12 +1426,13 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
   return response;
 }
 
-// Shadow retains demand evidence only; target selection sees the actual incumbent and cache.
+// Shadow retains demand evidence only; target selection sees the actual incumbent and cache. The proposal
+// respects the holds in force now, as a live auto session would, so the recorded alt never names a held model.
 function shadowProposal(
   config,
   loop,
   selected,
-  { facts, advice, pin, nativeModel, contextKnown, availableModels, now, mode, offSwitches },
+  { facts, advice, pin, nativeModel, contextKnown, availableModels, accountHolds, now, mode, offSwitches },
 ) {
   if (config.routingEngine !== 'shadow') {
     delete selected.shadow;
@@ -1456,6 +1474,7 @@ function shadowProposal(
       contextKnown,
       availableModels,
       nativeModel,
+      held: heldAsSeen(heldIds(projected, loop.held, accountHolds ?? {}, now), loop.resolutions),
     });
     const target = selectTarget({
       candidates,
@@ -1550,6 +1569,7 @@ async function decideTurn($, router, e, signal, step) {
       router.turnConfigs.set(e.turnId, { config: { ...cfg, routingMode: step.cfg.routingMode }, configured: cfg });
     // A keyword is read from a prompt a person or an agent sent, never from a progress report or a pinned turn.
     const keyword = pin || isProgressOrigin(origin) ? null : promptKeyword(router.prompts.get(e.turnId));
+    const accountHolds = await accountHoldsOf($, cfg);
     const traceInput = {
       facts,
       advice: result.advice,
@@ -1558,9 +1578,10 @@ async function decideTurn($, router, e, signal, step) {
       nativeModel,
       contextKnown: context.known,
       availableModels,
-      accountHolds: await accountHoldsOf($, cfg),
+      accountHolds,
       now: Date.now(),
     };
+    traceInput.held = heldIds(cfg, loop.held, accountHolds, traceInput.now);
     const selected =
       cfg.routingEngine === 'auto'
         ? autoRoute(cfg, loop, { ...traceInput, engineModel: e.model })
@@ -1572,6 +1593,7 @@ async function decideTurn($, router, e, signal, step) {
       nativeModel,
       contextKnown: context.known,
       availableModels,
+      accountHolds: traceInput.accountHolds,
       now: Date.now(),
       mode: step.cfg.routingMode.mode,
       offSwitches: router.offSwitches,
@@ -1583,6 +1605,17 @@ async function decideTurn($, router, e, signal, step) {
     // Manual, /clear and turn completion abort the controller; one may land during the write.
     if (!written.isSet || controller.signal.aborted) return null;
     if (cfg.routingEngine === 'shadow') traceOp(router, e, cfg, 'choose', traceInput, selected, messages);
+    // A catalog that declares no capability anywhere cannot rank candidates: every selection falls to the cheapest
+    // unknown. Say so once, so the degenerate order is never silent (2026-11-22-auto-holds-design.md).
+    if (
+      cfg.routingEngine === 'auto' &&
+      !router.capabilityNoticed &&
+      Object.values(cfg.models).every((model) => Object.keys(model.capability ?? {}).length === 0)
+    ) {
+      // biome-ignore lint/nursery/useAtomicUpdates: a one-time notice flag, raced at worst into a second toast
+      router.capabilityNoticed = true;
+      $.ui.toast('Auto cannot rank models: declare models.<alias>.capability; selection falls back to cheapest.');
+    }
     rememberGoal(router, e.turnId, result.advice, cfg.policy.continuationMass, messages);
     const holds = { accounts: traceInput.accountHolds, models: selected.held ?? {} };
     if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
@@ -1730,12 +1763,16 @@ async function moveOnObserved($, router, cfg, loop, e, context) {
   const observed = routingBucket(
     observedActivity(messages, Math.max(promptIndex(messages), (loop.observedFrom ?? 0) - 1)),
   );
+  const observedHolds = await accountHoldsOf($, cfg);
+  const now = Date.now();
   const traceInput = {
     observed,
     facts,
     contextKnown: context.known,
-    accountHolds: await accountHoldsOf($, cfg),
-    now: Date.now(),
+    accountHolds: observedHolds,
+    // The holds in force for this move, recorded so replay reaches the same conclusion the live turn did.
+    held: heldAsSeen(heldIds(cfg, loop.held, observedHolds, now), loop.resolutions),
+    now,
   };
   const moved = observedMove(cfg, loop, traceInput);
   if (cfg.routingEngine === 'shadow') traceOp(router, e, cfg, 'observed', traceInput, moved, messages);
@@ -1782,6 +1819,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
     const advice =
       messages.length === review.observedUpTo ? review.answer.advice : { ...review.answer.advice, phase: null };
     const facts = { ...stepFacts(cfg, router, loop, e, messages, context), midTurn: true };
+    const reviewHolds = await accountHoldsOf($, cfg);
     const traceInput = {
       facts,
       advice,
@@ -1789,9 +1827,10 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       nativeModel,
       contextKnown: context.known,
       availableModels,
-      accountHolds: await accountHoldsOf($, cfg),
+      accountHolds: reviewHolds,
       now: Date.now(),
     };
+    traceInput.held = heldIds(cfg, loop.held, reviewHolds, traceInput.now);
     const selected =
       cfg.routingEngine === 'auto' ? autoRoute(cfg, loop, traceInput) : chooseRoute(cfg, loop, traceInput);
     if (cfg.routingEngine === 'shadow') traceOp(router, e, cfg, 'choose', traceInput, selected, messages);
@@ -1804,6 +1843,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       nativeModel,
       contextKnown: context.known,
       availableModels,
+      accountHolds: traceInput.accountHolds,
       now: Date.now(),
       mode: cfg.routingMode?.mode ?? DEFAULTS.mode,
       offSwitches: router.offSwitches,
@@ -1952,10 +1992,18 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   }
   const compared = await compareYours($, router, loop, response, request.effort ?? null, nativeModel, cfg);
   if (compared) observed.yoursBy = compared.states;
+  // A model replied while this request was in flight (clearAgentHeld): its streak ends in the same write, so the
+  // pending clear never loses this reply's usage to a version conflict.
+  const pending = mergeAgentClears(router, observed);
+  observed = pending.loop;
   const written = await $.state.set({ ...LOOP, id: 'main' }, observed, { ifVersion: loopVersion });
   if (!written.isSet) {
     if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('gap');
     return;
+  }
+  if (pending.applied) {
+    router.agentClears.clear();
+    await updateView($, router, { holds: await holdsAfter($, router, observed.held) }).catch(() => {});
   }
   if (cfg.routingEngine === 'shadow') recordTraceResponse(router, request, request, response, compared?.ttl, at);
   // A substituted reply is not the tier's: the strip and trend must not count it as one.
@@ -2459,6 +2507,11 @@ async function decideSpawn($, router, cfg, e, definition, signal) {
   const settings = await $.settings.read().catch(() => null);
   if (!model || !settings || !isModelAllowed(model, settings.availableModels, e.parentModel))
     return { choice: 'core', model: null, failed };
+  // The router's own override is suppressed when its chosen model is held out right now: the spawn keeps Claude
+  // Code's model, which may itself be the held one (main routing reaches the same conclusion for its own requests).
+  const { value: loop } = await $.state.get({ ...LOOP, id: 'main' });
+  const held = heldIds(cfg, loop?.held, await accountHoldsOf($, cfg), Date.now());
+  if (held.some((id) => isSameModel(id, model))) return { choice: 'core', model: null, failed };
   return { choice: alias, model, failed };
 }
 
@@ -2562,6 +2615,9 @@ async function subagentTtlOf($) {
 // A subagent's step runs exactly as Claude Code sent it: a model switch between its steps would rewrite its context
 // cold. Its reply is added to its spawn record; the record never breaks the step.
 async function* stepAgent($, router, e, next) {
+  // The model this agent's request ran, for a failure's hold: StopFailure names no model and `lastRequested` is the
+  // main conversation's request.
+  if (typeof e.model === 'string') router.agentRequests.set(e.agentId, e.model);
   const response = yield* next(e);
   if (router.agents.has(e.agentId) && response?.usage) {
     try {
@@ -2575,7 +2631,43 @@ async function* stepAgent($, router, e, next) {
       if (agent && !agent.running) await showRunning($, router);
     } catch {}
   }
+  // A reply from the model itself clears its failure streak, as a main reply does (observeResponse): a hold written
+  // from this agent's failure is over, and the next one starts at the base time again.
+  if (response?.usage && typeof e.model === 'string' && isSameModel(e.model, response.usage.model))
+    await clearAgentHeld($, router, e.model);
   return response;
+}
+
+// The model holds without `model`'s, as a main reply leaves them: the model answered, so its streak starts over. The
+// view is refreshed after the write, so the pane and `/router release` stop naming a hold routing no longer keeps; a
+// write that lost to another leaves both the loop and the view as they are. While a main request is in flight its
+// reply owns the loop write, so the clear is queued and merged into that write (observeRouted).
+async function clearAgentHeld($, router, model) {
+  try {
+    if (router.mainInFlight > 0) {
+      // The moment of the answer travels with the clear: a hold set after it is a later failure and stays.
+      router.agentClears.set(model, Date.now());
+      return;
+    }
+    const ref = { ...LOOP, id: 'main' };
+    const { value: loop, version } = await $.state.get(ref);
+    if (!loop?.held) return;
+    const held = clearedModel(loop.held, model);
+    if (held === loop.held) return;
+    const written = await $.state.set(ref, { ...loop, held }, { ifVersion: version });
+    if (written.isSet) await updateView($, router, { holds: await holdsAfter($, router, held) });
+  } catch {}
+}
+
+// The loop with the queued agent clears merged: an answer made after a hold was set ends it; a hold set after the
+// answer is a later failure and stays. Entries remain queued until a successful main write applies whatever they
+// cleared.
+function mergeAgentClears(router, loop) {
+  if (!router.agentClears.size) return { loop, applied: false };
+  let held = loop.held;
+  for (const [model, at] of router.agentClears) held = clearedSince(held, model, at);
+  if (held === loop.held) return { loop, applied: false };
+  return { loop: { ...loop, held }, applied: true };
 }
 
 // A subagent's turn ended: its counts since the last flush go to this session's record kept across sessions.
@@ -3086,12 +3178,23 @@ function traceGap(router, engine) {
   if (engine === 'shadow') router.trace?.reasons.add('gap');
 }
 
+// The guard covers the whole main step, from before its loop read to its reply's write: an agent's hold clear queues
+// for that window and is merged into that write (clearAgentHeld), so it cannot move the version this step's own
+// decision and reply writes need.
 async function* stepMain($, router, e, next) {
   if (!(await ensureInitialized($, router))) return yield* next(e);
   if (e.agentId) return yield* stepAgent($, router, e, next);
+  router.mainInFlight += 1;
+  try {
+    return yield* mainStep($, router, e, next);
+  } finally {
+    router.mainInFlight -= 1;
+  }
+}
+
+async function* mainStep($, router, e, next) {
   // A main request goes out as Claude Code built it unless sendRouted routes it, so its model is the one a failure
   // holds (holdFailedModel) until sendRouted names another.
-  // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
   router.lastRequested = e.model;
   const turn = router.turnConfigs.get(e.turnId) ?? (await turnConfigOf($, router));
   const cfg = turn.config;
@@ -3164,6 +3267,7 @@ async function* stepMain($, router, e, next) {
     // A review answer applies first, so tool calls made after its snapshot can still move the route up.
     loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
     loop = await moveOnObserved($, router, cfg, loop, e, context);
+    const stepHolds = await accountHoldsOf($, cfg);
     const traceInput = {
       hasImages: cfg.routingEngine === 'auto' ? false : await imagesOf($, cfg, loop.decision),
       nativeModel,
@@ -3171,9 +3275,10 @@ async function* stepMain($, router, e, next) {
       contextKnown: context.known,
       availableModels,
       effort: e.effort,
-      accountHolds: await accountHoldsOf($, cfg),
+      accountHolds: stepHolds,
       now: Date.now(),
     };
+    traceInput.held = heldIds(cfg, loop.held, stepHolds, traceInput.now);
     loop =
       cfg.routingEngine === 'auto'
         ? await continueAuto($, router, cfg, loop, e, context, traceInput)
@@ -3295,18 +3400,19 @@ async function keepChosenModel($, router, reason) {
   await updateView($, router, { nativeModel: await $.session.model(), ...(reason ? { reason } : {}) });
 }
 
-// A main turn ended on an API error (`StopFailure`): the request is lost, and Claude Code reports neither the model nor
-// a retry-after. The failure goes into the turn's decision rows with what Claude Code gave and the plan's readings, then
+// A turn ended on an API error (`StopFailure`): the request is lost, and Claude Code reports neither the model nor a
+// retry-after. The failure goes into the turn's decision rows with what Claude Code gave and the plan's readings, then
 // classifies (classifyFailure) and holds: an error that is the model's holds the model the last request ran, which can
 // be a stand-in, out of routing for a while in the loop; a used-up quota holds its account in $.store, where every
-// session and restart sees it (lib/failover.mjs). The `auto` engine routes without holds, so it gets none and no toast
-// claims one.
-async function holdFailedModel($, router, e) {
+// session and restart sees it (lib/failover.mjs). Every engine holds: table and shadow stand a stand-in in for the held
+// route, auto excludes the held model from its candidates. An agent's failure names its model (`agentModel`) and holds
+// it too, but belongs to the agent's turn: the main turn's decision rows are not where its evidence goes.
+async function holdFailedModel($, router, e, agentModel = null) {
   // A failed hold changes no route; the turn's result stands.
   try {
     if (!(await ensureInitialized($, router))) return;
     const { config } = router;
-    const model = router.lastRequested ?? (await $.session.model());
+    const model = agentModel ?? router.lastRequested ?? (await $.session.model());
     const usage = await $.session.usage().catch(() => null);
     const limits = planLimits(usage);
     const now = Date.now();
@@ -3322,12 +3428,13 @@ async function holdFailedModel($, router, e) {
       now,
     });
     const held =
-      failure.kind === null || config.routingEngine === 'auto'
+      failure.kind === null
         ? null
         : await applyHold($, router, failure, e.error, failure.scope === 'account' ? account : model, now).catch(
             () => null,
           );
     if (held) await updateView($, router, { holds: await holdsAfter($, router, held.models) });
+    if (agentModel !== null) return;
     const turnId = router.mainTurnId;
     if (turnId === null) return;
     addDecision(
@@ -3350,9 +3457,9 @@ async function holdFailedModel($, router, e) {
 }
 
 // The account holds in $.store at this moment, account name to hold, for routing to skip the models they cover. A hold
-// that cannot be read holds nothing: a turn is never blocked on the store. The `auto` engine holds nothing.
+// that cannot be read holds nothing: a turn is never blocked on the store. Every engine reads them, as the pane and
+// `/router holds` do.
 async function accountHoldsOf($, cfg) {
-  if (cfg.routingEngine === 'auto') return {};
   const read = await Promise.all(
     accountNames(cfg).map(async (name) => [
       name,
@@ -3543,6 +3650,9 @@ async function startSession($, router, e) {
   router.initialized = false;
   router.loadFailed = false;
   router.noticeSurfaces.clear();
+  router.capabilityNoticed = false;
+  // A clear queued by a previous session's agent says nothing about this session's holds.
+  router.agentClears.clear();
   const sessionId = await $.session.id();
   // Lazy profile loading is not a lifecycle signal; only a real Mod start can establish freshness.
   router.traceFreshSession = router.traceStartedSession !== sessionId ? sessionId : null;
@@ -3640,11 +3750,15 @@ export function register(on, options) {
     return next(e);
   });
 
-  // Since 2.1.296 (present at the 2.1.321 floor): a turn that ended on an API error. A subagent's is not routed here.
-  // A hook failure leaves the event to the hooks beneath, as without the router.
+  // Since 2.1.296 (present at the 2.1.321 floor): a turn that ended on an API error. A subagent's holds the model its
+  // agent ran, when that request is known. A hook failure leaves the event to the hooks beneath, as without the router.
   on('classic.StopFailure', async ($, e, next) => {
     const result = await next(e);
     if (e.agent_id === undefined) await holdFailedModel($, router, e);
+    else {
+      const agentModel = router.agentRequests.get(e.agent_id) ?? null;
+      if (agentModel !== null) await holdFailedModel($, router, e, agentModel);
+    }
     return result;
   }).catch((_$, e, next) => next(e));
 

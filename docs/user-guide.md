@@ -48,9 +48,7 @@ The pane shows its provider and file path.
   <img src="images/desktop-band-routed-light.png" alt="The desktop band in one row: a tier meter, Opus 5.5 xhigh, the code activity and the reason &quot;clearly stronger&quot; on the left; context and cache readings, the Pin to a tier dropdown and the Router button on the right.">
 </picture>
 
-*Rendered from the real component tree with a browser's layout and approximate theme colours; not a screenshot of the Claude app.*
-
-
+_Rendered from the real component tree with a browser's layout and approximate theme colours; not a screenshot of the Claude app._
 
 The band above the prompt is drawn natively as one fixed row. Nothing appears on hover: every control is on the row itself. Colours come from the app's theme, so the band reads in light and dark.
 
@@ -92,17 +90,17 @@ Read the first line from left to right:
 - **Switch cost**: `switch ≈ $0.48`, the policy's price for the switch it weighed this turn, mostly the prompt cache the other model must write. For a move to a cheaper model it is net of what that model saves over the next turns. The higher the cost, the higher the bar a stronger model must clear.
 - **ctx** and **cache**: a gauge of context use on the model that runs next, and the share of input read from the cache on the last reply. The gauge turns yellow at 60% and red at 80%.
 
-| Band shows                                   | Meaning                                                                                                                  |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `▂▄▆█ Opus 5.5 · xhigh   ready`              | Routing is on and ready for a new turn.                                                                                  |
-| `▂▄▆█ choosing…   Jev ≤ 1.5 s`               | The classifier and local policy are running, within the classifier's deadline. The spinner says `Choosing model`.        |
-| `⏵ next ▂▄▆ Opus·medium ✕`                   | A pin is set for the next turn. **✕** cancels it.                                                                        |
-| `⚠ Jev: no API key [ Set up ]`               | The active classifier lacks a setting; routing keeps the model (`= no advice`). **Set up** opens the secure plugin dialog. |
-| `⚠ Clef: no account ID [ Set up ]`           | Clef has its API token but no Cloudflare account ID. **Set up** opens the dialog.                                        |
-| `⚠ Jev timed out [ Details ]`                | The classifier failed: timed out, unreachable, rejected the key, or paused. **Details** opens the pane.                  |
-| `○ Opus 5.5 · xhigh [ Turn on ]  routing off` | Routing is off: Claude's model answers every turn. **Turn on** turns it back on. The footer also shows `routing off`.   |
-| `✕ Opus 5.5 · xhigh [ Fix ]  routing unavailable` | Nothing routes: a missing/invalid provider file, an old Claude Code, or leftover v0.8 settings. **Fix** opens the pane. |
-| `agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)` | You are viewing a subagent's transcript: the model it runs on, and who picked it; see below.        |
+| Band shows                                                | Meaning                                                                                                                    |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `▂▄▆█ Opus 5.5 · xhigh   ready`                           | Routing is on and ready for a new turn.                                                                                    |
+| `▂▄▆█ choosing…   Jev ≤ 1.5 s`                            | The classifier and local policy are running, within the classifier's deadline. The spinner says `Choosing model`.          |
+| `⏵ next ▂▄▆ Opus·medium ✕`                                | A pin is set for the next turn. **✕** cancels it.                                                                          |
+| `⚠ Jev: no API key [ Set up ]`                            | The active classifier lacks a setting; routing keeps the model (`= no advice`). **Set up** opens the secure plugin dialog. |
+| `⚠ Clef: no account ID [ Set up ]`                        | Clef has its API token but no Cloudflare account ID. **Set up** opens the dialog.                                          |
+| `⚠ Jev timed out [ Details ]`                             | The classifier failed: timed out, unreachable, rejected the key, or paused. **Details** opens the pane.                    |
+| `○ Opus 5.5 · xhigh [ Turn on ]  routing off`             | Routing is off: Claude's model answers every turn. **Turn on** turns it back on. The footer also shows `routing off`.      |
+| `✕ Opus 5.5 · xhigh [ Fix ]  routing unavailable`         | Nothing routes: a missing/invalid provider file, an old Claude Code, or leftover v0.8 settings. **Fix** opens the pane.    |
+| `agent ■ Haiku 5.5  ↓ from Opus 5.5 (Claude Code’s pick)` | You are viewing a subagent's transcript: the model it runs on, and who picked it; see below.                               |
 
 **Turn on** and **Fix** sit next to the model and stay at any width.
 
@@ -181,7 +179,6 @@ What each tab shows:
     <img src="images/desktop-pane-usage-light.png" alt="The Usage tab: period buttons, a summary of cost against no routing, a breakdown by activity, a worth-a-look note, and a subagents table." width="560">
   </picture>
 
-
 Unsaved Routes and Policy changes sit in an **Unsaved changes** card at the bottom, a table of each setting before and after with **Discard** and **Save**; the last save and **Undo** follow it. **?** opens an **About the router** card. When the classifier needs attention, the header says so and the warning under the tabs says what to do. Saving, undoing and the numbers behind each card follow the terminal descriptions below.
 
 At a phone's width the same trees narrow: the band shortens its route to fit and the cards truncate their notes.
@@ -190,14 +187,13 @@ At a phone's width the same trees narrow: the band shortens its route to fit and
 
 ### The pane in the terminal
 
-
-| Tab          | What it answers                                                                                                                                             |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 Now        | What runs next turn, and why, with a **pin** dropdown; the plan windows; this session's cost against no routing; context and cache.                      |
-| 2 Routes     | Which model runs: one grid of tiers by activities, the activity routing mode, and an editor for the selected cell.                                          |
-| 3 Policy     | How readily the router changes models: the start tier, going down, going up, the activity threshold, the credits cap; the `router.json` path.               |
-| 4 Classifier | Which classifier to ask: one row per classifier to compare, the active one's deadline, wait, health and credentials, and the counts kept across sessions.   |
-| 5 Usage      | What routing cost against no routing this session, today, over 7 or 30 days, this month or in all: by activity, model or tier, and what is worth a look.    |
+| Tab          | What it answers                                                                                                                                           |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Now        | What runs next turn, and why, with a **pin** dropdown; the plan windows; this session's cost against no routing; context and cache.                       |
+| 2 Routes     | Which model runs: one grid of tiers by activities, the activity routing mode, and an editor for the selected cell.                                        |
+| 3 Policy     | How readily the router changes models: the start tier, going down, going up, the activity threshold, the credits cap; the `router.json` path.             |
+| 4 Classifier | Which classifier to ask: one row per classifier to compare, the active one's deadline, wait, health and credentials, and the counts kept across sessions. |
+| 5 Usage      | What routing cost against no routing this session, today, over 7 or 30 days, this month or in all: by activity, model or tier, and what is worth a look.  |
 
 Under the tab row, one slot shows the warnings on every tab: a project config that was ignored, a native fallback, and missing classifier credentials. They no longer sit inside the Now tab's NEXT TURN block.
 
@@ -264,13 +260,13 @@ agents · 15                 ≈$5.60         −$0.51      ≈$6.11
 7 days · API estimate       ≈$20.93        −$12.29     ≈$33.22
 ```
 
-| Row              | What it is                                                                                                   |
+| Row             | What it is                                                                                                      |
 | --------------- | --------------------------------------------------------------------------------------------------------------- |
-| main             | The main thread's routed replies, against the same tokens on your model with one cache that never switched. |
-| cheaper models   | What routing saved on replies that ran on models cheaper than yours.                                         |
-| stronger models  | What replies on models stronger than yours cost on top. Shown only when not zero.                            |
-| cache rebuilds   | What rewriting the prompt cache after a model switch cost, and its share of the saving.                      |
-| agents           | The subagents, against the same tokens on Claude Code's pick for each.                                       |
+| main            | The main thread's routed replies, against the same tokens on your model with one cache that never switched.     |
+| cheaper models  | What routing saved on replies that ran on models cheaper than yours.                                            |
+| stronger models | What replies on models stronger than yours cost on top. Shown only when not zero.                               |
+| cache rebuilds  | What rewriting the prompt cache after a model switch cost, and its share of the saving.                         |
+| agents          | The subagents, against the same tokens on Claude Code's pick for each.                                          |
 | total           | The period's cost, its difference, and what unrouted would have cost: `API estimate` for every billing product. |
 
 Each row reads across: cost − unrouted = the difference. Down the table, main and agents make the total, and cheaper models, stronger models and cache rebuilds make main's difference. A profile that mixes plan and credits models adds `credits estimate` under the total. Below 10 routed replies the difference adds `3 replies so far: one model switch can still move this a lot`, because one switch and its cache write can decide a short run.
@@ -405,6 +401,7 @@ On the running task:
   - `code`, `debug` and a route with no activity: only a passed check counts.
 
   A failed check blocks every one of these, and so does a check whose result is not the check's own (chained, redirected, piped, after `;` or `||`, or in the background). While no checkpoint is met, the route stays: for a tier the band shows `… down after a checkpoint`; a held activity keeps the running one and shows `= fits`. A cheaper activity also needs 90% probability (`policy.downgradeMass`; 65% in `cost`).
+
 - A cheaper tier lands where the answer as a whole points: when the classifier says `micro` 63% and `low` 30%, the turn moves to `low`, which 93% of the answer supports, instead of staying until `micro` alone reaches 90%.
 - A pinned turn does not move. A prompt not scored as a continuation is routed as a fresh turn. The bounded in-memory goal anchor is created or replaced only on positive new-task evidence, retained only on positive continuation, and dropped on ambiguity, history replacement or session end. A continuation without an anchor cannot seed a short reply as a new goal. Ollama provides neither phase nor continuity, so it does not retain this anchor; recent dialogue can still help its goal answer.
 
@@ -414,16 +411,16 @@ On Claude Code 2.1.322 an effort that the router changed inside a turn was not s
 
 ### When a model fails
 
-When a turn ends on an API error that is the model's fault, the router holds something out of routing for a while, so the next turns run another model. A toast says so once, such as `Opus 5.5 held out of routing: overloaded, 5 min` or `Claude plan held out of routing: usage limit, 4 h`.
+When a turn ends on an API error that is the model's fault, the router holds something out of routing for a while, so the next turns run another model. Every engine holds: `table` and `shadow` stand a stand-in in for the held route, and `auto` never selects a held model as its target or keeps one as its incumbent. A toast says so once, such as `Opus 5.5 held out of routing: overloaded, 5 min` or `Claude plan held out of routing: usage limit, 4 h`.
 
 The router sorts each failure into one of four kinds, from the plan's usage readings first, then the error's text when Claude Code gives it, then the error word:
 
-| Kind           | Recognised by                                                                                                 | Held out                                                                  | Ends                                                                     |
-| -------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `availability` | `overloaded`, `server_error`, `model_not_found`, or `rate_limit` with no sign of a used-up quota, or a plan `rate_limit` that names credits                | The model                                                                 | After a fixed time, doubled on each failed retry (see below)             |
-| `window`       | `rate_limit` while a `five_hour` or `seven_day` plan reading is at 100% or more and resets later              | The account, which is the Claude plan for plan models                     | The latest reset time plus 1 minute, at most 7 days away                 |
-| `calendar`     | `rate_limit` whose text says "spend limit"                                                                    | The account                                                               | The account's configured monthly reset, or 24 hours when none is set     |
-| `balance`      | `billing_error`, or a `rate_limit` whose text names a balance, a recharge or credit (on the Claude plan such a `rate_limit` is an availability hold) | The account                                                               | A release (`/router release`)                                            |
+| Kind           | Recognised by                                                                                                                                        | Held out                                              | Ends                                                                 |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------- |
+| `availability` | `overloaded`, `server_error`, `model_not_found`, or `rate_limit` with no sign of a used-up quota, or a plan `rate_limit` that names credits          | The model                                             | After a fixed time, doubled on each failed retry (see below)         |
+| `window`       | `rate_limit` while a `five_hour` or `seven_day` plan reading is at 100% or more and resets later                                                     | The account, which is the Claude plan for plan models | The latest reset time plus 1 minute, at most 7 days away             |
+| `calendar`     | `rate_limit` whose text says "spend limit"                                                                                                           | The account                                           | The account's configured monthly reset, or 24 hours when none is set |
+| `balance`      | `billing_error`, or a `rate_limit` whose text names a balance, a recharge or credit (on the Claude plan such a `rate_limit` is an availability hold) | The account                                           | A release (`/router release`)                                        |
 
 An authentication or request error (`authentication_failed`, `oauth_org_not_allowed`, `account_on_hold`, `invalid_request`), a cut-off answer and an unknown error hold nothing: another model would not help. Claude Code reports no retry-after, so an availability hold uses a fixed time.
 
@@ -440,14 +437,14 @@ An authentication or request error (`authentication_failed`, `oauth_org_not_allo
 - **Account holds are kept in the plugin's store** (`holds/<account>`), so another session sees them and a restart keeps them. Model holds stay in the session. If two sessions write the same account hold at once, one write can be lost; both say the same account is out.
 - **A hold ending changes nothing by itself.** The failed request is not sent again, and nothing probes the model: the next turn routes as usual, and a model that was held out can run again.
 
-While a model is held out, a turn whose route runs it, a pinned turn too, runs a stand-in:
+While a model is held out, a turn whose route runs it, a pinned turn too, runs a stand-in (the `table` and `shadow` engines; `auto` instead excludes the held model from its candidates, so its next turn picks the best model that is still eligible):
 
 1. The model's **fallback chain**, if `fallbacks` in `router.json` lists one: the first target that is allowed, not held (itself or through its account), not excluded this turn, able to take the turn's images and large enough for the context. While the context is unmeasured, a target with a smaller window than the last route is skipped. A bare target runs at the source's effort; an effort the target does not support moves down to the nearest one it does, or to its lowest when none is below (Opus at `medium` into GLM runs `low`, because the z.ai preset's GLM has `low`, `high` and `max`; write `glm@high` to pin it). `alias@effort` runs at its own effort. A target need not be in any tier.
 2. When every target is skipped, or there is no chain, the nearest tier's route on another model at the turn's activity; of two tiers as near, the stronger.
 
 The nearest-tier rule never switches into or out of a model that requires its own history (`requiresOwnHistory`, such as Kimi K3) from another model, and a chain cannot mix such a model with another.
 
-The stand-in serves the turn and its tool calls, and never becomes the running route, so it does not stick: when the hold ends, the next turn returns to the route it held out without waiting for votes or a checkpoint. A route that is not its tier's configured route, kept from before a routing mode change or a route edit, or your own model when no tier routes to it, is the exception: when the tier's configured route runs another model, that route takes over at once and stays after the hold. The route line shows `! held out`. The band names who holds and until when, `↷ Claude plan 5h limit · back 19:00`, and the switch toast names the holder and the stand-in, `Claude plan 5h limit · back 19:00 → GLM 5.3 · max`; either falls back to `! held out` when no one hold can be named. If the stand-in fails, it gets the hold, not the model it stood in for. A subagent's failure holds nothing. A compaction keeps the holds; a new session starts without model holds and keeps account holds. With `"routingEngine": "auto"` no model or account is held and no toast shows: that engine does not route around holds.
+The stand-in serves the turn and its tool calls, and never becomes the running route, so it does not stick: when the hold ends, the next turn returns to the route it held out without waiting for votes or a checkpoint. A route that is not its tier's configured route, kept from before a routing mode change or a route edit, or your own model when no tier routes to it, is the exception: when the tier's configured route runs another model, that route takes over at once and stays after the hold. The route line shows `! held out`. The band names who holds and until when, `↷ Claude plan 5h limit · back 19:00`, and the switch toast names the holder and the stand-in, `Claude plan 5h limit · back 19:00 → GLM 5.3 · max`; either falls back to `! held out` when no one hold can be named. If the stand-in fails, it gets the hold, not the model it stood in for. A subagent's failure holds nothing. A compaction keeps the holds; a new session starts without model holds and keeps account holds. Under `"routingEngine": "auto"` a held model is simply not a candidate, and when the hold ends it is one again: the ordinary demand, cost and cache gates decide whether the route moves back, and the shadow proposal in the decision rows respects holds the same way, so it never names a held model either.
 
 Every main-turn failure also adds a `failure` row to the decision record: the error word, the first 300 characters of Claude Code's `error_details` (empty when it gives none), the plan readings at that moment, the kind, and what was held. `/router decisions` lists the row without the text.
 
@@ -475,25 +472,25 @@ On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the
 
 ## Change routing
 
-| Command or action                        | Result                                                                                                    |
-| ---------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `/router`                                | Open the pane.                                                                                            |
-| `/router auto`                           | Turn routing on for this session using the engine selected in the profile. It does not change the engine.  |
-| `/router off`                            | Turn routing off and keep Claude's selected model.                                                        |
-| `/router pin <micro\|low\|medium\|high>` | Pin the next turn and its tool continuations. Routing on must already be enabled.                         |
-| `/router activities <off\|on>`           | Set the [activity routing](#route-by-activity) mode. Saved to `router.json` at once; **Undo** reverts it. |
-| `/router mode <cost\|balanced\|quality>`  | Set this session's [routing mode](routing-modes.md) from the next turn. A resume keeps it.               |
-| `/router mode default`                   | Clear the session's mode: the project's or the profile's applies again.                                  |
-| `/router holds`                          | List the models and accounts held out of routing, with the cause and the end. See [When a model fails](#when-a-model-fails). |
-| `/router release <model\|account>`       | End a hold early. **Release** on the Now tab does the same, with **Undo**. |
-| `/router decisions [n]`                  | Print this session's last `n` routing decisions: 20 by default, `n` a whole number from 1 to 60. See [Routing decisions](#routing-decisions). |
-| `/router line <off\|moves\|all>`          | Choose when a turn leaves a [route line](#the-route-line) in the transcript. `moves` is the default. Kept across sessions. |
-| `/router trace export`                   | Export the shadow traces. See [routing engine](configuration.md#routing-engine). |
-| `/model <name>`                          | Select a model and turn routing off. Use `/router auto` to turn it back on. The model picker and a model set from the SDK, an IDE or Remote Control do the same. |
-| **Turn on** / **Turn off** on the band   | The same as `/router auto` and `/router off`.                                                             |
-| **on** / **off** on the pane (`o` / `f`) | The same as `/router auto` and `/router off`.                                                             |
-| **pin** on the Now tab                   | Pin that tier for the next turn. Routing on must already be enabled.                                      |
-| A prompt that starts with `maxthink`, `nothink` or another [prompt keyword](#move-one-turn-with-a-prompt-keyword) | Move that turn up or down, keeping the routing mode and the activity. |
+| Command or action                                                                                                 | Result                                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/router`                                                                                                         | Open the pane.                                                                                                                                                   |
+| `/router auto`                                                                                                    | Turn routing on for this session using the engine selected in the profile. It does not change the engine.                                                        |
+| `/router off`                                                                                                     | Turn routing off and keep Claude's selected model.                                                                                                               |
+| `/router pin <micro\|low\|medium\|high>`                                                                          | Pin the next turn and its tool continuations. Routing on must already be enabled.                                                                                |
+| `/router activities <off\|on>`                                                                                    | Set the [activity routing](#route-by-activity) mode. Saved to `router.json` at once; **Undo** reverts it.                                                        |
+| `/router mode <cost\|balanced\|quality>`                                                                          | Set this session's [routing mode](routing-modes.md) from the next turn. A resume keeps it.                                                                       |
+| `/router mode default`                                                                                            | Clear the session's mode: the project's or the profile's applies again.                                                                                          |
+| `/router holds`                                                                                                   | List the models and accounts held out of routing, with the cause and the end. See [When a model fails](#when-a-model-fails).                                     |
+| `/router release <model\|account>`                                                                                | End a hold early. **Release** on the Now tab does the same, with **Undo**.                                                                                       |
+| `/router decisions [n]`                                                                                           | Print this session's last `n` routing decisions: 20 by default, `n` a whole number from 1 to 60. See [Routing decisions](#routing-decisions).                    |
+| `/router line <off\|moves\|all>`                                                                                  | Choose when a turn leaves a [route line](#the-route-line) in the transcript. `moves` is the default. Kept across sessions.                                       |
+| `/router trace export`                                                                                            | Export the shadow traces. See [routing engine](configuration.md#routing-engine).                                                                                 |
+| `/model <name>`                                                                                                   | Select a model and turn routing off. Use `/router auto` to turn it back on. The model picker and a model set from the SDK, an IDE or Remote Control do the same. |
+| **Turn on** / **Turn off** on the band                                                                            | The same as `/router auto` and `/router off`.                                                                                                                    |
+| **on** / **off** on the pane (`o` / `f`)                                                                          | The same as `/router auto` and `/router off`.                                                                                                                    |
+| **pin** on the Now tab                                                                                            | Pin that tier for the next turn. Routing on must already be enabled.                                                                                             |
+| A prompt that starts with `maxthink`, `nothink` or another [prompt keyword](#move-one-turn-with-a-prompt-keyword) | Move that turn up or down, keeping the routing mode and the activity.                                                                                            |
 
 Type `/router` and a space, then a letter, and the prompt offers the words that start with it (`auto`, `off`, `pin <tier>`, `mode <mode>`, `activities <off|on>`, `line <off|moves|all>`, `holds`, `release <model|account>`, `decisions [n]`, `trace export`). After `pin `, `mode `, `activities `, `line ` or `trace ` it offers the values, and after `release ` the models and accounts held now; `pin` names the model each tier runs. The rows come after Claude Code's own. They are drawn by the surface's prompt box, so a surface that does not raise the typeahead shows none.
 
@@ -637,24 +634,24 @@ To stop routing for a session, run `/router off`. To keep tier routing but stop 
 
 ## Troubleshooting
 
-| Symptom                                     | Cause                                                                                                 | Fix                                                                                                                                                                          |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Status says `no API key` or `no API token`  | The active classifier's plugin option is unset or unavailable to this process.                        | Select **Set up** in the pane, or run `/plugin configure router`. Save the option and start a new turn.                                                                      |
-| Status says `no account ID`                 | Clef, Clef Flash or Clef Omni is active without the Cloudflare account ID.                            | Run `/plugin configure router` and save the Cloudflare account ID.                                                                                                           |
-| Route stays on the current model            | The classifier timed out, failed, is paused, or network policy refused it.                            | Read the status band and the pane header. Network policy refusal is not bypassed.                                                                                            |
-| `/model` changed but routing stopped        | Choosing a model (`/model`, the model picker, or the SDK, an IDE or Remote Control) turns routing off. | Run `/router auto` to turn routing back on.                                                                                                                                  |
-| Selected provider file is missing | The provider name selects a file that does not exist. | Create that file in the active Claude Code profile directory. Use `{}` only for built-in profiles. See [Providers](providers.md). |
-| A custom profile containing `{}` fails | No built-in model catalog exists for that provider name. | Define all four routes and their model entries. See the [custom profile example](providers.md#add-another-provider). |
-| Router reports invalid configuration | The selected file is invalid, or project/local settings redirect the profile. | Inspect the file shown in the pane. Remove project/local `HOME`, `CLAUDE_CONFIG_DIR`, or `CLAUDE_ROUTER_PROVIDER` overrides. |
-| Router says old settings need migration     | `router.json` still contains v0.8 gateway keys or the 1.1 `jev` section.                              | Run the [migration command](configuration.md#convert-an-older-routerjson).                                                                                                   |
-| `⚠ OpenAI rejected the key` | The OpenAI key is wrong, revoked, or lacks access to `gpt-6-luna`.                                    | Run `/plugin configure router` and save a valid OpenAI API key.                                                                                                              |
-| `⚠ Ollama unreachable`      | No Ollama server listens on `127.0.0.1:11434`.                                                        | Run `ollama serve`, then start a new turn.                                                                                                                                   |
-| `⚠ Ollama timed out`        | The model is loading after an idle period, or the machine is slow.                                    | Wait for one more turn. If it recurs, raise `classifiers.ollama.timeoutMs` in `router.json`.                                                                                 |
-| `⚠ Ollama request failed`   | The tag in `model` is not pulled, or Ollama rejected a request setting.                               | Run `ollama pull <model>` for the tag in `model`, or choose another model.                                                                                                   |
-| Band reads `v0.8 gateway settings remain`   | The `jev-router[1m]` model or the `127.0.0.1:43170` base URL is still set.                            | Run `/router`: it lists the keys. Remove them as in the [migration checklist](configuration.md#convert-a-v08-configuration) and restart.                                     |
-| Router controls are unavailable             | Claude Code is older than 2.1.321.                                                                    | Update Claude Code.                                                                                                                                                          |
-| Pane reads `ROUTER  unavailable`            | Old gateway settings, an old Claude Code, or an invalid `router.json`. The line under it names which. | Fix the cause it names and restart (an invalid `router.json` is read once per session start). Until then every turn keeps Claude's model, and `/router auto`, `off`, `pin`, and `activities` reply with the reason and change nothing. |
-| Context reads as unknown                    | The router lacks a reliable local estimate or current-history measurement.                            | Keep using the current model, or start a new history with a supported context estimate.                                                                                      |
+| Symptom                                    | Cause                                                                                                  | Fix                                                                                                                                                                                                                                    |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status says `no API key` or `no API token` | The active classifier's plugin option is unset or unavailable to this process.                         | Select **Set up** in the pane, or run `/plugin configure router`. Save the option and start a new turn.                                                                                                                                |
+| Status says `no account ID`                | Clef, Clef Flash or Clef Omni is active without the Cloudflare account ID.                             | Run `/plugin configure router` and save the Cloudflare account ID.                                                                                                                                                                     |
+| Route stays on the current model           | The classifier timed out, failed, is paused, or network policy refused it.                             | Read the status band and the pane header. Network policy refusal is not bypassed.                                                                                                                                                      |
+| `/model` changed but routing stopped       | Choosing a model (`/model`, the model picker, or the SDK, an IDE or Remote Control) turns routing off. | Run `/router auto` to turn routing back on.                                                                                                                                                                                            |
+| Selected provider file is missing          | The provider name selects a file that does not exist.                                                  | Create that file in the active Claude Code profile directory. Use `{}` only for built-in profiles. See [Providers](providers.md).                                                                                                      |
+| A custom profile containing `{}` fails     | No built-in model catalog exists for that provider name.                                               | Define all four routes and their model entries. See the [custom profile example](providers.md#add-another-provider).                                                                                                                   |
+| Router reports invalid configuration       | The selected file is invalid, or project/local settings redirect the profile.                          | Inspect the file shown in the pane. Remove project/local `HOME`, `CLAUDE_CONFIG_DIR`, or `CLAUDE_ROUTER_PROVIDER` overrides.                                                                                                           |
+| Router says old settings need migration    | `router.json` still contains v0.8 gateway keys or the 1.1 `jev` section.                               | Run the [migration command](configuration.md#convert-an-older-routerjson).                                                                                                                                                             |
+| `⚠ OpenAI rejected the key`                | The OpenAI key is wrong, revoked, or lacks access to `gpt-6-luna`.                                     | Run `/plugin configure router` and save a valid OpenAI API key.                                                                                                                                                                        |
+| `⚠ Ollama unreachable`                     | No Ollama server listens on `127.0.0.1:11434`.                                                         | Run `ollama serve`, then start a new turn.                                                                                                                                                                                             |
+| `⚠ Ollama timed out`                       | The model is loading after an idle period, or the machine is slow.                                     | Wait for one more turn. If it recurs, raise `classifiers.ollama.timeoutMs` in `router.json`.                                                                                                                                           |
+| `⚠ Ollama request failed`                  | The tag in `model` is not pulled, or Ollama rejected a request setting.                                | Run `ollama pull <model>` for the tag in `model`, or choose another model.                                                                                                                                                             |
+| Band reads `v0.8 gateway settings remain`  | The `jev-router[1m]` model or the `127.0.0.1:43170` base URL is still set.                             | Run `/router`: it lists the keys. Remove them as in the [migration checklist](configuration.md#convert-a-v08-configuration) and restart.                                                                                               |
+| Router controls are unavailable            | Claude Code is older than 2.1.321.                                                                     | Update Claude Code.                                                                                                                                                                                                                    |
+| Pane reads `ROUTER  unavailable`           | Old gateway settings, an old Claude Code, or an invalid `router.json`. The line under it names which.  | Fix the cause it names and restart (an invalid `router.json` is read once per session start). Until then every turn keeps Claude's model, and `/router auto`, `off`, `pin`, and `activities` reply with the reason and change nothing. |
+| Context reads as unknown                   | The router lacks a reliable local estimate or current-history measurement.                             | Keep using the current model, or start a new history with a supported context estimate.                                                                                                                                                |
 
 When a session starts with the router unavailable, a toast says why (`Routing off: requires Claude Code 2.1.321 or newer. Claude’s model is kept.`). A desktop, VS Code or mobile surface that attaches later gets it once as well. It shows once a day for each cause (old Claude Code, v0.8 gateway settings, a `router.json` that does not load) and never under `claude -p`. The band and the pane keep saying it.
 

@@ -355,6 +355,73 @@ test('a shadow keyword turn replays as it ran', async () => {
   assert.equal(result.status, 'ok');
 });
 
+test('a hold recorded on a continuation replays the stand-in it routed, not the held model', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-22T11:00:00Z') });
+  const capabilities = {
+    haiku: { capability: { low: 0, medium: 1, high: 1.5, xhigh: 2, max: 2 } },
+    sonnet: { capability: { low: 1, medium: 2, high: 2.5, xhigh: 2.5, max: 2.5 } },
+    opus: { capability: { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 } },
+  };
+  const h = harness(JEV_KEY);
+  h.files.set(
+    CONFIG,
+    JSON.stringify({ routingEngine: 'shadow', models: capabilities, policy: { reviewEveryRequests: 0 } }),
+  );
+  answering(h, jevResponse('high', { high: 1 }, 0, { code: 1 }, 'produce'));
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
+  h.messages(async () => [user('Synthetic task')]);
+  await drain(h.step({ ...step, turnId: 't1' }));
+  // The model fails between the turn's steps: its continuation must route around the recorded hold.
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded' });
+  await drain(h.step({ ...step, turnId: 't1', index: 1 }));
+  await h.event('turn.complete', { turnId: 't1' });
+  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const continuation = record.events
+    .filter((event) => event.type === 'request' && event.turn === 1)
+    .flatMap((event) => event.operations)
+    .find((op) => op.kind === 'continue');
+  assert.deepEqual(continuation.held, ['claude-opus-5-5']);
+  assert.notEqual(continuation.expected?.model, 'claude-opus-5-5');
+  const table = replayTable(record);
+  assert.deepEqual(table.mismatches, []);
+});
+
+test('a held model replays the stand-in in table and never returns through auto', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-22T10:00:00Z') });
+  const capabilities = {
+    haiku: { capability: { low: 0, medium: 1, high: 1.5, xhigh: 2, max: 2 } },
+    sonnet: { capability: { low: 1, medium: 2, high: 2.5, xhigh: 2.5, max: 2.5 } },
+    opus: { capability: { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 } },
+  };
+  const h = harness(JEV_KEY);
+  h.files.set(
+    CONFIG,
+    JSON.stringify({ routingEngine: 'shadow', models: capabilities, policy: { reviewEveryRequests: 0 } }),
+  );
+  answering(h, jevResponse('high', { high: 1 }, 0, { code: 1 }, 'produce'));
+  await h.event('session.start', { cwd: '/fixture' });
+  // The first turn runs Opus and fails; the hold is what the second turn's decision must see.
+  await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
+  h.messages(async () => [user('Synthetic task')]);
+  await drain(h.step({ ...step, turnId: 't1' }, { usage: undefined }));
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded' });
+  await h.event('turn.complete', { turnId: 't1' });
+  await h.event('turn.start', { turnId: 't2', text: 'Synthetic task' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  await h.event('turn.complete', { turnId: 't2' });
+  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const turn2 = record.events
+    .filter((event) => event.type === 'request' && event.turn === 2)
+    .flatMap((event) => event.operations);
+  assert.deepEqual(turn2[0].held, ['claude-opus-5-5']);
+  const table = replayTable(record);
+  assert.deepEqual(table.mismatches, []);
+  const replayed = replayAuto(record, table.rows);
+  assert.ok(replayed.length >= 2);
+  assert.notEqual(replayed.at(-1).pair.model, 'claude-opus-5-5');
+});
+
 test('unexplained mismatch retains fidelity denominator and blocks ALL auto totals', async () => {
   const record = await capture();
   record.events.find((e) => e.type === 'request').model = 'wrong-model';

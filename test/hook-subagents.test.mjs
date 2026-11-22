@@ -239,6 +239,33 @@ test('a model availableModels blocks keeps core’s model', async () => {
   assert.equal((await h.spawn(input)).sent, input);
 });
 
+test('a spawn on a held-out model keeps core’s model, as main routing never sends one', async () => {
+  const h = await started({ subagentRouting: 'on', subagents: { types: { Explore: 'opus' } } });
+  const until = Date.now() + 5 * 60_000;
+  h.state.set('loops:main', {
+    value: {
+      held: { 'claude-opus-5-5': { kind: 'availability', error: 'overloaded', since: Date.now(), until, streak: 1 } },
+    },
+    version: 0,
+  });
+  const input = spawnInput();
+  assert.equal((await h.spawn(input)).sent, input);
+});
+
+test('a spawn covered by an account hold keeps core’s model', async () => {
+  const h = await started({ subagentRouting: 'on' });
+  h.preferences.set('holds/plan', {
+    kind: 'window',
+    error: 'rate_limit',
+    since: Date.now(),
+    until: Date.now() + 60 * 60_000,
+    streak: 1,
+    window: 'five_hour',
+  });
+  const input = spawnInput();
+  assert.equal((await h.spawn(input)).sent, input);
+});
+
 test('settings that cannot be read keep core’s model, as they may limit the models', async () => {
   const h = await started({ subagentRouting: 'on' });
   h.$.settings.read = async () => {

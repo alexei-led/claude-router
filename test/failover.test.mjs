@@ -7,7 +7,9 @@ import {
   activeHolds,
   classifyFailure,
   clearedModel,
+  clearedSince,
   failureHold,
+  heldAsSeen,
   heldIds,
   heldModels,
   holdCause,
@@ -319,6 +321,15 @@ test('a model answering clears its streak, so the next failure holds five minute
   assert.equal(fails(answered, opus, 'overloaded', now + 20 * MINUTE)[opus].streak, 1);
 });
 
+test('an answer at a time clears the hold set before it, and never one set after it', () => {
+  const held = fails(fails({}, opus, 'overloaded', now), 'other', 'overloaded', now);
+  assert.deepEqual(Object.keys(clearedSince(held, opus, now + MINUTE)), ['other']);
+  // The failure here is later than the answer: a stale queued clear must not remove it.
+  assert.equal(clearedSince(held, opus, now - MINUTE), held);
+  assert.equal(clearedSince(held, 'absent', now + MINUTE), held);
+  assert.deepEqual(clearedSince({}, opus, now), {});
+});
+
 test('a model answering leaves other models’ streaks, and clears one under its bracketed id', () => {
   const held = fails(fails({}, opus, 'overloaded', now), sonnet, 'overloaded', now);
   assert.deepEqual(Object.keys(clearedModel(held, opus)), [sonnet]);
@@ -529,3 +540,17 @@ for (const [hold, words] of [
   test(`a ${hold.kind} hold is caused by "${words}"`, () => {
     assert.equal(holdCause(hold), words);
   });
+
+test('a held id is named too by the snapshot its reply resolved it to', () => {
+  assert.deepEqual(heldAsSeen(['claude-haiku-4-5'], { 'claude-haiku-4-5': 'claude-haiku-4-5-20251001' }), [
+    'claude-haiku-4-5',
+    'claude-haiku-4-5-20251001',
+  ]);
+  assert.deepEqual(heldAsSeen(['claude-opus-5-5'], {}), ['claude-opus-5-5']);
+  assert.deepEqual(heldAsSeen(['a', 'b'], { a: 'a-dated', b: 'b-dated', c: 'c-dated' }), [
+    'a',
+    'b',
+    'a-dated',
+    'b-dated',
+  ]);
+});

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DECISIONS_PREFIX } from '../lib/decisions.mjs';
+import { readTrace, TRACE_PREFIX } from '../lib/replay-trace.mjs';
 import { answering, CONFIG, controls, drain, harness, JEV_KEY, press, step, texts } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
@@ -146,16 +147,78 @@ test('the shadow engine routes as the table does, so it holds the model and says
   assert.deepEqual(h.toasts, ['Opus 5.5 held out of routing: overloaded, 5 min']);
 });
 
-test('the auto engine does not route around holds, so it holds nothing and says nothing', async (t) => {
+test('the auto engine holds the failed model out and routes the next turn around it', async (t) => {
   const capability = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
   const h = await started(t, { routingEngine: 'auto', models: { opus: { capability } } });
   await turn(h, 't1', { error: 'overloaded' });
-  assert.ok(h.loop());
-  assert.equal(h.loop().held, undefined);
+  assert.deepEqual(Object.keys(h.loop().held), [OPUS]);
+  assert.ok(h.toasts.includes('Opus 5.5 held out of routing: overloaded, 5 min'));
+  const next = await turn(h, 't2');
+  assert.notEqual(next.model, OPUS);
+  assert.equal(h.loop().decision.reason, 'forced');
+  // The pane names the hold under auto too, as for every engine.
+  assert.ok(Object.keys(h.view().holds.models).includes(OPUS));
+});
+
+test('when a model hold ends the model is eligible again, and rising demand moves back through normal gates', async (t) => {
+  const capability = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
+  const h = await started(t, { routingEngine: 'auto', models: { opus: { capability } } });
+  await turn(h, 't1', { error: 'overloaded' });
+  assert.notEqual((await turn(h, 't2')).model, OPUS);
+  t.mock.timers.tick(5 * 60_000);
+  const HIGH = jevResponse('high', { micro: 0, low: 0, medium: 0.03, high: 0.97, uncertain: 0 });
+  answering(h, HIGH);
+  // Two votes to raise the demand to 3, then the upgrade bar moves the route back onto Opus.
+  await turn(h, 't3');
+  assert.equal((await turn(h, 't4')).model, OPUS);
+});
+
+test('a shadow proposal never names the model the table just held out, and the trace records the hold', async (t) => {
+  const capability = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
+  const h = await started(t, { routingEngine: 'shadow', models: { opus: { capability } } });
+  await turn(h, 't1', { error: 'overloaded' });
+  await turn(h, 't2');
+  const start = decisions(h)
+    .rows.filter((row) => row.kind === 'start')
+    .at(-1);
+  assert.ok(start.alt?.route);
+  assert.ok(!start.alt.route.startsWith('opus@'), `shadow target names the held model: ${start.alt.route}`);
+  const stored = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const request = stored.events.find((event) => event.type === 'request' && event.turn === 2);
+  assert.deepEqual(request.operations[0].held, [OPUS]);
+  // The reader keeps the held ids, so a replay sees what the live proposal saw.
   assert.deepEqual(
-    h.toasts.filter((text) => text.includes('held out')),
-    [],
+    readTrace(stored).events.find((event) => event.type === 'request' && event.turn === 2).operations[0].held,
+    [OPUS],
   );
+});
+
+test('a full plan window holds the account for the auto engine, and a credits model takes over', async (t) => {
+  const glm = {
+    id: 'zai-org/GLM-5.3',
+    input: 1.4,
+    cacheRead: 0.26,
+    output: 4.4,
+    contextWindow: 1_000_000,
+    billing: 'credits',
+    efforts: ['high', 'max'],
+    capability: { high: 2.5, max: 3 },
+    imageInput: false,
+  };
+  const h = await started(t, { routingEngine: 'auto', models: { opus: {}, glm } });
+  h.usage(planReadings(['five_hour', 100, 3 * HOUR]));
+  await turn(h, 't1', { error: 'rate_limit' });
+  assert.deepEqual(h.preferences.get(HOLDS_PLAN), {
+    kind: 'window',
+    error: 'rate_limit',
+    since: 1_000_000,
+    until: 1_000_000 + 3 * HOUR + MINUTE,
+    streak: 1,
+    window: 'five_hour',
+  });
+  const next = await turn(h, 't2');
+  assert.equal(next.model, 'zai-org/GLM-5.3');
+  assert.ok(h.toasts.some((text) => text.includes('Claude plan held out of routing')));
 });
 
 for (const [name, failure] of [
@@ -416,14 +479,20 @@ test('a model hold is recorded with the model that was held', async (t) => {
   assert.deepEqual([row.fail, row.scope, row.held, row.details], ['availability', 'model', OPUS, 'Overloaded']);
 });
 
-test('the auto engine records the failure and holds nothing', async (t) => {
+test('the auto engine records the failure and holds what the table engine would', async (t) => {
   const capability = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
   const h = await started(t, { routingEngine: 'auto', models: { opus: { capability } } });
   await turn(h, 't1', { error: 'billing_error' });
-  assert.equal(h.preferences.has(HOLDS_PLAN), false);
+  assert.deepEqual(h.preferences.get(HOLDS_PLAN), {
+    kind: 'balance',
+    error: 'billing_error',
+    since: 1_000_000,
+    until: null,
+    streak: 1,
+  });
   assert.deepEqual(
-    failureRows(h).map((row) => [row.err, row.fail, row.held]),
-    [['billing_error', null, null]],
+    failureRows(h).map((row) => [row.err, row.fail, row.scope, row.held]),
+    [['billing_error', 'balance', 'account', 'plan']],
   );
 });
 
@@ -439,7 +508,61 @@ test('a failure that arrives after its turn completed is still recorded', async 
   );
 });
 
-test('a subagent’s failure is neither held nor recorded', async (t) => {
+test('a subagent’s failure holds the model its agent ran, and writes no failure row', async (t) => {
+  const h = await started(t);
+  // A main turn first: a model hold needs the session's loop.
+  await turn(h, 't1');
+  // One agent step names the model a later StopFailure for that agent holds.
+  await drain(h.step({ ...step, turnId: 'a1-t', agentId: 'a1', model: HAIKU }, { usage: undefined }));
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded', agent_id: 'a1' });
+  assert.deepEqual(Object.keys(h.loop().held), [HAIKU]);
+  assert.ok(Object.keys(h.view().holds.models).includes(HAIKU));
+  assert.deepEqual(failureRows(h), []);
+  // A reply from that model ends its streak, as a main reply does: the next failure starts at the base time, and
+  // the pane stops naming a hold routing no longer keeps.
+  await drain(h.step({ ...step, turnId: 'a1-t2', agentId: 'a1', model: HAIKU }));
+  assert.deepEqual(Object.keys(h.loop().held), []);
+  assert.deepEqual(Object.keys(h.view().holds.models), []);
+});
+
+test('an agent reply that lands while a main step is deciding merges its clear into that step’s write', async (t) => {
+  const h = await started(t);
+  await turn(h, 't1');
+  await drain(h.step({ ...step, turnId: 'a1-t', agentId: 'a1', model: HAIKU }, { usage: undefined }));
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded', agent_id: 'a1' });
+  assert.deepEqual(Object.keys(h.loop().held), [HAIKU]);
+  // The next main step suspends on its transcript; the agent's successful reply lands inside that window.
+  let release = () => {};
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let entered = () => {};
+  const reached = new Promise((resolve) => {
+    entered = resolve;
+  });
+  let gated = false;
+  h.messages(async () => {
+    if (!gated) {
+      gated = true;
+      entered();
+      await gate;
+    }
+    return [{ role: 'user', content: [{ type: 'text', text: 'One edit.' }] }];
+  });
+  await h.event('turn.start', { turnId: 't2', text: 'One edit.' });
+  const main = drain(h.step({ ...step, turnId: 't2', model: OPUS }));
+  await reached;
+  await drain(h.step({ ...step, turnId: 'a1-t2', agentId: 'a1', model: HAIKU }));
+  release();
+  await main;
+  // The clear did not advance the loop under the suspended step: its decision still wrote, and the clear came with it.
+  assert.equal(h.loop().turnId, 't2');
+  assert.deepEqual(Object.keys(h.loop().held), []);
+  assert.equal(h.requests.at(-1).model, OPUS);
+  assert.deepEqual(Object.keys(h.view().holds.models), []);
+});
+
+test('a subagent failure whose request is unknown holds nothing, and the plan stays usable', async (t) => {
   const h = await started(t);
   await turn(h, 't1', { error: 'billing_error', agent_id: 'a1' });
   assert.equal(h.preferences.has(HOLDS_PLAN), false);
