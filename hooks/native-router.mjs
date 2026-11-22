@@ -400,9 +400,9 @@ function createRouter(options) {
     finished: new Map(),
     // The model each agent's last request ran, for holding after a StopFailure, which names no model.
     agentRequests: new Map(),
-    // Main requests in flight, and the agent's holds they must clear in their own loop write (clearAgentHeld).
+    // Main steps in flight, and the agent's hold clears they must merge into their own loop write (clearAgentHeld).
     mainInFlight: 0,
-    agentClears: new Set(),
+    agentClears: new Map(),
     // Each agent type's definition frontmatter by provider and type, read once per session (agentDefinition).
     definitions: new Map(),
   };
@@ -1375,62 +1375,55 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
   const sessionId = await $.session.id();
   if (turn.config.routingEngine === 'shadow')
     traceRequest(router, e, turn, e, reason === 'manual' ? 'manual' : 'auto', loop);
-  // The guard covers the request and the loop write below, as in sendRouted: an agent's hold clear queues while
-  // it is held, and merges into this write instead of taking the version this reply needs.
-  router.mainInFlight += 1;
-  try {
-    const response = yield* next(e);
-    if (!next.signal.aborted && (await $.session.id()) === sessionId) {
-      const at = Date.now();
-      const cfg = auto ? turn.config : router.config;
-      let observed = observeResponse(cfg, loop, {
-        usage: response.usage,
-        requestedModel: e.model,
-        effort: e.effort ?? null,
-        stopReason: response.stopReason,
-        now: at,
+  const response = yield* next(e);
+  if (!next.signal.aborted && (await $.session.id()) === sessionId) {
+    const at = Date.now();
+    const cfg = auto ? turn.config : router.config;
+    let observed = observeResponse(cfg, loop, {
+      usage: response.usage,
+      requestedModel: e.model,
+      effort: e.effort ?? null,
+      stopReason: response.stopReason,
+      now: at,
+    });
+    if (auto && ['no-route-native', 'native-fallback'].includes(reason))
+      observed = {
+        ...observeAutoFallback(cfg, observed, {
+          requestedModel: e.model,
+          effort: e.effort,
+          usage: response.usage,
+        }),
+        suspended: true,
+      };
+    if (reason === 'no-route-native' && loop.auto?.savedPin) {
+      observed.switchedAt = loop.auto.savedPin.switchedAt;
+      observed.servedRoute = loop.auto.savedPin.servedRoute;
+    }
+    // Before routing has chosen a route, the one in use is the model serving now: /model can change it with routing
+    // off. Once a decision exists, the last routed route is kept, as for every model.
+    if (reason === 'manual' && !loop.decision && !auto) observed.route = ownRoute(router.config, e.model);
+    // Routing chose nothing here, so the reply is not counted; your model's cache still follows it.
+    const compared = await compareYours($, router, loop, response, e.effort ?? null, nativeModel, cfg);
+    if (compared) observed.yoursBy = compared.states;
+    const pending = mergeAgentClears(router, observed);
+    observed = pending.loop;
+    const written = await $.state.set(ref, observed, { ifVersion: version });
+    if (written.isSet && pending.applied) {
+      router.agentClears.clear();
+      await updateView($, router, { holds: await holdsAfter($, router, observed.held) }).catch(() => {});
+    }
+    if (turn.config.routingEngine === 'shadow') {
+      if (written.isSet) recordTraceResponse(router, e, e, response, compared?.ttl, at);
+      else router.trace?.reasons.add('gap');
+    }
+    if (written.isSet)
+      await updateView($, router, {
+        ...responseMetrics(router.view, response, null, Date.now()),
+        delegatedModel: e.model,
+        delegatedEffort: e.effort ?? null,
       });
-      if (auto && ['no-route-native', 'native-fallback'].includes(reason))
-        observed = {
-          ...observeAutoFallback(cfg, observed, {
-            requestedModel: e.model,
-            effort: e.effort,
-            usage: response.usage,
-          }),
-          suspended: true,
-        };
-      if (reason === 'no-route-native' && loop.auto?.savedPin) {
-        observed.switchedAt = loop.auto.savedPin.switchedAt;
-        observed.servedRoute = loop.auto.savedPin.servedRoute;
-      }
-      // Before routing has chosen a route, the one in use is the model serving now: /model can change it with routing
-      // off. Once a decision exists, the last routed route is kept, as for every model.
-      if (reason === 'manual' && !loop.decision && !auto) observed.route = ownRoute(router.config, e.model);
-      // Routing chose nothing here, so the reply is not counted; your model's cache still follows it.
-      const compared = await compareYours($, router, loop, response, e.effort ?? null, nativeModel, cfg);
-      if (compared) observed.yoursBy = compared.states;
-      const pending = mergeAgentClears(router, observed);
-      observed = pending.loop;
-      const written = await $.state.set(ref, observed, { ifVersion: version });
-      if (written.isSet && pending.applied) {
-        router.agentClears.clear();
-        await updateView($, router, { holds: await holdsAfter($, router, observed.held) }).catch(() => {});
-      }
-      if (turn.config.routingEngine === 'shadow') {
-        if (written.isSet) recordTraceResponse(router, e, e, response, compared?.ttl, at);
-        else router.trace?.reasons.add('gap');
-      }
-      if (written.isSet)
-        await updateView($, router, {
-          ...responseMetrics(router.view, response, null, Date.now()),
-          delegatedModel: e.model,
-          delegatedEffort: e.effort ?? null,
-        });
-    } else if (turn.config.routingEngine === 'shadow') router.trace?.reasons.add('aborted');
-    return response;
-  } finally {
-    router.mainInFlight -= 1;
-  }
+  } else if (turn.config.routingEngine === 'shadow') router.trace?.reasons.add('aborted');
+  return response;
 }
 
 // Shadow retains demand evidence only; target selection sees the actual incumbent and cache. The proposal
@@ -2666,8 +2659,9 @@ async function clearAgentHeld($, router, model) {
   } catch {}
 }
 
-// The loop with the queued agent clears merged: an answer made before a hold was set ends it, one set after the
-// answer stays. Entries remain queued until a successful main write applies whatever they cleared.
+// The loop with the queued agent clears merged: an answer made after a hold was set ends it; a hold set after the
+// answer is a later failure and stays. Entries remain queued until a successful main write applies whatever they
+// cleared.
 function mergeAgentClears(router, loop) {
   if (!router.agentClears.size) return { loop, applied: false };
   let held = loop.held;
@@ -3084,18 +3078,11 @@ async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, session
     traceRequest(router, e, router.turnConfigs.get(e.turnId) ?? turn, request, 'auto', loop);
   // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
   router.lastRequested = request.model;
-  // A write from another surface (an agent's reply clearing its hold) cannot interleave with this request's own
-  // loop write: it queues instead (clearAgentHeld) and is merged into the loop this reply writes.
-  router.mainInFlight += 1;
-  try {
-    const response = yield* next(request);
-    if (!next.signal.aborted && (await $.session.id()) === sessionId)
-      await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
-    else if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('aborted');
-    return response;
-  } finally {
-    router.mainInFlight -= 1;
-  }
+  const response = yield* next(request);
+  if (!next.signal.aborted && (await $.session.id()) === sessionId)
+    await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
+  else if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('aborted');
+  return response;
 }
 
 function resetEngine(router, cfg, configured, model, messageCount, previous) {
@@ -3191,12 +3178,23 @@ function traceGap(router, engine) {
   if (engine === 'shadow') router.trace?.reasons.add('gap');
 }
 
+// The guard covers the whole main step, from before its loop read to its reply's write: an agent's hold clear queues
+// for that window and is merged into that write (clearAgentHeld), so it cannot move the version this step's own
+// decision and reply writes need.
 async function* stepMain($, router, e, next) {
   if (!(await ensureInitialized($, router))) return yield* next(e);
   if (e.agentId) return yield* stepAgent($, router, e, next);
+  router.mainInFlight += 1;
+  try {
+    return yield* mainStep($, router, e, next);
+  } finally {
+    router.mainInFlight -= 1;
+  }
+}
+
+async function* mainStep($, router, e, next) {
   // A main request goes out as Claude Code built it unless sendRouted routes it, so its model is the one a failure
   // holds (holdFailedModel) until sendRouted names another.
-  // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
   router.lastRequested = e.model;
   const turn = router.turnConfigs.get(e.turnId) ?? (await turnConfigOf($, router));
   const cfg = turn.config;

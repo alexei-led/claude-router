@@ -525,6 +525,43 @@ test('a subagent’s failure holds the model its agent ran, and writes no failur
   assert.deepEqual(Object.keys(h.view().holds.models), []);
 });
 
+test('an agent reply that lands while a main step is deciding merges its clear into that step’s write', async (t) => {
+  const h = await started(t);
+  await turn(h, 't1');
+  await drain(h.step({ ...step, turnId: 'a1-t', agentId: 'a1', model: HAIKU }, { usage: undefined }));
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded', agent_id: 'a1' });
+  assert.deepEqual(Object.keys(h.loop().held), [HAIKU]);
+  // The next main step suspends on its transcript; the agent's successful reply lands inside that window.
+  let release = () => {};
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let entered = () => {};
+  const reached = new Promise((resolve) => {
+    entered = resolve;
+  });
+  let gated = false;
+  h.messages(async () => {
+    if (!gated) {
+      gated = true;
+      entered();
+      await gate;
+    }
+    return [{ role: 'user', content: [{ type: 'text', text: 'One edit.' }] }];
+  });
+  await h.event('turn.start', { turnId: 't2', text: 'One edit.' });
+  const main = drain(h.step({ ...step, turnId: 't2', model: OPUS }));
+  await reached;
+  await drain(h.step({ ...step, turnId: 'a1-t2', agentId: 'a1', model: HAIKU }));
+  release();
+  await main;
+  // The clear did not advance the loop under the suspended step: its decision still wrote, and the clear came with it.
+  assert.equal(h.loop().turnId, 't2');
+  assert.deepEqual(Object.keys(h.loop().held), []);
+  assert.equal(h.requests.at(-1).model, OPUS);
+  assert.deepEqual(Object.keys(h.view().holds.models), []);
+});
+
 test('a subagent failure whose request is unknown holds nothing, and the plan stays usable', async (t) => {
   const h = await started(t);
   await turn(h, 't1', { error: 'billing_error', agent_id: 'a1' });
