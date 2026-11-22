@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { aaCapability, capabilityFromIndex, parseAaName } from '../lib/evidence-aa.mjs';
+import { aaCapability, aaOverlay, capabilityFromIndex, parseAaName } from '../lib/evidence-aa.mjs';
 
 test('a display name gives its base model and the effort it states', () => {
   const cases = [
@@ -60,4 +60,30 @@ test('each activity reads its index: engineering for code work, intelligence els
   });
   assert.equal(aaCapability({}), null);
   assert.equal(aaCapability({ artificial_analysis_intelligence_index: null }), null);
+});
+
+test('an unsuffixed row seeds both its effort and the default column', () => {
+  const evaluations = {
+    artificial_analysis_intelligence_index: 48.2,
+    artificial_analysis_engineering_index: 36.5,
+  };
+  const models = { 'test-model': ['test-model'] };
+  const { entries } = aaOverlay([{ name: 'Test Model', evaluations }], { checked: '2026-11-22', models });
+  const entry = entries['test-model'];
+  assert.deepEqual(entry.capability.max, aaCapability(evaluations));
+  assert.deepEqual(entry.capability.default, entry.capability.max);
+  assert.equal(entry.confidence.max, 'low');
+  assert.ok(entry.notes.some((note) => note.includes('no effort suffix')));
+});
+
+test('a row that names its effort seeds only that effort', () => {
+  const evaluations = {
+    artificial_analysis_intelligence_index: 48.2,
+    artificial_analysis_engineering_index: 36.5,
+  };
+  const models = { 'test-model': ['test-model'] };
+  const { entries } = aaOverlay([{ name: 'Test Model (High)', evaluations }], { checked: '2026-11-22', models });
+  assert.deepEqual(entries['test-model'].capability.high, aaCapability(evaluations));
+  assert.equal(entries['test-model'].capability.default, undefined);
+  assert.equal(entries['test-model'].confidence.high, 'medium');
 });

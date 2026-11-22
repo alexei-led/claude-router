@@ -7,14 +7,34 @@ efforts the profile does not declare; unknown stays unknown, and a profile's own
 
 Two layers:
 
-- **Bundled evidence** (`lib/evidence.mjs`, generated from MIT and CC-BY sources: models.dev, LiteLLM,
-  LiveBench, Terminal-Bench, LMArena) ships with the package and is refreshed by the evidence check. The
+- **Bundled evidence** (`lib/evidence.mjs`, generated from MIT, Apache-2.0 and CC-BY-4.0 sources: models.dev,
+  LiteLLM, LiveBench, Terminal-Bench, LMArena) ships with the package and is refreshed by the evidence check. The
   generator and data are in place; applying bundled values as default seeds is a separate, reviewed change.
   Today auto routing consumes the local overlay, and a profile's own declarations always win.
 - **Local overlay** (`~/.config/claude-router/evidence.local.mjs`) holds data whose terms do not allow
   redistribution. Artificial Analysis is the case: its terms allow personal, noncommercial use with
   attribution, and forbid scraping and redistribution. The overlay is never committed and is never served to
   anyone else.
+
+## Update flow
+
+After a new model, a provider change, or a quarterly refresh:
+
+1. **Prices and catalog** first: update `lib/prices.mjs` or the provider preset as
+   [Keep prices current](configuration.md#keep-prices-current) describes.
+2. **Artificial Analysis:** `npm run evidence:aa -- --force` refreshes the overlay (the default age guard skips a
+   run younger than seven days).
+3. **Coverage:** `npm run evidence:report` lists, per configured model, the efforts and activities the overlay
+   fills, every unknown or low-confidence cell, and configured ids no overlay entry matches. It reads the overlay
+   and the profiles' models lists only, and no file contents or other profile fields are printed. `--json` gives
+   machine-readable output.
+4. **Probe the gaps:** `npm run evidence:probe -- --plan --model …` lists the cases and the ceiling and spends
+   nothing. Run the pairs the report showed missing, then `npm run evidence:aa -- --force` merges the probe
+   statistics into the overlay. See [Local probe](#local-probe).
+5. **Bundled data (optional):** the snapshots under `data/evidence/<date>/` are committed copies of the public
+   sources; refresh a snapshot from its source, then run `npm run evidence:check` to report whether
+   `lib/evidence.mjs` still matches them, or `npm run evidence:check -- --write` to regenerate and format it. A
+   snapshot that has lost a required column fails the check instead of producing a wrong value.
 
 ## Artificial Analysis overlay
 
@@ -48,9 +68,9 @@ npm run evidence:aa -- --help
 ```
 
 The script fetches the free language-model list, parses the effort from each display name (`GLM-5.3 (Max)`,
-`Claude Haiku 5.5 (High)`), maps nine indices and pricing into capability, and atomically rewrites
-`~/.config/claude-router/evidence.local.mjs` with mode 600. It refuses more than ten pages, so a changed API
-fails loudly instead of spending the daily limit.
+`Claude Haiku 5.5 (High)`), records every index and the pricing under `scores`, maps the intelligence and
+engineering indices into capability, and atomically rewrites `~/.config/claude-router/evidence.local.mjs` with
+mode 600. It refuses more than ten pages, so a changed API fails loudly instead of spending the daily limit.
 
 ### What the overlay holds
 
@@ -129,10 +149,12 @@ consecutive launch errors. Raw rows accumulate across runs (`--fresh` starts ove
 `~/.config/claude-router/evidence.probe.{raw,}.json` (mode 600). `--wrapper <zsh-function>` runs the CLI
 through a provider wrapper such as `claude-work`.
 
-Anthropic pairs probe exactly: `--wrapper claude-work --no-router --model claude-opus-5-5 --effort medium`
-disables the router plugin through a settings override, so the requested model and effort reach the API
-unchanged and the work wrapper supplies its own quota. Without `--no-router` the router rewrites the model
-to its own route, and the run measures that route instead.
+Anthropic pairs probe exactly:
+`--wrapper claude-work --no-router --model claude-opus-5-5=claude-opus-5-5@medium` disables the router plugin
+through a settings override, so the requested model and effort reach the API unchanged and the work wrapper
+supplies its own quota. Without `--no-router` the router rewrites the model to its own route, and the run
+measures that route instead. The left side is the canonical id the overlay keys by; the right side is the model
+id and effort the CLI is given.
 
 **Limitation:** a non-Anthropic provider profile cannot be probed yet. With the router off, Claude Code
 still rejects the provider ids (`glm-5.3[1m]`, `deepseek-flash[1m]`) as unknown session models; a direct
@@ -147,8 +169,9 @@ aggregates every activity. Confidence grows with attempts: high at 12, medium at
 
 The next `npm run evidence:aa` (use `--force` to bypass the age guard) copies probe statistics into
 `evidence.local.mjs` under `probe`, and the entry's `sources` list `probe`. A probe value **never replaces an
-existing benchmark prior**: it fills only cells the prior leaves unknown. A set where every measured tier
-passes is marked saturated and also changes nothing — it cannot tell a capable model from a stronger one. A
+existing benchmark prior**: it fills only cells the prior leaves unknown. A set is marked saturated only when
+the highest tier was measured and every measured tier passes; it also changes nothing, because it cannot tell a
+capable model from a stronger one. A
 disagreement larger than one half-step is recorded under `probeDisagreements` for the next task-set
 revision. This keeps a small local task set from silently overriding a broader benchmark.
 
@@ -161,4 +184,5 @@ re-run the affected pairs rather than the whole grid.
 ## Limits
 
 The overlay is personal routing input. It is not redistributed, not committed, and not used to build a
-competing dataset or service. Anything shipped in the package comes from the MIT/CC-BY sources listed above.
+competing dataset or service. Anything shipped in the package comes from the MIT, Apache-2.0 and CC-BY-4.0
+sources listed above.

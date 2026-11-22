@@ -8,7 +8,7 @@
 import { chmodSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { aaCapability, parseAaName } from '../lib/evidence-aa.mjs';
+import { aaOverlay } from '../lib/evidence-aa.mjs';
 import { mergeProbe } from '../lib/evidence-probe.mjs';
 
 const ENDPOINT = 'https://artificialanalysis.ai/api/v2/language/models/free';
@@ -97,69 +97,7 @@ async function fetchPage(key, page) {
   return res.json();
 }
 
-const AA_INDEX = /^artificial_analysis_(.+)_index$/;
 const PROBE_FILE = join(OUT_DIR, 'evidence.probe.json');
-const PERFORMANCE = {
-  outputTokensPerSecond: 'median_output_tokens_per_second',
-  timeToFirstTokenSec: 'median_time_to_first_token_seconds',
-  timeToFirstAnswerSec: 'median_time_to_first_answer_token_seconds',
-  endToEndSec: 'median_end_to_end_response_time_seconds',
-};
-
-// Every index the row carries, plus the published pricing, cost per task and performance, so a later decision can
-// use a different dimension without another request.
-function scoresOf(row) {
-  const scores = {};
-  for (const [key, value] of Object.entries(row?.evaluations ?? {})) {
-    const match = AA_INDEX.exec(key);
-    if (match?.[1] && Number.isFinite(value)) scores[match[1]] = value;
-  }
-  const costPerTaskUsd = row?.artificial_analysis_intelligence_index_cost?.cost_per_task?.total_cost;
-  if (Number.isFinite(costPerTaskUsd)) scores.costPerTaskUsd = costPerTaskUsd;
-  const pricing = {
-    input: row?.pricing?.price_1m_input_tokens,
-    output: row?.pricing?.price_1m_output_tokens,
-    cacheRead: row?.pricing?.price_1m_cache_hit_tokens,
-    cacheWrite: row?.pricing?.price_1m_cache_write_tokens,
-  };
-  const prices = Object.fromEntries(Object.entries(pricing).filter(([, value]) => Number.isFinite(value)));
-  if (Object.keys(prices).length) scores.pricing = prices;
-  const performance = {};
-  for (const [name, key] of Object.entries(PERFORMANCE)) {
-    const value = row?.performance?.[key];
-    if (Number.isFinite(value)) performance[name] = value;
-  }
-  if (Object.keys(performance).length) scores.performance = performance;
-  return scores;
-}
-
-function build(rows, checked) {
-  /** @type {Record<string, any>} */
-  const entries = {};
-  for (const row of rows) {
-    const parsed = parseAaName(row?.name);
-    if (!parsed) continue;
-    const aliases = MODELS[parsed.base];
-    if (!aliases) continue;
-    const capability = aaCapability(row.evaluations);
-    if (!capability) continue;
-    // A row without an effort suffix is the model's default configuration; record it as `max` with provenance.
-    const effort = parsed.effort ?? 'max';
-    const id = aliases[0];
-    if (!id) continue;
-    let entry = entries[id];
-    if (!entry) {
-      entry = { aliases, capability: {}, scores: {}, confidence: {}, notes: [], sources: ['artificial_analysis'] };
-      entries[id] = entry;
-    }
-    entry.capability[effort] = capability;
-    entry.scores[effort] = scoresOf(row);
-    entry.confidence[effort] = parsed.effort ? 'medium' : 'low';
-    if (!parsed.effort)
-      entry.notes.push(`${row.name}: no effort suffix in the free API; recorded as ${effort}, the strongest effort`);
-  }
-  return { checked, source: 'https://artificialanalysis.ai/', tier: 'free', entries };
-}
 
 function write(overlay) {
   mkdirSync(OUT_DIR, { recursive: true });
@@ -184,8 +122,8 @@ if (!Number.isSafeInteger(totalPages) || totalPages < 1 || totalPages > MAX_PAGE
   throw new Error(`Artificial Analysis reported ${totalPages} pages, more than the ${MAX_PAGES} this script accepts`);
 const rows = [...first.data];
 for (let page = 2; page <= totalPages; page += 1) rows.push(...(await fetchPage(key, page)).data);
-const overlay = build(rows, new Date().toISOString().slice(0, 10));
-// Probe results are local task measurements; where they cover a cell they replace the benchmark prior.
+const overlay = aaOverlay(rows, { checked: new Date().toISOString().slice(0, 10), models: MODELS });
+// Probe results are local task measurements; they fill only the cells the benchmark prior leaves unknown.
 try {
   const probe = JSON.parse(readFileSync(PROBE_FILE, 'utf8'));
   if (probe?.entries && Object.keys(probe.entries).length) {

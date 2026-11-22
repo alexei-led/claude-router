@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TRACE_PREFIX } from '../lib/replay-trace.mjs';
-import { CONFIG, drain, harness, step } from './harness.mjs';
+import { CONFIG, drain, harness, press, step } from './harness.mjs';
 
 const HOME = '/fixture/home';
 const OVERLAY = `${HOME}/.config/claude-router/evidence.local.mjs`;
@@ -51,6 +51,39 @@ test('an absent overlay leaves the configured capability as it was', async () =>
   const record = await turn(fixture(undefined));
   assert.equal(record.events[0].config.models.opus.capability.high, undefined);
   assert.equal(record.events[0].config.models.opus.capability.medium, 2);
+});
+
+test('a pane save keeps the overlay-filled capability on the adopted config', async () => {
+  const h = harness();
+  h.env.set('HOME', HOME);
+  h.files.set(
+    OVERLAY,
+    overlayModule({
+      'claude-opus-5-5': { aliases: ['claude-opus-5-5'], capability: { high: { default: 1, code: 1 } } },
+    }),
+  );
+  // Every other model is too small for the turn's context, so the target can only be the incumbent opus.
+  h.files.set(
+    CONFIG,
+    JSON.stringify({
+      routingEngine: 'auto',
+      baselineTier: 'low',
+      models: { haiku: { contextWindow: 100 }, sonnet: { contextWindow: 100 }, fable: { contextWindow: 100 } },
+      policy: { reviewEveryRequests: 0 },
+    }),
+  );
+  h.model('claude-opus-5-5');
+  const native = { ...step, model: 'claude-opus-5-5', effort: 'high', contextTokens: 1000 };
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  await drain(h.step(native));
+  await press(h, 'tab-routes');
+  await press(h, 'tab-policy');
+  await press(h, 'horizon', '10');
+  await press(h, 'save-routing');
+  await h.event('turn.start', { turnId: 't2', text: 'Two edits.' });
+  await drain(h.step({ ...native, turnId: 't2' }));
+  assert.equal(h.loop().decision.auto.capability, 1);
 });
 
 test('a malformed overlay never fails a session or a turn', async () => {

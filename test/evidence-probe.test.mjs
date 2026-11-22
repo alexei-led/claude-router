@@ -65,6 +65,23 @@ test('a probe manifest is validated before any model runs', () => {
   );
 });
 
+test('a task check of every kind needs an expected value', () => {
+  const base = { id: 'code-micro-1', activity: 'code', tier: 'micro', prompt: 'p', estimateUsd: 0.01 };
+  assert.throws(
+    () => validateProbeManifest({ version: 1, tasks: [{ ...base, check: { kind: 'contains' } }] }),
+    /check.expected is required/,
+  );
+});
+
+test('a row with no effort aggregates under the default column', () => {
+  const rows = ['micro', 'low', 'medium'].flatMap((tier) =>
+    [true, true, true].map((passed) => ({ model: 'mimo-v2.6-flash', effort: null, activity: 'code', tier, passed })),
+  );
+  const probe = aggregateProbe(rows, { checked: '2026-11-22' });
+  assert.equal(probe['mimo-v2.6-flash'].capability.default.code, 2);
+  assert.equal(probe['mimo-v2.6-flash'].probe.default.activities.code.attempts, 9);
+});
+
 test('graded rows aggregate per activity, effort and tier, and merge over a benchmark prior', () => {
   const rows = [
     { model: 'glm-5.3', effort: 'max', activity: 'code', tier: 'micro', passed: true },

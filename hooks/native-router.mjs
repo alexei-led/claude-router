@@ -22,7 +22,7 @@ import {
   turnActivity,
 } from '../lib/activity-stats.mjs';
 import { advanceDemand, assessCandidates, initialAutoState, selectTarget } from '../lib/auto-engine.mjs';
-import { autoRoute, observeAutoFallback } from '../lib/auto-route.mjs';
+import { adviceActivity, autoRoute, observeAutoFallback } from '../lib/auto-route.mjs';
 import { renderBand, renderRouteLine, switchToast } from '../lib/band.mjs';
 import { ClassifierClient } from '../lib/classifier-client.mjs';
 import { resolveCredentials } from '../lib/classifier-contract.mjs';
@@ -1284,7 +1284,7 @@ async function loadNativeConfig($, router) {
 
 // The private local evidence overlay is optional and user-owned: a missing or malformed file never fails a session or
 // a turn. The hooks runtime refuses a dynamic import, and a static one would fail while the file is absent, so the
-// generated JSON export is read and parsed instead. It is re-read on /router reload, which re-enters this initializer.
+// generated JSON export is read and parsed instead. It is re-read when a session starts or the Mod is reloaded.
 async function loadEvidenceOverlay($) {
   try {
     const home = await $.env.get('HOME');
@@ -1299,7 +1299,7 @@ async function loadEvidenceOverlay($) {
 
 // Writes router.json through `change(previousFile)` once the result validates. Returns the new config or an error
 // line for the pane; a failure leaves the file untouched.
-async function saveConfig($, active, change) {
+async function saveConfig($, active, change, evidence = null) {
   const path = active.nativePath;
   const filename = path?.split('/').at(-1) ?? 'router.json';
   try {
@@ -1307,13 +1307,15 @@ async function saveConfig($, active, change) {
       throw new Error('selected provider router file is missing');
     if ((await $.fs.exists(path)) && (await $.fs.stat(path)).isLink)
       return { error: `Not saved: ${filename} is a symlink. Edit its maintained source instead.` };
-    const { config, text } = rewrittenConfig(
+    const { config, text, userFile } = rewrittenConfig(
       (await $.fs.exists(path)) ? await $.fs.read(path) : null,
       change,
       active.provider,
     );
     await $.fs.write(path, text);
-    return { config: { ...config, nativePath: path, effortSplitsCache: active.effortSplitsCache } };
+    // The adopted config keeps the session's evidence overlay, so a pane or `/router` save does not drop priors.
+    const merged = applyEvidenceOverlay(config, evidence, userFile);
+    return { config: { ...merged, nativePath: path, effortSplitsCache: active.effortSplitsCache } };
   } catch (error) {
     return { error: notSaved(error, filename) };
   }
@@ -1494,6 +1496,8 @@ function shadowProposal(
       contextKnown,
       availableModels,
       nativeModel,
+      // The shadow alternative ranks by the same capability column the live auto decision would use.
+      activity: adviceActivity(config, advice),
       held: heldAsSeen(heldIds(projected, loop.held, accountHolds ?? {}, now), loop.resolutions),
     });
     const target = selectTarget({
@@ -2789,7 +2793,7 @@ function paneActions($, router, view) {
     };
   };
   const save = async (change, saved) => {
-    const result = await saveConfig($, router.config, change);
+    const result = await saveConfig($, router.config, change, router.evidence);
     if (result.error) return updateView($, router, { notice: result.error });
     const drafts = router.view ?? view;
     const reset = await adopt(result.config);
@@ -3329,14 +3333,14 @@ async function initializeSession($, router) {
     } catch {}
     const model = await $.session.model();
     const loaded = await loadNativeConfig($, router);
-    // The optional private overlay seeds capability where the profile declares none. It is read once per session and
-    // again on /router reload, which re-enters this initializer.
+    // The optional private overlay seeds capability where the profile declares none. It is read when a session starts
+    // or the Mod is reloaded (/reload-plugins); a save in between re-applies the same overlay to the adopted config.
     const overlay = await loadEvidenceOverlay($);
     const config = applyEvidenceOverlay(loaded.config, overlay, loaded.userFile);
     const project = await readProject($, config.nativePath);
     const existing = await readView($, router);
     // A successful reload adopts this config even for the current turn; stale jobs must not route with the old engine.
-    Object.assign(router, { config, project, view: existing });
+    Object.assign(router, { config, project, view: existing, evidence: overlay });
     for (const controller of router.controllers) controller.abort();
     router.decisions.clear();
     router.turnConfigs.clear();

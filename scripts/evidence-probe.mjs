@@ -30,7 +30,7 @@ function usage() {
   --profile <dir>        CLAUDE_CONFIG_DIR for the CLI (for example ~/.claude-team)
   --wrapper <name>       run the CLI through a zsh function such as claude-work
   --no-router            disable the router plugin so --model and --effort reach the API unchanged
-  --repeats <n>          attempts per task (default 2)
+  --repeats <n>          attempts per task (default 3, the aggregate's minimum)
   --concurrency <n>      parallel CLI runs, 1..16 (default 1)
   --case-budget-usd <n>  per-case CLI budget cap (default 0.25)
   --fresh                discard the accumulated raw results before this run
@@ -54,7 +54,7 @@ function parseArgs(argv) {
     mode: 'plan',
     manifest: join(ROOT, 'data/probes/manifest.json'),
     models: [],
-    repeats: 2,
+    repeats: 3,
     budgetUsd: 1,
     maxCases: Number.POSITIVE_INFINITY,
     timeoutMs: 180_000,
@@ -160,7 +160,9 @@ function answerOf(stdout) {
       continue;
     }
     if (record?.type === 'result') {
-      if (typeof record.result === 'string') answer = record.result;
+      // An errored result can carry text (a quota or budget message); only a successful result is an answer.
+      if (record.subtype === 'success' && record.is_error === false && typeof record.result === 'string')
+        answer = record.result;
       if (Number.isFinite(record.total_cost_usd)) costUsd = record.total_cost_usd;
       for (const [key, usage] of Object.entries(record.modelUsage ?? {})) {
         if (typeof usage?.canonicalModel === 'string') servedModel = usage.canonicalModel;
@@ -203,16 +205,18 @@ async function runCase(item, options) {
     ? ['zsh', ['-ic', `${options.wrapper} "$@"`, 'evidence-probe', ...args]]
     : [options.command ?? 'claude', args];
   const outcome = await runProcess(command, argv, { cwd, timeoutMs: options.timeoutMs, env });
-  const { answer, costUsd, servedModel } = answerOf(outcome.stdout);
+  const { answer: resultText, costUsd, servedModel } = answerOf(outcome.stdout);
   const served = typeof servedModel === 'string' ? servedModel.replace(/\[1m\]$/, '') : null;
-  const passed = outcome.reason === null && answer !== null ? gradeAnswer(item.task, answer) : null;
+  // A failed launch or a nonzero exit measured nothing about the model: the row is an error, never a failed attempt.
+  const answer = outcome.reason === null && outcome.exitCode === 0 ? resultText : null;
+  const passed = answer === null ? null : gradeAnswer(item.task, answer);
   return {
     taskId: item.task.id,
     activity: item.task.activity,
     tier: item.task.tier,
     model: served ?? item.model.canonical,
     requestedModel: item.model.modelId || null,
-    effort: item.model.effort,
+    effort: item.model.effort ?? 'default',
     repeat: item.repeat,
     passed,
     error: outcome.reason ?? (answer === null ? 'no-answer' : null),
@@ -228,27 +232,30 @@ async function run(options) {
   const models = options.models.map(parseModel);
   const cases = casesFor(manifest, models, options.repeats).slice(0, options.maxCases);
   const rows = [];
-  let spent = 0;
-  let consecutiveErrors = 0;
+  let committed = 0;
   let stopped = false;
   let next = 0;
   const worker = async () => {
+    let consecutiveErrors = 0;
     while (!stopped) {
       const index = next;
       next += 1;
       if (index >= cases.length) return;
       const item = cases[index];
-      if (spent + item.task.estimateUsd > options.budgetUsd) {
+      // Reserve the case's ceiling synchronously, before any await: with --concurrency, every worker must see it.
+      if (committed + item.task.estimateUsd > options.budgetUsd) {
         stopped = true;
         console.log(`stopped before ${item.task.id}: estimated spend would exceed $${options.budgetUsd}`);
         return;
       }
+      committed += item.task.estimateUsd;
       const row = await runCase(item, options);
       rows.push(row);
-      spent += Number.isFinite(row.costUsd) ? row.costUsd : item.task.estimateUsd;
+      const actual = Number.isFinite(row.costUsd) ? row.costUsd : item.task.estimateUsd;
+      committed += actual - item.task.estimateUsd;
       consecutiveErrors = row.error === null ? 0 : consecutiveErrors + 1;
       console.log(
-        `${row.model}@${row.effort ?? 'default'} ${row.activity}/${row.tier} ${row.taskId} #${row.repeat}: ${row.passed === null ? `error ${row.error}` : row.passed ? 'pass' : 'fail'} $${(row.costUsd ?? 0).toFixed(4)}`,
+        `${row.model}@${row.effort} ${row.activity}/${row.tier} ${row.taskId} #${row.repeat}: ${row.passed === null ? `error ${row.error}` : row.passed ? 'pass' : 'fail'} $${(row.costUsd ?? 0).toFixed(4)}`,
       );
       if (consecutiveErrors >= 3) {
         stopped = true;

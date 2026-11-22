@@ -5,6 +5,7 @@ import {
   assessCandidates,
   decideMove,
   initialAutoState,
+  initialIncumbentState,
   proposeAutoRoute,
   selectTarget,
 } from '../lib/auto-engine.mjs';
@@ -1318,6 +1319,12 @@ test('one activity chooses the capability column for the whole decision', () => 
   assert.equal(capability(none), null);
   assert.equal(none.target.route.model, 'a');
   assert.equal(none.target.outcome, 'declared-below-demand');
+});
+
+test('the initial state reads the decision activity column', () => {
+  const cfg = config({ a: model(null, 1, { efforts: ['high'], capability: { high: { default: 0.5, code: 3 } } }) });
+  const state = initialIncumbentState({ config: cfg, incumbent: route('a', 'high'), facts: facts(), activity: 'code' });
+  assert.equal(state.routedDemand, 3);
 });
 
 test('a numeric capability is one value for every activity', () => {

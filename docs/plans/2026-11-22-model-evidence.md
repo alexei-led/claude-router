@@ -131,9 +131,9 @@ Three layers, highest precedence first:
    Free tier is 100 requests/24h; the language-model list is paginated, so a full refresh is a handful of
    requests. Rows carry effort in the display name (`"GLM-5.3 (Max)"`) on the free tier; the Pro tier's
    explicit `effort` field and per-benchmark rows are used when the key has that access.
-3. **Bundled data** — `lib/evidence.mjs`, generated from MIT/CC-BY sources only (models.dev, LiteLLM,
-   LiveBench, Terminal-Bench, LMArena, AutoBench, LLMRouterBench), with filtered snapshots and hashes under
-   `data/evidence/`. Safe to publish.
+3. **Bundled data** — `lib/evidence.mjs`, generated only from MIT, Apache-2.0 and CC-BY-4.0 sources
+   (models.dev, LiteLLM, LiveBench, Terminal-Bench, LMArena, AutoBench, LLMRouterBench), with filtered snapshots
+   and hashes under `data/evidence/`. Safe to publish.
 
 Refresh:
 
@@ -184,8 +184,9 @@ The probe measures them locally against the endpoint the router uses, and joins 
 - **Aggregation** (`lib/evidence-probe.mjs`): pass rate per tier; capability is the highest tier clearing
   80% with at least three attempts, plus a half-step for a next tier at 40% or more; too few attempts stays
   unknown. `default` aggregates every activity; confidence grows with attempts.
-- **Merge:** the next `npm run evidence:aa --force` merges probe values over the benchmark prior for the
-  cells it measured, keeps the statistics under `probe`, and records `probe` in `sources`.
+- **Merge:** the next `npm run evidence:aa --force` fills the cells the benchmark prior leaves unknown, keeps
+  the probe statistics under `probe`, records `probe` in `sources`, and records a disagreement over half a step
+  under `probeDisagreements` instead of applying it.
 - **Cadence:** on demand — after adding a model or effort, after a provider snapshot change, or quarterly.
   Keep the task set fixed between runs for comparability.
 
