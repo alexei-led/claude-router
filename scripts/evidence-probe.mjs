@@ -28,7 +28,9 @@ function usage() {
   --manifest <file>      task manifest (default data/probes/manifest.json)
   --model canonical=id@effort   a pair to run; repeat for more pairs
   --profile <dir>        CLAUDE_CONFIG_DIR for the CLI (for example ~/.claude-team)
+  --wrapper <name>       run the CLI through a zsh function such as claude-mp-work
   --repeats <n>          attempts per task (default 2)
+  --fresh                discard the accumulated raw results before this run
   --budget-usd <n>       stop before the estimated spend exceeds this (default 1)
   --max-cases <n>        stop after this many cases
   --timeout-ms <n>       per-case deadline (default 180000)
@@ -55,6 +57,8 @@ function parseArgs(argv) {
     timeoutMs: 180_000,
     examples: false,
     aggregate: null,
+    wrapper: null,
+    fresh: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -80,20 +84,32 @@ function parseArgs(argv) {
     else if (arg === '--max-cases') options.maxCases = Number(value());
     else if (arg === '--timeout-ms') options.timeoutMs = Number(value());
     else if (arg === '--include-examples') options.examples = true;
+    else if (arg === '--wrapper') options.wrapper = value();
+    else if (arg === '--fresh') options.fresh = true;
     else fail(`unknown argument ${arg} (try --help)`);
   }
   if (!Number.isInteger(options.repeats) || options.repeats < 1) fail('--repeats must be a positive integer');
   if (!Number.isFinite(options.budgetUsd) || options.budgetUsd <= 0) fail('--budget-usd must be positive');
   if (!(options.maxCases >= 1)) fail('--max-cases must be positive');
   if (!Number.isInteger(options.timeoutMs) || options.timeoutMs <= 0) fail('--timeout-ms must be positive');
+  if (options.wrapper !== null && !/^[a-z0-9-]+$/.test(options.wrapper))
+    fail('--wrapper must be a shell function name of lowercase letters, digits and dashes');
   return options;
 }
 
-// `canonical=providerModelId@effort`; the effort is optional for a model with no effort control.
+// `canonical=providerModelId@effort`, or `canonical=@effort` to let the profile's routes choose the model: the CLI
+// then runs without --model and the served model is read from the result.
 function parseModel(spec) {
-  const match = /^([a-z0-9._/-]+)=([^@]+)(?:@([a-z]+))?$/i.exec(spec);
-  if (!match) fail(`--model must look like canonical=providerModelId@effort, got ${spec}`);
-  return { canonical: match[1], modelId: match[2], effort: match[3] ?? null };
+  const eq = spec.indexOf('=');
+  if (eq <= 0) fail(`--model must look like canonical=providerModelId@effort, got ${spec}`);
+  const canonical = spec.slice(0, eq);
+  const rest = spec.slice(eq + 1);
+  const at = rest.lastIndexOf('@');
+  const modelId = at >= 0 ? rest.slice(0, at) : rest;
+  const effort = at >= 0 ? rest.slice(at + 1) : null;
+  if (effort !== null && !/^[a-z]+$/.test(effort)) fail(`--model effort must be a level name, got ${effort}`);
+  if (at < 0 && modelId === '') fail(`--model needs a model id or @effort, got ${spec}`);
+  return { canonical, modelId, effort };
 }
 
 function loadManifest(options) {
@@ -123,6 +139,7 @@ function plan(cases) {
 function answerOf(stdout) {
   let answer = null;
   let costUsd = null;
+  let servedModel = null;
   for (const line of stdout.split('\n')) {
     let record;
     try {
@@ -133,9 +150,13 @@ function answerOf(stdout) {
     if (record?.type === 'result') {
       if (typeof record.result === 'string') answer = record.result;
       if (Number.isFinite(record.total_cost_usd)) costUsd = record.total_cost_usd;
+      for (const [key, usage] of Object.entries(record.modelUsage ?? {})) {
+        if (typeof usage?.canonicalModel === 'string') servedModel = usage.canonicalModel;
+        else if (servedModel === null) servedModel = key;
+      }
     }
   }
-  return { answer, costUsd };
+  return { answer, costUsd, servedModel };
 }
 
 async function runCase(item, options) {
@@ -155,29 +176,29 @@ async function runCase(item, options) {
     '--no-session-persistence',
     '--setting-sources',
     'user',
-    '--model',
-    item.model.modelId,
     '--system-prompt',
     SYSTEM_PROMPT,
     '--max-budget-usd',
     String(Math.max(item.task.estimateUsd, 0.01)),
   ];
+  if (item.model.modelId) args.push('--model', item.model.modelId);
   if (item.model.effort) args.push('--effort', item.model.effort);
   const cwd = mkdtempSync(join(tmpdir(), 'evidence-probe-'));
   const env = { ...process.env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: '2048' };
   if (options.profile) env.CLAUDE_CONFIG_DIR = options.profile;
-  const outcome = await runProcess(options.command ?? 'claude', args, {
-    cwd,
-    timeoutMs: options.timeoutMs,
-    env,
-  });
-  const { answer, costUsd } = answerOf(outcome.stdout);
+  const [command, argv] = options.wrapper
+    ? ['zsh', ['-ic', `${options.wrapper} "$@"`, 'evidence-probe', ...args]]
+    : [options.command ?? 'claude', args];
+  const outcome = await runProcess(command, argv, { cwd, timeoutMs: options.timeoutMs, env });
+  const { answer, costUsd, servedModel } = answerOf(outcome.stdout);
+  const served = typeof servedModel === 'string' ? servedModel.replace(/\[1m\]$/, '') : null;
   const passed = outcome.reason === null && answer !== null ? gradeAnswer(item.task, answer) : null;
   return {
     taskId: item.task.id,
     activity: item.task.activity,
     tier: item.task.tier,
-    model: item.model.canonical,
+    model: served ?? item.model.canonical,
+    requestedModel: item.model.modelId || null,
     effort: item.model.effort,
     repeat: item.repeat,
     passed,
@@ -213,7 +234,7 @@ async function run(options) {
       break;
     }
   }
-  writeResults(rows);
+  writeResults(rows, { fresh: options.fresh });
   return rows;
 }
 
@@ -224,19 +245,26 @@ function aliasesOf(rows) {
   return aliases;
 }
 
-function writeResults(rows) {
+function writeResults(rows, { fresh = false } = {}) {
   const checked = new Date().toISOString().slice(0, 10);
-  const entries = aggregateProbe(rows, { checked, aliases: aliasesOf(rows) });
+  let all = rows;
+  if (!fresh) {
+    try {
+      const previous = JSON.parse(readFileSync(RAW_FILE, 'utf8'));
+      if (Array.isArray(previous.rows)) all = [...previous.rows, ...rows];
+    } catch {}
+  }
+  const entries = aggregateProbe(all, { checked, aliases: aliasesOf(all) });
   mkdirSync(OUT_DIR, { recursive: true });
   for (const [file, body] of [
-    [RAW_FILE, { checked, rows }],
+    [RAW_FILE, { checked, rows: all }],
     [AGG_FILE, { checked, source: 'local probe', entries }],
   ]) {
     writeFileSync(file, `${JSON.stringify(body, null, 2)}\n`, { mode: 0o600 });
     chmodSync(file, 0o600);
   }
-  const attempts = rows.filter((row) => row.passed !== null).length;
-  console.log(`probe: ${attempts}/${rows.length} graded attempts → ${AGG_FILE}`);
+  const attempts = all.filter((row) => row.passed !== null).length;
+  console.log(`probe: ${attempts}/${all.length} graded attempts accumulated → ${AGG_FILE}`);
 }
 
 const options = parseArgs(process.argv.slice(2));
@@ -249,7 +277,7 @@ if (options.mode === 'plan') {
 } else if (options.mode === 'aggregate') {
   const raw = JSON.parse(readFileSync(options.aggregate, 'utf8'));
   if (!Array.isArray(raw.rows)) fail('the results file must hold a rows array');
-  writeResults(raw.rows);
+  writeResults(raw.rows, { fresh: true });
 } else {
   await run(options);
 }

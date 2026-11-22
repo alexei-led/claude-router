@@ -123,8 +123,15 @@ npm run evidence:probe -- --aggregate ~/.config/claude-router/evidence.probe.raw
 
 The runner spawns the Claude Code CLI once per case with `--model` and `--effort`, one turn, no tools, and a
 per-case budget. It stops before the estimated spend exceeds `--budget-usd`, after `--max-cases`, or after
-three consecutive launch errors. Raw rows and the aggregate land in
-`~/.config/claude-router/evidence.probe.{raw,}.json` (mode 600).
+three consecutive launch errors. Raw rows accumulate across runs (`--fresh` starts over) and the aggregate
+lands in `~/.config/claude-router/evidence.probe.{raw,}.json` (mode 600). `--wrapper <zsh-function>` runs
+the CLI through a provider wrapper such as `claude-mp-work`.
+
+**Limitation:** a non-Anthropic provider profile cannot be probed through its wrapper yet. Claude Code
+validates the session model against the ids it knows, and the router's provider ids (`glm-5.3[1m]`,
+`deepseek-flash[1m]`) fail that check; a temporary route-controlled profile loses the provider catalog and
+passes the request through. Probe Anthropic models directly today; provider cells come from the Artificial
+Analysis overlay, and a direct HTTP probe adapter is the next step.
 
 ### How results become capability
 
