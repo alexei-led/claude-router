@@ -7,6 +7,12 @@
 - **The `auto` engine now works with holds.** A model held out after a failed turn is never selected again while the hold runs, in any engine: `auto` excludes it from its candidates and moves off it at once, instead of re-selecting the model that just failed. Account holds (a used-up plan window, a spend limit, an empty balance) now route `auto` around every model on the account, so a full 5h window moves an `auto` session to a credits model. The pane's HELD OUT section and `/router holds` show account holds under `auto` too, the shadow proposal in the decision rows never names a held model, and replay traces record the held models so a replay agrees with the live column. Fallback chains stay a `table`/`shadow` feature: under `auto` the catalog is the fallback space. A session whose catalog declares no `capability` on any model gets a one-time toast that selection falls back to the cheapest.
 - **Subagents respect holds.** When the router's own spawn choice is a model held out (or whose account is), it keeps Claude Code's own model instead; Claude Code's choice can still be the held model, as for main requests. A subagent's API failure holds the model its request ran, as a main-turn failure does, and a reply from that model ends the streak.
 
+### Added
+
+- **Artificial Analysis evidence overlay:** `npm run evidence:aa` fetches the free Artificial Analysis API into a private `~/.config/claude-router/evidence.local.mjs` (mode 600, never committed, refreshed weekly by default), giving auto routing per-effort capability priors for the configured models. See [Model evidence](docs/evidence.md).
+- **Local evidence probe:** `npm run evidence:probe` measures the cells public benchmarks leave empty (per activity and demand tier) against the configured endpoint, with a dry-run plan, a spend budget and deterministic grading; the next overlay refresh merges the results. See [Model evidence](docs/evidence.md#local-probe).
+- **Evidence-aware auto routing:** when `~/.config/claude-router/evidence.local.mjs` exists, auto routing reads its capability priors for configured models that declare none, and ranks candidates by the current turn's activity. `models.<alias>.capability` values may now be a number or a per-activity map. A missing or malformed overlay is ignored.
+
 ## 1.28.0 (2026-11-19)
 
 ### Summary
