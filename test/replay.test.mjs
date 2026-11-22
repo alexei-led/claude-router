@@ -1082,6 +1082,39 @@ test('manual interval breaks reversal pairing without losing either policy move'
   assert.equal(modes.cost.table.switches.oneWay + modes.quality.table.switches.oneWay, 2);
 });
 
+test('replay drops the activity column when activity routing turns off', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
+  // The trace is a shadow artifact; replayAuto proposes the auto alternative from it under the recorded config.
+  const h = shadowHarness(
+    {
+      activityRouting: 'on',
+      baselineTier: 'low',
+      models: {
+        haiku: { capability: { high: { default: 0, code: 0 } } },
+        sonnet: { capability: { high: { default: 2, code: 2.5 } } },
+      },
+      policy: { reviewEveryRequests: 0 },
+    },
+    undefined,
+    jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'),
+  );
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('turn.start', { turnId: 'first', text: 'Synthetic task' });
+  h.messages(async () => [user('one')]);
+  await drain(h.step({ ...step, turnId: 'first', messageCount: 1 }));
+  await h.event('turn.complete', { turnId: 'first' });
+  await h.event('command.run', { command: 'router', args: 'activities off' });
+  await h.event('turn.start', { turnId: 'second', text: 'Another task' });
+  h.messages(async () => [user('one'), user('two')]);
+  await drain(h.step({ ...step, turnId: 'second', messageCount: 2 }));
+  await h.event('turn.complete', { turnId: 'second' });
+  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const table = replayTable(record);
+  const auto = replayAuto(record, table.rows);
+  assert.equal(auto[0].activity, 'code');
+  assert.equal(auto.at(-1).activity, null);
+});
+
 test('an activity capability map replays to the live auto route', async (t) => {
   t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
   const config = {
