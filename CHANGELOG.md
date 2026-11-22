@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.29.0 (2026-11-22)
+
+### Summary
+
+A minor release that makes `auto` respect model and account holds, and lets it rank models from benchmark evidence instead of hand-typed capability alone: an optional private Artificial Analysis overlay, per-activity `capability` maps and a local probe for the cells public benchmarks leave empty. Nothing ships enabled: a profile's own declarations always win, the overlay stays under `~/.config/claude-router/`, and bundled benchmark data is generated but not applied as defaults. No configuration change; Claude Code 2.1.321 or newer is still required.
 
 ### Fixed
 
@@ -10,8 +14,9 @@
 ### Added
 
 - **Artificial Analysis evidence overlay:** `npm run evidence:aa` fetches the free Artificial Analysis API into a private `~/.config/claude-router/evidence.local.mjs` (mode 600, never committed, refreshed weekly by default), giving auto routing per-effort capability priors for the configured models. See [Model evidence](docs/evidence.md).
-- **Local evidence probe:** `npm run evidence:probe` measures the cells public benchmarks leave empty (per activity and demand tier) against the configured endpoint, with a dry-run plan, a spend budget and deterministic grading; the next overlay refresh merges the results. See [Model evidence](docs/evidence.md#local-probe).
-- **Evidence-aware auto routing:** when `~/.config/claude-router/evidence.local.mjs` exists, auto routing reads its capability priors for configured models that declare none, and ranks candidates by the current turn's activity. `models.<alias>.capability` values may now be a number or a per-activity map. A missing or malformed overlay is ignored.
+- **Local evidence probe:** `npm run evidence:probe` measures the cells public benchmarks leave empty (per activity and demand tier) against the configured endpoint, with a dry-run plan, a spend budget and deterministic grading; probe values fill only cells the benchmark prior leaves unknown. See [Model evidence](docs/evidence.md#local-probe).
+- **Evidence-aware auto routing:** when `~/.config/claude-router/evidence.local.mjs` exists, auto routing reads its capability priors for configured models that declare none, and ranks candidates by the current turn's activity. `models.<alias>.capability` values may now be a number or a per-activity map; with `activityRouting: off`, the `default` column applies. A missing or malformed overlay is ignored.
+- **Evidence coverage and bundled data:** `npm run evidence:report` lists the cells the overlay fills, the unknown and low-confidence ones, and configured ids no entry matches; `npm run evidence:check` regenerates `lib/evidence.mjs` from the committed public snapshots and reports drift. The bundled values are not applied as defaults. See [Model evidence](docs/evidence.md#update-flow).
 
 ## 1.28.0 (2026-11-19)
 
