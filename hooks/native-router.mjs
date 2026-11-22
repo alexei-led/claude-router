@@ -105,6 +105,7 @@ import {
   activeHolds,
   classifyFailure,
   clearedModel,
+  clearedModels,
   failureHold,
   HOLDS_PREFIX,
   heldAsSeen,
@@ -399,6 +400,9 @@ function createRouter(options) {
     finished: new Map(),
     // The model each agent's last request ran, for holding after a StopFailure, which names no model.
     agentRequests: new Map(),
+    // Main requests in flight, and the agent's holds they must clear in their own loop write (clearAgentHeld).
+    mainInFlight: 0,
+    agentClears: new Set(),
     // Each agent type's definition frontmatter by provider and type, read once per session (agentDefinition).
     definitions: new Map(),
   };
@@ -1753,12 +1757,16 @@ async function moveOnObserved($, router, cfg, loop, e, context) {
   const observed = routingBucket(
     observedActivity(messages, Math.max(promptIndex(messages), (loop.observedFrom ?? 0) - 1)),
   );
+  const observedHolds = await accountHoldsOf($, cfg);
+  const now = Date.now();
   const traceInput = {
     observed,
     facts,
     contextKnown: context.known,
-    accountHolds: await accountHoldsOf($, cfg),
-    now: Date.now(),
+    accountHolds: observedHolds,
+    // The holds in force for this move, recorded so replay reaches the same conclusion the live turn did.
+    held: heldAsSeen(heldIds(cfg, loop.held, observedHolds, now), loop.resolutions),
+    now,
   };
   const moved = observedMove(cfg, loop, traceInput);
   if (cfg.routingEngine === 'shadow') traceOp(router, e, cfg, 'observed', traceInput, moved, messages);
@@ -1978,10 +1986,20 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
   }
   const compared = await compareYours($, router, loop, response, request.effort ?? null, nativeModel, cfg);
   if (compared) observed.yoursBy = compared.states;
+  // A model replied while this request was in flight (clearAgentHeld): its streak ends in the same write, so the
+  // pending clear never loses this reply's usage to a version conflict.
+  if (router.agentClears.size) {
+    const heldNow = clearedModels(observed.held, router.agentClears);
+    if (heldNow !== observed.held) observed = { ...observed, held: heldNow };
+  }
   const written = await $.state.set({ ...LOOP, id: 'main' }, observed, { ifVersion: loopVersion });
   if (!written.isSet) {
     if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('gap');
     return;
+  }
+  if (router.agentClears.size) {
+    router.agentClears.clear();
+    await updateView($, router, { holds: await holdsAfter($, router, observed.held) }).catch(() => {});
   }
   if (cfg.routingEngine === 'shadow') recordTraceResponse(router, request, request, response, compared?.ttl, at);
   // A substituted reply is not the tier's: the strip and trend must not count it as one.
@@ -2618,9 +2636,14 @@ async function* stepAgent($, router, e, next) {
 
 // The model holds without `model`'s, as a main reply leaves them: the model answered, so its streak starts over. The
 // view is refreshed after the write, so the pane and `/router release` stop naming a hold routing no longer keeps; a
-// write that lost to another leaves both the loop and the view as they are.
+// write that lost to another leaves both the loop and the view as they are. While a main request is in flight its
+// reply owns the loop write, so the clear is queued and merged into that write (observeRouted).
 async function clearAgentHeld($, router, model) {
   try {
+    if (router.mainInFlight > 0) {
+      router.agentClears.add(model);
+      return;
+    }
     const ref = { ...LOOP, id: 'main' };
     const { value: loop, version } = await $.state.get(ref);
     if (!loop?.held) return;
@@ -3039,7 +3062,15 @@ async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, session
     traceRequest(router, e, router.turnConfigs.get(e.turnId) ?? turn, request, 'auto', loop);
   // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
   router.lastRequested = request.model;
-  const response = yield* next(request);
+  // A write from another surface (an agent's reply clearing its hold) cannot interleave with this request's own
+  // loop write: it queues instead (clearAgentHeld) and is merged into the loop this reply writes.
+  router.mainInFlight += 1;
+  let response;
+  try {
+    response = yield* next(request);
+  } finally {
+    router.mainInFlight -= 1;
+  }
   if (!next.signal.aborted && (await $.session.id()) === sessionId)
     await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
   else if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('aborted');

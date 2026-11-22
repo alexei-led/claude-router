@@ -7,6 +7,7 @@ import {
   activeHolds,
   classifyFailure,
   clearedModel,
+  clearedModels,
   failureHold,
   heldAsSeen,
   heldIds,
@@ -318,6 +319,14 @@ test('a model answering clears its streak, so the next failure holds five minute
   const answered = clearedModel(failed, opus);
   assert.deepEqual(answered, {});
   assert.equal(fails(answered, opus, 'overloaded', now + 20 * MINUTE)[opus].streak, 1);
+});
+
+test('clearing several answered models leaves the others, and no change returns the same object', () => {
+  const held = fails(fails(fails({}, opus, 'overloaded', now), opus, 'overloaded', now), 'other', 'overloaded', now);
+  const cleared = clearedModels(held, [opus]);
+  assert.deepEqual(Object.keys(cleared), ['other']);
+  assert.equal(clearedModels(held, []), held);
+  assert.equal(clearedModels(held, ['absent']), held);
 });
 
 test('a model answering leaves other models’ streaks, and clears one under its bracketed id', () => {
