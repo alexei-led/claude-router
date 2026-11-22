@@ -508,7 +508,18 @@ test('a failure that arrives after its turn completed is still recorded', async 
   );
 });
 
-test('a subagent’s failure is neither held nor recorded', async (t) => {
+test('a subagent’s failure holds the model its agent ran, and writes no failure row', async (t) => {
+  const h = await started(t);
+  // A main turn first: a model hold needs the session's loop.
+  await turn(h, 't1');
+  // One agent step names the model a later StopFailure for that agent holds.
+  await drain(h.step({ ...step, turnId: 'a1-t', agentId: 'a1', model: HAIKU }, { usage: undefined }));
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded', agent_id: 'a1' });
+  assert.deepEqual(Object.keys(h.loop().held), [HAIKU]);
+  assert.deepEqual(failureRows(h), []);
+});
+
+test('a subagent failure whose request is unknown holds nothing, and the plan stays usable', async (t) => {
   const h = await started(t);
   await turn(h, 't1', { error: 'billing_error', agent_id: 'a1' });
   assert.equal(h.preferences.has(HOLDS_PLAN), false);

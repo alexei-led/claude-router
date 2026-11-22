@@ -395,6 +395,8 @@ function createRouter(options) {
     // each parent loop last finished an agent of a type, for respawns.
     agents: new Map(),
     finished: new Map(),
+    // The model each agent's last request ran, for holding after a StopFailure, which names no model.
+    agentRequests: new Map(),
     // Each agent type's definition frontmatter by provider and type, read once per session (agentDefinition).
     definitions: new Map(),
   };
@@ -2481,6 +2483,11 @@ async function decideSpawn($, router, cfg, e, definition, signal) {
   const settings = await $.settings.read().catch(() => null);
   if (!model || !settings || !isModelAllowed(model, settings.availableModels, e.parentModel))
     return { choice: 'core', model: null, failed };
+  // A model held out right now is never sent an agent, as main routing never sends one: the spawn keeps Claude
+  // Code's own model, and a resumed agent keeps the model its first spawn had.
+  const { value: loop } = await $.state.get({ ...LOOP, id: 'main' });
+  const held = heldIds(cfg, loop?.held, await accountHoldsOf($, cfg), Date.now());
+  if (held.some((id) => isSameModel(id, model))) return { choice: 'core', model: null, failed };
   return { choice: alias, model, failed };
 }
 
@@ -2584,6 +2591,9 @@ async function subagentTtlOf($) {
 // A subagent's step runs exactly as Claude Code sent it: a model switch between its steps would rewrite its context
 // cold. Its reply is added to its spawn record; the record never breaks the step.
 async function* stepAgent($, router, e, next) {
+  // The model this agent's request ran, for a failure's hold: StopFailure names no model and `lastRequested` is the
+  // main conversation's request.
+  if (typeof e.model === 'string') router.agentRequests.set(e.agentId, e.model);
   const response = yield* next(e);
   if (router.agents.has(e.agentId) && response?.usage) {
     try {
@@ -3319,18 +3329,19 @@ async function keepChosenModel($, router, reason) {
   await updateView($, router, { nativeModel: await $.session.model(), ...(reason ? { reason } : {}) });
 }
 
-// A main turn ended on an API error (`StopFailure`): the request is lost, and Claude Code reports neither the model nor
-// a retry-after. The failure goes into the turn's decision rows with what Claude Code gave and the plan's readings, then
+// A turn ended on an API error (`StopFailure`): the request is lost, and Claude Code reports neither the model nor a
+// retry-after. The failure goes into the turn's decision rows with what Claude Code gave and the plan's readings, then
 // classifies (classifyFailure) and holds: an error that is the model's holds the model the last request ran, which can
 // be a stand-in, out of routing for a while in the loop; a used-up quota holds its account in $.store, where every
 // session and restart sees it (lib/failover.mjs). Every engine holds: table and shadow stand a stand-in in for the held
-// route, auto excludes the held model from its candidates.
-async function holdFailedModel($, router, e) {
+// route, auto excludes the held model from its candidates. An agent's failure names its model (`agentModel`) and holds
+// it too, but belongs to the agent's turn: the main turn's decision rows are not where its evidence goes.
+async function holdFailedModel($, router, e, agentModel = null) {
   // A failed hold changes no route; the turn's result stands.
   try {
     if (!(await ensureInitialized($, router))) return;
     const { config } = router;
-    const model = router.lastRequested ?? (await $.session.model());
+    const model = agentModel ?? router.lastRequested ?? (await $.session.model());
     const usage = await $.session.usage().catch(() => null);
     const limits = planLimits(usage);
     const now = Date.now();
@@ -3352,6 +3363,7 @@ async function holdFailedModel($, router, e) {
             () => null,
           );
     if (held) await updateView($, router, { holds: await holdsAfter($, router, held.models) });
+    if (agentModel !== null) return;
     const turnId = router.mainTurnId;
     if (turnId === null) return;
     addDecision(
@@ -3664,11 +3676,15 @@ export function register(on, options) {
     return next(e);
   });
 
-  // Since 2.1.296 (present at the 2.1.321 floor): a turn that ended on an API error. A subagent's is not routed here.
-  // A hook failure leaves the event to the hooks beneath, as without the router.
+  // Since 2.1.296 (present at the 2.1.321 floor): a turn that ended on an API error. A subagent's holds the model its
+  // agent ran, when that request is known. A hook failure leaves the event to the hooks beneath, as without the router.
   on('classic.StopFailure', async ($, e, next) => {
     const result = await next(e);
     if (e.agent_id === undefined) await holdFailedModel($, router, e);
+    else {
+      const agentModel = router.agentRequests.get(e.agent_id) ?? null;
+      if (agentModel !== null) await holdFailedModel($, router, e, agentModel);
+    }
     return result;
   }).catch((_$, e, next) => next(e));
 

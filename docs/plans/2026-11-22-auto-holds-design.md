@@ -58,5 +58,17 @@ now)` and every engine writes holds on `StopFailure`. Table answers with a one-t
 
 ## Out of scope
 
-Subagent spawns still do not read holds; model holds stay session-scoped and are lost on `--continue`
-(BACKLOG). Capability presets for shipped non-Anthropic catalogs are config work, sourced separately.
+Model holds stay session-scoped and are lost on `--continue`; a resumed agent keeps the model its first spawn
+had. Capability presets for shipped non-Anthropic catalogs are config work, sourced separately.
+
+## Subagents (added 2026-11-22, user decision)
+
+Subagent routing is a separate subsystem (its own type table and classifier), so holds enter it as a filter,
+not as a selection policy:
+
+- **Spawn:** `decideSpawn` reads `heldIds` (model and account holds) and keeps Claude Code's own model
+  (`core`) when the routed model is held. An agent is never sent to a model known to be out, and no second
+  stand-in policy is invented — core is already hold-aware through main routing.
+- **Failure:** `stepAgent` records the model each agent's last request ran; a `StopFailure` for that agent
+  holds it through the same `classifyFailure`. The failure writes no main-turn decision row: that evidence
+  belongs to the agent's turn, which the router does not record.
