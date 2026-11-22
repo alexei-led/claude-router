@@ -90,8 +90,8 @@ for (const hasAssistant of [false, true]) {
       isAborted: false,
       reason: 'answer',
     });
-    expect(store.has('trace:v1:native-trace')).toBe(true);
-    const recorded = store.get('trace:v1:native-trace');
+    expect(store.has('trace:v2:native-trace')).toBe(true);
+    const recorded = store.get('trace:v2:native-trace');
     expect(usableTrace(recorded)).toBe(!hasAssistant);
     const projected = JSON.parse(JSON.stringify(recorded));
     const continuedOp = projected.events
@@ -102,7 +102,7 @@ for (const hasAssistant of [false, true]) {
     expect(JSON.stringify(recorded).includes('CANARY')).toBe(false);
     await $.command.run({ command: 'router', args: 'trace export' });
     const exported = JSON.parse(files.get('/fixture/team/router-traces.json') ?? '{}');
-    expect(exported.sessions['trace:v1:native-trace']).toEqual(projected);
+    expect(exported.sessions['trace:v2:native-trace']).toEqual(projected);
   });
 }
 

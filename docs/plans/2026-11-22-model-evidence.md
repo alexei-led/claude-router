@@ -99,10 +99,10 @@ Activity weights (proposal; sources per row are confirmed by the research matrix
 
 ## Integration
 
-1. **Seeds in the catalog.** `loadConfig` resolves each model's canonical id against `EVIDENCE` and uses its
-   `capability` map when the user file declares none, exactly as preset seeds work today
-   (`lib/config.mjs:316-330`). A user-declared map replaces the evidence map atomically; changing a model id
-   clears inherited evidence, as today.
+1. **Seeds in the catalog.** The generated `lib/evidence.mjs` is reviewed before it seeds config: enabling
+   bundled values as defaults is a separate change. The local overlay, whose values the user can inspect and
+   regenerate, is applied today. In both layers a user-declared map replaces the evidence map atomically, and
+   changing a model id clears inherited evidence, as today.
 2. **Per-activity capability.** `models.<alias>.capability` values accept a number or an activity object; the
    validator (`lib/config.mjs:860`) checks keys, half-steps and supported efforts. `capabilityOf`
    (`lib/auto-engine.mjs:140`) takes the activity the decision uses and falls back to `default`.

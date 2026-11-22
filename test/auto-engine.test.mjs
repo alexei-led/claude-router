@@ -1293,3 +1293,43 @@ test('every candidate held gives no route, and the native request takes the turn
   assert.equal(result.move.route, null);
   assert.equal(result.move.reason, 'no-route');
 });
+test('one activity chooses the capability column for the whole decision', () => {
+  const cfg = config({
+    a: model(1, 1),
+    b: model(null, 2, { efforts: ['high'], capability: { high: { code: 2.5, docs: 0.5 } } }),
+  });
+  const choose = (activity) => {
+    const candidates = assessCandidates({ config: cfg, incumbent: route('a'), facts: facts(), now: T0, activity });
+    return { candidates, target: selectTarget({ candidates, demand: 2 }) };
+  };
+  const capability = (result) => result.candidates.find((candidate) => candidate.route.model === 'b').capability;
+
+  const code = choose('code');
+  assert.equal(capability(code), 2.5);
+  assert.equal(code.target.route.model, 'b');
+  assert.equal(code.target.outcome, 'meets-demand');
+
+  const docs = choose('docs');
+  assert.equal(capability(docs), 0.5);
+  assert.equal(docs.target.route.model, 'a');
+  assert.equal(docs.target.outcome, 'declared-below-demand');
+
+  const none = choose(null);
+  assert.equal(capability(none), null);
+  assert.equal(none.target.route.model, 'a');
+  assert.equal(none.target.outcome, 'declared-below-demand');
+});
+
+test('a numeric capability is one value for every activity', () => {
+  const cfg = config({ a: model(1, 1), b: model(2, 2) });
+  for (const activity of ['code', 'docs', null]) {
+    const candidates = assessCandidates({
+      config: cfg,
+      incumbent: route('a'),
+      facts: facts(),
+      now: T0,
+      activity,
+    });
+    assert.equal(candidates.find((candidate) => candidate.route.model === 'b').capability, 2);
+  }
+});

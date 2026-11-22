@@ -1,8 +1,8 @@
 {
   "version": 1,
   "sessions": {
-    "trace:v1:synthetic": {
-      "version": 1,
+    "trace:v2:synthetic": {
+      "version": 2,
       "startedAt": 1794830400003,
       "updatedAt": 1794830400093,
       "active": true,

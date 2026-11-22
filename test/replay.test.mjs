@@ -1081,3 +1081,35 @@ test('manual interval breaks reversal pairing without losing either policy move'
   assert.equal(modes.cost.table.switches.moves + modes.quality.table.switches.moves, 2);
   assert.equal(modes.cost.table.switches.oneWay + modes.quality.table.switches.oneWay, 2);
 });
+
+test('an activity capability map replays to the live auto route', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
+  const config = {
+    baselineTier: 'low',
+    models: {
+      haiku: { capability: { high: { default: 0, code: 0 } } },
+      sonnet: { capability: { high: { default: 2, code: 2.5 } } },
+    },
+    policy: { reviewEveryRequests: 0 },
+  };
+  const runs = [];
+  for (const routingEngine of ['shadow', 'auto']) {
+    const h = shadowHarness(
+      { ...config, routingEngine },
+      undefined,
+      jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'),
+    );
+    await h.event('session.start', { cwd: '/fixture' });
+    await h.event('turn.start', { turnId: 'first', text: 'Synthetic task' });
+    h.messages(async () => [user('one')]);
+    await drain(h.step({ ...step, turnId: 'first', messageCount: 1 }));
+    await h.event('turn.complete', { turnId: 'first' });
+    runs.push(h);
+  }
+  const record = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+  assert.deepEqual(record.events[0].configured.models.sonnet.capability.high, { default: 2, code: 2.5 });
+  const table = replayTable(record);
+  assert.deepEqual(table.mismatches, []);
+  const auto = replayAuto(record, table.rows);
+  assert.deepEqual(auto[0].pair, { model: runs[1].requests[0].model, effort: runs[1].requests[0].effort });
+});

@@ -8,8 +8,9 @@ efforts the profile does not declare; unknown stays unknown, and a profile's own
 Two layers:
 
 - **Bundled evidence** (`lib/evidence.mjs`, generated from MIT and CC-BY sources: models.dev, LiteLLM,
-  LiveBench, Terminal-Bench, LMArena) ships with the package. It can be published and is refreshed by the
-  weekly evidence check.
+  LiveBench, Terminal-Bench, LMArena) ships with the package and is refreshed by the evidence check. The
+  generator and data are in place; applying bundled values as default seeds is a separate, reviewed change.
+  Today auto routing consumes the local overlay, and a profile's own declarations always win.
 - **Local overlay** (`~/.config/claude-router/evidence.local.mjs`) holds data whose terms do not allow
   redistribution. Artificial Analysis is the case: its terms allow personal, noncommercial use with
   attribution, and forbid scraping and redistribution. The overlay is never committed and is never served to

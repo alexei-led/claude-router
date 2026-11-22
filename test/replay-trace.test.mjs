@@ -13,8 +13,10 @@ import {
   readTrace,
   TRACE_ACTIVE_MS,
   TRACE_BUDGET_BYTES,
+  TRACE_LEGACY_PREFIX,
   TRACE_PREFIX,
   TRACE_RETAIN_MS,
+  TRACE_VERSION,
   traceAdmission,
   traceBytes,
   traceConfig,
@@ -375,4 +377,38 @@ test('text-free checkpoint indexes reproduce activity completion for any replay 
 test('byte counting includes UTF-8 overhead', () => {
   assert.equal(traceBytes('€'), 5);
   assert.equal(DEFAULTS.models.opus.id, configured.models.opus.id);
+});
+
+test('an activity capability map round-trips through a version 2 trace', () => {
+  assert.equal(TRACE_VERSION, 2);
+  assert.equal(TRACE_PREFIX, 'trace:v2:');
+  assert.equal(TRACE_LEGACY_PREFIX, 'trace:v1:');
+  const capability = { medium: 2, xhigh: { default: 3, code: 2.5 } };
+  const evidence = structuredClone(configured);
+  evidence.models.opus.capability = capability;
+  const record = newTrace(NOW, { configured: evidence, config: evidence, loop });
+  const read = readTrace(JSON.parse(JSON.stringify(record)));
+  assert.equal(read.version, TRACE_VERSION);
+  assert.deepEqual(read.events[0].config.models.opus.capability, capability);
+  assert.deepEqual(read.events[0].configured.models.opus.capability, capability);
+
+  const legacy = { ...structuredClone(record), version: 1 };
+  assert.equal(readTrace(legacy).version, TRACE_VERSION);
+  const expired = { ...initial(), version: 1, active: false, updatedAt: NOW - TRACE_RETAIN_MS - 1 };
+  assert.deepEqual(traceVictims([[`${TRACE_LEGACY_PREFIX}old`, expired]], NOW, key('own'), initial()), [
+    `${TRACE_LEGACY_PREFIX}old`,
+  ]);
+});
+
+test('trace projection keeps only valid capability cells', () => {
+  const projected = traceConfig({
+    models: {
+      m: {
+        id: 'm',
+        efforts: ['high'],
+        capability: { high: { default: 2, code: 2.5, debug: 4, bogus: 1 } },
+      },
+    },
+  });
+  assert.deepEqual(projected.models.m.capability, { high: { default: 2, code: 2.5 } });
 });

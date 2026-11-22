@@ -5,64 +5,172 @@
       "id": "code-micro-01",
       "activity": "code",
       "tier": "micro",
-      "prompt": "Add 17 and 25. Reply with only JSON {\"sum\": <number>}.",
-      "check": { "kind": "json-equal", "expected": { "sum": 42 } },
-      "estimateUsd": 0.01,
-      "example": true
+      "prompt": "In JavaScript, what does `[1, 2, 3].map((x) => x * 2).join('-')` evaluate to? Reply with only JSON {\"result\": \"<string>\"}.",
+      "check": { "kind": "json-equal", "expected": { "result": "2-4-6" } },
+      "estimateUsd": 0.01
+    },
+    {
+      "id": "code-medium-01",
+      "activity": "code",
+      "tier": "medium",
+      "prompt": "What does this print? `const fns = []; for (var i = 0; i < 3; i += 1) fns.push(() => i); console.log(fns.map((f) => f()).join(','))`. Reply with only JSON {\"result\": \"<string>\"}.",
+      "check": { "kind": "json-equal", "expected": { "result": "3,3,3" } },
+      "estimateUsd": 0.05
+    },
+    {
+      "id": "code-high-01",
+      "activity": "code",
+      "tier": "high",
+      "prompt": "Given `grid = [[1,3,1],[1,5,1],[4,2,1]]`, find the minimum path sum from the top-left to the bottom-right cell moving only right or down. Reply with only JSON {\"sum\": <integer>}.",
+      "check": { "kind": "json-equal", "expected": { "sum": 7 } },
+      "estimateUsd": 0.1
     },
     {
       "id": "debug-low-01",
       "activity": "debug",
       "tier": "low",
-      "prompt": "A loop `for (let i = 1; i < items.length; i += 1)` must visit every item. Reply with only JSON {\"start\": <integer>} giving the start index that visits every item.",
-      "check": { "kind": "json-equal", "expected": { "start": 0 } },
-      "estimateUsd": 0.01,
-      "example": true
+      "prompt": "`for (let i = 0; i <= xs.length; i += 1) total += xs[i];` reads one element past the end. Reply with only JSON {\"operator\": \"<comparison operator that replaces <=>\"}.",
+      "check": { "kind": "json-equal", "expected": { "operator": "<" } },
+      "estimateUsd": 0.02
+    },
+    {
+      "id": "debug-medium-01",
+      "activity": "debug",
+      "tier": "medium",
+      "prompt": "Predict the output order of this program: `async function f() { console.log(1); await null; console.log(2); } console.log(0); f(); console.log(3);` Reply with only JSON {\"order\": [<numbers>]}.",
+      "check": { "kind": "json-equal", "expected": { "order": [0, 1, 3, 2] } },
+      "estimateUsd": 0.05
+    },
+    {
+      "id": "debug-high-01",
+      "activity": "debug",
+      "tier": "high",
+      "prompt": "What does `console.log([10, 1, 3].sort().map(Number))` print? Reply with only JSON {\"out\": [<numbers>]}.",
+      "check": { "kind": "json-equal", "expected": { "out": [1, 10, 3] } },
+      "estimateUsd": 0.1
     },
     {
       "id": "explore-micro-01",
       "activity": "explore",
       "tier": "micro",
-      "prompt": "The text says: 'The router started in 2024 and moved to v1.28 in 2026.' Reply with only JSON {\"year\": <number>} for the year v1.28 shipped.",
-      "check": { "kind": "json-equal", "expected": { "year": 2026 } },
-      "estimateUsd": 0.01,
-      "example": true
+      "prompt": "The text says: 'The cache is disabled when CACHE_TTL=0.' Which integer disables the cache? Reply with only JSON {\"value\": <integer>}.",
+      "check": { "kind": "json-equal", "expected": { "value": 0 } },
+      "estimateUsd": 0.01
+    },
+    {
+      "id": "explore-medium-01",
+      "activity": "explore",
+      "tier": "medium",
+      "prompt": "Routing table in order: haiku→low, sonnet→medium, opus→high. Rule: pick the first row whose tier is at least the task's tier. A task has tier medium. Reply with only JSON {\"model\": \"<name>\"}.",
+      "check": { "kind": "json-equal", "expected": { "model": "sonnet" } },
+      "estimateUsd": 0.05
+    },
+    {
+      "id": "explore-high-01",
+      "activity": "explore",
+      "tier": "high",
+      "prompt": "`main()` calls `load()` once. `load()` calls `read()` twice. `read()` calls `parse()` once. `parse()` calls `check()` twice. Counting calls to main, load, read, parse and check, how many calls occur in total? Reply with only JSON {\"calls\": <integer>}.",
+      "check": { "kind": "json-equal", "expected": { "calls": 10 } },
+      "estimateUsd": 0.1
     },
     {
       "id": "plan-low-01",
       "activity": "plan",
       "tier": "low",
-      "prompt": "Two tasks: A must run before B. Reply with only JSON {\"order\": [\"A\", \"B\"]} giving the valid order.",
-      "check": { "kind": "json-equal", "expected": { "order": ["A", "B"] } },
-      "estimateUsd": 0.01,
-      "example": true
+      "prompt": "Three tasks: A must run before B, and B before C. Reply with only JSON {\"order\": [<names>]} giving the valid order.",
+      "check": { "kind": "json-equal", "expected": { "order": ["A", "B", "C"] } },
+      "estimateUsd": 0.02
+    },
+    {
+      "id": "plan-medium-01",
+      "activity": "plan",
+      "tier": "medium",
+      "prompt": "Tasks: A and C have no dependencies; B needs A; D needs B and C. With unlimited parallel workers and each task taking one round, what is the minimum number of rounds? Reply with only JSON {\"rounds\": <integer>}.",
+      "check": { "kind": "json-equal", "expected": { "rounds": 3 } },
+      "estimateUsd": 0.05
+    },
+    {
+      "id": "plan-high-01",
+      "activity": "plan",
+      "tier": "high",
+      "prompt": "Seven one-unit jobs A-G run with three workers. Dependencies: A before D, D before G, B before E, C before F. What is the minimum makespan in units? Reply with only JSON {\"units\": <integer>}.",
+      "check": { "kind": "json-equal", "expected": { "units": 3 } },
+      "estimateUsd": 0.1
     },
     {
       "id": "review-low-01",
       "activity": "review",
       "tier": "low",
-      "prompt": "A function `add(a, b) { return a - b; }` is meant to add. Reply with only JSON {\"operator\": \"+\" | \"-\"} for the correct operator.",
-      "check": { "kind": "json-equal", "expected": { "operator": "+" } },
-      "estimateUsd": 0.01,
-      "example": true
+      "prompt": "Review this snippet (line numbers are the new file's). It must return the rectangle's area. Reply with only JSON {\"line\": <integer>} for the defective line.\n\n1 function area(w, h) {\n2   return w + h;\n3 }",
+      "check": { "kind": "json-equal", "expected": { "line": 2 } },
+      "estimateUsd": 0.02
+    },
+    {
+      "id": "review-medium-01",
+      "activity": "review",
+      "tier": "medium",
+      "prompt": "Review this snippet (line numbers are the new file's). `page(items, 1)` must return 10 items but returns 9. Reply with only JSON {\"line\": <integer>} for the defective line.\n\n1 function page(items, n) {\n2   const start = (n - 1) * 10;\n3   return items.slice(start, start + 9);\n4 }",
+      "check": { "kind": "json-equal", "expected": { "line": 3 } },
+      "estimateUsd": 0.05
+    },
+    {
+      "id": "review-high-01",
+      "activity": "review",
+      "tier": "high",
+      "prompt": "Review this snippet (line numbers are the new file's). The cache key ignores `fields`, so calls with the same id but different fields return the wrong cached row. Reply with only JSON {\"line\": <integer>} for the line that builds the incomplete key.\n\n1 const cache = new Map();\n2 function getUser(id, fields) {\n3   const key = id;\n4   if (!cache.has(key)) cache.set(key, db.get(id, fields));\n5   return cache.get(key);\n6 }",
+      "check": { "kind": "json-equal", "expected": { "line": 3 } },
+      "estimateUsd": 0.1
     },
     {
       "id": "ops-micro-01",
       "activity": "ops",
       "tier": "micro",
-      "prompt": "Which single shell command prints the current directory? Reply with the command only.",
-      "check": { "kind": "exact", "expected": "pwd" },
-      "estimateUsd": 0.01,
-      "example": true
+      "prompt": "In POSIX shells, what exit status does a successful command return? Reply with only JSON {\"code\": <integer>}.",
+      "check": { "kind": "json-equal", "expected": { "code": 0 } },
+      "estimateUsd": 0.01
     },
     {
-      "id": "docs-low-01",
+      "id": "ops-medium-01",
+      "activity": "ops",
+      "tier": "medium",
+      "prompt": "A deployment runs 4 replicas. Each pod requests 250m CPU and limits 500m. What is the total requested CPU in cores? Reply with only JSON {\"cores\": <number>}.",
+      "check": { "kind": "json-equal", "expected": { "cores": 1 } },
+      "estimateUsd": 0.05
+    },
+    {
+      "id": "ops-high-01",
+      "activity": "ops",
+      "tier": "high",
+      "prompt": "`find /data -type f | xargs rm` deletes the wrong files when a name contains a space or newline. Reply with only JSON {\"option\": \"<find option that NUL-separates output>\"}.",
+      "check": { "kind": "json-equal", "expected": { "option": "-print0" } },
+      "estimateUsd": 0.1
+    },
+    {
+      "id": "docs-micro-01",
       "activity": "docs",
-      "tier": "low",
-      "prompt": "Write one sentence that contains the word 'router'. Reply with the sentence only.",
-      "check": { "kind": "regex", "expected": "\\brouter\\b" },
-      "estimateUsd": 0.01,
-      "example": true
+      "tier": "micro",
+      "prompt": "Reply with only one sentence that starts with `The router`, contains the word `retry`, and ends with a period.",
+      "check": { "kind": "regex", "expected": "^The router [^\\n]*\\bretry\\b[^\\n]*\\.$" },
+      "estimateUsd": 0.01
+    },
+    {
+      "id": "docs-medium-01",
+      "activity": "docs",
+      "tier": "medium",
+      "prompt": "Reply with only a changelog entry in the exact form `- fix: <summary>.` where `<summary>` mentions `timeout`.",
+      "check": { "kind": "regex", "expected": "^- fix: [^\\n]*timeout[^\\n]*\\.$" },
+      "estimateUsd": 0.05
+    },
+    {
+      "id": "docs-high-01",
+      "activity": "docs",
+      "tier": "high",
+      "prompt": "Reply with only a three-line Markdown bullet list. Line 1 starts with `- ` and contains `alpha`; line 2 starts with `- ` and contains `beta`; line 3 starts with `- ` and contains `gamma`. No other text.",
+      "check": {
+        "kind": "regex",
+        "expected": "^- [^\\n]*alpha[^\\n]*\\n- [^\\n]*beta[^\\n]*\\n- [^\\n]*gamma[^\\n]*$"
+      },
+      "estimateUsd": 0.1
     }
   ]
 }

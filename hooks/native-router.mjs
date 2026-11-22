@@ -88,6 +88,7 @@ import {
   unavailableReason,
   unpricedLine,
 } from '../lib/display.mjs';
+import { applyEvidenceOverlay, parseEvidenceOverlay } from '../lib/evidence-apply.mjs';
 import {
   clip,
   currentStepText,
@@ -131,9 +132,11 @@ import {
   readTrace,
   TRACE_ACTIVE_MS,
   TRACE_EXPORT_BYTES,
+  TRACE_LEGACY_PREFIX,
   TRACE_PREFIX,
   TRACE_SESSION_BYTES,
   TRACE_STORE_BYTES,
+  TRACE_VERSION,
   traceAdmission,
   traceBytes,
   traceConfig,
@@ -295,6 +298,8 @@ const LEDGERS = {
 const LEDGER_KINDS = Object.keys(LEDGERS);
 
 /** @typedef {ReturnType<typeof readTrace> | ReturnType<typeof newTrace>} TraceRecord */
+// Read and retire records from both schema versions; a session writes only the current one.
+const isTraceKey = (key) => key.startsWith(TRACE_PREFIX) || key.startsWith(TRACE_LEGACY_PREFIX);
 /**
  * @typedef {object} TraceHold
  * @property {string} sessionId
@@ -469,7 +474,7 @@ async function ensureTrace($, router, e, turn, loop, loaded, fresh) {
     held.record ??= newTrace(at, { configured: turn.configured, config: turn.config, loop }, [...held.reasons]);
     if (traceBytes(held.record) > TRACE_SESSION_BYTES - 1024) {
       held.record = {
-        version: 1,
+        version: TRACE_VERSION,
         startedAt: at,
         updatedAt: at,
         active: true,
@@ -616,7 +621,7 @@ async function flushTrace($, router, turnId = null, ending = false) {
       const resetAt = entries.find(([name]) => name === SAVINGS_RESET_KEY)?.[1];
       if (Number.isFinite(resetAt) && held.record.startedAt < resetAt) {
         held.record = {
-          version: 1,
+          version: TRACE_VERSION,
           startedAt: at,
           updatedAt: at,
           active: true,
@@ -649,7 +654,7 @@ async function flushTrace($, router, turnId = null, ending = false) {
         excludedEvents: turn?.buffer?.excludedEvents ?? held.controls?.excludedEvents ?? 0,
       });
       candidate.active = !ending;
-      const traces = entries.filter(([name]) => name.startsWith(TRACE_PREFIX));
+      const traces = entries.filter(([name]) => isTraceKey(name));
       for (const victim of traceVictims(traces, at, key, candidate)) {
         const previous = entries.find(([name]) => name === victim)?.[1];
         const current = await $.store.get(victim);
@@ -683,7 +688,7 @@ async function flushTrace($, router, turnId = null, ending = false) {
 
 async function exportTraces($, router) {
   try {
-    const keys = (await $.store.keys()).filter((key) => key.startsWith(TRACE_PREFIX));
+    const keys = (await $.store.keys()).filter((key) => isTraceKey(key));
     const entries = await Promise.all(keys.map(async (key) => [key, await $.store.get(key)]));
     const root = router.config.nativePath.slice(0, router.config.nativePath.lastIndexOf('/'));
     let path = `${root}/router-traces.json`;
@@ -1267,13 +1272,28 @@ async function loadNativeConfig($, router) {
   const text = exists ? await $.fs.read(path) : null;
   const effortSplitsCache = await effortSplitsCacheOf($);
   try {
+    const userFile = text === null ? null : JSON.parse(text);
     return {
-      ...loadConfig({ userFile: text === null ? null : JSON.parse(text), provider }),
-      nativePath: path,
-      effortSplitsCache,
+      config: { ...loadConfig({ userFile, provider }), nativePath: path, effortSplitsCache },
+      userFile,
     };
   } catch (error) {
     throw invalid(error);
+  }
+}
+
+// The private local evidence overlay is optional and user-owned: a missing or malformed file never fails a session or
+// a turn. The hooks runtime refuses a dynamic import, and a static one would fail while the file is absent, so the
+// generated JSON export is read and parsed instead. It is re-read on /router reload, which re-enters this initializer.
+async function loadEvidenceOverlay($) {
+  try {
+    const home = await $.env.get('HOME');
+    if (!home) return null;
+    const path = `${home}/.config/claude-router/evidence.local.mjs`;
+    if (!(await $.fs.exists(path))) return null;
+    return parseEvidenceOverlay(await $.fs.read(path));
+  } catch {
+    return null;
   }
 }
 
@@ -2906,7 +2926,7 @@ function paneActions($, router, view) {
         const keys = (await $.store.keys()).filter(
           (key) =>
             key.startsWith(DECISIONS_PREFIX) ||
-            key.startsWith(TRACE_PREFIX) ||
+            isTraceKey(key) ||
             key === LEGACY_STORE_PREFIX ||
             key.startsWith(`${LEGACY_STORE_PREFIX}:`) ||
             Object.values(LEDGERS).some(({ prefix, legacy }) => key.startsWith(prefix) || key === legacy),
@@ -3308,7 +3328,11 @@ async function initializeSession($, router) {
       });
     } catch {}
     const model = await $.session.model();
-    const config = await loadNativeConfig($, router);
+    const loaded = await loadNativeConfig($, router);
+    // The optional private overlay seeds capability where the profile declares none. It is read once per session and
+    // again on /router reload, which re-enters this initializer.
+    const overlay = await loadEvidenceOverlay($);
+    const config = applyEvidenceOverlay(loaded.config, overlay, loaded.userFile);
     const project = await readProject($, config.nativePath);
     const existing = await readView($, router);
     // A successful reload adopts this config even for the current turn; stale jobs must not route with the old engine.
