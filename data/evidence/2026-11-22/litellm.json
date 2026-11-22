@@ -1,0 +1,1762 @@
+{
+  "_meta": {
+    "cache_and_tier_fields_in_subset": [
+      "cache_creation_input_token_cost",
+      "cache_creation_input_token_cost_above_100k_tokens",
+      "cache_creation_input_token_cost_above_100k_tokens_batches",
+      "cache_creation_input_token_cost_above_1hr",
+      "cache_creation_input_token_cost_above_1hr_above_100k_tokens",
+      "cache_creation_input_token_cost_above_272k_tokens",
+      "cache_creation_input_token_cost_above_272k_tokens_batches",
+      "cache_creation_input_token_cost_batches",
+      "cache_read_input_token_cost",
+      "cache_read_input_token_cost_above_100k_tokens",
+      "cache_read_input_token_cost_above_100k_tokens_batches",
+      "cache_read_input_token_cost_above_200k_tokens",
+      "cache_read_input_token_cost_above_200k_tokens_batches",
+      "cache_read_input_token_cost_above_272k_tokens",
+      "cache_read_input_token_cost_above_272k_tokens_batches",
+      "cache_read_input_token_cost_batches",
+      "input_cost_per_token_above_100k_tokens",
+      "input_cost_per_token_above_100k_tokens_batches",
+      "input_cost_per_token_above_200k_tokens",
+      "input_cost_per_token_above_200k_tokens_batches",
+      "input_cost_per_token_above_272k_tokens",
+      "input_cost_per_token_above_272k_tokens_batches",
+      "input_cost_per_token_cache_hit",
+      "output_cost_per_token_above_100k_tokens",
+      "output_cost_per_token_above_100k_tokens_batches",
+      "output_cost_per_token_above_200k_tokens",
+      "output_cost_per_token_above_200k_tokens_batches",
+      "output_cost_per_token_above_272k_tokens",
+      "output_cost_per_token_above_272k_tokens_batches",
+      "prompt_cache_min_tokens"
+    ],
+    "cache_field_names": {
+      "cache_read": "cache_read_input_token_cost",
+      "cache_read_batches": "cache_read_input_token_cost_batches",
+      "cache_write": "cache_creation_input_token_cost",
+      "cache_write_1hr": "cache_creation_input_token_cost_above_1hr",
+      "cache_write_batches": "cache_creation_input_token_cost_batches",
+      "note": "Anthropic counts cache writes in cache_creation_input_token_cost; OpenAI-style cache hits use cache_read_input_token_cost; DeepSeek also exposes input_cost_per_token_cache_hit."
+    },
+    "coverage": {
+      "claude-fable-5-2": {
+        "exact_id_key_count": 16,
+        "exact_id_keys": [
+          "anthropic.claude-fable-5-2",
+          "azure_ai/claude-fable-5-2",
+          "bedrock/claude_platform/claude-fable-5-2",
+          "bedrock/us-gov-east-1/anthropic.claude-fable-5-2",
+          "bedrock/us-gov-west-1/anthropic.claude-fable-5-2",
+          "claude-fable-5-2",
+          "databricks/databricks-claude-fable-5-2",
+          "databricks/system.ai.claude-fable-5-2",
+          "eu.anthropic.claude-fable-5-2",
+          "github_copilot/claude-fable-5.2",
+          "global.anthropic.claude-fable-5-2",
+          "perplexity/anthropic/claude-fable-5-2",
+          "replicate/anthropic/claude-fable-5.2",
+          "us-gov.anthropic.claude-fable-5-2",
+          "us.anthropic.claude-fable-5-2",
+          "vertex_ai/claude-fable-5-2"
+        ],
+        "family_match_key_count": 18,
+        "family_only_keys_sample": [
+          "azure_ai/claude-fable-5-2-fast",
+          "vertex_ai/claude-fable-5-2@default"
+        ]
+      },
+      "claude-haiku-5-5": {
+        "exact_id_key_count": 23,
+        "exact_id_keys": [
+          "anthropic.claude-haiku-5-5",
+          "apac.anthropic.claude-haiku-5-5",
+          "au.anthropic.claude-haiku-5-5",
+          "azure_ai/claude-haiku-5-5",
+          "bedrock/claude_platform/claude-haiku-5-5",
+          "bedrock/us-gov-east-1/anthropic.claude-haiku-5-5",
+          "bedrock/us-gov-west-1/anthropic.claude-haiku-5-5",
+          "bedrock_mantle/anthropic.claude-haiku-5-5",
+          "bedrock_mantle/us-gov-west-1/anthropic.claude-haiku-5-5",
+          "ca.anthropic.claude-haiku-5-5",
+          "claude-haiku-5-5",
+          "databricks/databricks-claude-haiku-5-5",
+          "eu.anthropic.claude-haiku-5-5",
+          "github_copilot/claude-haiku-5.5",
+          "global.anthropic.claude-haiku-5-5",
+          "jp.anthropic.claude-haiku-5-5",
+          "kyma/claude-haiku-5.5",
+          "opencode_go/claude-haiku-5-5",
+          "perplexity/anthropic/claude-haiku-5-5",
+          "snowflake/claude-haiku-5-5",
+          "us-gov.anthropic.claude-haiku-5-5",
+          "us.anthropic.claude-haiku-5-5",
+          "vertex_ai/claude-haiku-5-5"
+        ],
+        "family_match_key_count": 24,
+        "family_only_keys_sample": [
+          "vertex_ai/claude-haiku-5-5@default"
+        ]
+      },
+      "claude-opus-5-5": {
+        "exact_id_key_count": 23,
+        "exact_id_keys": [
+          "anthropic.claude-opus-5-5",
+          "apac.anthropic.claude-opus-5-5",
+          "au.anthropic.claude-opus-5-5",
+          "azure_ai/claude-opus-5-5",
+          "bedrock/claude_platform/claude-opus-5-5",
+          "bedrock/mantle/anthropic.claude-opus-5-5",
+          "bedrock/us-gov-east-1/anthropic.claude-opus-5-5",
+          "bedrock/us-gov-west-1/anthropic.claude-opus-5-5",
+          "bedrock_mantle/anthropic.claude-opus-5-5",
+          "bedrock_mantle/us-gov-west-1/anthropic.claude-opus-5-5",
+          "claude-opus-5-5",
+          "databricks/databricks-claude-opus-5-5",
+          "eu.anthropic.claude-opus-5-5",
+          "github_copilot/claude-opus-5.5",
+          "global.anthropic.claude-opus-5-5",
+          "jp.anthropic.claude-opus-5-5",
+          "kyma/claude-opus-5.5",
+          "perplexity/anthropic/claude-opus-5-5",
+          "replicate/anthropic/claude-opus-5.5",
+          "snowflake/claude-opus-5-5",
+          "us-gov.anthropic.claude-opus-5-5",
+          "us.anthropic.claude-opus-5-5",
+          "vertex_ai/claude-opus-5-5"
+        ],
+        "family_match_key_count": 25,
+        "family_only_keys_sample": [
+          "azure_ai/claude-opus-5-5-fast",
+          "vertex_ai/claude-opus-5-5@default"
+        ]
+      },
+      "claude-sonnet-5-5": {
+        "exact_id_key_count": 22,
+        "exact_id_keys": [
+          "anthropic.claude-sonnet-5-5",
+          "apac.anthropic.claude-sonnet-5-5",
+          "au.anthropic.claude-sonnet-5-5",
+          "azure_ai/claude-sonnet-5-5",
+          "bedrock/claude_platform/claude-sonnet-5-5",
+          "bedrock/us-gov-east-1/anthropic.claude-sonnet-5-5",
+          "bedrock/us-gov-west-1/anthropic.claude-sonnet-5-5",
+          "bedrock_mantle/anthropic.claude-sonnet-5-5",
+          "bedrock_mantle/us-gov-west-1/anthropic.claude-sonnet-5-5",
+          "ca.anthropic.claude-sonnet-5-5",
+          "claude-sonnet-5-5",
+          "databricks/databricks-claude-sonnet-5-5",
+          "eu.anthropic.claude-sonnet-5-5",
+          "github_copilot/claude-sonnet-5.5",
+          "global.anthropic.claude-sonnet-5-5",
+          "jp.anthropic.claude-sonnet-5-5",
+          "kyma/claude-sonnet-5.5",
+          "perplexity/anthropic/claude-sonnet-5-5",
+          "snowflake/claude-sonnet-5-5",
+          "us-gov.anthropic.claude-sonnet-5-5",
+          "us.anthropic.claude-sonnet-5-5",
+          "vertex_ai/claude-sonnet-5-5"
+        ],
+        "family_match_key_count": 23,
+        "family_only_keys_sample": [
+          "vertex_ai/claude-sonnet-5-5@default"
+        ]
+      },
+      "deepseek-ai/DeepSeek-V4.1-Flash-1017[1m]": {
+        "exact_id_key_count": 14,
+        "exact_id_keys": [
+          "aiand/deepseek-ai/deepseek-v4.1-flash-1017",
+          "azure_ai/deepseek-v4.1-flash-1017",
+          "baseten/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+          "databricks/databricks-deepseek-v4-1-flash-1017",
+          "deepinfra/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+          "empiriolabs/deepseek-v4-1-flash-1017",
+          "gmi/deepseek-ai/deepseek-v4.1-flash-1017",
+          "mistral/deepseek-v4-1-flash-1017",
+          "nebius/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+          "sarvam/deepseekv4.1-flash-1017",
+          "streamlake/deepseek-v4.1-flash-1017",
+          "together_ai/deepseek-ai/DeepSeek-V4.1-Flash-1017",
+          "wally/deepseek-v4.1-flash-1017",
+          "wandb/deepseek-ai/DeepSeek-V4.1-Flash-1017"
+        ],
+        "family_match_key_count": 16,
+        "family_only_keys_sample": [
+          "baseten/deepseek-ai/DeepSeek-V4.1-Flash-1017-Fast",
+          "sarvam/deepseekv4.1-flash-1017-interactive"
+        ]
+      },
+      "deepseek-flash[1m]": {
+        "exact_id_key_count": 3,
+        "exact_id_keys": [
+          "deepseek-flash",
+          "deepseek/deepseek-flash",
+          "inferenceapis/deepseek-flash"
+        ],
+        "family_match_key_count": 7,
+        "family_only_keys_sample": [
+          "azure_ai/deepseek-flash-latest",
+          "baseten/deepseek-flash-latest",
+          "deepseek/deepseek-flash-latest",
+          "fireworks_ai/accounts/fireworks/routers/deepseek-flash-latest"
+        ]
+      },
+      "glm-5.3-flash[1m]": {
+        "exact_id_key_count": 30,
+        "exact_id_keys": [
+          "aiand/zai-org/glm-5.3-flash",
+          "aihubmix/glm-5.3-flash",
+          "azure_ai/FW-GLM-5.3-Flash",
+          "baseten/zai-org/GLM-5.3-Flash",
+          "bigmodel/glm-5.3-flash",
+          "clf_ai_gateway/glm-5.3-flash",
+          "databricks/databricks-glm-5-3-flash",
+          "deepinfra/zai-org/GLM-5.3-Flash",
+          "empiriolabs/glm-5-3-flash",
+          "friendliai/zai-org/GLM-5.3-Flash",
+          "gmi/zai-org/GLM-5.3-Flash",
+          "inferenceapis/glm-5.3-flash",
+          "inferenceapis/zai-org/GLM-5.3-Flash",
+          "kyma/glm-5.3-flash",
+          "mistral/zai-glm-5-3-flash",
+          "morph/morph-glm53flash",
+          "nebius/zai-org/GLM-5.3-Flash",
+          "nvidia_nim/z-ai/glm-5.3-flash",
+          "opencode_go/glm-5.3-flash",
+          "openinfer/@oi/GLM-5.3-Flash",
+          "perplexity/perplexity/glm-5.3-flash",
+          "sail/zai-org/GLM-5.3-Flash",
+          "sarvam/glm5.3-flash",
+          "streamlake/GLM-5.3-Flash",
+          "tencent/glm-5.3-flash",
+          "together_ai/zai-org/GLM-5.3-Flash",
+          "wally/glm-5.3-flash",
+          "wandb/zai-org/GLM-5.3-Flash",
+          "zai/glm-5.3-flash",
+          "zerogpu/glm-5.3-flash"
+        ],
+        "family_match_key_count": 33,
+        "family_only_keys_sample": [
+          "bigmodel/glm-5.3-flashx",
+          "refuseless/glm-5.3-flash-abliterated",
+          "tencent/glm-5.3-flashx"
+        ]
+      },
+      "glm-5.3[1m]": {
+        "exact_id_key_count": 31,
+        "exact_id_keys": [
+          "aiand/zai-org/glm-5.3",
+          "aihubmix/coding-glm-5.3",
+          "aihubmix/glm-5.3",
+          "azure_ai/FW-GLM-5.3",
+          "baseten/zai-org/GLM-5.3",
+          "bigmodel/glm-5.3",
+          "clf_ai_gateway/glm-5.3",
+          "coralbricks/glm-5.3",
+          "databricks/databricks-glm-5-3",
+          "empiriolabs/glm-5-3",
+          "friendliai/zai-org/GLM-5.3",
+          "global.zai.glm-5.3",
+          "gmi/zai-org/GLM-5.3",
+          "inferenceapis/glm-5.3",
+          "inferenceapis/zai-org/GLM-5.3",
+          "kyma/glm-5.3",
+          "mistral/zai-glm-5-3",
+          "nebius/zai-org/GLM-5.3",
+          "novita/zai-org/glm-5.3",
+          "opencode_go/glm-5.3",
+          "perplexity/perplexity/glm-5.3",
+          "resetdata/zai/glm-5.3",
+          "sail/zai-org/GLM-5.3",
+          "sarvam/glm5.3",
+          "scx-ai/GLM-5.3",
+          "streamlake/GLM-5.3",
+          "tencent/glm-5.3",
+          "together_ai/zai-org/GLM-5.3",
+          "us.zai.glm-5.3",
+          "wandb/zai-org/GLM-5.3",
+          "zai/glm-5.3"
+        ],
+        "family_match_key_count": 70,
+        "family_only_keys_sample": [
+          "aiand/zai-org/glm-5.3-flash",
+          "aihubmix/glm-5.3-flash",
+          "azure_ai/FW-GLM-5.3-Flash",
+          "baseten/zai-org/GLM-5.3-Fast",
+          "baseten/zai-org/GLM-5.3-Flash",
+          "bigmodel/glm-5.3-flash"
+        ]
+      },
+      "kimi-k3.1-pro[1m]": {
+        "exact_id_key_count": 11,
+        "exact_id_keys": [
+          "azure_ai/kimi-k3.1-pro",
+          "baseten/moonshotai/Kimi-K3.1-Pro",
+          "databricks/databricks-kimi-k3-1-pro",
+          "empiriolabs/kimi-k3-1-pro",
+          "gmi/moonshotai/kimi-k3.1-pro",
+          "inferenceapis/moonshotai/Kimi-K3.1-Pro",
+          "kyma/kimi-k3.1-pro",
+          "moonshot/kimi-k3.1-pro",
+          "nebius/moonshotai/Kimi-K3.1-Pro",
+          "opencode_go/kimi-k3.1-pro",
+          "together_ai/moonshotai/Kimi-K3.1-Pro"
+        ],
+        "family_match_key_count": 12,
+        "family_only_keys_sample": [
+          "moonshot/kimi-k3.1-pro-highspeed"
+        ]
+      },
+      "mimo-v2.6-flash[1m]": {
+        "exact_id_key_count": 7,
+        "exact_id_keys": [
+          "deepinfra/XiaomiMiMo/MiMo-V2.6-Flash",
+          "empiriolabs/mimo-v2-6-flash",
+          "gmi/XiaomiMiMo/MiMo-V2.6-Flash",
+          "kyma/mimo-v2.6-flash",
+          "opencode_go/mimo-v2.6-flash",
+          "streamlake/mimo-v2.6-flash",
+          "xiaomi_mimo/mimo-v2.6-flash"
+        ],
+        "family_match_key_count": 7,
+        "family_only_keys_sample": []
+      },
+      "mimo-v2.6-pro[1m]": {
+        "exact_id_key_count": 6,
+        "exact_id_keys": [
+          "empiriolabs/mimo-v2-6-pro",
+          "gmi/XiaomiMiMo/MiMo-V2.6-Pro",
+          "kyma/mimo-v2.6-pro",
+          "opencode_go/mimo-v2.6-pro",
+          "streamlake/mimo-v2.6-pro",
+          "xiaomi_mimo/mimo-v2.6-pro"
+        ],
+        "family_match_key_count": 7,
+        "family_only_keys_sample": [
+          "empiriolabs/mimo-v2-6-pro-ultraspeed"
+        ]
+      },
+      "minimax-m3.1-flash[1m]": {
+        "exact_id_key_count": 10,
+        "exact_id_keys": [
+          "empiriolabs/minimax-m3-1-flash",
+          "gmi/MiniMaxAI/MiniMax-M3.1-Flash",
+          "inferenceapis/MiniMaxAI/MiniMax-M3.1-Flash",
+          "kyma/minimax-m3.1-flash",
+          "minimax/MiniMax-M3.1-Flash",
+          "nebius/MiniMaxAI/MiniMax-M3.1-Flash",
+          "nvidia_nim/minimaxai/minimax-m3.1-flash",
+          "opencode_go/minimax-m3.1-flash",
+          "refuseless/minimax-m3.1-flash",
+          "together_ai/MiniMaxAI/MiniMax-M3.1-Flash"
+        ],
+        "family_match_key_count": 10,
+        "family_only_keys_sample": []
+      },
+      "moonshotai/Kimi-K3.1-Pro[1m]": {
+        "exact_id_key_count": 11,
+        "exact_id_keys": [
+          "azure_ai/kimi-k3.1-pro",
+          "baseten/moonshotai/Kimi-K3.1-Pro",
+          "databricks/databricks-kimi-k3-1-pro",
+          "empiriolabs/kimi-k3-1-pro",
+          "gmi/moonshotai/kimi-k3.1-pro",
+          "inferenceapis/moonshotai/Kimi-K3.1-Pro",
+          "kyma/kimi-k3.1-pro",
+          "moonshot/kimi-k3.1-pro",
+          "nebius/moonshotai/Kimi-K3.1-Pro",
+          "opencode_go/kimi-k3.1-pro",
+          "together_ai/moonshotai/Kimi-K3.1-Pro"
+        ],
+        "family_match_key_count": 12,
+        "family_only_keys_sample": [
+          "moonshot/kimi-k3.1-pro-highspeed"
+        ]
+      },
+      "zai-org/GLM-5.3-Flash[1m]": {
+        "exact_id_key_count": 30,
+        "exact_id_keys": [
+          "aiand/zai-org/glm-5.3-flash",
+          "aihubmix/glm-5.3-flash",
+          "azure_ai/FW-GLM-5.3-Flash",
+          "baseten/zai-org/GLM-5.3-Flash",
+          "bigmodel/glm-5.3-flash",
+          "clf_ai_gateway/glm-5.3-flash",
+          "databricks/databricks-glm-5-3-flash",
+          "deepinfra/zai-org/GLM-5.3-Flash",
+          "empiriolabs/glm-5-3-flash",
+          "friendliai/zai-org/GLM-5.3-Flash",
+          "gmi/zai-org/GLM-5.3-Flash",
+          "inferenceapis/glm-5.3-flash",
+          "inferenceapis/zai-org/GLM-5.3-Flash",
+          "kyma/glm-5.3-flash",
+          "mistral/zai-glm-5-3-flash",
+          "morph/morph-glm53flash",
+          "nebius/zai-org/GLM-5.3-Flash",
+          "nvidia_nim/z-ai/glm-5.3-flash",
+          "opencode_go/glm-5.3-flash",
+          "openinfer/@oi/GLM-5.3-Flash",
+          "perplexity/perplexity/glm-5.3-flash",
+          "sail/zai-org/GLM-5.3-Flash",
+          "sarvam/glm5.3-flash",
+          "streamlake/GLM-5.3-Flash",
+          "tencent/glm-5.3-flash",
+          "together_ai/zai-org/GLM-5.3-Flash",
+          "wally/glm-5.3-flash",
+          "wandb/zai-org/GLM-5.3-Flash",
+          "zai/glm-5.3-flash",
+          "zerogpu/glm-5.3-flash"
+        ],
+        "family_match_key_count": 33,
+        "family_only_keys_sample": [
+          "bigmodel/glm-5.3-flashx",
+          "refuseless/glm-5.3-flash-abliterated",
+          "tencent/glm-5.3-flashx"
+        ]
+      },
+      "zai-org/GLM-5.3[1m]": {
+        "exact_id_key_count": 31,
+        "exact_id_keys": [
+          "aiand/zai-org/glm-5.3",
+          "aihubmix/coding-glm-5.3",
+          "aihubmix/glm-5.3",
+          "azure_ai/FW-GLM-5.3",
+          "baseten/zai-org/GLM-5.3",
+          "bigmodel/glm-5.3",
+          "clf_ai_gateway/glm-5.3",
+          "coralbricks/glm-5.3",
+          "databricks/databricks-glm-5-3",
+          "empiriolabs/glm-5-3",
+          "friendliai/zai-org/GLM-5.3",
+          "global.zai.glm-5.3",
+          "gmi/zai-org/GLM-5.3",
+          "inferenceapis/glm-5.3",
+          "inferenceapis/zai-org/GLM-5.3",
+          "kyma/glm-5.3",
+          "mistral/zai-glm-5-3",
+          "nebius/zai-org/GLM-5.3",
+          "novita/zai-org/glm-5.3",
+          "opencode_go/glm-5.3",
+          "perplexity/perplexity/glm-5.3",
+          "resetdata/zai/glm-5.3",
+          "sail/zai-org/GLM-5.3",
+          "sarvam/glm5.3",
+          "scx-ai/GLM-5.3",
+          "streamlake/GLM-5.3",
+          "tencent/glm-5.3",
+          "together_ai/zai-org/GLM-5.3",
+          "us.zai.glm-5.3",
+          "wandb/zai-org/GLM-5.3",
+          "zai/glm-5.3"
+        ],
+        "family_match_key_count": 70,
+        "family_only_keys_sample": [
+          "aiand/zai-org/glm-5.3-flash",
+          "aihubmix/glm-5.3-flash",
+          "azure_ai/FW-GLM-5.3-Flash",
+          "baseten/zai-org/GLM-5.3-Fast",
+          "baseten/zai-org/GLM-5.3-Flash",
+          "bigmodel/glm-5.3-flash"
+        ]
+      }
+    },
+    "effort_field_names": {
+      "boolean_flags": [
+        "supports_low_reasoning_effort",
+        "supports_minimal_reasoning_effort",
+        "supports_none_reasoning_effort",
+        "supports_xhigh_reasoning_effort",
+        "supports_max_reasoning_effort"
+      ],
+      "default": "default_reasoning_effort",
+      "granularity": "per model row (each entry carries its own flags/list); no global effort table",
+      "levels_list": "reasoning_effort_levels",
+      "mode_fields": [
+        "reasoning_modes",
+        "reasoning_contexts"
+      ],
+      "thinking_fields": [
+        "supports_adaptive_thinking",
+        "thinking_always_on",
+        "thinking_on_by_default",
+        "supports_output_config"
+      ]
+    },
+    "effort_present_in_subset": {
+      "claude-fable-5-2": {
+        "flags": [
+          "supports_low_reasoning_effort",
+          "supports_max_reasoning_effort",
+          "supports_xhigh_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "claude-haiku-5-5": {
+        "flags": [
+          "supports_low_reasoning_effort",
+          "supports_max_reasoning_effort",
+          "supports_xhigh_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "claude-opus-5-5": {
+        "flags": [
+          "supports_low_reasoning_effort",
+          "supports_max_reasoning_effort",
+          "supports_xhigh_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "claude-sonnet-5-5": {
+        "flags": [
+          "supports_low_reasoning_effort",
+          "supports_max_reasoning_effort",
+          "supports_xhigh_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "gemini-3.7-flash": {
+        "flags": [
+          "supports_minimal_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "gemini-3.8-flash": {
+        "flags": [
+          "supports_minimal_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "gpt-5.4": {
+        "flags": [
+          "supports_minimal_reasoning_effort",
+          "supports_none_reasoning_effort",
+          "supports_xhigh_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "gpt-5.4-mini": {
+        "flags": [
+          "supports_minimal_reasoning_effort",
+          "supports_none_reasoning_effort",
+          "supports_xhigh_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "gpt-6-luna": {
+        "flags": [
+          "supports_max_reasoning_effort",
+          "supports_minimal_reasoning_effort",
+          "supports_none_reasoning_effort",
+          "supports_xhigh_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "gpt-6.1-sol": {
+        "flags": [
+          "supports_max_reasoning_effort",
+          "supports_minimal_reasoning_effort",
+          "supports_none_reasoning_effort",
+          "supports_xhigh_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "gpt-6.1-terra": {
+        "flags": [
+          "supports_max_reasoning_effort",
+          "supports_minimal_reasoning_effort",
+          "supports_none_reasoning_effort",
+          "supports_xhigh_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "gpt-6.2-astra": {
+        "flags": [
+          "supports_max_reasoning_effort",
+          "supports_minimal_reasoning_effort",
+          "supports_none_reasoning_effort",
+          "supports_xhigh_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "gpt-6.2-sol": {
+        "flags": [
+          "supports_max_reasoning_effort",
+          "supports_minimal_reasoning_effort",
+          "supports_none_reasoning_effort",
+          "supports_xhigh_reasoning_effort"
+        ],
+        "reasoning_effort_levels": null
+      },
+      "minimax/MiniMax-M3.1-Flash": {
+        "flags": [
+          "supports_max_reasoning_effort",
+          "supports_none_reasoning_effort",
+          "supports_xhigh_reasoning_effort"
+        ],
+        "reasoning_effort_levels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      },
+      "moonshot/kimi-k3": {
+        "flags": [],
+        "reasoning_effort_levels": [
+          "low",
+          "high",
+          "max"
+        ]
+      },
+      "moonshot/kimi-k3.1-pro": {
+        "flags": [],
+        "reasoning_effort_levels": [
+          "low",
+          "high",
+          "max"
+        ]
+      }
+    },
+    "fetched_at_utc": "2026-11-22",
+    "filter": "one canonical entry per router alias + 15 comparable-recent reference models; routing-relevant fields only",
+    "full_file_bytes": 5093235,
+    "license": "MIT",
+    "long_context_field_names": {
+      "cache_read": [
+        "cache_read_input_token_cost_above_100k_tokens",
+        "cache_read_input_token_cost_above_200k_tokens",
+        "cache_read_input_token_cost_above_272k_tokens"
+      ],
+      "cache_write": [
+        "cache_creation_input_token_cost_above_100k_tokens",
+        "cache_creation_input_token_cost_above_200k_tokens",
+        "cache_creation_input_token_cost_above_272k_tokens"
+      ],
+      "input": [
+        "input_cost_per_token_above_100k_tokens",
+        "input_cost_per_token_above_128k_tokens",
+        "input_cost_per_token_above_200k_tokens",
+        "input_cost_per_token_above_256k_tokens",
+        "input_cost_per_token_above_272k_tokens",
+        "input_cost_per_token_above_32k_tokens",
+        "input_cost_per_token_above_512k_tokens"
+      ],
+      "note": "Tier naming is per-model: the threshold appears in the field name; the full upstream union also has _above_<N>k_tokens_flex/_priority/_ultrafast/_decisions and _batches variants.",
+      "output": [
+        "output_cost_per_token_above_100k_tokens",
+        "output_cost_per_token_above_200k_tokens",
+        "output_cost_per_token_above_272k_tokens",
+        "output_cost_per_token_above_128k_tokens",
+        "output_cost_per_token_above_256k_tokens",
+        "output_cost_per_token_above_32k_tokens",
+        "output_cost_per_token_above_512k_tokens"
+      ]
+    },
+    "reference_model_count": 15,
+    "router_alias_count": 15,
+    "sha256_full_download": "6d01a4f5d5135c3a0830dbd543c4b25e4aa438891360c3ecae7608db7d257b97",
+    "source": "litellm",
+    "source_url": "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json",
+    "subset_field_names": [
+      "_router_alias",
+      "cache_creation_input_token_cost",
+      "cache_creation_input_token_cost_above_100k_tokens",
+      "cache_creation_input_token_cost_above_100k_tokens_batches",
+      "cache_creation_input_token_cost_above_1hr",
+      "cache_creation_input_token_cost_above_1hr_above_100k_tokens",
+      "cache_creation_input_token_cost_above_272k_tokens",
+      "cache_creation_input_token_cost_above_272k_tokens_batches",
+      "cache_creation_input_token_cost_batches",
+      "cache_read_input_token_cost",
+      "cache_read_input_token_cost_above_100k_tokens",
+      "cache_read_input_token_cost_above_100k_tokens_batches",
+      "cache_read_input_token_cost_above_200k_tokens",
+      "cache_read_input_token_cost_above_200k_tokens_batches",
+      "cache_read_input_token_cost_above_272k_tokens",
+      "cache_read_input_token_cost_above_272k_tokens_batches",
+      "cache_read_input_token_cost_batches",
+      "default_reasoning_effort",
+      "input_cost_per_token",
+      "input_cost_per_token_above_100k_tokens",
+      "input_cost_per_token_above_100k_tokens_batches",
+      "input_cost_per_token_above_200k_tokens",
+      "input_cost_per_token_above_200k_tokens_batches",
+      "input_cost_per_token_above_272k_tokens",
+      "input_cost_per_token_above_272k_tokens_batches",
+      "input_cost_per_token_batches",
+      "input_cost_per_token_cache_hit",
+      "litellm_provider",
+      "max_input_tokens",
+      "max_output_tokens",
+      "mode",
+      "off_peak_pricing",
+      "output_cost_per_token",
+      "output_cost_per_token_above_100k_tokens",
+      "output_cost_per_token_above_100k_tokens_batches",
+      "output_cost_per_token_above_200k_tokens",
+      "output_cost_per_token_above_200k_tokens_batches",
+      "output_cost_per_token_above_272k_tokens",
+      "output_cost_per_token_above_272k_tokens_batches",
+      "output_cost_per_token_batches",
+      "prompt_cache_min_tokens",
+      "provider_specific_entry",
+      "reasoning_contexts",
+      "reasoning_effort_levels",
+      "reasoning_modes",
+      "source",
+      "supported_endpoints",
+      "supported_modalities",
+      "supported_output_modalities",
+      "supports_adaptive_thinking",
+      "supports_audio_input",
+      "supports_function_calling",
+      "supports_low_reasoning_effort",
+      "supports_max_reasoning_effort",
+      "supports_minimal_reasoning_effort",
+      "supports_none_reasoning_effort",
+      "supports_output_config",
+      "supports_pdf_input",
+      "supports_prompt_caching",
+      "supports_reasoning",
+      "supports_response_schema",
+      "supports_tool_choice",
+      "supports_video_input",
+      "supports_vision",
+      "supports_xhigh_reasoning_effort",
+      "thinking_always_on",
+      "thinking_on_by_default"
+    ],
+    "total_entries": 7100,
+    "upstream_entry_checked": true
+  },
+  "reference_models": {
+    "dashscope/qwen3.8-flash": {
+      "cache_creation_input_token_cost": 2e-07,
+      "cache_read_input_token_cost": 1.6e-08,
+      "input_cost_per_token": 1.5e-07,
+      "litellm_provider": "dashscope",
+      "max_input_tokens": 991808,
+      "max_output_tokens": 131072,
+      "mode": "chat",
+      "output_cost_per_token": 4.7e-07,
+      "source": "https://docs.modelstudio.console.alibabacloud.com/en/model-studio/model-pricing",
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_video_input": true,
+      "supports_vision": true
+    },
+    "dashscope/qwen3.8-max": {
+      "cache_read_input_token_cost": 2.5e-07,
+      "input_cost_per_token": 2e-06,
+      "litellm_provider": "dashscope",
+      "max_input_tokens": 991808,
+      "max_output_tokens": 131072,
+      "mode": "chat",
+      "output_cost_per_token": 6e-06,
+      "source": "https://www.alibabacloud.com/help/en/model-studio/models",
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true
+    },
+    "deepseek-v4-pro": {
+      "cache_creation_input_token_cost": 0.0,
+      "cache_read_input_token_cost": 4.4e-08,
+      "input_cost_per_token": 1.32e-06,
+      "input_cost_per_token_cache_hit": 4.4e-08,
+      "litellm_provider": "deepseek",
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 393216,
+      "mode": "chat",
+      "off_peak_pricing": {
+        "cache_read_input_token_cost": 2.2e-08,
+        "input_cost_per_token": 6.6e-07,
+        "output_cost_per_token": 1.98e-06,
+        "windows": [
+          {
+            "hours_utc": [
+              "00:00-01:00",
+              "04:00-06:00",
+              "10:00-00:00"
+            ],
+            "weekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          {
+            "hours_utc": "00:00-00:00",
+            "weekdays": [
+              6,
+              7
+            ]
+          }
+        ]
+      },
+      "output_cost_per_token": 3.96e-06,
+      "source": "https://api-docs.deepseek.com/quick_start/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": false
+    },
+    "gemini-3.5-flash": {
+      "cache_read_input_token_cost": 1.5e-07,
+      "cache_read_input_token_cost_batches": 7.5e-08,
+      "input_cost_per_token": 1.5e-06,
+      "input_cost_per_token_batches": 7.5e-07,
+      "litellm_provider": "vertex_ai-language-models",
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "mode": "chat",
+      "output_cost_per_token": 9e-06,
+      "output_cost_per_token_batches": 4.5e-06,
+      "prompt_cache_min_tokens": 4096.0,
+      "source": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/completions",
+        "/v1/batch"
+      ],
+      "supported_modalities": [
+        "text",
+        "image",
+        "audio",
+        "video"
+      ],
+      "supported_output_modalities": [
+        "text"
+      ],
+      "supports_audio_input": true,
+      "supports_function_calling": true,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_video_input": true,
+      "supports_vision": true
+    },
+    "gemini-3.7-flash": {
+      "cache_read_input_token_cost": 7.5e-08,
+      "cache_read_input_token_cost_batches": 3.75e-08,
+      "input_cost_per_token": 7.5e-07,
+      "input_cost_per_token_batches": 3.75e-07,
+      "litellm_provider": "vertex_ai-language-models",
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "mode": "chat",
+      "output_cost_per_token": 3.75e-06,
+      "output_cost_per_token_batches": 1.875e-06,
+      "prompt_cache_min_tokens": 4096,
+      "source": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/completions",
+        "/v1/batch"
+      ],
+      "supported_modalities": [
+        "text",
+        "image",
+        "audio",
+        "video"
+      ],
+      "supported_output_modalities": [
+        "text"
+      ],
+      "supports_audio_input": true,
+      "supports_function_calling": true,
+      "supports_minimal_reasoning_effort": false,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_video_input": true,
+      "supports_vision": true
+    },
+    "gemini-3.8-flash": {
+      "cache_read_input_token_cost": 7.5e-08,
+      "cache_read_input_token_cost_batches": 3.75e-08,
+      "input_cost_per_token": 7.5e-07,
+      "input_cost_per_token_batches": 3.75e-07,
+      "litellm_provider": "vertex_ai-language-models",
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "mode": "chat",
+      "output_cost_per_token": 3.75e-06,
+      "output_cost_per_token_batches": 1.875e-06,
+      "prompt_cache_min_tokens": 4096.0,
+      "source": "https://cloud.google.com/gemini-enterprise-agent-platform/generative-ai/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/completions",
+        "/v1/batch"
+      ],
+      "supported_modalities": [
+        "text",
+        "image",
+        "audio",
+        "video"
+      ],
+      "supported_output_modalities": [
+        "text"
+      ],
+      "supports_audio_input": true,
+      "supports_function_calling": true,
+      "supports_minimal_reasoning_effort": false,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_video_input": true,
+      "supports_vision": true
+    },
+    "gpt-5.4": {
+      "cache_read_input_token_cost": 2.5e-07,
+      "cache_read_input_token_cost_above_272k_tokens": 5e-07,
+      "cache_read_input_token_cost_above_272k_tokens_batches": 2.5e-07,
+      "cache_read_input_token_cost_batches": 1.3e-07,
+      "default_reasoning_effort": "none",
+      "input_cost_per_token": 2.5e-06,
+      "input_cost_per_token_above_272k_tokens": 5e-06,
+      "input_cost_per_token_above_272k_tokens_batches": 2.5e-06,
+      "input_cost_per_token_batches": 1.25e-06,
+      "litellm_provider": "openai",
+      "max_input_tokens": 1050000,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 1.5e-05,
+      "output_cost_per_token_above_272k_tokens": 2.25e-05,
+      "output_cost_per_token_above_272k_tokens_batches": 1.125e-05,
+      "output_cost_per_token_batches": 7.5e-06,
+      "reasoning_contexts": [
+        "auto",
+        "current_turn",
+        "all_turns"
+      ],
+      "reasoning_modes": [
+        "standard"
+      ],
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/batch",
+        "/v1/responses"
+      ],
+      "supported_modalities": [
+        "text",
+        "image"
+      ],
+      "supported_output_modalities": [
+        "text"
+      ],
+      "supports_function_calling": true,
+      "supports_minimal_reasoning_effort": false,
+      "supports_none_reasoning_effort": true,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true,
+      "supports_xhigh_reasoning_effort": true
+    },
+    "gpt-5.4-mini": {
+      "cache_read_input_token_cost": 7.5e-08,
+      "cache_read_input_token_cost_batches": 3.75e-08,
+      "default_reasoning_effort": "none",
+      "input_cost_per_token": 7.5e-07,
+      "input_cost_per_token_batches": 3.75e-07,
+      "litellm_provider": "openai",
+      "max_input_tokens": 272000,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 4.5e-06,
+      "output_cost_per_token_batches": 2.25e-06,
+      "reasoning_contexts": [
+        "auto",
+        "current_turn",
+        "all_turns"
+      ],
+      "reasoning_modes": [
+        "standard"
+      ],
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/batch",
+        "/v1/responses"
+      ],
+      "supported_modalities": [
+        "text",
+        "image"
+      ],
+      "supported_output_modalities": [
+        "text"
+      ],
+      "supports_function_calling": true,
+      "supports_minimal_reasoning_effort": false,
+      "supports_none_reasoning_effort": true,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true,
+      "supports_xhigh_reasoning_effort": true
+    },
+    "gpt-6-luna": {
+      "cache_creation_input_token_cost": 1.25e-07,
+      "cache_creation_input_token_cost_above_272k_tokens": 2.5e-07,
+      "cache_creation_input_token_cost_above_272k_tokens_batches": 1.25e-07,
+      "cache_creation_input_token_cost_batches": 6.25e-08,
+      "cache_read_input_token_cost": 1e-08,
+      "cache_read_input_token_cost_above_272k_tokens": 2e-08,
+      "cache_read_input_token_cost_above_272k_tokens_batches": 1e-08,
+      "cache_read_input_token_cost_batches": 5e-09,
+      "input_cost_per_token": 1e-07,
+      "input_cost_per_token_above_272k_tokens": 2e-07,
+      "input_cost_per_token_above_272k_tokens_batches": 1e-07,
+      "input_cost_per_token_batches": 5e-08,
+      "litellm_provider": "openai",
+      "max_input_tokens": 922000,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 5e-07,
+      "output_cost_per_token_above_272k_tokens": 7.5e-07,
+      "output_cost_per_token_above_272k_tokens_batches": 3.75e-07,
+      "output_cost_per_token_batches": 2.5e-07,
+      "reasoning_contexts": [
+        "auto",
+        "current_turn",
+        "all_turns"
+      ],
+      "reasoning_modes": [
+        "standard",
+        "pro"
+      ],
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/batch",
+        "/v1/responses",
+        "/v1/decisions"
+      ],
+      "supported_modalities": [
+        "text",
+        "image"
+      ],
+      "supported_output_modalities": [
+        "text"
+      ],
+      "supports_function_calling": true,
+      "supports_max_reasoning_effort": true,
+      "supports_minimal_reasoning_effort": false,
+      "supports_none_reasoning_effort": true,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true,
+      "supports_xhigh_reasoning_effort": true
+    },
+    "gpt-6.1-sol": {
+      "cache_creation_input_token_cost": 2.5e-06,
+      "cache_creation_input_token_cost_above_272k_tokens": 5e-06,
+      "cache_creation_input_token_cost_above_272k_tokens_batches": 2.5e-06,
+      "cache_creation_input_token_cost_batches": 1.25e-06,
+      "cache_read_input_token_cost": 1e-07,
+      "cache_read_input_token_cost_above_272k_tokens": 2e-07,
+      "cache_read_input_token_cost_above_272k_tokens_batches": 1e-07,
+      "cache_read_input_token_cost_batches": 5e-08,
+      "input_cost_per_token": 2e-06,
+      "input_cost_per_token_above_272k_tokens": 4e-06,
+      "input_cost_per_token_above_272k_tokens_batches": 2e-06,
+      "input_cost_per_token_batches": 1e-06,
+      "litellm_provider": "openai",
+      "max_input_tokens": 922000,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 1e-05,
+      "output_cost_per_token_above_272k_tokens": 1.5e-05,
+      "output_cost_per_token_above_272k_tokens_batches": 7.5e-06,
+      "output_cost_per_token_batches": 5e-06,
+      "reasoning_contexts": [
+        "auto",
+        "current_turn",
+        "all_turns"
+      ],
+      "reasoning_modes": [
+        "standard",
+        "pro"
+      ],
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/batch",
+        "/v1/responses"
+      ],
+      "supported_modalities": [
+        "text",
+        "image"
+      ],
+      "supported_output_modalities": [
+        "text"
+      ],
+      "supports_function_calling": true,
+      "supports_max_reasoning_effort": true,
+      "supports_minimal_reasoning_effort": false,
+      "supports_none_reasoning_effort": false,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true,
+      "supports_xhigh_reasoning_effort": true
+    },
+    "gpt-6.1-terra": {
+      "cache_creation_input_token_cost": 1.25e-06,
+      "cache_creation_input_token_cost_above_272k_tokens": 2.5e-06,
+      "cache_creation_input_token_cost_above_272k_tokens_batches": 1.25e-06,
+      "cache_creation_input_token_cost_batches": 6.25e-07,
+      "cache_read_input_token_cost": 5e-08,
+      "cache_read_input_token_cost_above_272k_tokens": 1e-07,
+      "cache_read_input_token_cost_above_272k_tokens_batches": 5e-08,
+      "cache_read_input_token_cost_batches": 2.5e-08,
+      "input_cost_per_token": 1e-06,
+      "input_cost_per_token_above_272k_tokens": 2e-06,
+      "input_cost_per_token_above_272k_tokens_batches": 1e-06,
+      "input_cost_per_token_batches": 5e-07,
+      "litellm_provider": "openai",
+      "max_input_tokens": 922000,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 5e-06,
+      "output_cost_per_token_above_272k_tokens": 7.5e-06,
+      "output_cost_per_token_above_272k_tokens_batches": 3.75e-06,
+      "output_cost_per_token_batches": 2.5e-06,
+      "reasoning_contexts": [
+        "auto",
+        "current_turn",
+        "all_turns"
+      ],
+      "reasoning_modes": [
+        "standard",
+        "pro"
+      ],
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/batch",
+        "/v1/responses"
+      ],
+      "supported_modalities": [
+        "text",
+        "image"
+      ],
+      "supported_output_modalities": [
+        "text"
+      ],
+      "supports_function_calling": true,
+      "supports_max_reasoning_effort": true,
+      "supports_minimal_reasoning_effort": false,
+      "supports_none_reasoning_effort": true,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true,
+      "supports_xhigh_reasoning_effort": true
+    },
+    "gpt-6.2-astra": {
+      "cache_creation_input_token_cost": 1e-05,
+      "cache_creation_input_token_cost_above_272k_tokens": 2e-05,
+      "cache_creation_input_token_cost_above_272k_tokens_batches": 1e-05,
+      "cache_creation_input_token_cost_batches": 5e-06,
+      "cache_read_input_token_cost": 4e-07,
+      "cache_read_input_token_cost_above_272k_tokens": 8e-07,
+      "cache_read_input_token_cost_above_272k_tokens_batches": 4e-07,
+      "cache_read_input_token_cost_batches": 2e-07,
+      "input_cost_per_token": 8e-06,
+      "input_cost_per_token_above_272k_tokens": 1.6e-05,
+      "input_cost_per_token_above_272k_tokens_batches": 8e-06,
+      "input_cost_per_token_batches": 4e-06,
+      "litellm_provider": "openai",
+      "max_input_tokens": 922000,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 4e-05,
+      "output_cost_per_token_above_272k_tokens": 6e-05,
+      "output_cost_per_token_above_272k_tokens_batches": 3e-05,
+      "output_cost_per_token_batches": 2e-05,
+      "reasoning_contexts": [
+        "auto",
+        "current_turn",
+        "all_turns"
+      ],
+      "reasoning_modes": [
+        "standard",
+        "pro"
+      ],
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/batch",
+        "/v1/responses"
+      ],
+      "supported_modalities": [
+        "text",
+        "image"
+      ],
+      "supported_output_modalities": [
+        "text"
+      ],
+      "supports_function_calling": true,
+      "supports_max_reasoning_effort": true,
+      "supports_minimal_reasoning_effort": false,
+      "supports_none_reasoning_effort": false,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true,
+      "supports_xhigh_reasoning_effort": true
+    },
+    "gpt-6.2-sol": {
+      "cache_creation_input_token_cost": 2.5e-06,
+      "cache_creation_input_token_cost_above_272k_tokens": 5e-06,
+      "cache_creation_input_token_cost_above_272k_tokens_batches": 2.5e-06,
+      "cache_creation_input_token_cost_batches": 1.25e-06,
+      "cache_read_input_token_cost": 1e-07,
+      "cache_read_input_token_cost_above_272k_tokens": 2e-07,
+      "cache_read_input_token_cost_above_272k_tokens_batches": 1e-07,
+      "cache_read_input_token_cost_batches": 5e-08,
+      "input_cost_per_token": 2e-06,
+      "input_cost_per_token_above_272k_tokens": 4e-06,
+      "input_cost_per_token_above_272k_tokens_batches": 2e-06,
+      "input_cost_per_token_batches": 1e-06,
+      "litellm_provider": "openai",
+      "max_input_tokens": 922000,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 1e-05,
+      "output_cost_per_token_above_272k_tokens": 1.5e-05,
+      "output_cost_per_token_above_272k_tokens_batches": 7.5e-06,
+      "output_cost_per_token_batches": 5e-06,
+      "reasoning_contexts": [
+        "auto",
+        "current_turn",
+        "all_turns"
+      ],
+      "reasoning_modes": [
+        "standard",
+        "pro"
+      ],
+      "source": "https://developers.openai.com/api/docs/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/batch",
+        "/v1/responses"
+      ],
+      "supported_modalities": [
+        "text",
+        "image"
+      ],
+      "supported_output_modalities": [
+        "text"
+      ],
+      "supports_function_calling": true,
+      "supports_max_reasoning_effort": true,
+      "supports_minimal_reasoning_effort": false,
+      "supports_none_reasoning_effort": false,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true,
+      "supports_xhigh_reasoning_effort": true
+    },
+    "moonshot/kimi-k3": {
+      "cache_creation_input_token_cost": 3e-06,
+      "cache_creation_input_token_cost_above_1hr": 6e-06,
+      "cache_read_input_token_cost": 3e-07,
+      "input_cost_per_token": 3e-06,
+      "litellm_provider": "moonshot",
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 1048576,
+      "mode": "chat",
+      "output_cost_per_token": 1.5e-05,
+      "reasoning_effort_levels": [
+        "low",
+        "high",
+        "max"
+      ],
+      "source": "https://platform.kimi.ai/docs/pricing/chat-k3",
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_video_input": true,
+      "supports_vision": true
+    },
+    "xai/grok-4.7": {
+      "cache_read_input_token_cost": 5e-07,
+      "cache_read_input_token_cost_above_200k_tokens": 1e-06,
+      "cache_read_input_token_cost_above_200k_tokens_batches": 8e-07,
+      "cache_read_input_token_cost_batches": 4e-07,
+      "input_cost_per_token": 2e-06,
+      "input_cost_per_token_above_200k_tokens": 4e-06,
+      "input_cost_per_token_above_200k_tokens_batches": 3.2e-06,
+      "input_cost_per_token_batches": 1.6e-06,
+      "litellm_provider": "xai",
+      "max_input_tokens": 500000,
+      "max_output_tokens": 500000,
+      "mode": "chat",
+      "output_cost_per_token": 6e-06,
+      "output_cost_per_token_above_200k_tokens": 1.2e-05,
+      "output_cost_per_token_above_200k_tokens_batches": 9.6e-06,
+      "output_cost_per_token_batches": 4.8e-06,
+      "source": "https://api.x.ai/v1/language-models",
+      "supported_modalities": [
+        "text",
+        "image"
+      ],
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true
+    }
+  },
+  "router_models": {
+    "baseten/deepseek-ai/DeepSeek-V4.1-Flash-1017": {
+      "_router_alias": "deepseek-ai/DeepSeek-V4.1-Flash-1017[1m]",
+      "cache_read_input_token_cost": 7e-09,
+      "input_cost_per_token": 3e-07,
+      "litellm_provider": "baseten",
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 262144,
+      "mode": "chat",
+      "output_cost_per_token": 1.2e-06,
+      "source": "https://inference.baseten.co/v1/models",
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true
+    },
+    "claude-fable-5-2": {
+      "_router_alias": "claude-fable-5-2",
+      "cache_creation_input_token_cost": 1e-05,
+      "cache_creation_input_token_cost_above_1hr": 1.6e-05,
+      "cache_creation_input_token_cost_batches": 5e-06,
+      "cache_read_input_token_cost": 2e-07,
+      "cache_read_input_token_cost_batches": 1e-07,
+      "input_cost_per_token": 8e-06,
+      "input_cost_per_token_batches": 4e-06,
+      "litellm_provider": "anthropic",
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 4e-05,
+      "output_cost_per_token_batches": 2e-05,
+      "prompt_cache_min_tokens": 512.0,
+      "provider_specific_entry": {
+        "fast": 2,
+        "us": 1.1
+      },
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "supports_adaptive_thinking": true,
+      "supports_function_calling": true,
+      "supports_low_reasoning_effort": true,
+      "supports_max_reasoning_effort": true,
+      "supports_output_config": true,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true,
+      "supports_xhigh_reasoning_effort": true,
+      "thinking_always_on": true
+    },
+    "claude-haiku-5-5": {
+      "_router_alias": "claude-haiku-5-5",
+      "cache_creation_input_token_cost": 1.25e-07,
+      "cache_creation_input_token_cost_above_100k_tokens": 6.25e-07,
+      "cache_creation_input_token_cost_above_100k_tokens_batches": 3.125e-07,
+      "cache_creation_input_token_cost_above_1hr": 2e-07,
+      "cache_creation_input_token_cost_above_1hr_above_100k_tokens": 1e-06,
+      "cache_creation_input_token_cost_batches": 6.25e-08,
+      "cache_read_input_token_cost": 1e-08,
+      "cache_read_input_token_cost_above_100k_tokens": 5e-08,
+      "cache_read_input_token_cost_above_100k_tokens_batches": 2.5e-08,
+      "cache_read_input_token_cost_batches": 5e-09,
+      "input_cost_per_token": 1e-07,
+      "input_cost_per_token_above_100k_tokens": 5e-07,
+      "input_cost_per_token_above_100k_tokens_batches": 2.5e-07,
+      "input_cost_per_token_batches": 5e-08,
+      "litellm_provider": "anthropic",
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 5e-07,
+      "output_cost_per_token_above_100k_tokens": 2.5e-06,
+      "output_cost_per_token_above_100k_tokens_batches": 1.25e-06,
+      "output_cost_per_token_batches": 2.5e-07,
+      "prompt_cache_min_tokens": 512,
+      "provider_specific_entry": {
+        "us": 1.1
+      },
+      "source": "https://platform.claude.com/docs/en/models/haiku-5-5/overview",
+      "supports_adaptive_thinking": true,
+      "supports_function_calling": true,
+      "supports_low_reasoning_effort": true,
+      "supports_max_reasoning_effort": true,
+      "supports_output_config": true,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true,
+      "supports_xhigh_reasoning_effort": true,
+      "thinking_always_on": false,
+      "thinking_on_by_default": true
+    },
+    "claude-opus-5-5": {
+      "_router_alias": "claude-opus-5-5",
+      "cache_creation_input_token_cost": 5e-06,
+      "cache_creation_input_token_cost_above_1hr": 8e-06,
+      "cache_creation_input_token_cost_batches": 2.5e-06,
+      "cache_read_input_token_cost": 2e-07,
+      "cache_read_input_token_cost_batches": 1e-07,
+      "input_cost_per_token": 4e-06,
+      "input_cost_per_token_batches": 2e-06,
+      "litellm_provider": "anthropic",
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 2e-05,
+      "output_cost_per_token_batches": 1e-05,
+      "prompt_cache_min_tokens": 512,
+      "provider_specific_entry": {
+        "fast": 2,
+        "us": 1.1
+      },
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "supports_adaptive_thinking": true,
+      "supports_function_calling": true,
+      "supports_low_reasoning_effort": true,
+      "supports_max_reasoning_effort": true,
+      "supports_output_config": true,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true,
+      "supports_xhigh_reasoning_effort": true,
+      "thinking_always_on": true
+    },
+    "claude-sonnet-5-5": {
+      "_router_alias": "claude-sonnet-5-5",
+      "cache_creation_input_token_cost": 2.5e-06,
+      "cache_creation_input_token_cost_above_1hr": 4e-06,
+      "cache_creation_input_token_cost_batches": 1.25e-06,
+      "cache_read_input_token_cost": 1e-07,
+      "cache_read_input_token_cost_batches": 5e-08,
+      "input_cost_per_token": 2e-06,
+      "input_cost_per_token_batches": 1e-06,
+      "litellm_provider": "anthropic",
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 1e-05,
+      "output_cost_per_token_batches": 5e-06,
+      "prompt_cache_min_tokens": 512,
+      "provider_specific_entry": {
+        "us": 1.1
+      },
+      "source": "https://platform.claude.com/docs/en/about-claude/pricing",
+      "supports_adaptive_thinking": true,
+      "supports_function_calling": true,
+      "supports_low_reasoning_effort": true,
+      "supports_max_reasoning_effort": true,
+      "supports_output_config": true,
+      "supports_pdf_input": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true,
+      "supports_xhigh_reasoning_effort": true,
+      "thinking_always_on": true
+    },
+    "deepseek-flash": {
+      "_router_alias": "deepseek-flash[1m]",
+      "cache_creation_input_token_cost": 0.0,
+      "cache_read_input_token_cost": 6e-09,
+      "input_cost_per_token": 3e-07,
+      "input_cost_per_token_cache_hit": 6e-09,
+      "litellm_provider": "deepseek",
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 393216,
+      "mode": "chat",
+      "off_peak_pricing": {
+        "cache_read_input_token_cost": 3e-09,
+        "input_cost_per_token": 1.5e-07,
+        "output_cost_per_token": 6e-07,
+        "windows": [
+          {
+            "hours_utc": [
+              "00:00-01:00",
+              "04:00-06:00",
+              "10:00-00:00"
+            ],
+            "weekdays": [
+              1,
+              2,
+              3,
+              4,
+              5
+            ]
+          },
+          {
+            "hours_utc": "00:00-00:00",
+            "weekdays": [
+              6,
+              7
+            ]
+          }
+        ]
+      },
+      "output_cost_per_token": 1.2e-06,
+      "source": "https://api-docs.deepseek.com/quick_start/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true
+    },
+    "inferenceapis/moonshotai/Kimi-K3.1-Pro": {
+      "_router_alias": "moonshotai/Kimi-K3.1-Pro[1m]",
+      "cache_read_input_token_cost": 2.6e-07,
+      "input_cost_per_token": 2.6e-06,
+      "litellm_provider": "inferenceapis",
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 1048576,
+      "mode": "chat",
+      "output_cost_per_token": 1.3e-05,
+      "source": "https://inferenceapis.com/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/responses",
+        "/v1/messages"
+      ],
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_tool_choice": true,
+      "supports_vision": false
+    },
+    "inferenceapis/zai-org/GLM-5.3": {
+      "_router_alias": "zai-org/GLM-5.3[1m]",
+      "cache_read_input_token_cost": 3.4e-07,
+      "input_cost_per_token": 1.82e-06,
+      "litellm_provider": "inferenceapis",
+      "max_input_tokens": 1048575,
+      "max_output_tokens": 1048575,
+      "mode": "chat",
+      "output_cost_per_token": 5.72e-06,
+      "source": "https://inferenceapis.com/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/responses",
+        "/v1/messages"
+      ],
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_tool_choice": true,
+      "supports_vision": false
+    },
+    "inferenceapis/zai-org/GLM-5.3-Flash": {
+      "_router_alias": "zai-org/GLM-5.3-Flash[1m]",
+      "cache_read_input_token_cost": 4e-08,
+      "input_cost_per_token": 2e-07,
+      "litellm_provider": "inferenceapis",
+      "max_input_tokens": 1048575,
+      "max_output_tokens": 1048575,
+      "mode": "chat",
+      "output_cost_per_token": 6.6e-07,
+      "source": "https://inferenceapis.com/pricing",
+      "supported_endpoints": [
+        "/v1/chat/completions",
+        "/v1/responses",
+        "/v1/messages"
+      ],
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_tool_choice": true,
+      "supports_vision": false
+    },
+    "minimax/MiniMax-M3.1-Flash": {
+      "_router_alias": "minimax-m3.1-flash[1m]",
+      "cache_read_input_token_cost": 1.5e-08,
+      "input_cost_per_token": 1.5e-07,
+      "litellm_provider": "minimax",
+      "max_input_tokens": 1000000,
+      "mode": "chat",
+      "output_cost_per_token": 6e-07,
+      "reasoning_effort_levels": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "source": "https://platform.minimax.io/docs/guides/pricing-paygo",
+      "supports_function_calling": true,
+      "supports_max_reasoning_effort": true,
+      "supports_none_reasoning_effort": false,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_vision": true,
+      "supports_xhigh_reasoning_effort": true
+    },
+    "moonshot/kimi-k3.1-pro": {
+      "_router_alias": "kimi-k3.1-pro[1m]",
+      "cache_creation_input_token_cost": 2e-06,
+      "cache_creation_input_token_cost_above_1hr": 4e-06,
+      "cache_read_input_token_cost": 2e-07,
+      "input_cost_per_token": 2e-06,
+      "litellm_provider": "moonshot",
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 1048576,
+      "mode": "chat",
+      "output_cost_per_token": 1e-05,
+      "reasoning_effort_levels": [
+        "low",
+        "high",
+        "max"
+      ],
+      "source": "https://platform.kimi.ai/docs/pricing/chat",
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_vision": true
+    },
+    "xiaomi_mimo/mimo-v2.6-flash": {
+      "_router_alias": "mimo-v2.6-flash[1m]",
+      "cache_read_input_token_cost": 2.8e-09,
+      "input_cost_per_token": 1.4e-07,
+      "litellm_provider": "xiaomi_mimo",
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 131072,
+      "mode": "chat",
+      "output_cost_per_token": 2.8e-07,
+      "source": "https://platform.xiaomimimo.com/static/docs/price/pay-as-you-go.md",
+      "supported_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "supports_audio_input": true,
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_video_input": true,
+      "supports_vision": true
+    },
+    "xiaomi_mimo/mimo-v2.6-pro": {
+      "_router_alias": "mimo-v2.6-pro[1m]",
+      "cache_read_input_token_cost": 3.6e-09,
+      "input_cost_per_token": 4.35e-07,
+      "litellm_provider": "xiaomi_mimo",
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 131072,
+      "mode": "chat",
+      "output_cost_per_token": 8.7e-07,
+      "source": "https://platform.xiaomimimo.com/static/docs/price/pay-as-you-go.md",
+      "supported_endpoints": [
+        "/v1/chat/completions"
+      ],
+      "supports_audio_input": true,
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_video_input": true,
+      "supports_vision": true
+    },
+    "zai/glm-5.3": {
+      "_router_alias": "glm-5.3[1m]",
+      "cache_creation_input_token_cost": 0,
+      "cache_read_input_token_cost": 2.6e-07,
+      "input_cost_per_token": 1.4e-06,
+      "litellm_provider": "zai",
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 4.4e-06,
+      "source": "https://docs.z.ai/guides/overview/pricing",
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true
+    },
+    "zai/glm-5.3-flash": {
+      "_router_alias": "glm-5.3-flash[1m]",
+      "cache_creation_input_token_cost": 0,
+      "cache_read_input_token_cost": 3e-08,
+      "input_cost_per_token": 1.5e-07,
+      "litellm_provider": "zai",
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 128000,
+      "mode": "chat",
+      "output_cost_per_token": 5e-07,
+      "source": "https://docs.z.ai/guides/overview/pricing",
+      "supports_function_calling": true,
+      "supports_prompt_caching": true,
+      "supports_reasoning": true,
+      "supports_response_schema": true,
+      "supports_tool_choice": true,
+      "supports_vision": true
+    }
+  }
+}

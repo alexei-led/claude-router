@@ -1,0 +1,3130 @@
+{
+  "source": "lmarena",
+  "fetched_at_utc": "2026-11-22",
+  "license": "CC-BY-4.0",
+  "history": {
+    "Claude Fable 5.2": {
+      "Claude Fable 5.2 (Max)": {
+        "text_overall": [
+          {
+            "publish_date": "2026-11-19",
+            "rank": 26.0,
+            "rating": 1478.34
+          }
+        ],
+        "agent_overall": [
+          {
+            "publish_date": "2026-11-11",
+            "rank": 1,
+            "score": 0.3035,
+            "cost_per_task_p50": 7.431762900000001,
+            "output_tokens_per_task_p50": 106879.0
+          },
+          {
+            "publish_date": "2026-11-15",
+            "rank": 1,
+            "score": 0.2861,
+            "cost_per_task_p50": 9.019102999999998,
+            "output_tokens_per_task_p50": 126742.5
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 1,
+            "score": 0.2742,
+            "cost_per_task_p50": 9.1616391,
+            "output_tokens_per_task_p50": 127812.0
+          }
+        ]
+      },
+      "Claude Fable 5.2 (xHigh)": {
+        "text_overall": [],
+        "agent_overall": []
+      }
+    },
+    "Claude Opus 5.5": {
+      "Claude Opus 5.5 (High)": {
+        "text_overall": [
+          {
+            "publish_date": "2026-11-09",
+            "rank": 3.0,
+            "rating": 1513.0
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 3.0,
+            "rating": 1513.66
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 4.0,
+            "rating": 1514.0
+          },
+          {
+            "publish_date": "2026-11-19",
+            "rank": 4.0,
+            "rating": 1512.87
+          }
+        ],
+        "agent_overall": [
+          {
+            "publish_date": "2026-10-02",
+            "rank": 2,
+            "score": 0.1382,
+            "cost_per_task_p50": null,
+            "output_tokens_per_task_p50": null
+          },
+          {
+            "publish_date": "2026-10-08",
+            "rank": 1,
+            "score": 0.1433,
+            "cost_per_task_p50": null,
+            "output_tokens_per_task_p50": null
+          },
+          {
+            "publish_date": "2026-11-15",
+            "rank": 8,
+            "score": 0.1335,
+            "cost_per_task_p50": 2.121694,
+            "output_tokens_per_task_p50": 31743.0
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 8,
+            "score": 0.137,
+            "cost_per_task_p50": 1.9732442,
+            "output_tokens_per_task_p50": 29813.0
+          }
+        ]
+      },
+      "Claude Opus 5.5 (Max)": {
+        "text_overall": [],
+        "agent_overall": [
+          {
+            "publish_date": "2026-11-10",
+            "rank": 1,
+            "score": 0.1953,
+            "cost_per_task_p50": 5.521054100000001,
+            "output_tokens_per_task_p50": 107672.0
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 2,
+            "score": 0.1952,
+            "cost_per_task_p50": 5.469564675000001,
+            "output_tokens_per_task_p50": 107485.0
+          },
+          {
+            "publish_date": "2026-11-15",
+            "rank": 2,
+            "score": 0.1819,
+            "cost_per_task_p50": 5.650809199999999,
+            "output_tokens_per_task_p50": 107510.5
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 2,
+            "score": 0.1863,
+            "cost_per_task_p50": 5.8934961999999995,
+            "output_tokens_per_task_p50": 114756.0
+          }
+        ]
+      }
+    },
+    "Claude Sonnet 5.5": {
+      "Claude Sonnet 5.5 (High)": {
+        "text_overall": [],
+        "agent_overall": [
+          {
+            "publish_date": "2026-11-15",
+            "rank": 15,
+            "score": 0.0718,
+            "cost_per_task_p50": 0.8770370000000001,
+            "output_tokens_per_task_p50": 22997.0
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 17,
+            "score": 0.0742,
+            "cost_per_task_p50": 0.801544,
+            "output_tokens_per_task_p50": 20548.0
+          }
+        ]
+      },
+      "Claude Sonnet 5.5 (Max)": {
+        "text_overall": [],
+        "agent_overall": [
+          {
+            "publish_date": "2026-11-10",
+            "rank": 3,
+            "score": 0.161,
+            "cost_per_task_p50": 3.4083976999999996,
+            "output_tokens_per_task_p50": 146303.5
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 4,
+            "score": 0.1595,
+            "cost_per_task_p50": 3.3537930999999994,
+            "output_tokens_per_task_p50": 144334.0
+          },
+          {
+            "publish_date": "2026-11-15",
+            "rank": 4,
+            "score": 0.1529,
+            "cost_per_task_p50": 3.46204235,
+            "output_tokens_per_task_p50": 150642.0
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 5,
+            "score": 0.1556,
+            "cost_per_task_p50": 3.4000512999999994,
+            "output_tokens_per_task_p50": 147519.0
+          }
+        ]
+      },
+      "Claude Sonnet 5.5 (xHigh)": {
+        "text_overall": [
+          {
+            "publish_date": "2026-11-09",
+            "rank": 34.0,
+            "rating": 1468.82
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 34.0,
+            "rating": 1469.13
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 34.0,
+            "rating": 1469.86
+          },
+          {
+            "publish_date": "2026-11-19",
+            "rank": 35.0,
+            "rating": 1469.59
+          }
+        ],
+        "agent_overall": []
+      }
+    },
+    "Claude Haiku 5.5": {
+      "Claude Haiku 5.5 (High)": {
+        "text_overall": [
+          {
+            "publish_date": "2026-11-09",
+            "rank": 159.0,
+            "rating": 1398.7
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 160.0,
+            "rating": 1397.65
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 161.0,
+            "rating": 1398.1
+          },
+          {
+            "publish_date": "2026-11-19",
+            "rank": 166.0,
+            "rating": 1397.5
+          }
+        ],
+        "agent_overall": [
+          {
+            "publish_date": "2026-11-10",
+            "rank": 27,
+            "score": 0.0051,
+            "cost_per_task_p50": 0.077772245,
+            "output_tokens_per_task_p50": 24524.5
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 29,
+            "score": 0.0047,
+            "cost_per_task_p50": 0.07692803499999999,
+            "output_tokens_per_task_p50": 24371.0
+          },
+          {
+            "publish_date": "2026-11-15",
+            "rank": 36,
+            "score": -0.0037,
+            "cost_per_task_p50": 0.08497953750000001,
+            "output_tokens_per_task_p50": 26659.0
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 41,
+            "score": -0.0061,
+            "cost_per_task_p50": 0.09300591,
+            "output_tokens_per_task_p50": 27102.5
+          }
+        ]
+      }
+    },
+    "DeepSeek-V4-Flash": {
+      "DeepSeek-V4-Flash": {
+        "text_overall": [
+          {
+            "publish_date": "2026-11-09",
+            "rank": 93.0,
+            "rating": 1432.07
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 93.0,
+            "rating": 1432.02
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 94.0,
+            "rating": 1431.94
+          },
+          {
+            "publish_date": "2026-11-19",
+            "rank": 95.0,
+            "rating": 1431.88
+          }
+        ],
+        "agent_overall": []
+      },
+      "DeepSeek-V4-Flash (High)": {
+        "text_overall": [],
+        "agent_overall": []
+      }
+    },
+    "DeepSeek-V4.1-Flash-20261017": {
+      "DeepSeek-V4.1-Flash-20261017 (Max)": {
+        "text_overall": [],
+        "agent_overall": [
+          {
+            "publish_date": "2026-11-10",
+            "rank": 22,
+            "score": 0.0207,
+            "cost_per_task_p50": 0.14450827800000005,
+            "output_tokens_per_task_p50": 86880.0
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 22,
+            "score": 0.02,
+            "cost_per_task_p50": 0.144083697,
+            "output_tokens_per_task_p50": 87447.0
+          },
+          {
+            "publish_date": "2026-11-15",
+            "rank": 30,
+            "score": 0.0113,
+            "cost_per_task_p50": 0.14055099000000004,
+            "output_tokens_per_task_p50": 88678.5
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 33,
+            "score": 0.0078,
+            "cost_per_task_p50": 0.14232805800000004,
+            "output_tokens_per_task_p50": 91287.0
+          }
+        ]
+      }
+    },
+    "GLM-5.3": {
+      "GLM-5.3 (Max)": {
+        "text_overall": [
+          {
+            "publish_date": "2026-11-09",
+            "rank": 25.0,
+            "rating": 1475.93
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 26.0,
+            "rating": 1474.93
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 27.0,
+            "rating": 1475.97
+          },
+          {
+            "publish_date": "2026-11-19",
+            "rank": 28.0,
+            "rating": 1475.42
+          }
+        ],
+        "agent_overall": [
+          {
+            "publish_date": "2026-11-10",
+            "rank": 25,
+            "score": 0.0104,
+            "cost_per_task_p50": 1.1299632,
+            "output_tokens_per_task_p50": 67666.5
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 27,
+            "score": 0.0099,
+            "cost_per_task_p50": 1.03650002,
+            "output_tokens_per_task_p50": 66832.0
+          },
+          {
+            "publish_date": "2026-11-15",
+            "rank": 33,
+            "score": 0.0003,
+            "cost_per_task_p50": 0.85981107,
+            "output_tokens_per_task_p50": 61631.5
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 36,
+            "score": -0.0004,
+            "cost_per_task_p50": 0.93685128,
+            "output_tokens_per_task_p50": 67177.0
+          }
+        ]
+      }
+    },
+    "GLM-5.3-Flash": {
+      "GLM-5.3-Flash": {
+        "text_overall": [
+          {
+            "publish_date": "2026-11-09",
+            "rank": 31.0,
+            "rating": 1470.66
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 30.0,
+            "rating": 1471.72
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 31.0,
+            "rating": 1471.35
+          },
+          {
+            "publish_date": "2026-11-19",
+            "rank": 32.0,
+            "rating": 1471.43
+          }
+        ],
+        "agent_overall": [
+          {
+            "publish_date": "2026-11-10",
+            "rank": 37,
+            "score": -0.0298,
+            "cost_per_task_p50": 0.16134292,
+            "output_tokens_per_task_p50": 47257.33333333333
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 39,
+            "score": -0.0295,
+            "cost_per_task_p50": 0.1572217,
+            "output_tokens_per_task_p50": 47545.0
+          },
+          {
+            "publish_date": "2026-11-15",
+            "rank": 45,
+            "score": -0.037,
+            "cost_per_task_p50": 0.142539095,
+            "output_tokens_per_task_p50": 46332.0
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 48,
+            "score": -0.0387,
+            "cost_per_task_p50": 0.14728795999999997,
+            "output_tokens_per_task_p50": 46252.0
+          }
+        ]
+      }
+    },
+    "Kimi K3.1 Pro": {
+      "Kimi K3.1 Pro (Max)": {
+        "text_overall": [
+          {
+            "publish_date": "2026-11-09",
+            "rank": 44.0,
+            "rating": 1457.31
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 43.0,
+            "rating": 1459.14
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 43.0,
+            "rating": 1461.83
+          },
+          {
+            "publish_date": "2026-11-19",
+            "rank": 46.0,
+            "rating": 1457.74
+          }
+        ],
+        "agent_overall": [
+          {
+            "publish_date": "2026-11-10",
+            "rank": 14,
+            "score": 0.0499,
+            "cost_per_task_p50": 1.2387122499999998,
+            "output_tokens_per_task_p50": 34777.5
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 15,
+            "score": 0.049,
+            "cost_per_task_p50": 1.2300845999999999,
+            "output_tokens_per_task_p50": 34544.0
+          },
+          {
+            "publish_date": "2026-11-15",
+            "rank": 21,
+            "score": 0.0395,
+            "cost_per_task_p50": 1.1583907999999998,
+            "output_tokens_per_task_p50": 32837.0
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 24,
+            "score": 0.0388,
+            "cost_per_task_p50": 1.1470413,
+            "output_tokens_per_task_p50": 32837.0
+          }
+        ]
+      }
+    },
+    "MiniMax-M3.1-Flash": {
+      "MiniMax-M3.1-Flash": {
+        "text_overall": [],
+        "agent_overall": [
+          {
+            "publish_date": "2026-11-10",
+            "rank": 36,
+            "score": -0.0269,
+            "cost_per_task_p50": 0.24774793,
+            "output_tokens_per_task_p50": 75566.5
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 38,
+            "score": -0.027,
+            "cost_per_task_p50": 0.24774793,
+            "output_tokens_per_task_p50": 75436.5
+          },
+          {
+            "publish_date": "2026-11-15",
+            "rank": 44,
+            "score": -0.0352,
+            "cost_per_task_p50": 0.21146031,
+            "output_tokens_per_task_p50": 69867.0
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 47,
+            "score": -0.0367,
+            "cost_per_task_p50": 0.20717878499999998,
+            "output_tokens_per_task_p50": 68464.5
+          }
+        ]
+      }
+    },
+    "MiMo-V2.6-Flash": {
+      "MiMo-V2.6-Flash": {
+        "text_overall": [
+          {
+            "publish_date": "2026-11-09",
+            "rank": 54.0,
+            "rating": 1450.32
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 55.0,
+            "rating": 1450.84
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 56.0,
+            "rating": 1450.15
+          },
+          {
+            "publish_date": "2026-11-19",
+            "rank": 57.0,
+            "rating": 1449.78
+          }
+        ],
+        "agent_overall": [
+          {
+            "publish_date": "2026-11-10",
+            "rank": 31,
+            "score": -0.0003,
+            "cost_per_task_p50": 0.07326675440000002,
+            "output_tokens_per_task_p50": 43727.0
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 33,
+            "score": -0.0003,
+            "cost_per_task_p50": 0.073768716,
+            "output_tokens_per_task_p50": 43819.75
+          },
+          {
+            "publish_date": "2026-11-15",
+            "rank": 38,
+            "score": -0.0064,
+            "cost_per_task_p50": 0.07505981480000001,
+            "output_tokens_per_task_p50": 44545.0
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 43,
+            "score": -0.0175,
+            "cost_per_task_p50": 0.07918356319999999,
+            "output_tokens_per_task_p50": 46265.5
+          }
+        ]
+      }
+    },
+    "MiMo-V2.6-Pro": {
+      "MiMo-V2.6-Pro": {
+        "text_overall": [
+          {
+            "publish_date": "2026-11-09",
+            "rank": 11.0,
+            "rating": 1491.71
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 14.0,
+            "rating": 1491.6
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 14.0,
+            "rating": 1492.13
+          },
+          {
+            "publish_date": "2026-11-19",
+            "rank": 14.0,
+            "rating": 1492.71
+          }
+        ],
+        "agent_overall": [
+          {
+            "publish_date": "2026-11-10",
+            "rank": 18,
+            "score": 0.023,
+            "cost_per_task_p50": 0.16816001056666663,
+            "output_tokens_per_task_p50": 48819.0
+          },
+          {
+            "publish_date": "2026-11-11",
+            "rank": 19,
+            "score": 0.024,
+            "cost_per_task_p50": 0.16321136699999997,
+            "output_tokens_per_task_p50": 48042.0
+          },
+          {
+            "publish_date": "2026-11-15",
+            "rank": 26,
+            "score": 0.015,
+            "cost_per_task_p50": 0.1599013956,
+            "output_tokens_per_task_p50": 47607.5
+          },
+          {
+            "publish_date": "2026-11-18",
+            "rank": 29,
+            "score": 0.0142,
+            "cost_per_task_p50": 0.162749411,
+            "output_tokens_per_task_p50": 47615.0
+          }
+        ]
+      }
+    }
+  },
+  "models": [
+    {
+      "router_ids": [
+        "claude-fable-5-2"
+      ],
+      "lmarena_model_names": [
+        "Claude Fable 5.2 (Max)",
+        "Claude Fable 5.2 (xHigh)"
+      ],
+      "matched": true,
+      "benchmarks": [
+        {
+          "config": "agent",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 0.2742,
+          "rank": 1,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 9.1616391,
+          "output_tokens_per_task_p50": 127812.0,
+          "session_count": 12330.0
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1488.8223,
+          "rank": 1,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1447.854,
+          "rank": 1,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1578.298,
+          "rank": 1,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1561.0267,
+          "rank": 1,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1225.1135,
+          "rank": 3,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1228.7031,
+          "rank": 3,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "coding",
+          "score": 1486.7077,
+          "rank": 47.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "hard_prompts",
+          "score": 1484.2578,
+          "rank": 35.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "instruction_following",
+          "score": 1490.1315,
+          "rank": 16.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "math",
+          "score": 1490.6842,
+          "rank": 24.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "multi_turn",
+          "score": 1457.8371,
+          "rank": 54.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1478.3426,
+          "rank": 26.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "vision",
+          "model_name": "Claude Fable 5.2 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1313.3088,
+          "rank": 10,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Claude Fable 5.2 (xHigh)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1823.6359,
+          "rank": 1,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Claude Fable 5.2 (xHigh)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "webdev",
+          "score": 1823.6359,
+          "rank": 1,
+          "publish_date": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "router_ids": [
+        "claude-opus-5-5"
+      ],
+      "lmarena_model_names": [
+        "Claude Opus 5.5 (High)",
+        "Claude Opus 5.5 (Max)"
+      ],
+      "matched": true,
+      "benchmarks": [
+        {
+          "config": "agent",
+          "model_name": "Claude Opus 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 0.1863,
+          "rank": 2,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 5.8934961999999995,
+          "output_tokens_per_task_p50": 114756.0,
+          "session_count": 14920.0
+        },
+        {
+          "config": "agent",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 0.137,
+          "rank": 8,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 1.9732442,
+          "output_tokens_per_task_p50": 29813.0,
+          "session_count": 24372.0
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Claude Opus 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1372.5234,
+          "rank": 2,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1315.1228,
+          "rank": 6,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Claude Opus 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1335.5066,
+          "rank": 2,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1272.9575,
+          "rank": 8,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Claude Opus 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1434.6557,
+          "rank": 2,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1351.6953,
+          "rank": 7,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Claude Opus 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1394.5382,
+          "rank": 3,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1312.5593,
+          "rank": 10,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Claude Opus 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1231.9749,
+          "rank": 2,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1199.7527,
+          "rank": 7,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Claude Opus 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1238.5228,
+          "rank": 2,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1206.1279,
+          "rank": 7,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "coding",
+          "score": 1543.497,
+          "rank": 3.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "hard_prompts",
+          "score": 1530.8962,
+          "rank": 4.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "instruction_following",
+          "score": 1532.6475,
+          "rank": 4.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "math",
+          "score": 1522.8396,
+          "rank": 7.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "multi_turn",
+          "score": 1501.9527,
+          "rank": 11.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1512.8652,
+          "rank": 4.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "vision",
+          "model_name": "Claude Opus 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1321.8294,
+          "rank": 3,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Claude Opus 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1819.044,
+          "rank": 2,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Claude Opus 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "webdev",
+          "score": 1819.044,
+          "rank": 2,
+          "publish_date": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "router_ids": [
+        "claude-sonnet-5-5"
+      ],
+      "lmarena_model_names": [
+        "Claude Sonnet 5.5 (High)",
+        "Claude Sonnet 5.5 (Max)",
+        "Claude Sonnet 5.5 (xHigh)"
+      ],
+      "matched": true,
+      "benchmarks": [
+        {
+          "config": "agent",
+          "model_name": "Claude Sonnet 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 0.1556,
+          "rank": 5,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 3.4000512999999994,
+          "output_tokens_per_task_p50": 147519.0,
+          "session_count": 8912.0
+        },
+        {
+          "config": "agent",
+          "model_name": "Claude Sonnet 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 0.0742,
+          "rank": 17,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 0.801544,
+          "output_tokens_per_task_p50": 20548.0,
+          "session_count": 11317.0
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Claude Sonnet 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1329.2747,
+          "rank": 4,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Claude Sonnet 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1238.2418,
+          "rank": 13,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Claude Sonnet 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1296.051,
+          "rank": 5,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Claude Sonnet 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1195.9196,
+          "rank": 17,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Claude Sonnet 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1367.3419,
+          "rank": 5,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Claude Sonnet 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1253.5346,
+          "rank": 14,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Claude Sonnet 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1346.4387,
+          "rank": 6,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Claude Sonnet 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1213.3823,
+          "rank": 17,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Claude Sonnet 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1210.2849,
+          "rank": 5,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Claude Sonnet 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1152.5745,
+          "rank": 23,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Claude Sonnet 5.5 (Max)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1217.4279,
+          "rank": 5,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Claude Sonnet 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1155.4429,
+          "rank": 23,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Sonnet 5.5 (xHigh)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "coding",
+          "score": 1500.447,
+          "rank": 28.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Sonnet 5.5 (xHigh)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "hard_prompts",
+          "score": 1487.182,
+          "rank": 26.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Sonnet 5.5 (xHigh)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "instruction_following",
+          "score": 1484.7499,
+          "rank": 19.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Sonnet 5.5 (xHigh)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "math",
+          "score": 1493.7692,
+          "rank": 22.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Sonnet 5.5 (xHigh)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "multi_turn",
+          "score": 1462.096,
+          "rank": 48.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Sonnet 5.5 (xHigh)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1469.5863,
+          "rank": 35.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "vision",
+          "model_name": "Claude Sonnet 5.5 (xHigh)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1285.9746,
+          "rank": 31,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Claude Sonnet 5.5 (xHigh)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1771.9965,
+          "rank": 3,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Claude Sonnet 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1715.4932,
+          "rank": 13,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Claude Sonnet 5.5 (xHigh)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "webdev",
+          "score": 1771.9965,
+          "rank": 3,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Claude Sonnet 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "webdev",
+          "score": 1715.4932,
+          "rank": 13,
+          "publish_date": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "router_ids": [
+        "claude-haiku-5-5"
+      ],
+      "lmarena_model_names": [
+        "Claude Haiku 5.5 (High)"
+      ],
+      "matched": true,
+      "benchmarks": [
+        {
+          "config": "agent",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": -0.0061,
+          "rank": 41,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 0.09300591,
+          "output_tokens_per_task_p50": 27102.5,
+          "session_count": 33048.0
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1145.6657,
+          "rank": 27,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1095.2664,
+          "rank": 36,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1129.5089,
+          "rank": 31,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1078.7552,
+          "rank": 42,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "code",
+          "score": 1159.1756,
+          "rank": 19,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1163.6336,
+          "rank": 20,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "coding",
+          "score": 1451.7731,
+          "rank": 106.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "hard_prompts",
+          "score": 1415.5228,
+          "rank": 148.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "instruction_following",
+          "score": 1407.196,
+          "rank": 117.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "math",
+          "score": 1432.8632,
+          "rank": 99.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "multi_turn",
+          "score": 1387.0643,
+          "rank": 180.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1397.5027,
+          "rank": 166.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "overall",
+          "score": 1595.3781,
+          "rank": 44,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Claude Haiku 5.5 (High)",
+          "organization": "anthropic",
+          "license": "Proprietary",
+          "category": "webdev",
+          "score": 1595.3781,
+          "rank": 44,
+          "publish_date": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "router_ids": [
+        "deepseek-flash[1m]"
+      ],
+      "lmarena_model_names": [
+        "DeepSeek-V4-Flash",
+        "DeepSeek-V4-Flash (High)"
+      ],
+      "matched": true,
+      "benchmarks": [
+        {
+          "config": "text",
+          "model_name": "DeepSeek-V4-Flash",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "coding",
+          "score": 1456.5399,
+          "rank": 94.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "DeepSeek-V4-Flash",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "hard_prompts",
+          "score": 1443.3073,
+          "rank": 92.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "DeepSeek-V4-Flash",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "instruction_following",
+          "score": 1420.6119,
+          "rank": 93.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "DeepSeek-V4-Flash",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "math",
+          "score": 1426.166,
+          "rank": 114.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "DeepSeek-V4-Flash",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "multi_turn",
+          "score": 1448.6347,
+          "rank": 74.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "DeepSeek-V4-Flash",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1431.8761,
+          "rank": 95.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "webdev",
+          "model_name": "DeepSeek-V4-Flash (High)",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1582.1146,
+          "rank": 48,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "DeepSeek-V4-Flash (High)",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "webdev",
+          "score": 1582.1146,
+          "rank": 48,
+          "publish_date": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "router_ids": [
+        "deepseek-ai/DeepSeek-V4.1-Flash-1017[1m]"
+      ],
+      "lmarena_model_names": [
+        "DeepSeek-V4.1-Flash-20261017 (Max)"
+      ],
+      "matched": true,
+      "benchmarks": [
+        {
+          "config": "agent",
+          "model_name": "DeepSeek-V4.1-Flash-20261017 (Max)",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "overall",
+          "score": 0.0078,
+          "rank": 33,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 0.14232805800000004,
+          "output_tokens_per_task_p50": 91287.0,
+          "session_count": 98592.0
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "DeepSeek-V4.1-Flash-20261017 (Max)",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "code",
+          "score": 1127.729,
+          "rank": 29,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "DeepSeek-V4.1-Flash-20261017 (Max)",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1109.0015,
+          "rank": 32,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "DeepSeek-V4.1-Flash-20261017 (Max)",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "code",
+          "score": 1117.7361,
+          "rank": 35,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "DeepSeek-V4.1-Flash-20261017 (Max)",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1108.7116,
+          "rank": 36,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "DeepSeek-V4.1-Flash-20261017 (Max)",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "code",
+          "score": 1113.2744,
+          "rank": 36,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "DeepSeek-V4.1-Flash-20261017 (Max)",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1108.933,
+          "rank": 37,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "webdev",
+          "model_name": "DeepSeek-V4.1-Flash-20261017 (Max)",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1657.9953,
+          "rank": 23,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "DeepSeek-V4.1-Flash-20261017 (Max)",
+          "organization": "deepseek",
+          "license": "MIT",
+          "category": "webdev",
+          "score": 1657.9953,
+          "rank": 23,
+          "publish_date": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "router_ids": [
+        "glm-5.3[1m]",
+        "zai-org/GLM-5.3[1m]"
+      ],
+      "lmarena_model_names": [
+        "GLM-5.3 (Max)"
+      ],
+      "matched": true,
+      "benchmarks": [
+        {
+          "config": "agent",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": -0.0004,
+          "rank": 36,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 0.93685128,
+          "output_tokens_per_task_p50": 67177.0,
+          "session_count": 95055.0
+        },
+        {
+          "config": "agent",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": -0.0004,
+          "rank": 36,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 0.93685128,
+          "output_tokens_per_task_p50": 67177.0,
+          "session_count": 95055.0
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "code",
+          "score": 1100.7576,
+          "rank": 38,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "code",
+          "score": 1100.7576,
+          "rank": 38,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1094.7881,
+          "rank": 37,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1094.7881,
+          "rank": 37,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "code",
+          "score": 1136.8431,
+          "rank": 29,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "code",
+          "score": 1136.8431,
+          "rank": 29,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1131.6024,
+          "rank": 27,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1131.6024,
+          "rank": 27,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "code",
+          "score": 1023.8766,
+          "rank": 54,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "code",
+          "score": 1023.8766,
+          "rank": 54,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1031.0531,
+          "rank": 57,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1031.0531,
+          "rank": 57,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "coding",
+          "score": 1500.6061,
+          "rank": 26.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "coding",
+          "score": 1500.6061,
+          "rank": 26.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "hard_prompts",
+          "score": 1492.5402,
+          "rank": 22.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "hard_prompts",
+          "score": 1492.5402,
+          "rank": 22.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "instruction_following",
+          "score": 1482.056,
+          "rank": 23.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "instruction_following",
+          "score": 1482.056,
+          "rank": 23.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "math",
+          "score": 1501.9131,
+          "rank": 17.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "math",
+          "score": 1501.9131,
+          "rank": 17.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "multi_turn",
+          "score": 1477.3823,
+          "rank": 30.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "multi_turn",
+          "score": 1477.3823,
+          "rank": 30.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1475.416,
+          "rank": 28.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1475.416,
+          "rank": 28.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "webdev",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1622.6581,
+          "rank": 34,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1622.6581,
+          "rank": 34,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "webdev",
+          "score": 1622.6581,
+          "rank": 34,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "GLM-5.3 (Max)",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "webdev",
+          "score": 1622.6581,
+          "rank": 34,
+          "publish_date": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "router_ids": [
+        "glm-5.3-flash[1m]",
+        "zai-org/GLM-5.3-Flash[1m]"
+      ],
+      "lmarena_model_names": [
+        "GLM-5.3-Flash"
+      ],
+      "matched": true,
+      "benchmarks": [
+        {
+          "config": "agent",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": -0.0387,
+          "rank": 48,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 0.14728795999999997,
+          "output_tokens_per_task_p50": 46252.0,
+          "session_count": 95827.0
+        },
+        {
+          "config": "agent",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": -0.0387,
+          "rank": 48,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 0.14728795999999997,
+          "output_tokens_per_task_p50": 46252.0,
+          "session_count": 95827.0
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "code",
+          "score": 1061.4047,
+          "rank": 49,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "code",
+          "score": 1061.4047,
+          "rank": 49,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1045.6338,
+          "rank": 48,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1045.6338,
+          "rank": 48,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "code",
+          "score": 1104.3915,
+          "rank": 38,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "code",
+          "score": 1104.3915,
+          "rank": 38,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1077.4592,
+          "rank": 43,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1077.4592,
+          "rank": 43,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "code",
+          "score": 967.5006,
+          "rank": 64,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "code",
+          "score": 967.5006,
+          "rank": 64,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 969.1297,
+          "rank": 61,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 969.1297,
+          "rank": 61,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "coding",
+          "score": 1509.002,
+          "rank": 18.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "coding",
+          "score": 1509.002,
+          "rank": 18.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "hard_prompts",
+          "score": 1490.3826,
+          "rank": 23.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "hard_prompts",
+          "score": 1490.3826,
+          "rank": 23.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "instruction_following",
+          "score": 1480.233,
+          "rank": 24.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "instruction_following",
+          "score": 1480.233,
+          "rank": 24.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "math",
+          "score": 1507.7212,
+          "rank": 12.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "math",
+          "score": 1507.7212,
+          "rank": 12.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "multi_turn",
+          "score": 1474.0293,
+          "rank": 35.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "multi_turn",
+          "score": 1474.0293,
+          "rank": 35.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1471.4278,
+          "rank": 32.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1471.4278,
+          "rank": 32.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "vision",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1296.4706,
+          "rank": 23,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "vision",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1296.4706,
+          "rank": 23,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "webdev",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1610.4775,
+          "rank": 40,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1610.4775,
+          "rank": 40,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "webdev",
+          "score": 1610.4775,
+          "rank": 40,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "GLM-5.3-Flash",
+          "organization": "zai",
+          "license": "MIT",
+          "category": "webdev",
+          "score": 1610.4775,
+          "rank": 40,
+          "publish_date": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "router_ids": [
+        "kimi-k3.1-pro[1m]",
+        "moonshotai/Kimi-K3.1-Pro[1m]"
+      ],
+      "lmarena_model_names": [
+        "Kimi K3.1 Pro (Max)"
+      ],
+      "matched": true,
+      "benchmarks": [
+        {
+          "config": "agent",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "overall",
+          "score": 0.0388,
+          "rank": 24,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 1.1470413,
+          "output_tokens_per_task_p50": 32837.0,
+          "session_count": 22130.0
+        },
+        {
+          "config": "agent",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "overall",
+          "score": 0.0388,
+          "rank": 24,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 1.1470413,
+          "output_tokens_per_task_p50": 32837.0,
+          "session_count": 22130.0
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "code",
+          "score": 1169.1393,
+          "rank": 24,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "code",
+          "score": 1169.1393,
+          "rank": 24,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "overall",
+          "score": 1145.2176,
+          "rank": 24,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "overall",
+          "score": 1145.2176,
+          "rank": 24,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "code",
+          "score": 1169.6502,
+          "rank": 23,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "code",
+          "score": 1169.6502,
+          "rank": 23,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "overall",
+          "score": 1148.3959,
+          "rank": 23,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "overall",
+          "score": 1148.3959,
+          "rank": 23,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "code",
+          "score": 1156.5846,
+          "rank": 21,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "code",
+          "score": 1156.5846,
+          "rank": 21,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "overall",
+          "score": 1160.3968,
+          "rank": 22,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "overall",
+          "score": 1160.3968,
+          "rank": 22,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "text",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "coding",
+          "score": 1483.9187,
+          "rank": 53.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "coding",
+          "score": 1483.9187,
+          "rank": 53.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "hard_prompts",
+          "score": 1468.9606,
+          "rank": 51.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "hard_prompts",
+          "score": 1468.9606,
+          "rank": 51.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "instruction_following",
+          "score": 1473.3577,
+          "rank": 32.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "instruction_following",
+          "score": 1473.3577,
+          "rank": 32.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "math",
+          "score": 1458.3741,
+          "rank": 64.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "math",
+          "score": 1458.3741,
+          "rank": 64.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "multi_turn",
+          "score": 1448.8228,
+          "rank": 73.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "multi_turn",
+          "score": 1448.8228,
+          "rank": 73.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "overall",
+          "score": 1457.7404,
+          "rank": 46.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "overall",
+          "score": 1457.7404,
+          "rank": 46.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "overall",
+          "score": 1682.9505,
+          "rank": 17,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "overall",
+          "score": 1682.9505,
+          "rank": 17,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "webdev",
+          "score": 1682.9505,
+          "rank": 17,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "Kimi K3.1 Pro (Max)",
+          "organization": "moonshot",
+          "license": "Kimi K3.1 Pro License",
+          "category": "webdev",
+          "score": 1682.9505,
+          "rank": 17,
+          "publish_date": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "router_ids": [
+        "minimax-m3.1-flash[1m]"
+      ],
+      "lmarena_model_names": [
+        "MiniMax-M3.1-Flash"
+      ],
+      "matched": true,
+      "benchmarks": [
+        {
+          "config": "agent",
+          "model_name": "MiniMax-M3.1-Flash",
+          "organization": "minimax",
+          "license": "MiniMax Community License",
+          "category": "overall",
+          "score": -0.0367,
+          "rank": 47,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 0.20717878499999998,
+          "output_tokens_per_task_p50": 68464.5,
+          "session_count": 14765.0
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "MiniMax-M3.1-Flash",
+          "organization": "minimax",
+          "license": "MiniMax Community License",
+          "category": "code",
+          "score": 1092.7889,
+          "rank": 42,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "MiniMax-M3.1-Flash",
+          "organization": "minimax",
+          "license": "MiniMax Community License",
+          "category": "overall",
+          "score": 1050.2281,
+          "rank": 47,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "MiniMax-M3.1-Flash",
+          "organization": "minimax",
+          "license": "MiniMax Community License",
+          "category": "code",
+          "score": 1087.465,
+          "rank": 44,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "MiniMax-M3.1-Flash",
+          "organization": "minimax",
+          "license": "MiniMax Community License",
+          "category": "overall",
+          "score": 1051.2613,
+          "rank": 49,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "MiniMax-M3.1-Flash",
+          "organization": "minimax",
+          "license": "MiniMax Community License",
+          "category": "code",
+          "score": 1061.2637,
+          "rank": 46,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "MiniMax-M3.1-Flash",
+          "organization": "minimax",
+          "license": "MiniMax Community License",
+          "category": "overall",
+          "score": 1034.772,
+          "rank": 56,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "webdev",
+          "model_name": "MiniMax-M3.1-Flash",
+          "organization": "minimax",
+          "license": "MiniMax Community License",
+          "category": "overall",
+          "score": 1581.4306,
+          "rank": 49,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "MiniMax-M3.1-Flash",
+          "organization": "minimax",
+          "license": "MiniMax Community License",
+          "category": "webdev",
+          "score": 1581.4306,
+          "rank": 49,
+          "publish_date": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "router_ids": [
+        "mimo-v2.6-flash[1m]"
+      ],
+      "lmarena_model_names": [
+        "MiMo-V2.6-Flash"
+      ],
+      "matched": true,
+      "benchmarks": [
+        {
+          "config": "agent",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": -0.0175,
+          "rank": 43,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 0.07918356319999999,
+          "output_tokens_per_task_p50": 46265.5,
+          "session_count": 37071.0
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "code",
+          "score": 1098.8399,
+          "rank": 40,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1091.8236,
+          "rank": 40,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "code",
+          "score": 1100.243,
+          "rank": 40,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1099.1303,
+          "rank": 38,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "code",
+          "score": 1038.2571,
+          "rank": 51,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1041.3123,
+          "rank": 52,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "text",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "coding",
+          "score": 1495.5177,
+          "rank": 33.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "hard_prompts",
+          "score": 1467.9075,
+          "rank": 53.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "instruction_following",
+          "score": 1444.4076,
+          "rank": 62.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "math",
+          "score": 1468.0901,
+          "rank": 51.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "multi_turn",
+          "score": 1444.3397,
+          "rank": 83.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1449.7822,
+          "rank": 57.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "vision",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1257.51,
+          "rank": 57,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "webdev",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1637.5024,
+          "rank": 30,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "MiMo-V2.6-Flash",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "webdev",
+          "score": 1637.5024,
+          "rank": 30,
+          "publish_date": "2026-11-20"
+        }
+      ]
+    },
+    {
+      "router_ids": [
+        "mimo-v2.6-pro[1m]"
+      ],
+      "lmarena_model_names": [
+        "MiMo-V2.6-Pro"
+      ],
+      "matched": true,
+      "benchmarks": [
+        {
+          "config": "agent",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 0.0142,
+          "rank": 29,
+          "publish_date": "2026-11-18",
+          "cost_per_task_p50": 0.162749411,
+          "output_tokens_per_task_p50": 47615.0,
+          "session_count": 53011.0
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "code",
+          "score": 1123.9074,
+          "rank": 33,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_capability",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1116.9144,
+          "rank": 28,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "code",
+          "score": 1139.6763,
+          "rank": 28,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_task_outcome",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1135.0819,
+          "rank": 25,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "code",
+          "score": 1095.433,
+          "rank": 40,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "agent_tool_efficiency",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1102.6608,
+          "rank": 38,
+          "publish_date": "2026-11-18"
+        },
+        {
+          "config": "text",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "coding",
+          "score": 1534.1322,
+          "rank": 5.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "hard_prompts",
+          "score": 1511.7495,
+          "rank": 12.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "instruction_following",
+          "score": 1493.8248,
+          "rank": 14.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "math",
+          "score": 1493.9216,
+          "rank": 20.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "multi_turn",
+          "score": 1471.8715,
+          "rank": 38.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "text",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1492.7069,
+          "rank": 14.0,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "vision",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1266.0135,
+          "rank": 48,
+          "publish_date": "2026-11-19"
+        },
+        {
+          "config": "webdev",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "overall",
+          "score": 1622.0566,
+          "rank": 35,
+          "publish_date": "2026-11-20"
+        },
+        {
+          "config": "webdev",
+          "model_name": "MiMo-V2.6-Pro",
+          "organization": "xiaomi",
+          "license": "MIT",
+          "category": "webdev",
+          "score": 1622.0566,
+          "rank": 35,
+          "publish_date": "2026-11-20"
+        }
+      ]
+    }
+  ]
+}
