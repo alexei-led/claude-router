@@ -1081,3 +1081,146 @@ test('manual interval breaks reversal pairing without losing either policy move'
   assert.equal(modes.cost.table.switches.moves + modes.quality.table.switches.moves, 2);
   assert.equal(modes.cost.table.switches.oneWay + modes.quality.table.switches.oneWay, 2);
 });
+
+test('replay drops the activity column when activity routing turns off', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
+  // The trace is a shadow artifact; replayAuto proposes the auto alternative from it under the recorded config.
+  const h = shadowHarness(
+    {
+      activityRouting: 'on',
+      baselineTier: 'low',
+      models: {
+        haiku: { capability: { high: { default: 0, code: 0 } } },
+        sonnet: { capability: { high: { default: 2, code: 2.5 } } },
+      },
+      policy: { reviewEveryRequests: 0 },
+    },
+    undefined,
+    jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'),
+  );
+  await h.event('session.start', { cwd: '/fixture' });
+  await h.event('turn.start', { turnId: 'first', text: 'Synthetic task' });
+  h.messages(async () => [user('one')]);
+  await drain(h.step({ ...step, turnId: 'first', messageCount: 1 }));
+  await h.event('turn.complete', { turnId: 'first' });
+  const answers = [
+    jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'),
+    jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'),
+    jevResponse('low', { low: 1 }, 0, null, 'produce'),
+  ];
+  let calls = 0;
+  h.http(async () => ({
+    ok: true,
+    status: 200,
+    headers: {},
+    text: JSON.stringify(answers[Math.min(calls++, answers.length - 1)]),
+  }));
+  await h.event('command.run', { command: 'router', args: 'activities off' });
+  await h.event('turn.start', { turnId: 'second', text: 'Another task' });
+  h.messages(async () => [user('one'), user('two')]);
+  await drain(h.step({ ...step, turnId: 'second', messageCount: 2 }));
+  await h.event('turn.complete', { turnId: 'second' });
+  await h.event('command.run', { command: 'router', args: 'activities on' });
+  await h.event('turn.start', { turnId: 'third', text: 'Third task' });
+  h.messages(async () => [user('one'), user('two'), user('three')]);
+  await drain(h.step({ ...step, turnId: 'third', messageCount: 3 }));
+  await h.event('turn.complete', { turnId: 'third' });
+  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const table = replayTable(record);
+  const auto = replayAuto(record, table.rows);
+  assert.equal(auto[0].activity, 'code');
+  assert.equal(auto[1].activity, null);
+  // Re-enabling without an accepted activity keeps the column live auto retained through the off turn.
+  assert.equal(auto[2].activity, 'code');
+});
+
+test('a reset while activity routing is off drops the retained column', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
+  for (const reset of ['compact', 'history']) {
+    const h = shadowHarness(
+      {
+        activityRouting: 'on',
+        baselineTier: 'low',
+        models: {
+          haiku: { capability: { high: { default: 0, code: 0 } } },
+          sonnet: { capability: { high: { default: 2, code: 2.5 } } },
+        },
+        policy: { reviewEveryRequests: 0 },
+      },
+      undefined,
+      jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'),
+    );
+    const answers = [
+      jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'),
+      jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'),
+      jevResponse('low', { low: 1 }, 0, null, 'produce'),
+    ];
+    let calls = 0;
+    h.http(async () => ({
+      ok: true,
+      status: 200,
+      headers: {},
+      text: JSON.stringify(answers[Math.min(calls++, answers.length - 1)]),
+    }));
+    await h.event('session.start', { cwd: '/fixture' });
+    await h.event('turn.start', { turnId: 'first', text: 'Synthetic task' });
+    h.messages(async () => [user('one'), assistant('a'), user('two')]);
+    await drain(h.step({ ...step, turnId: 'first', messageCount: 3 }));
+    await h.event('turn.complete', { turnId: 'first' });
+    await h.event('command.run', { command: 'router', args: 'activities off' });
+    if (reset === 'compact') await h.event('session.compact', { trigger: 'manual' });
+    await h.event('turn.start', { turnId: 'second', text: 'Another task' });
+    // A shrunken history is the other reset path: its trace event lands before the request's config event.
+    h.messages(async () => [user('one')]);
+    await drain(h.step({ ...step, turnId: 'second', messageCount: reset === 'history' ? 1 : 4 }));
+    await h.event('turn.complete', { turnId: 'second' });
+    await h.event('command.run', { command: 'router', args: 'activities on' });
+    await h.event('turn.start', { turnId: 'third', text: 'Third task' });
+    h.messages(async () => [user('one'), user('two')]);
+    await drain(h.step({ ...step, turnId: 'third', messageCount: 2 }));
+    await h.event('turn.complete', { turnId: 'third' });
+    const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+    const resets = record.events.filter((event) => event.type === 'reset');
+    assert.ok(
+      resets.some((event) => event.cause === (reset === 'compact' ? 'compact' : 'history')),
+      reset,
+    );
+    const table = replayTable(record);
+    const auto = replayAuto(record, table.rows);
+    assert.equal(auto[0].activity, 'code', reset);
+    assert.equal(auto[1].activity, null, reset);
+    assert.equal(auto.at(-1).activity, null, reset);
+  }
+});
+
+test('an activity capability map replays to the live auto route', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-16T10:00:00Z') });
+  const config = {
+    baselineTier: 'low',
+    models: {
+      haiku: { capability: { high: { default: 0, code: 0 } } },
+      sonnet: { capability: { high: { default: 2, code: 2.5 } } },
+    },
+    policy: { reviewEveryRequests: 0 },
+  };
+  const runs = [];
+  for (const routingEngine of ['shadow', 'auto']) {
+    const h = shadowHarness(
+      { ...config, routingEngine },
+      undefined,
+      jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce'),
+    );
+    await h.event('session.start', { cwd: '/fixture' });
+    await h.event('turn.start', { turnId: 'first', text: 'Synthetic task' });
+    h.messages(async () => [user('one')]);
+    await drain(h.step({ ...step, turnId: 'first', messageCount: 1 }));
+    await h.event('turn.complete', { turnId: 'first' });
+    runs.push(h);
+  }
+  const record = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+  assert.deepEqual(record.events[0].configured.models.sonnet.capability.high, { default: 2, code: 2.5 });
+  const table = replayTable(record);
+  assert.deepEqual(table.mismatches, []);
+  const auto = replayAuto(record, table.rows);
+  assert.deepEqual(auto[0].pair, { model: runs[1].requests[0].model, effort: runs[1].requests[0].effort });
+});

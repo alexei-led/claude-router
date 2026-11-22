@@ -21,10 +21,11 @@ message indexes and success flags, not commands, tool results or filesystem-path
 its own switch cursor. Validated routing aliases and model IDs are preserved exactly, including path-shaped IDs;
 classifier endpoints, credentials and the config file's nativePath are not copied.
 
-Records use `trace:v1:<session id>`: 30-day retention, 128 KiB per session, 1 MiB total trace budget and a measured
+Records use `trace:v2:<session id>`: 30-day retention, 128 KiB per session, 1 MiB total trace budget and a measured
 3 MiB guard on the shared plugin store. Pending turns are bounded too. A cap discards the entire pending turn,
 keeps the earlier contiguous prefix usable and counts excluded turns/events. Late starts, resume/reload, gaps,
-conflicts and lost writes are incomplete. A failed write taints memory and persists that taint on the next success;
+conflicts and lost writes are incomplete. Version 1 records (`trace:v1:`) are still read until retired. A failed write
+taints memory and persists that taint on the next success;
 an unavailable store cannot guarantee a durable failure marker. A clean session close is not required.
 Freshness requires the first main request (index 0), no saved loop or trace, and readable normalized request
 history with no assistant messages. Injected startup reminders are user rows and do not make a trace incomplete;

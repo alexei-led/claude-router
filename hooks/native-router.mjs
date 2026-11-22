@@ -22,7 +22,7 @@ import {
   turnActivity,
 } from '../lib/activity-stats.mjs';
 import { advanceDemand, assessCandidates, initialAutoState, selectTarget } from '../lib/auto-engine.mjs';
-import { autoRoute, observeAutoFallback } from '../lib/auto-route.mjs';
+import { adviceActivity, autoRoute, observeAutoFallback } from '../lib/auto-route.mjs';
 import { renderBand, renderRouteLine, switchToast } from '../lib/band.mjs';
 import { ClassifierClient } from '../lib/classifier-client.mjs';
 import { resolveCredentials } from '../lib/classifier-contract.mjs';
@@ -88,6 +88,7 @@ import {
   unavailableReason,
   unpricedLine,
 } from '../lib/display.mjs';
+import { applyEvidenceOverlay, parseEvidenceOverlay } from '../lib/evidence-apply.mjs';
 import {
   clip,
   currentStepText,
@@ -131,9 +132,11 @@ import {
   readTrace,
   TRACE_ACTIVE_MS,
   TRACE_EXPORT_BYTES,
+  TRACE_LEGACY_PREFIX,
   TRACE_PREFIX,
   TRACE_SESSION_BYTES,
   TRACE_STORE_BYTES,
+  TRACE_VERSION,
   traceAdmission,
   traceBytes,
   traceConfig,
@@ -295,6 +298,8 @@ const LEDGERS = {
 const LEDGER_KINDS = Object.keys(LEDGERS);
 
 /** @typedef {ReturnType<typeof readTrace> | ReturnType<typeof newTrace>} TraceRecord */
+// Read and retire records from both schema versions; a session writes only the current one.
+const isTraceKey = (key) => key.startsWith(TRACE_PREFIX) || key.startsWith(TRACE_LEGACY_PREFIX);
 /**
  * @typedef {object} TraceHold
  * @property {string} sessionId
@@ -469,7 +474,7 @@ async function ensureTrace($, router, e, turn, loop, loaded, fresh) {
     held.record ??= newTrace(at, { configured: turn.configured, config: turn.config, loop }, [...held.reasons]);
     if (traceBytes(held.record) > TRACE_SESSION_BYTES - 1024) {
       held.record = {
-        version: 1,
+        version: TRACE_VERSION,
         startedAt: at,
         updatedAt: at,
         active: true,
@@ -616,7 +621,7 @@ async function flushTrace($, router, turnId = null, ending = false) {
       const resetAt = entries.find(([name]) => name === SAVINGS_RESET_KEY)?.[1];
       if (Number.isFinite(resetAt) && held.record.startedAt < resetAt) {
         held.record = {
-          version: 1,
+          version: TRACE_VERSION,
           startedAt: at,
           updatedAt: at,
           active: true,
@@ -649,7 +654,7 @@ async function flushTrace($, router, turnId = null, ending = false) {
         excludedEvents: turn?.buffer?.excludedEvents ?? held.controls?.excludedEvents ?? 0,
       });
       candidate.active = !ending;
-      const traces = entries.filter(([name]) => name.startsWith(TRACE_PREFIX));
+      const traces = entries.filter(([name]) => isTraceKey(name));
       for (const victim of traceVictims(traces, at, key, candidate)) {
         const previous = entries.find(([name]) => name === victim)?.[1];
         const current = await $.store.get(victim);
@@ -683,7 +688,7 @@ async function flushTrace($, router, turnId = null, ending = false) {
 
 async function exportTraces($, router) {
   try {
-    const keys = (await $.store.keys()).filter((key) => key.startsWith(TRACE_PREFIX));
+    const keys = (await $.store.keys()).filter((key) => isTraceKey(key));
     const entries = await Promise.all(keys.map(async (key) => [key, await $.store.get(key)]));
     const root = router.config.nativePath.slice(0, router.config.nativePath.lastIndexOf('/'));
     let path = `${root}/router-traces.json`;
@@ -1267,19 +1272,34 @@ async function loadNativeConfig($, router) {
   const text = exists ? await $.fs.read(path) : null;
   const effortSplitsCache = await effortSplitsCacheOf($);
   try {
+    const userFile = text === null ? null : JSON.parse(text);
     return {
-      ...loadConfig({ userFile: text === null ? null : JSON.parse(text), provider }),
-      nativePath: path,
-      effortSplitsCache,
+      config: { ...loadConfig({ userFile, provider }), nativePath: path, effortSplitsCache },
+      userFile,
     };
   } catch (error) {
     throw invalid(error);
   }
 }
 
+// The private local evidence overlay is optional and user-owned: a missing or malformed file never fails a session or
+// a turn. The hooks runtime refuses a dynamic import, and a static one would fail while the file is absent, so the
+// generated JSON export is read and parsed instead. It is re-read when a session starts or the Mod is reloaded.
+async function loadEvidenceOverlay($) {
+  try {
+    const home = await $.env.get('HOME');
+    if (!home) return null;
+    const path = `${home}/.config/claude-router/evidence.local.mjs`;
+    if (!(await $.fs.exists(path))) return null;
+    return parseEvidenceOverlay(await $.fs.read(path));
+  } catch {
+    return null;
+  }
+}
+
 // Writes router.json through `change(previousFile)` once the result validates. Returns the new config or an error
 // line for the pane; a failure leaves the file untouched.
-async function saveConfig($, active, change) {
+async function saveConfig($, active, change, evidence = null) {
   const path = active.nativePath;
   const filename = path?.split('/').at(-1) ?? 'router.json';
   try {
@@ -1287,13 +1307,15 @@ async function saveConfig($, active, change) {
       throw new Error('selected provider router file is missing');
     if ((await $.fs.exists(path)) && (await $.fs.stat(path)).isLink)
       return { error: `Not saved: ${filename} is a symlink. Edit its maintained source instead.` };
-    const { config, text } = rewrittenConfig(
+    const { config, text, userFile } = rewrittenConfig(
       (await $.fs.exists(path)) ? await $.fs.read(path) : null,
       change,
       active.provider,
     );
     await $.fs.write(path, text);
-    return { config: { ...config, nativePath: path, effortSplitsCache: active.effortSplitsCache } };
+    // The adopted config keeps the session's evidence overlay, so a pane or `/router` save does not drop priors.
+    const merged = applyEvidenceOverlay(config, evidence, userFile);
+    return { config: { ...merged, nativePath: path, effortSplitsCache: active.effortSplitsCache } };
   } catch (error) {
     return { error: notSaved(error, filename) };
   }
@@ -1474,6 +1496,8 @@ function shadowProposal(
       contextKnown,
       availableModels,
       nativeModel,
+      // The shadow alternative ranks by the same capability column the live auto decision would use.
+      activity: adviceActivity(config, advice),
       held: heldAsSeen(heldIds(projected, loop.held, accountHolds ?? {}, now), loop.resolutions),
     });
     const target = selectTarget({
@@ -2769,7 +2793,7 @@ function paneActions($, router, view) {
     };
   };
   const save = async (change, saved) => {
-    const result = await saveConfig($, router.config, change);
+    const result = await saveConfig($, router.config, change, router.evidence);
     if (result.error) return updateView($, router, { notice: result.error });
     const drafts = router.view ?? view;
     const reset = await adopt(result.config);
@@ -2906,7 +2930,7 @@ function paneActions($, router, view) {
         const keys = (await $.store.keys()).filter(
           (key) =>
             key.startsWith(DECISIONS_PREFIX) ||
-            key.startsWith(TRACE_PREFIX) ||
+            isTraceKey(key) ||
             key === LEGACY_STORE_PREFIX ||
             key.startsWith(`${LEGACY_STORE_PREFIX}:`) ||
             Object.values(LEDGERS).some(({ prefix, legacy }) => key.startsWith(prefix) || key === legacy),
@@ -3308,11 +3332,15 @@ async function initializeSession($, router) {
       });
     } catch {}
     const model = await $.session.model();
-    const config = await loadNativeConfig($, router);
+    const loaded = await loadNativeConfig($, router);
+    // The optional private overlay seeds capability where the profile declares none. It is read when a session starts
+    // or the Mod is reloaded (/reload-plugins); a save in between re-applies the same overlay to the adopted config.
+    const overlay = await loadEvidenceOverlay($);
+    const config = applyEvidenceOverlay(loaded.config, overlay, loaded.userFile);
     const project = await readProject($, config.nativePath);
     const existing = await readView($, router);
     // A successful reload adopts this config even for the current turn; stale jobs must not route with the old engine.
-    Object.assign(router, { config, project, view: existing });
+    Object.assign(router, { config, project, view: existing, evidence: overlay });
     for (const controller of router.controllers) controller.abort();
     router.decisions.clear();
     router.turnConfigs.clear();

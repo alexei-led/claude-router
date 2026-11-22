@@ -793,6 +793,40 @@ const glm = {
 const plain = { ...glm, id: 'deepseek-flash', efforts: [] };
 const withChains = (file) => loadConfig({ userFile: { ...file, models: { glm, deepseek: plain, ...file.models } } });
 
+test('an activity capability map names a half-step per activity', () => {
+  const capability = {
+    default: 1.5,
+    code: 2,
+    debug: 0,
+    explore: 3,
+    plan: 1,
+    review: 2.5,
+    ops: 0.5,
+    docs: 1,
+  };
+  const config = loadConfig({ userFile: { models: { sonnet: { capability: { high: capability } } } } });
+  assert.deepEqual(config.models.sonnet.capability.high, capability);
+  assert.equal(
+    loadConfig({ provider: 'mimo', userFile: { models: { flash: { capability: { default: capability } } } } }).models
+      .flash.capability.default.code,
+    2,
+  );
+  for (const value of [
+    { high: { write: 1 } },
+    { high: { code: 4 } },
+    { high: { code: -0.5 } },
+    { high: { code: 0.25 } },
+    { high: { code: '2' } },
+    { high: { code: null } },
+    { high: [] },
+  ])
+    assert.throws(() => loadConfig({ userFile: { models: { sonnet: { capability: value } } } }), /capability/);
+  assert.throws(
+    () => loadConfig({ provider: 'mimo', userFile: { models: { flash: { capability: { high: { code: 2 } } } } } }),
+    /not supported/,
+  );
+});
+
 test('no fallbacks or accounts are configured by default', () => {
   const config = loadConfig();
   assert.deepEqual([config.fallbacks, config.accounts], [{}, {}]);
