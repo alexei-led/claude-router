@@ -7,7 +7,7 @@ import {
   activeHolds,
   classifyFailure,
   clearedModel,
-  clearedModels,
+  clearedSince,
   failureHold,
   heldAsSeen,
   heldIds,
@@ -321,12 +321,13 @@ test('a model answering clears its streak, so the next failure holds five minute
   assert.equal(fails(answered, opus, 'overloaded', now + 20 * MINUTE)[opus].streak, 1);
 });
 
-test('clearing several answered models leaves the others, and no change returns the same object', () => {
-  const held = fails(fails(fails({}, opus, 'overloaded', now), opus, 'overloaded', now), 'other', 'overloaded', now);
-  const cleared = clearedModels(held, [opus]);
-  assert.deepEqual(Object.keys(cleared), ['other']);
-  assert.equal(clearedModels(held, []), held);
-  assert.equal(clearedModels(held, ['absent']), held);
+test('an answer at a time clears the hold set before it, and never one set after it', () => {
+  const held = fails(fails({}, opus, 'overloaded', now), 'other', 'overloaded', now);
+  assert.deepEqual(Object.keys(clearedSince(held, opus, now + MINUTE)), ['other']);
+  // The failure here is later than the answer: a stale queued clear must not remove it.
+  assert.equal(clearedSince(held, opus, now - MINUTE), held);
+  assert.equal(clearedSince(held, 'absent', now + MINUTE), held);
+  assert.deepEqual(clearedSince({}, opus, now), {});
 });
 
 test('a model answering leaves other models’ streaks, and clears one under its bracketed id', () => {
