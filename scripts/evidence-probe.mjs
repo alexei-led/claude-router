@@ -28,7 +28,8 @@ function usage() {
   --manifest <file>      task manifest (default data/probes/manifest.json)
   --model canonical=id@effort   a pair to run; repeat for more pairs
   --profile <dir>        CLAUDE_CONFIG_DIR for the CLI (for example ~/.claude-team)
-  --wrapper <name>       run the CLI through a zsh function such as claude-mp-work
+  --wrapper <name>       run the CLI through a zsh function such as claude-work
+  --no-router            disable the router plugin so --model and --effort reach the API unchanged
   --repeats <n>          attempts per task (default 2)
   --fresh                discard the accumulated raw results before this run
   --budget-usd <n>       stop before the estimated spend exceeds this (default 1)
@@ -59,6 +60,7 @@ function parseArgs(argv) {
     aggregate: null,
     wrapper: null,
     fresh: false,
+    noRouter: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -86,6 +88,7 @@ function parseArgs(argv) {
     else if (arg === '--include-examples') options.examples = true;
     else if (arg === '--wrapper') options.wrapper = value();
     else if (arg === '--fresh') options.fresh = true;
+    else if (arg === '--no-router') options.noRouter = true;
     else fail(`unknown argument ${arg} (try --help)`);
   }
   if (!Number.isInteger(options.repeats) || options.repeats < 1) fail('--repeats must be a positive integer');
@@ -181,6 +184,7 @@ async function runCase(item, options) {
     '--max-budget-usd',
     String(Math.max(item.task.estimateUsd, 0.01)),
   ];
+  if (options.noRouter) args.push('--settings', '{"enabledPlugins":{"router@alexei-led-claude-router":false}}');
   if (item.model.modelId) args.push('--model', item.model.modelId);
   if (item.model.effort) args.push('--effort', item.model.effort);
   const cwd = mkdtempSync(join(tmpdir(), 'evidence-probe-'));

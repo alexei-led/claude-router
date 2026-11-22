@@ -127,11 +127,14 @@ three consecutive launch errors. Raw rows accumulate across runs (`--fresh` star
 lands in `~/.config/claude-router/evidence.probe.{raw,}.json` (mode 600). `--wrapper <zsh-function>` runs
 the CLI through a provider wrapper such as `claude-mp-work`.
 
-**Limitation:** a non-Anthropic provider profile cannot be probed through its wrapper yet. Claude Code
-validates the session model against the ids it knows, and the router's provider ids (`glm-5.3[1m]`,
-`deepseek-flash[1m]`) fail that check; a temporary route-controlled profile loses the provider catalog and
-passes the request through. Probe Anthropic models directly today; provider cells come from the Artificial
-Analysis overlay, and a direct HTTP probe adapter is the next step.
+Anthropic pairs probe exactly: `--wrapper claude-work --no-router --model claude-opus-5-5 --effort medium`
+disables the router plugin through a settings override, so the requested model and effort reach the API
+unchanged and the work wrapper supplies its own quota. Without `--no-router` the router rewrites the model
+to its own route, and the run measures that route instead.
+
+**Limitation:** a non-Anthropic provider profile cannot be probed yet. With the router off, Claude Code
+still rejects the provider ids (`glm-5.3[1m]`, `deepseek-flash[1m]`) as unknown session models; a direct
+HTTP probe adapter is the next step. Provider cells come from the Artificial Analysis overlay meanwhile.
 
 ### How results become capability
 
