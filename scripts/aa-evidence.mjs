@@ -72,7 +72,7 @@ const MODELS = {
   'claude-fable-5-2': ['claude-fable-5-2'],
   'glm-5-3': ['glm-5.3', 'zai-org/GLM-5.3'],
   'glm-5-3-flash': ['glm-5.3-flash', 'zai-org/GLM-5.3-Flash'],
-  'deepseek-v4-1-flash-1017': ['deepseek-v4.1-flash-1017', 'deepseek-ai/DeepSeek-V4.1-Flash-1017'],
+  'deepseek-v4-1-flash-1017': ['deepseek-v4.1-flash-1017', 'deepseek-ai/DeepSeek-V4.1-Flash-1017', 'deepseek-flash'],
   'kimi-k3-1-pro': ['kimi-k3.1-pro', 'moonshotai/Kimi-K3.1-Pro'],
   'minimax-m3-1-flash': ['minimax-m3.1-flash', 'MiniMax-M3.1-Flash'],
   'mimo-v2-6-flash': ['mimo-v2.6-flash'],
