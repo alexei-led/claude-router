@@ -2612,20 +2612,22 @@ async function* stepAgent($, router, e, next) {
   // A reply from the model itself clears its failure streak, as a main reply does (observeResponse): a hold written
   // from this agent's failure is over, and the next one starts at the base time again.
   if (response?.usage && typeof e.model === 'string' && isSameModel(e.model, response.usage.model))
-    await clearAgentHeld($, e.model);
+    await clearAgentHeld($, router, e.model);
   return response;
 }
 
-// The model holds without `model`'s, as a main reply leaves them: the model answered, so its streak starts over. A
-// write that lost to another leaves the loop as it is.
-async function clearAgentHeld($, model) {
+// The model holds without `model`'s, as a main reply leaves them: the model answered, so its streak starts over. The
+// view is refreshed after the write, so the pane and `/router release` stop naming a hold routing no longer keeps; a
+// write that lost to another leaves both the loop and the view as they are.
+async function clearAgentHeld($, router, model) {
   try {
     const ref = { ...LOOP, id: 'main' };
     const { value: loop, version } = await $.state.get(ref);
     if (!loop?.held) return;
     const held = clearedModel(loop.held, model);
     if (held === loop.held) return;
-    await $.state.set(ref, { ...loop, held }, { ifVersion: version });
+    const written = await $.state.set(ref, { ...loop, held }, { ifVersion: version });
+    if (written.isSet) await updateView($, router, { holds: await holdsAfter($, router, held) });
   } catch {}
 }
 

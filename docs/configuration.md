@@ -4,14 +4,14 @@ Select a [provider profile](providers.md), then configure the key of the classif
 
 ## Key and profile settings
 
-| Item                               | Where it lives                                  | How to change it                                                                                |
-| ---------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Jev API key                        | Sensitive plugin option `typesafe_api_key`      | Run `/plugin configure router`, or use **Set up** or **Credentials → Edit** in the router pane (on the desktop app, VS Code and mobile they show the command to run in a terminal). |
-| Cloudflare API token               | Sensitive plugin option `cloudflare_api_token`  | The same dialog. Used by Clef, Clef Flash and Clef Omni.                                        |
-| Cloudflare account ID              | Plugin option `cloudflare_account_id`           | The same dialog, or the config menu row. Not a secret.                                          |
-| OpenAI API key                     | Sensitive plugin option `openai_api_key`        | The same dialog. Used only by the OpenAI classifier. Ollama needs no key.                       |
-| Router settings and classifier     | The selected router file in the active Claude Code profile | Edit the file directly, or use the pane's Routes, Policy and Classifier tabs.                   |
-| Execution provider credentials and API cost | Claude Code                                     | The Mod leaves these to Claude Code.                                                            |
+| Item                                        | Where it lives                                             | How to change it                                                                                                                                                                    |
+| ------------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Jev API key                                 | Sensitive plugin option `typesafe_api_key`                 | Run `/plugin configure router`, or use **Set up** or **Credentials → Edit** in the router pane (on the desktop app, VS Code and mobile they show the command to run in a terminal). |
+| Cloudflare API token                        | Sensitive plugin option `cloudflare_api_token`             | The same dialog. Used by Clef, Clef Flash and Clef Omni.                                                                                                                            |
+| Cloudflare account ID                       | Plugin option `cloudflare_account_id`                      | The same dialog, or the config menu row. Not a secret.                                                                                                                              |
+| OpenAI API key                              | Sensitive plugin option `openai_api_key`                   | The same dialog. Used only by the OpenAI classifier. Ollama needs no key.                                                                                                           |
+| Router settings and classifier              | The selected router file in the active Claude Code profile | Edit the file directly, or use the pane's Routes, Policy and Classifier tabs.                                                                                                       |
+| Execution provider credentials and API cost | Claude Code                                                | The Mod leaves these to Claude Code.                                                                                                                                                |
 
 The active profile directory is `CLAUDE_CONFIG_DIR` when set. Otherwise it is `~/.claude`. The Mod does not need an Anthropic proxy URL, model alias, hint header, daemon, or custom status line.
 
@@ -61,15 +61,15 @@ is separate from `strength`, which still controls the current table routing. Cap
 All non-Anthropic built-in model windows are at least 1M tokens.
 Every built-in price, Claude and provider, comes from [`lib/prices.mjs`](../lib/prices.mjs), which names each vendor's official price page and the date the prices were last checked: 2026-11-04 for the provider prices and 2026-11-10 for Anthropic. See [Keep prices current](#keep-prices-current).
 
-| Model | Input / output / cached input, USD per million tokens |
-| --- | --- |
-| DeepSeek Flash | 0.30 / 1.20 / 0.006 |
-| GLM-5.3-Flash | 0.15 / 0.50 / 0.03 |
-| GLM-5.3 | 1.40 / 4.40 / 0.26 |
-| MiniMax-M3.1-Flash | 0.15 / 0.60 / 0.015 |
-| MiMo-V2.6-Flash | 0.14 / 0.28 / 0.0028 |
-| MiMo-V2.6-Pro | 0.435 / 0.87 / 0.0036 |
-| Kimi-K3.1-Pro | 2.00 / 10.00 / 0.20 |
+| Model              | Input / output / cached input, USD per million tokens |
+| ------------------ | ----------------------------------------------------- |
+| DeepSeek Flash     | 0.30 / 1.20 / 0.006                                   |
+| GLM-5.3-Flash      | 0.15 / 0.50 / 0.03                                    |
+| GLM-5.3            | 1.40 / 4.40 / 0.26                                    |
+| MiniMax-M3.1-Flash | 0.15 / 0.60 / 0.015                                   |
+| MiMo-V2.6-Flash    | 0.14 / 0.28 / 0.0028                                  |
+| MiMo-V2.6-Pro      | 0.435 / 0.87 / 0.0036                                 |
+| Kimi-K3.1-Pro      | 2.00 / 10.00 / 0.20                                   |
 
 These are estimate inputs, not an invoice; z.ai plan quota uses its own multipliers. DeepSeek Flash lists its peak rates: 01:00–04:00 and 06:00–10:00 UTC, Monday to Friday. At every other hour it bills half, and the router prices each reply and each routing estimate at the rate of its time. DeepSeek also bills Chinese public holidays at off-peak rates, which the router does not know, so a holiday is priced at peak, the higher bound.
 
@@ -85,11 +85,11 @@ A provider name or URL does not establish its billing product.
 
 `cache.mode` controls the router's cost estimates, not the provider's server cache.
 
-| Mode | Use | Estimate |
-| --- | --- | --- |
-| `explicit` | Anthropic default | Configured write multipliers and TTLs |
+| Mode        | Use                                                    | Estimate                                                 |
+| ----------- | ------------------------------------------------------ | -------------------------------------------------------- |
+| `explicit`  | Anthropic default                                      | Configured write multipliers and TTLs                    |
 | `automatic` | All other built-in profiles and custom-profile default | Reported hit/miss input rates, no separate write premium |
-| `disabled` | No cache discount to model | All input at the uncached rate, never marked warm |
+| `disabled`  | No cache discount to model                             | All input at the uncached rate, never marked warm        |
 
 Automatic-cache bounds allow a future hit or a full miss, including after an observed miss.
 The router does not assume a five-minute or one-hour lifetime. Payback is unknown.
@@ -98,12 +98,12 @@ They skip fixed-token payback because it cannot value changes in generated think
 
 `cache.effortScope` accepts these values:
 
-| Value | Meaning |
-| --- | --- |
-| `auto` | Existing Claude cache detection |
-| `shared` | One cache identity across efforts |
-| `separate` | One cache identity per effort |
-| `unknown` | Keep observations separate without claiming that the provider separates caches |
+| Value      | Meaning                                                                        |
+| ---------- | ------------------------------------------------------------------------------ |
+| `auto`     | Existing Claude cache detection                                                |
+| `shared`   | One cache identity across efforts                                              |
+| `separate` | One cache identity per effort                                                  |
+| `unknown`  | Keep observations separate without claiming that the provider separates caches |
 
 Automatic-cache presets use `unknown`. Set `shared` only when the provider contract establishes sharing.
 An unknown cache state is not proof of a miss.
@@ -133,7 +133,7 @@ The engine is selected in this file, not by a `/router` command.
 
 - **`table` (default):** the deterministic tier-by-activity routes are used. Routing modes transform those routes before the table policy.
 - **`shadow`:** the table still sends every request. The automatic engine records one-step proposals against the real incumbent and cache, without keeping a separate route history or asking the classifier again. The Now pane and `/router decisions` show demand, target, capability (or unknown), outcome and a next-turn estimate. While shadow is enabled, the main-turn hook also records bounded replay traces. Export with `/router trace export`; for the work profile (`CLAUDE_CONFIG_DIR=~/.claude-team`) the file is `~/.claude-team/router-traces.json`. Retain all incremental export and rollover files. From a source checkout, run `node scripts/replay-traces.mjs ~/.claude-team/router-traces.json`, adding every rollover file as another argument. The export lives beside the selected profile config; the replay CLI is not included in the npm package. Replay checks table fidelity first; evaluation and exposure gates remain unestablished. See [evaluation](evaluation.md#replay-trace-recorder).
-- **`auto`:** the stateful engine selects each main-turn model and effort from the configured catalog using classifier demand, a mode margin, and hard/cache constraints. It does not use route tables or mode policy patches. Tier pins set exact demand for one turn, without a mode margin, and still obey hard constraints. A first routed decision can move from a known below-requirement native model to a declared qualifying candidate under the normal switch-tax and cash gates; failures can escalate to stronger eligible candidates. Demand, votes, holds and routed demand persist across turns. If no eligible candidate fits, the native request is kept with reason `no-route-native`; after an observed provider fallback, the rest of that turn stays native, and the next turn can re-enter an eligible route. Unlike `table` and `shadow`, it does not hold out a model whose turn ended on an API error ([When a model fails](user-guide.md#when-a-model-fails)).
+- **`auto`:** the stateful engine selects each main-turn model and effort from the configured catalog using classifier demand, a mode margin, and hard/cache constraints. It does not use route tables or mode policy patches. Tier pins set exact demand for one turn, without a mode margin, and still obey hard constraints. A first routed decision can move from a known below-requirement native model to a declared qualifying candidate under the normal switch-tax and cash gates; failures can escalate to stronger eligible candidates. Demand, votes, holds and routed demand persist across turns. If no eligible candidate fits, the native request is kept with reason `no-route-native`; after an observed provider fallback, the rest of that turn stays native, and the next turn can re-enter an eligible route. A model whose turn ended on an API error, or every model of an account with a used-up quota, is held out of its candidates, so the next turn routes around it ([When a model fails](user-guide.md#when-a-model-fails)); the replacement comes from the catalog rather than the `fallbacks` chains, and when the hold ends the ordinary demand, switch-tax and cache gates decide whether the route moves back. A subagent spawn whose routed model is held keeps Claude Code's own model.
 
 Auto asks the active classifier for demand. Configure a classifier credential when the provider requires a key; local Ollama needs no key. Without classifier advice, the engine cannot detect demand and holds the startup route; a qualifying startup capability move based on the prompt tier may still occur.
 
@@ -161,14 +161,18 @@ Every default route names its effort, so no default tier keeps the effort Claude
 To restore the 1.3 ladder, with Sonnet 5.5 at `low` on the session effort and Haiku 5.5 at `low` effort for `micro`:
 
 ```json
-{ "routes": { "low": { "model": "sonnet", "effort": null }, "micro": { "model": "haiku", "effort": "low" } } }
+{
+  "routes": {
+    "low": { "model": "sonnet", "effort": null },
+    "micro": { "model": "haiku", "effort": "low" }
+  }
+}
 ```
 
 No default route runs Claude Fable 5.2 (`fable`). It costs twice Opus 5.5 per input and output token, with the same
 $0.20 cache read. It costs less per task only against Opus at its top
 efforts: on FrontierCode 2.0, Fable at `high` scored 45.3% at $6.72 per task and Opus at `max` 45.5% at $12.82
-(Anthropic's system card, Cognition's runs). Artificial Analysis, with both at `max`, ranks Fable first (index 65 vs
-59) at $26.54 vs $10.04 and 44.6 vs 25.1 minutes per task. To run it where Opus would run at `xhigh` or `max`:
+(Anthropic's system card, Cognition's runs). Artificial Analysis, with both at `max`, ranks Fable first (index 65 vs 59) at $26.54 vs $10.04 and 44.6 vs 25.1 minutes per task. To run it where Opus would run at `xhigh` or `max`:
 
 ```json
 { "routes": { "high": { "model": "fable", "effort": "high" } } }
@@ -332,8 +336,8 @@ An agent whose `model` names a model, such as `model: haiku`, keeps it. The Usag
 ```yaml
 ---
 name: runner
-model: haiku          # without the router
-modelRouting: auto    # the router may choose
+model: haiku # without the router
+modelRouting: auto # the router may choose
 ---
 ```
 
@@ -350,7 +354,11 @@ These agents always keep their model:
 {
   "subagentRouting": "on",
   "subagents": {
-    "types": { "Explore": "haiku", "Plan": "classify", "general-purpose": "classify" },
+    "types": {
+      "Explore": "haiku",
+      "Plan": "classify",
+      "general-purpose": "classify"
+    },
     "light": "haiku",
     "standard": "sonnet",
     "heavy": "opus",
@@ -387,45 +395,45 @@ Start with the setting you need and leave the rest at defaults. For example, req
 
 The Mod validates the whole file. Unknown keys and invalid values make routing unavailable with a general configuration error. Retired gateway keys and the 1.1 `jev` section trigger a migration instruction. The migration command reports an invalid setting path and does not print its value.
 
-| Section                        | Supported fields                                                                     | Defaults                                                 |
-| ------------------------------ | ------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| `baselineTier`                 | `micro`, `low`, `medium`, `high`                                                     | `low`                                                    |
-| `routes.<tier>`                | `model`, optional `effort` (a level, or `null` for the session effort)               | As in the route table above                              |
-| `activityRouting`              | `off`, `on`                                                                          | `on`                                                     |
-| `mode`                         | `cost`, `balanced`, `quality` ([Routing modes](routing-modes.md))                    | `balanced`                                               |
-| `modes.<cost\|quality>.policy` | any `policy` field, used while that mode is active                                   | [Routing modes](routing-modes.md#policy-per-mode); not tuned |
-| `activities.<activity>.<tier>` | optional `model` and `effort`, as in `routes`                                        | The overrides in [Activity routing](#activity-routing)   |
-| `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, optional `longContext` (`above`, `multiplier`, or `null`), optional `offPeak` (`multiplier`, `peakDays` as UTC weekdays 0–6 from Sunday, `peakHoursUtc` as `[from, to)` hour ranges, or `null`), `contextWindow`, `billing`, `efforts`, optional `strength`, optional `capability`, `imageInput`, optional `account`, optional `requiresOwnHistory` | Four defaults above                                     |
-| `fallbacks.<alias>`            | A list of `alias` or `alias@effort` entries: the models that stand in when `<alias>` is held out | `{}` (none)                                      |
-| `accounts.<name>.reset`        | `monthly` (day 1-28) and `tz` (an IANA time zone)                                     | `{}` (none)                                              |
-| `cache`                        | `mode`, `effortScope`, `writeMultiplier`, `ttlMs`, `warmMarginMs`                                           | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms |
-| `policy`                       | Fields below                                                                         | Values below                                             |
-| `classifier`                   | An id in `classifiers`                                                               | `jev`                                                    |
-| `classifiers.<id>`             | `label`, `api`, `endpoint`, `model`, `keyOption`, `timeoutMs`                        | [Classifiers](#classifiers) above                        |
-| `context`                      | `recentTurns`, `maxTextChars`                                                        | `6`, `1200`                                              |
-| `subagentRouting`              | `off`, `on`                                                                          | `on`                                                     |
-| `subagents`                    | `types` (type → models key, `classify` or `null`), `light`, `standard`, `heavy`, `heavyMass` | [Subagent routing](#subagent-routing)            |
+| Section                        | Supported fields                                                                                                                                                                                                                                                                                                                                                                                   | Defaults                                                     |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `baselineTier`                 | `micro`, `low`, `medium`, `high`                                                                                                                                                                                                                                                                                                                                                                   | `low`                                                        |
+| `routes.<tier>`                | `model`, optional `effort` (a level, or `null` for the session effort)                                                                                                                                                                                                                                                                                                                             | As in the route table above                                  |
+| `activityRouting`              | `off`, `on`                                                                                                                                                                                                                                                                                                                                                                                        | `on`                                                         |
+| `mode`                         | `cost`, `balanced`, `quality` ([Routing modes](routing-modes.md))                                                                                                                                                                                                                                                                                                                                  | `balanced`                                                   |
+| `modes.<cost\|quality>.policy` | any `policy` field, used while that mode is active                                                                                                                                                                                                                                                                                                                                                 | [Routing modes](routing-modes.md#policy-per-mode); not tuned |
+| `activities.<activity>.<tier>` | optional `model` and `effort`, as in `routes`                                                                                                                                                                                                                                                                                                                                                      | The overrides in [Activity routing](#activity-routing)       |
+| `models.<alias>`               | `id`, `input`, optional `output`, `cacheRead`, optional `longContext` (`above`, `multiplier`, or `null`), optional `offPeak` (`multiplier`, `peakDays` as UTC weekdays 0–6 from Sunday, `peakHoursUtc` as `[from, to)` hour ranges, or `null`), `contextWindow`, `billing`, `efforts`, optional `strength`, optional `capability`, `imageInput`, optional `account`, optional `requiresOwnHistory` | Four defaults above                                          |
+| `fallbacks.<alias>`            | A list of `alias` or `alias@effort` entries: the models that stand in when `<alias>` is held out                                                                                                                                                                                                                                                                                                   | `{}` (none)                                                  |
+| `accounts.<name>.reset`        | `monthly` (day 1-28) and `tz` (an IANA time zone)                                                                                                                                                                                                                                                                                                                                                  | `{}` (none)                                                  |
+| `cache`                        | `mode`, `effortScope`, `writeMultiplier`, `ttlMs`, `warmMarginMs`                                                                                                                                                                                                                                                                                                                                  | `5m: 1.25`, `1h: 2`; `300000` / `3600000` ms; `30000` ms     |
+| `policy`                       | Fields below                                                                                                                                                                                                                                                                                                                                                                                       | Values below                                                 |
+| `classifier`                   | An id in `classifiers`                                                                                                                                                                                                                                                                                                                                                                             | `jev`                                                        |
+| `classifiers.<id>`             | `label`, `api`, `endpoint`, `model`, `keyOption`, `timeoutMs`                                                                                                                                                                                                                                                                                                                                      | [Classifiers](#classifiers) above                            |
+| `context`                      | `recentTurns`, `maxTextChars`                                                                                                                                                                                                                                                                                                                                                                      | `6`, `1200`                                                  |
+| `subagentRouting`              | `off`, `on`                                                                                                                                                                                                                                                                                                                                                                                        | `on`                                                         |
+| `subagents`                    | `types` (type → models key, `classify` or `null`), `light`, `standard`, `heavy`, `heavyMass`                                                                                                                                                                                                                                                                                                       | [Subagent routing](#subagent-routing)                        |
 
 Policy defaults:
 
-| Field                   | Default | Meaning                                                                                            |
-| ----------------------- | ------: | -------------------------------------------------------------------------------------------------- |
-| `upgradeVotes`          |     `2` | Consecutive supporting votes before an upgrade; one before a history's first measured reply.       |
-| `upgradeBase`           |  `0.75` | Minimum probability mass required for an upgrade.                                                  |
-| `upgradeSlope`          |  `0.15` | Maximum increase to the upgrade bar from estimated switching cost.                                 |
-| `upgradePivotUsd`       |   `0.5` | Cost scale used by the upgrade bar. Must be positive.                                              |
-| `jumpConfidence`        |  `0.95` | Support for a two-tier jump without waiting for votes.                                             |
-| `downgradeVotes`        |     `2` | Consecutive supporting votes before a downgrade; one before a history's first measured reply.      |
-| `downgradeMass`         |   `0.9` | Minimum probability mass at or below the target tier required for a downgrade.                     |
-| `downgradeSlope`        |  `0.08` | Maximum increase to the downgrade bar from estimated switching cost.                               |
-| `downgradePivotUsd`     |   `0.5` | Cost scale used by the downgrade bar. Must be positive.                                            |
-| `downgradeHorizonTurns` |     `5` | Later turns included in a downgrade payback estimate.                                              |
-| `continuationMass`      |   `0.7` | Advice probability at which a new prompt counts as the running task, not a new one.                |
+| Field                   | Default | Meaning                                                                                              |
+| ----------------------- | ------: | ---------------------------------------------------------------------------------------------------- |
+| `upgradeVotes`          |     `2` | Consecutive supporting votes before an upgrade; one before a history's first measured reply.         |
+| `upgradeBase`           |  `0.75` | Minimum probability mass required for an upgrade.                                                    |
+| `upgradeSlope`          |  `0.15` | Maximum increase to the upgrade bar from estimated switching cost.                                   |
+| `upgradePivotUsd`       |   `0.5` | Cost scale used by the upgrade bar. Must be positive.                                                |
+| `jumpConfidence`        |  `0.95` | Support for a two-tier jump without waiting for votes.                                               |
+| `downgradeVotes`        |     `2` | Consecutive supporting votes before a downgrade; one before a history's first measured reply.        |
+| `downgradeMass`         |   `0.9` | Minimum probability mass at or below the target tier required for a downgrade.                       |
+| `downgradeSlope`        |  `0.08` | Maximum increase to the downgrade bar from estimated switching cost.                                 |
+| `downgradePivotUsd`     |   `0.5` | Cost scale used by the downgrade bar. Must be positive.                                              |
+| `downgradeHorizonTurns` |     `5` | Later turns included in a downgrade payback estimate.                                                |
+| `continuationMass`      |   `0.7` | Advice probability at which a new prompt counts as the running task, not a new one.                  |
 | `escalationHoldTurns`   |     `2` | Decisions held after a repeated tool error escalates the route; each turn and in-turn review counts. |
-| `cashCapUsd`            |     `2` | Maximum estimated cold cache write for a `credits` model. It does not cap output or session spend. |
-| `activityMass`          |   `0.6` | Minimum probability for the classifier's activity to apply. Not tuned on any classifier.           |
-| `reviewEveryRequests`   |     `4` | Requests between classifier reviews inside a turn; `0` turns them off. Not tuned.                  |
-| `minDwellRequests`      |     `8` | Requests after a model change before a cheaper route on the same task. Not tuned.                  |
+| `cashCapUsd`            |     `2` | Maximum estimated cold cache write for a `credits` model. It does not cap output or session spend.   |
+| `activityMass`          |   `0.6` | Minimum probability for the classifier's activity to apply. Not tuned on any classifier.             |
+| `reviewEveryRequests`   |     `4` | Requests between classifier reviews inside a turn; `0` turns them off. Not tuned.                    |
+| `minDwellRequests`      |     `8` | Requests after a model change before a cheaper route on the same task. Not tuned.                    |
 
 The pane writes a subset of these settings. The **Routes** and **Policy** tabs set `routes`, `activities`, `activityRouting`, `baselineTier`, `policy.downgradeVotes`, `policy.downgradeHorizonTurns`, `policy.cashCapUsd`, and `policy.activityMass` in one save: it writes only values that differ from the defaults and removes the rest. `/router activities <mode>` writes `activityRouting` at once, with **Undo**. **Mode** on the Policy tab writes `mode` at once, with **Undo**; `/router mode` changes only the session and writes no file. The **Classifier** tab sets `classifier` and the active classifier's `timeoutMs` at once. **Undo** reverts the settings the last pane write changed. Each save validates the whole file, keeps other keys, and applies from the next turn. A failed check names the setting and leaves the file unchanged. The pane refuses to write through a symlink. Model aliases and the other settings require a direct edit.
 
@@ -480,21 +488,21 @@ When a model is held out of routing ([When a model fails](user-guide.md#when-a-m
 
 Each of these makes the file invalid, and routing unavailable, until fixed. The message names the setting, never its value:
 
-| Message                                                                 | Cause                                                            |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `fallbacks.<alias> is not in models`                                     | The source key is not a model.                                   |
-| `fallbacks.<alias> must be a list`                                       | The value is not a list.                                         |
-| `fallbacks.<alias>[i] must be a models key or models key@effort`         | An entry is not a string of that shape.                          |
-| `fallbacks.<alias>[i] is not in models`                                  | A target key is not a model.                                     |
-| `fallbacks.<alias>[i] is the model it stands in for`                     | A model lists itself.                                            |
-| `fallbacks.<alias>[i] is listed twice`                                   | A target appears twice in one chain.                             |
-| `fallbacks.<alias>[i] effort is not supported by its model`              | The effort is not in the target's `efforts`.                     |
-| `fallbacks.<alias> mixes a model that requires its own history with another model` | A chain holds such a model together with another.      |
-| `models.<alias>.account must be a name of letters, digits, dots, dashes and underscores` | A bad account name.                        |
+| Message                                                                                          | Cause                                                                                       |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `fallbacks.<alias> is not in models`                                                             | The source key is not a model.                                                              |
+| `fallbacks.<alias> must be a list`                                                               | The value is not a list.                                                                    |
+| `fallbacks.<alias>[i] must be a models key or models key@effort`                                 | An entry is not a string of that shape.                                                     |
+| `fallbacks.<alias>[i] is not in models`                                                          | A target key is not a model.                                                                |
+| `fallbacks.<alias>[i] is the model it stands in for`                                             | A model lists itself.                                                                       |
+| `fallbacks.<alias>[i] is listed twice`                                                           | A target appears twice in one chain.                                                        |
+| `fallbacks.<alias>[i] effort is not supported by its model`                                      | The effort is not in the target's `efforts`.                                                |
+| `fallbacks.<alias> mixes a model that requires its own history with another model`               | A chain holds such a model together with another.                                           |
+| `models.<alias>.account must be a name of letters, digits, dots, dashes and underscores`         | A bad account name.                                                                         |
 | `models.<alias>.account must not be plan for a credits model: plan is the Claude plan's account` | A credits model names the account `plan`, or is keyed `plan` without an account of its own. |
-| `models.<alias>.requiresOwnHistory must be a boolean`                    | Not `true` or `false`.                                           |
-| `accounts.<name>.reset.monthly must be a day from 1 to 28`               | The day is not a whole number from 1 to 28.                      |
-| `accounts.<name>.reset.tz must be an IANA time zone`                     | The zone is missing or unknown.                                  |
+| `models.<alias>.requiresOwnHistory must be a boolean`                                            | Not `true` or `false`.                                                                      |
+| `accounts.<name>.reset.monthly must be a day from 1 to 28`                                       | The day is not a whole number from 1 to 28.                                                 |
+| `accounts.<name>.reset.tz must be an IANA time zone`                                             | The zone is missing or unknown.                                                             |
 
 The pane reads these settings but does not write them: **Routes** shows the chains in **FALLBACKS**, **Now** shows what is held. Edit the file directly.
 
