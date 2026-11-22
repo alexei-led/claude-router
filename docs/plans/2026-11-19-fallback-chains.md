@@ -22,13 +22,13 @@ API failover exists (`lib/failover.mjs`): a model whose turn ended on `rate_limi
 The local transcripts (`~/.claude/projects/**/*.jsonl`, entries with `isApiErrorMessage`) give the error shapes.
 Counts are from this machine on 2026-11-18.
 
-| `error`        | Transcript fields                                                                                          | Count |
-| -------------- | ---------------------------------------------------------------------------------------------------------- | ----: |
+| `error`        | Transcript fields                                                                                           | Count |
+| -------------- | ----------------------------------------------------------------------------------------------------------- | ----: |
 | `rate_limit`   | `apiError: "usage_limit_reached"`, `quotaLimits {status: "rejected", rateLimitType: "five_hour", resetsAt}` |    73 |
-| `rate_limit`   | the same with `rateLimitType: "seven_day"`                                                                 |    17 |
+| `rate_limit`   | the same with `rateLimitType: "seven_day"`                                                                  |    17 |
 | `rate_limit`   | the same with `overageDisabledReason: "org_level_disabled_until"`, text "monthly spend limit"               |   ~70 |
-| `rate_limit`   | `apiErrorStatus: 429`, no `quotaLimits`, text "[1113] Insufficient balance … recharge" (z.ai)              |     1 |
-| `server_error` | DNS, connection refused or lost, 502                                                                       |    72 |
+| `rate_limit`   | `apiErrorStatus: 429`, no `quotaLimits`, text "[1113] Insufficient balance … recharge" (z.ai)               |     1 |
+| `server_error` | DNS, connection refused or lost, 502                                                                        |    72 |
 
 A plugin cannot read these fields directly: `StopFailure` carries `error`, `error_details?` and
 `last_assistant_message?`, and `$.fs.read` of the transcript rejects files over 4 MiB. The router already reads the
@@ -41,13 +41,13 @@ Step 1 records both before the classifier depends on them.
 
 ### Failure kinds
 
-| Kind           | Recognised by                                                                                        | Held                       | Ends                                                         |
-| -------------- | ---------------------------------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------ |
-| `availability` | `overloaded`, `server_error`, `model_not_found`, or `rate_limit` with no quota signal                 | the model                  | fixed time, doubled per consecutive failed retry (cap 60 min) |
-| `window`       | `rate_limit`, and a `five_hour` or `seven_day` reading at `percentUsed >= 100` with a future reset    | the account                | the latest such `resetsAt` + 1 min, capped at 7 days          |
-| `calendar`     | `rate_limit` with "spend limit" in `error_details` and no window at 100%, on an account with `reset` | the account                | the account's configured reset                               |
-| `balance`      | `billing_error`, or a `rate_limit` whose `error_details` match balance, recharge or credit           | the account                | a release                                                    |
-| none           | `authentication_failed`, `oauth_org_not_allowed`, `account_on_hold`, `invalid_request`, `unknown`, … | nothing                    | not held: another model would not help                       |
+| Kind           | Recognised by                                                                                        | Held        | Ends                                                          |
+| -------------- | ---------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------- |
+| `availability` | `overloaded`, `server_error`, `model_not_found`, or `rate_limit` with no quota signal                | the model   | fixed time, doubled per consecutive failed retry (cap 60 min) |
+| `window`       | `rate_limit`, and a `five_hour` or `seven_day` reading at `percentUsed >= 100` with a future reset   | the account | the latest such `resetsAt` + 1 min, capped at 7 days          |
+| `calendar`     | `rate_limit` with "spend limit" in `error_details` and no window at 100%, on an account with `reset` | the account | the account's configured reset                                |
+| `balance`      | `billing_error`, or a `rate_limit` whose `error_details` match balance, recharge or credit           | the account | a release                                                     |
+| none           | `authentication_failed`, `oauth_org_not_allowed`, `account_on_hold`, `invalid_request`, `unknown`, … | nothing     | not held: another model would not help                        |
 
 - The classifier tries, in order: (1) the plan readings, (2) `error_details` text, (3) the `error` word. Reset times
   come only from readings or config, never from localized text.
@@ -103,7 +103,7 @@ Step 1 records both before the classifier depends on them.
 - A pin keeps its tier; the stand-in runs it. Reason `model-held` stays; the decision records the chain step.
 - When every target is skipped, today's nearest-tier rule applies. That rule, and the return after a hold, also
   obey `requiresOwnHistory`: no switch into or out of such a model from another model.
-- Subagents are not routed through chains. The `auto` engine gets no chains (it holds nothing today).
+- Subagents are not routed through chains. The `auto` engine gets no chains: it reads and writes holds like every engine (since 2026-11-22), but its reaction is candidate eligibility, not a chain stand-in — the catalog is its fallback space.
 
 ### Holds
 

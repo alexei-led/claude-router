@@ -215,6 +215,28 @@ test('auto opt-in sends the catalog target model and effort, not the high route 
   assert.match(rows.text, /demand 3.*target.*move/);
 });
 
+// A catalog that declares no capability anywhere cannot rank candidates: every selection lands in the
+// unknown-only pool, cheapest first (2026-11-22-auto-holds-design.md). The session says so once, not silently.
+test('a catalog with no declared capability warns once that auto falls back to the cheapest', async () => {
+  const h = setup({
+    models: {
+      haiku: { capability: {} },
+      sonnet: { capability: {} },
+      opus: { capability: {} },
+      fable: { capability: {} },
+    },
+  });
+  await start(h);
+  await drain(h.step(step));
+  assert.equal(h.loop().decision.auto.outcome, 'unknown-only');
+  assert.deepEqual(h.toasts, [
+    'Auto cannot rank models: declare models.<alias>.capability; selection falls back to cheapest.',
+  ]);
+  await h.event('turn.start', { turnId: 't2', text: 'Second task.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  assert.equal(h.toasts.length, 1);
+});
+
 test('auto decision rows retain bounded catalog aliases with spaces, Unicode and slash, but reject controls', async () => {
   for (const alias of ['modèle / local', 'bad\nline', 'bad\u202eline', 'x'.repeat(65), '😀'.repeat(33)]) {
     const h = setup();

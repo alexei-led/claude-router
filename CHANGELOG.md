@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The `auto` engine now works with holds.** A model held out after a failed turn is never selected again while the hold runs, in any engine: `auto` excludes it from its candidates and moves off it at once, instead of re-selecting the model that just failed. Account holds (a used-up plan window, a spend limit, an empty balance) now route `auto` around every model on the account, so a full 5h window moves an `auto` session to a credits model. The pane's HELD OUT section and `/router holds` show account holds under `auto` too, the shadow proposal in the decision rows never names a held model, and replay traces record the held models so a replay agrees with the live column. Fallback chains stay a `table`/`shadow` feature: under `auto` the catalog is the fallback space. A session whose catalog declares no `capability` on any model gets a one-time toast that selection falls back to the cheapest.
+
 ## 1.28.0 (2026-11-19)
 
 ### Summary

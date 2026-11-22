@@ -1257,3 +1257,39 @@ test('demand downgrades and cheaper lateral moves need dwell even off the same t
     assert.equal(result.move, true);
   }
 });
+
+// A held model is a candidate-local hard constraint (docs/plans/2026-11-22-auto-holds-design.md): never a
+// target, in any mode, and a held incumbent forces the move like any other invalid incumbent.
+test('a held model is ineligible with reason held-out, the incumbent included', () => {
+  const { candidates } = targetFor(config(), 2, 'balanced', { held: ['b'] });
+  const held = candidates.find((c) => c.route.model === 'b');
+  assert.equal(held?.eligible, false);
+  assert.ok(held?.reasons.includes('held-out'));
+  assert.ok(candidates.filter((c) => c.route.model !== 'b').every((c) => !c.reasons.includes('held-out')));
+});
+
+test('a held incumbent forces the move to the best eligible candidate', () => {
+  for (const [held, expected] of [
+    [['a'], 'b'],
+    [['a', 'b'], 'c'],
+  ]) {
+    const result = run({ held });
+    assert.equal(result.move.move, true);
+    assert.equal(result.move.reason, 'forced');
+    assert.equal(result.move.route?.model, expected);
+  }
+});
+
+test('a pin falls to the next eligible candidate when the best is held', () => {
+  const result = run({ pin: 'high', held: ['c'] });
+  assert.equal(result.move.move, false);
+  assert.equal(result.move.reason, 'pinned');
+  assert.equal(result.move.route.model, 'b');
+});
+
+test('every candidate held gives no route, and the native request takes the turn', () => {
+  const result = run({ held: ['a', 'b', 'c'] });
+  assert.equal(result.target.outcome, 'no-route');
+  assert.equal(result.move.route, null);
+  assert.equal(result.move.reason, 'no-route');
+});

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DECISIONS_PREFIX } from '../lib/decisions.mjs';
+import { readTrace, TRACE_PREFIX } from '../lib/replay-trace.mjs';
 import { answering, CONFIG, controls, drain, harness, JEV_KEY, press, step, texts } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
@@ -146,16 +147,78 @@ test('the shadow engine routes as the table does, so it holds the model and says
   assert.deepEqual(h.toasts, ['Opus 5.5 held out of routing: overloaded, 5 min']);
 });
 
-test('the auto engine does not route around holds, so it holds nothing and says nothing', async (t) => {
+test('the auto engine holds the failed model out and routes the next turn around it', async (t) => {
   const capability = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
   const h = await started(t, { routingEngine: 'auto', models: { opus: { capability } } });
   await turn(h, 't1', { error: 'overloaded' });
-  assert.ok(h.loop());
-  assert.equal(h.loop().held, undefined);
+  assert.deepEqual(Object.keys(h.loop().held), [OPUS]);
+  assert.ok(h.toasts.includes('Opus 5.5 held out of routing: overloaded, 5 min'));
+  const next = await turn(h, 't2');
+  assert.notEqual(next.model, OPUS);
+  assert.equal(h.loop().decision.reason, 'forced');
+  // The pane names the hold under auto too, as for every engine.
+  assert.ok(Object.keys(h.view().holds.models).includes(OPUS));
+});
+
+test('when a model hold ends the model is eligible again, and rising demand moves back through normal gates', async (t) => {
+  const capability = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
+  const h = await started(t, { routingEngine: 'auto', models: { opus: { capability } } });
+  await turn(h, 't1', { error: 'overloaded' });
+  assert.notEqual((await turn(h, 't2')).model, OPUS);
+  t.mock.timers.tick(5 * 60_000);
+  const HIGH = jevResponse('high', { micro: 0, low: 0, medium: 0.03, high: 0.97, uncertain: 0 });
+  answering(h, HIGH);
+  // Two votes to raise the demand to 3, then the upgrade bar moves the route back onto Opus.
+  await turn(h, 't3');
+  assert.equal((await turn(h, 't4')).model, OPUS);
+});
+
+test('a shadow proposal never names the model the table just held out, and the trace records the hold', async (t) => {
+  const capability = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
+  const h = await started(t, { routingEngine: 'shadow', models: { opus: { capability } } });
+  await turn(h, 't1', { error: 'overloaded' });
+  await turn(h, 't2');
+  const start = decisions(h)
+    .rows.filter((row) => row.kind === 'start')
+    .at(-1);
+  assert.ok(start.alt?.route);
+  assert.ok(!start.alt.route.startsWith('opus@'), `shadow target names the held model: ${start.alt.route}`);
+  const stored = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const request = stored.events.find((event) => event.type === 'request' && event.turn === 2);
+  assert.deepEqual(request.operations[0].held, [OPUS]);
+  // The reader keeps the held ids, so a replay sees what the live proposal saw.
   assert.deepEqual(
-    h.toasts.filter((text) => text.includes('held out')),
-    [],
+    readTrace(stored).events.find((event) => event.type === 'request' && event.turn === 2).operations[0].held,
+    [OPUS],
   );
+});
+
+test('a full plan window holds the account for the auto engine, and a credits model takes over', async (t) => {
+  const glm = {
+    id: 'zai-org/GLM-5.3',
+    input: 1.4,
+    cacheRead: 0.26,
+    output: 4.4,
+    contextWindow: 1_000_000,
+    billing: 'credits',
+    efforts: ['high', 'max'],
+    capability: { high: 2.5, max: 3 },
+    imageInput: false,
+  };
+  const h = await started(t, { routingEngine: 'auto', models: { opus: {}, glm } });
+  h.usage(planReadings(['five_hour', 100, 3 * HOUR]));
+  await turn(h, 't1', { error: 'rate_limit' });
+  assert.deepEqual(h.preferences.get(HOLDS_PLAN), {
+    kind: 'window',
+    error: 'rate_limit',
+    since: 1_000_000,
+    until: 1_000_000 + 3 * HOUR + MINUTE,
+    streak: 1,
+    window: 'five_hour',
+  });
+  const next = await turn(h, 't2');
+  assert.equal(next.model, 'zai-org/GLM-5.3');
+  assert.ok(h.toasts.some((text) => text.includes('Claude plan held out of routing')));
 });
 
 for (const [name, failure] of [
@@ -416,14 +479,20 @@ test('a model hold is recorded with the model that was held', async (t) => {
   assert.deepEqual([row.fail, row.scope, row.held, row.details], ['availability', 'model', OPUS, 'Overloaded']);
 });
 
-test('the auto engine records the failure and holds nothing', async (t) => {
+test('the auto engine records the failure and holds what the table engine would', async (t) => {
   const capability = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
   const h = await started(t, { routingEngine: 'auto', models: { opus: { capability } } });
   await turn(h, 't1', { error: 'billing_error' });
-  assert.equal(h.preferences.has(HOLDS_PLAN), false);
+  assert.deepEqual(h.preferences.get(HOLDS_PLAN), {
+    kind: 'balance',
+    error: 'billing_error',
+    since: 1_000_000,
+    until: null,
+    streak: 1,
+  });
   assert.deepEqual(
-    failureRows(h).map((row) => [row.err, row.fail, row.held]),
-    [['billing_error', null, null]],
+    failureRows(h).map((row) => [row.err, row.fail, row.scope, row.held]),
+    [['billing_error', 'balance', 'account', 'plan']],
   );
 });
 

@@ -106,6 +106,7 @@ import {
   classifyFailure,
   failureHold,
   HOLDS_PREFIX,
+  heldIds,
   holdModel,
   holdText,
   isActive,
@@ -355,6 +356,8 @@ function createRouter(options) {
     traceOperations: new Map(),
     // The surfaces that showed the unavailable toast this session, so an attach never repeats it on the same one.
     noticeSurfaces: new Set(),
+    // Whether this session already said its auto catalog declares no capability, so it says it once.
+    capabilityNoticed: false,
     controllers: new Set(),
     turnControllers: new Map(),
     view: /** @type {Record<string, unknown> | null} */ (null),
@@ -1409,12 +1412,13 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
   return response;
 }
 
-// Shadow retains demand evidence only; target selection sees the actual incumbent and cache.
+// Shadow retains demand evidence only; target selection sees the actual incumbent and cache. The proposal
+// respects the holds in force now, as a live auto session would, so the recorded alt never names a held model.
 function shadowProposal(
   config,
   loop,
   selected,
-  { facts, advice, pin, nativeModel, contextKnown, availableModels, now, mode, offSwitches },
+  { facts, advice, pin, nativeModel, contextKnown, availableModels, accountHolds, now, mode, offSwitches },
 ) {
   if (config.routingEngine !== 'shadow') {
     delete selected.shadow;
@@ -1456,6 +1460,7 @@ function shadowProposal(
       contextKnown,
       availableModels,
       nativeModel,
+      held: heldIds(projected, loop.held, accountHolds ?? {}, now),
     });
     const target = selectTarget({
       candidates,
@@ -1550,6 +1555,7 @@ async function decideTurn($, router, e, signal, step) {
       router.turnConfigs.set(e.turnId, { config: { ...cfg, routingMode: step.cfg.routingMode }, configured: cfg });
     // A keyword is read from a prompt a person or an agent sent, never from a progress report or a pinned turn.
     const keyword = pin || isProgressOrigin(origin) ? null : promptKeyword(router.prompts.get(e.turnId));
+    const accountHolds = await accountHoldsOf($, cfg);
     const traceInput = {
       facts,
       advice: result.advice,
@@ -1558,9 +1564,10 @@ async function decideTurn($, router, e, signal, step) {
       nativeModel,
       contextKnown: context.known,
       availableModels,
-      accountHolds: await accountHoldsOf($, cfg),
+      accountHolds,
       now: Date.now(),
     };
+    traceInput.held = heldIds(cfg, loop.held, accountHolds, traceInput.now);
     const selected =
       cfg.routingEngine === 'auto'
         ? autoRoute(cfg, loop, { ...traceInput, engineModel: e.model })
@@ -1572,6 +1579,7 @@ async function decideTurn($, router, e, signal, step) {
       nativeModel,
       contextKnown: context.known,
       availableModels,
+      accountHolds: traceInput.accountHolds,
       now: Date.now(),
       mode: step.cfg.routingMode.mode,
       offSwitches: router.offSwitches,
@@ -1583,6 +1591,17 @@ async function decideTurn($, router, e, signal, step) {
     // Manual, /clear and turn completion abort the controller; one may land during the write.
     if (!written.isSet || controller.signal.aborted) return null;
     if (cfg.routingEngine === 'shadow') traceOp(router, e, cfg, 'choose', traceInput, selected, messages);
+    // A catalog that declares no capability anywhere cannot rank candidates: every selection falls to the cheapest
+    // unknown. Say so once, so the degenerate order is never silent (2026-11-22-auto-holds-design.md).
+    if (
+      cfg.routingEngine === 'auto' &&
+      !router.capabilityNoticed &&
+      Object.values(cfg.models).every((model) => Object.keys(model.capability ?? {}).length === 0)
+    ) {
+      // biome-ignore lint/nursery/useAtomicUpdates: a one-time notice flag, raced at worst into a second toast
+      router.capabilityNoticed = true;
+      $.ui.toast('Auto cannot rank models: declare models.<alias>.capability; selection falls back to cheapest.');
+    }
     rememberGoal(router, e.turnId, result.advice, cfg.policy.continuationMass, messages);
     const holds = { accounts: traceInput.accountHolds, models: selected.held ?? {} };
     if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
@@ -1782,6 +1801,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
     const advice =
       messages.length === review.observedUpTo ? review.answer.advice : { ...review.answer.advice, phase: null };
     const facts = { ...stepFacts(cfg, router, loop, e, messages, context), midTurn: true };
+    const reviewHolds = await accountHoldsOf($, cfg);
     const traceInput = {
       facts,
       advice,
@@ -1789,9 +1809,10 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       nativeModel,
       contextKnown: context.known,
       availableModels,
-      accountHolds: await accountHoldsOf($, cfg),
+      accountHolds: reviewHolds,
       now: Date.now(),
     };
+    traceInput.held = heldIds(cfg, loop.held, reviewHolds, traceInput.now);
     const selected =
       cfg.routingEngine === 'auto' ? autoRoute(cfg, loop, traceInput) : chooseRoute(cfg, loop, traceInput);
     if (cfg.routingEngine === 'shadow') traceOp(router, e, cfg, 'choose', traceInput, selected, messages);
@@ -1804,6 +1825,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       nativeModel,
       contextKnown: context.known,
       availableModels,
+      accountHolds: traceInput.accountHolds,
       now: Date.now(),
       mode: cfg.routingMode?.mode ?? DEFAULTS.mode,
       offSwitches: router.offSwitches,
@@ -3164,6 +3186,7 @@ async function* stepMain($, router, e, next) {
     // A review answer applies first, so tool calls made after its snapshot can still move the route up.
     loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
     loop = await moveOnObserved($, router, cfg, loop, e, context);
+    const stepHolds = await accountHoldsOf($, cfg);
     const traceInput = {
       hasImages: cfg.routingEngine === 'auto' ? false : await imagesOf($, cfg, loop.decision),
       nativeModel,
@@ -3171,9 +3194,10 @@ async function* stepMain($, router, e, next) {
       contextKnown: context.known,
       availableModels,
       effort: e.effort,
-      accountHolds: await accountHoldsOf($, cfg),
+      accountHolds: stepHolds,
       now: Date.now(),
     };
+    traceInput.held = heldIds(cfg, loop.held, stepHolds, traceInput.now);
     loop =
       cfg.routingEngine === 'auto'
         ? await continueAuto($, router, cfg, loop, e, context, traceInput)
@@ -3299,8 +3323,8 @@ async function keepChosenModel($, router, reason) {
 // a retry-after. The failure goes into the turn's decision rows with what Claude Code gave and the plan's readings, then
 // classifies (classifyFailure) and holds: an error that is the model's holds the model the last request ran, which can
 // be a stand-in, out of routing for a while in the loop; a used-up quota holds its account in $.store, where every
-// session and restart sees it (lib/failover.mjs). The `auto` engine routes without holds, so it gets none and no toast
-// claims one.
+// session and restart sees it (lib/failover.mjs). Every engine holds: table and shadow stand a stand-in in for the held
+// route, auto excludes the held model from its candidates.
 async function holdFailedModel($, router, e) {
   // A failed hold changes no route; the turn's result stands.
   try {
@@ -3322,7 +3346,7 @@ async function holdFailedModel($, router, e) {
       now,
     });
     const held =
-      failure.kind === null || config.routingEngine === 'auto'
+      failure.kind === null
         ? null
         : await applyHold($, router, failure, e.error, failure.scope === 'account' ? account : model, now).catch(
             () => null,
@@ -3350,9 +3374,9 @@ async function holdFailedModel($, router, e) {
 }
 
 // The account holds in $.store at this moment, account name to hold, for routing to skip the models they cover. A hold
-// that cannot be read holds nothing: a turn is never blocked on the store. The `auto` engine holds nothing.
+// that cannot be read holds nothing: a turn is never blocked on the store. Every engine reads them, as the pane and
+// `/router holds` do.
 async function accountHoldsOf($, cfg) {
-  if (cfg.routingEngine === 'auto') return {};
   const read = await Promise.all(
     accountNames(cfg).map(async (name) => [
       name,
