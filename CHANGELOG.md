@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.30.0 (2026-11-23)
+
+### Summary
+
+A minor release that separates turning routing on from choosing its engine. The on-switch is now `/router on`; it always turned routing on for the engine already selected in the profile, and with `table` or `shadow` the old `/router auto` name read as an engine switch. `/router engine table|shadow|auto` selects the engine from the command or the pane header, saved to the profile with Undo. `/router auto` is no longer accepted; `routingEngine` stays the profile setting, and no other configuration changes.
 
 ### Changed
 
