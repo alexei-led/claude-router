@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.31.0 (2026-11-23)
+
+### Changed
 
 - Routing changes made in the pane or with `/router engine` and `/router activities` now stay with this project and profile. Save, Clear and Undo never rewrite router JSON. Hand-edited `.claude/router.local.json` (or its provider-specific equivalent) can override profile defaults, and Policy shows the save scope and recovery controls. Save from one session at a time; overlapping saves to the same scope can overwrite each other.
 
