@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { STORE_KEY, STORE_PREFIX } from '../lib/activity-stats.mjs';
-import { answering, CONFIG, drain, harness, JEV_KEY, press, step, texts } from './harness.mjs';
+import { answering, CONFIG, drain, harness, JEV_KEY, press, projectPatch, step, texts } from './harness.mjs';
 import { assistant, jevResponse, savedStats, user } from './helpers.mjs';
 
 const LOW = { micro: 0, low: 0.95, medium: 0.05, high: 0, uncertain: 0 };
@@ -136,7 +136,7 @@ test('a corrupted or unreadable stats store shows an empty readout and never bre
   }
 });
 
-test('/router activities writes the mode to router.json, off stops the question, and Undo restores it', async () => {
+test('/router activities writes the project override, off stops the question, and Undo restores it', async () => {
   const h = harness(JEV_KEY);
   const bodies = answering(h, jevResponse('low', LOW, 0, { code: 0.9, ops: 0.1 }));
   await h.event('session.start', { cwd: '/fixture' });
@@ -145,8 +145,11 @@ test('/router activities writes the mode to router.json, off stops the question,
   const command = async (args) => (await h.event('command.run', { command: 'router', args })).text;
   assert.equal(await command('activities later'), 'Choose activities off, on.');
   assert.equal(await command('activities on'), 'Activity routing is already on.');
-  assert.equal(await command('activities off'), 'Saved: activity routing on → off. Applies from the next turn.');
-  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { activityRouting: 'off' });
+  assert.equal(
+    await command('activities off'),
+    'Saved: activity routing on → off. Applies from the next turn in this project.',
+  );
+  assert.deepEqual(projectPatch(h), { activityRouting: 'off' });
   await turn(h, 't2', 'claude-haiku-5-5');
   assert.equal(bodies.length, 2);
   assert.equal(bodies[1].questions.activity, undefined);
@@ -154,7 +157,7 @@ test('/router activities writes the mode to router.json, off stops the question,
   assert.equal(h.view().activityStats.byActivity.code.turns, 1);
   assert.equal(h.view().activityStats.byActivity.none, undefined);
   await press(h, 'undo');
-  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+  assert.deepEqual(projectPatch(h), {});
   await turn(h, 't3', 'claude-haiku-5-5');
   assert.ok(bodies[2].questions.activity);
 });

@@ -344,6 +344,14 @@ const MANY_CELLS = {
   cells: Array.from({ length: 60 }, (_, i) => ({ [['low', 'medium', 'high', 'none'][i % 4]]: 1 })),
 };
 const EXTRAS = {
+  'policy-project-clear': {
+    tab: 'policy',
+    projectRoot: '/fixture/project',
+    projectLocalFile: 'router.local.json',
+    configPath: '/fixture/team/router.json',
+    canClearProject: true,
+    confirmProjectClear: true,
+  },
   'now-help': { tab: 'now', help: true },
   'now-pending-pin': { tab: 'now', pendingPin: 'low', reason: 'pin' },
   'now-activity-override': {

@@ -177,13 +177,13 @@ Box flexDirection="column"
     "model; effort changes keep it. A switch to a cold cache writes the whole"
   Text dimColor=true
     "context again, the switch cost on Now."
-  Button hotkey="r" key="reset-routes" label="Reset routes to defaults"
+  Button hotkey="r" key="reset-routes" label="Inherit tiers"
   Text dimColor=true
     "A new model ID needs the active file → models: price, window, efforts."
   Text
     " "
   Text dimColor=true
-    "router.json changes:"
+    "Project routing changes:"
   Text color="error"
     "- routes.micro                   Haiku 5.5 · medium"
   Text color="success"

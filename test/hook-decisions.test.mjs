@@ -239,15 +239,13 @@ test('shadow switches apply next turn and never resume stale demand after a tabl
   await h.event('session.start', { cwd: '/fixture' });
   await h.event('turn.start', { turnId: 't1', text: 'First task.' });
   await drain(h.step(step));
-  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'table' }));
-  await h.event('command.run', { command: 'router', args: 'activities off' });
+  await h.event('command.run', { command: 'router', args: 'engine table' });
   await drain(h.step({ ...step, index: 1 }));
   assert.ok(h.loop().shadow, 'the current turn keeps its frozen config');
   await h.event('turn.complete', { turnId: 't1' });
   await turn(h, 't2', 'Table task.', 'composer');
   assert.equal(h.loop().shadow, undefined);
-  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', activityRouting: 'off' }));
-  await h.event('command.run', { command: 'router', args: 'activities on' });
+  await h.event('command.run', { command: 'router', args: 'engine shadow' });
   await turn(h, 't3', 'Shadow task.', 'composer');
   assert.equal(h.loop().shadow.state.turn, 1);
 });

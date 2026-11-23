@@ -139,7 +139,7 @@ Box flexDirection="column"
         "no model in router.json bills credits, so this has no effect"
   Text
     " "
-  Button key="reset-policy" label="Reset policy to defaults"
+  Button key="reset-policy" label="Inherit policy"
   Text
     " "
   Box
@@ -153,7 +153,7 @@ Box flexDirection="column"
   Text
     " "
   Text dimColor=true
-    "router.json changes:"
+    "Project routing changes:"
   Text color="error"
     "- baselineTier                   low"
   Text color="success"

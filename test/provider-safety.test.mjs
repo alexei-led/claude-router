@@ -5,7 +5,7 @@ import { cacheState, downgradeTaxUsd, inputBounds, switchingTaxUsd } from '../li
 import { hasImages } from '../lib/facts.mjs';
 import { continueRoute, emptyLoop, isModelAllowed, isSameModel } from '../lib/route.mjs';
 import { compareReply, modelSpec, observedReplyUsd } from '../lib/savings.mjs';
-import { drain, harness, start, step } from './harness.mjs';
+import { drain, harness, projectPatch, start, step } from './harness.mjs';
 
 test('provider presets are not mutable state shared by sessions', () => {
   const a = loadConfig({ provider: 'zai' });
@@ -101,7 +101,7 @@ test('nested tool-result images prevent switching to a text-only model', async (
   assert.equal(unknown.decision.model, config.models.flash.id);
 });
 
-test('deleting or symlinking a selected file prevents pane writes and never creates the default file', async () => {
+test('deleting or symlinking a selected file cannot redirect a project preference write', async () => {
   for (const kind of ['deleted', 'symlink']) {
     const h = harness();
     const path = '/fixture/team/deepseek-router.json';
@@ -112,7 +112,8 @@ test('deleting or symlinking a selected file prevents pane writes and never crea
     if (kind === 'deleted') h.files.delete(path);
     else h.links.add(path);
     await h.event('command.run', { command: 'router', args: 'activities off' });
-    assert.match(h.view().notice, /Not saved/);
+    assert.deepEqual(projectPatch(h), { activityRouting: 'off' });
+    assert.equal(h.files.get(path), kind === 'deleted' ? undefined : '{}');
     assert.equal(h.files.has('/fixture/team/router.json'), false);
   }
 });

@@ -145,7 +145,9 @@ The Anthropic profile uses these activity defaults. Other profiles have [their o
 
 ## Choose a routing engine
 
-Set `routingEngine` in the selected profile file: `table` (default), `shadow` or `auto`. For example, use `{"routingEngine":"shadow"}` or `{"routingEngine":"auto"}`; omit it for `table`. `/router on` turns routing on for the session; `/router engine table|shadow|auto` selects the engine and writes it to the profile. `/router off` turns routing off, while `/router mode cost|balanced|quality` selects the routing mode.
+Set `routingEngine` in the selected profile file: `table` (default), `shadow` or `auto`. For example, use `{"routingEngine":"shadow"}` or `{"routingEngine":"auto"}`; omit it for `table`. `/router on` turns routing on for the session; `/router engine table|shadow|auto` selects the engine and saves a project override. `/router off` turns routing off, while `/router mode cost|balanced|quality` selects the routing mode.
+
+Pane routing changes are local to the project and active profile. The Mod never rewrites the profile or project JSON. See [Project routing settings](docs/configuration.md#project-routing-settings) for shared mode and hand-edited overrides.
 
 - **`table` (default):** uses deterministic tier-by-activity routes. The routing mode transforms those routes before the table policy.
 - **`shadow`:** table requests remain unchanged. `/router decisions` shows one-step `alt` proposals. `/router trace export` writes bounded replay inputs; for the work profile (`CLAUDE_CONFIG_DIR=~/.claude-team`), from a source checkout, replay `~/.claude-team/router-traces.json` and any dated rollover files with `node scripts/replay-traces.mjs`.

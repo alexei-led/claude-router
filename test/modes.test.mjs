@@ -139,7 +139,7 @@ test('the session override beats the project file, which beats the profile', () 
     ],
     [
       { session: null, project: null, profile: 'balanced' },
-      { mode: 'balanced', source: 'default' },
+      { mode: 'balanced', source: 'profile' },
     ],
     [{}, { mode: 'balanced', source: 'default' }],
     [
@@ -160,7 +160,7 @@ test('a project file may set only the mode; any other content is ignored with a 
       '{"mode":"fast"}',
       { mode: null, error: 'project .claude/router.json mode must be one of cost, balanced, quality' },
     ],
-    ['{"mode":"cost","routes":{}}', { mode: null, error: 'project .claude/router.json may only set mode, not routes' }],
+    ['{"mode":"cost","routes":{}}', { mode: null, error: 'project .claude/router.json may only set mode' }],
     ['[1]', { mode: null, error: 'project .claude/router.json must be an object' }],
     ['{mode', { mode: null, error: 'project .claude/router.json is not valid JSON' }],
   ];

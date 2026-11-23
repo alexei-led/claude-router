@@ -184,6 +184,6 @@ Box flexDirection="column"
     " "
   Text dimColor=true
     "Automatic prefix cache: hits are observed; lifetime and sharing across efforts are unknown. No cache-write premium."
-  Button hotkey="r" key="reset-routes" label="Reset routes to defaults"
+  Button hotkey="r" key="reset-routes" label="Inherit tiers"
   Text dimColor=true
     "A new model ID needs the active file → models: price, window, efforts."

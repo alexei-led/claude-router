@@ -174,7 +174,7 @@ A `router.json` that still sets `"shadow"`, a mode removed in 1.10.1, is read as
 
 Pick one of:
 
-- Run `/router activities off`. It is saved to `router.json` at once. **Undo** in the
+- Run `/router activities off`. It is saved as a project override at once. **Undo** in the
   pane reverts it.
 - Open the pane with `/router`, press `2` for the **Routes** tab, set **Activity routing** at the top, and press
   **Save** (`s`).
@@ -193,8 +193,8 @@ turn, whatever the activity mode.
 per tier, the **every turn** row with each tier's own model, and a row per activity. A cell shows the model the activity
 runs at that tier, such as `sonnet·high`, or `·` for the tier's model; `°` marks a built-in default. Select a cell to
 edit its model and effort under the grid. **Use tier model** drops the override; **Restore default** puts a built-in
-one back. Edits are a draft: the tab reads **Routes ●** and lists the `router.json` lines they change. **Save** (`s`)
-writes them, **Discard** (`d`) drops them, and **Undo** (`u`) reverts the last write. A yellow note flags a cell
+one back. Edits are a draft: the tab reads **Routes ●** and lists the project overrides they change. **Save** (`s`)
+stores them for this profile and project, **Discard** (`d`) drops them, and **Undo** (`u`) reverts the last write. A yellow note flags a cell
 stronger than the tier above, or the only cell on its cache, which adds one. A selected cell whose override
 changes nothing says `same as the tier’s model: no effect`.
 
@@ -209,9 +209,8 @@ default. This runs `code` at `low` on Sonnet at `xhigh` and adds `max` effort fo
 }
 ```
 
-A cell cannot be `null`. To drop a built-in override, set the cell to the tier's base route, or press **Use tier
-model** in the pane, which writes that for you. The cell keeps that route if you later change the tier's route; drop it
-again then:
+A cell in the profile cannot be `null`. Giving it the tier's base route explicitly freezes that model and effort:
+
 
 ```json
 {
@@ -262,7 +261,7 @@ label was right, not the classifier's probabilities.
   `low`). 1.6's overrides in those cells and in `ops` at `medium` were Sonnet · medium, so such a cell can now run
   another model or effort. Write both `model` and `effort` to keep 1.6's route.
 - If you removed a 1.6 built-in override that 1.7 no longer has, such as `docs` at `low`, its cell on the Routes tab
-  says "same as the tier’s model: no effect". Press **Use tier model** and **Save** to drop it.
+  says "same as the tier’s model: no effect". Press **Use tier model** and **Save** to follow the tier even if its route changes. The pane stores a project-only `null` activity cell; clear the stored overrides to inherit the profile again.
 - 1.6 reads the same keys. A file without `activityRouting` runs 1.6's default under 1.6.
 
 ## What the estimates mean

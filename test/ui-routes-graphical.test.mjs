@@ -160,7 +160,7 @@ for (const surface of SURFACES) {
     assert.match(texts(editor).join(' '), /\$4 in · \$20 out per M tokens · 1M window/);
   });
 
-  test(`${surface}: an override's editor has its state, Remove override and Restore default, and its warnings`, () => {
+  test(`${surface}: an override's editor has its state, Use tier model and Restore default, and its warnings`, () => {
     const view = { routeCell: 'code.medium', routeDraft: DRAFT };
     const editor = card(draw(view, { surface }), 'Edit code at Medium');
     assert.ok(editor);
@@ -170,7 +170,7 @@ for (const surface of SURFACES) {
     assert.match(words, /Your override/);
     assert.match(words, /Stronger than the tier above/);
     const remove = byKey(editor, 'activity-tier-code-medium');
-    assert.equal(remove.props.label, 'Remove override');
+    assert.equal(remove.props.label, 'Use tier model');
     calls.length = 0;
     remove.props.onPress();
     assert.deepEqual(calls, [['removeActivity', 'code', 'medium']]);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { argumentHint, SUBCOMMANDS } from '../lib/subcommands.mjs';
-import { CONFIG, harness, JEV_KEY } from './harness.mjs';
+import { CONFIG, harness, JEV_KEY, projectPatch } from './harness.mjs';
 
 async function started() {
   const h = harness(JEV_KEY);
@@ -85,11 +85,12 @@ test('every word and value in the table runs a command, not the pane', async () 
   assert.deepEqual(await run('nonsense'), {});
 });
 
-test('/router engine writes the profile engine and answers with the save', async () => {
+test('/router engine writes the project engine and answers with the save', async () => {
   const h = await started();
   const answer = await h.event('command.run', { command: 'router', args: 'engine auto' });
-  assert.match(answer.text, /Saved: routing engine table → auto\. Applies from the next turn\./);
-  assert.match(h.files.get(CONFIG), /"routingEngine": "auto"/);
+  assert.match(answer.text, /Saved: routing engine table → auto\. Applies from the next turn in this project\./);
+  assert.deepEqual(projectPatch(h), { routingEngine: 'auto' });
+  assert.equal(h.files.get(CONFIG), '{}');
 });
 
 test('the argument hint names every word of the table', () => {

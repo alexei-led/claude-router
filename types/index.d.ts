@@ -9,7 +9,7 @@ declare module 'claude-code' {
   type RouterRoutingModeName = 'cost' | 'balanced' | 'quality';
   interface RouterRoutingMode {
     mode: RouterRoutingModeName;
-    source: 'session' | 'project' | 'profile' | 'default';
+    source: 'session' | 'project preference' | 'project local' | 'project' | 'profile' | 'default';
   }
   // A finished turn's bucket, read from its tool calls.
   type RouterObserved = 'code' | 'docs' | 'ops' | 'read' | 'talk';
@@ -94,7 +94,7 @@ declare module 'claude-code' {
   interface RouterRoutes {
     routes: Record<RouterTier, RouterRoute>;
     baselineTier: RouterTier;
-    // The Routing tab's activity edits; a draft without them edits none. A null cell is a removed override.
+    // The Routing tab's activity edits; a draft without them edits none. A null cell explicitly uses the tier route.
     activities?: Partial<
       Record<RouterActivity, Partial<Record<RouterTier, { model?: string; effort?: string | null } | null>>>
     >;
@@ -185,8 +185,15 @@ declare module 'claude-code' {
     mode: 'auto' | 'manual';
     // The routing mode the next turn starts with; absent in views saved before 1.15.
     routingMode?: RouterRoutingMode;
-    // Why the project's .claude/router.json was ignored, or null.
+    // Canonical workspace scope and optional source warnings, without store records or keys.
+    projectRoot?: string | null;
+    projectLocalFile?: string | null;
     projectError?: string | null;
+    projectPreferenceError?: string | null;
+    projectClearDestination?: string | null;
+    canClearProject?: boolean;
+    confirmProjectClear?: boolean;
+    projectReloadNeeded?: boolean;
     nativeModel: string;
     // The effort Claude Code sent on the turn's first request, before routing.
     nativeEffort?: string | number | null;
@@ -255,8 +262,8 @@ declare module 'claude-code' {
     tuning?: Partial<RouterTuning> | null;
     tuningBase?: RouterTuning | null;
     routeDraft?: (RouterRoutes & { base: RouterRoutes }) | null;
-    // The last pane write to router.json: each leaf it changed with the value the file had before, none if absent.
-    lastWrite?: { label: string; leaves: { path: string[]; value?: unknown }[] } | null;
+    // Label of the last undoable pane operation. Routing Undo data stays in the current Mod instance.
+    lastWrite?: { label: string } | null;
     tab?: 'now' | 'routes' | 'policy' | 'classifier' | 'usage';
     // The Routes grid cell whose editor is open: '<activity>.<tier>', or 'tier.<tier>' for a tier's own route.
     routeCell?: string | null;

@@ -252,7 +252,7 @@ test('real mode and catalog edits before or during pins remain explicit choices 
             patch(h, (cfg) => {
               cfg.models.flash.capability.high = 2;
             });
-            await command(h, 'activities off');
+            await reload(h);
           }
         };
         if (timing === 'before') await change();
@@ -267,10 +267,12 @@ test('real mode and catalog edits before or during pins remain explicit choices 
         } else {
           const record = h.preferences.get(`${TRACE_PREFIX}s1`);
           const table = replayTable(record);
-          assert.deepEqual(table.mismatches, [], `${edit}/${timing}`);
-          const rows = replayAuto(record, table.rows);
-          assert.equal(rows.at(-1).reason, 'explicit-up', `${edit}/${timing}`);
-          assert.equal(rows.at(-1).pair.effort, 'high');
+          if (edit === 'mode') {
+            assert.deepEqual(table.mismatches, [], `${edit}/${timing}`);
+            const rows = replayAuto(record, table.rows);
+            assert.equal(rows.at(-1).reason, 'explicit-up', `${edit}/${timing}`);
+            assert.equal(rows.at(-1).pair.effort, 'high');
+          } else assert.ok(record.incomplete.includes('reload'));
         }
       }
     }

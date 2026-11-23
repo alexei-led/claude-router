@@ -129,7 +129,19 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     fs: {
       exists: async (path) => files.has(path) || [...files.keys()].some((file) => file.startsWith(`${path}/`)),
       read: async (path) => files.get(path),
-      stat: async (path) => ({ isLink: links.has(path) }),
+      stat: async (path) => {
+        const isLink = links.has(path);
+        if (files.has(path)) return { kind: 'file', realPath: path, isLink };
+        if (
+          ['/fixture/project', env.get('HOME'), env.get('CLAUDE_CONFIG_DIR') ?? `${env.get('HOME')}/.claude`].includes(
+            path,
+          ) ||
+          [...files.keys()].some((file) => file.startsWith(`${path}/`))
+        )
+          return { kind: 'dir', realPath: path, isLink };
+        if (isLink) return { kind: 'other', isLink };
+        throw new Error('not found');
+      },
       write: async (path, text) => files.set(path, text),
       list: async (dir) =>
         [...files.keys()]
@@ -155,6 +167,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       model: async () => model,
       id: async () => sessionId,
       cwd: async () => '/fixture/project',
+      root: async () => '/fixture/project',
       surfaces: async () => surfaces,
       messages: (...args) => messages(...args),
       usage: async () => usage,
@@ -376,6 +389,8 @@ export async function drain(stream) {
 }
 
 export const CONFIG = '/fixture/team/router.json';
+export const projectRecord = (h) => [...h.preferences].find(([key]) => key.startsWith('project-routing:v1:'));
+export const projectPatch = (h) => projectRecord(h)?.[1].patch;
 
 export const TINY_ROUTER = JSON.stringify({
   models: {

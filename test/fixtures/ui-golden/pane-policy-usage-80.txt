@@ -130,7 +130,7 @@ Box flexDirection="column"
           "no model in router.json bills credits, so this has no effect"
     Text
       " "
-    Button key="reset-policy" label="Reset policy to defaults"
+    Button key="reset-policy" label="Inherit policy"
   Box
     Text color="suggestion" weight="semibold"
       "FILE"

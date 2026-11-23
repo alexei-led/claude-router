@@ -138,7 +138,7 @@ Box flexDirection="column"
           "no model in router.json bills credits, so this has no effect"
     Text
       " "
-    Button key="reset-policy" label="Reset policy to defaults"
+    Button key="reset-policy" label="Inherit policy"
   Box
     Text color="suggestion" weight="semibold"
       "FILE"
@@ -150,7 +150,7 @@ Box flexDirection="column"
   Text
     " "
   Text dimColor=true
-    "router.json changes:"
+    "Project routing changes:"
   Text color="error"
     "- routes.micro                   Haiku 5.5 · medium"
   Text color="success"

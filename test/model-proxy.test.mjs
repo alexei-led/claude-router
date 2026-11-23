@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { loadConfig } from '../lib/config.mjs';
 import { providerFile } from '../lib/providers.mjs';
-import { answering, drain, harness, JEV_KEY, start, step } from './harness.mjs';
+import { answering, drain, harness, JEV_KEY, projectPatch, start, step } from './harness.mjs';
 import { jevResponse } from './helpers.mjs';
 
 const profile = JSON.parse(readFileSync(new URL('./fixtures/model-proxy-router.json', import.meta.url), 'utf8'));
@@ -27,17 +27,19 @@ test('model-proxy requires an explicit two-provider ladder without built-in defa
   assert.equal(config.cache.mode, 'disabled');
 });
 
-test('model-proxy switches providers on one connection and saves only its selected file', async () => {
+test('model-proxy switches providers on one connection and stores only its selected provider preference', async () => {
   const h = harness();
   const path = '/fixture/team/model-proxy-router.json';
   h.env.set('CLAUDE_ROUTER_PROVIDER', 'model-proxy');
   h.env.set('ANTHROPIC_BASE_URL', 'http://127.0.0.1:43172');
   h.files.set(path, JSON.stringify(profile));
+  h.files.set('/fixture/project/.claude/model-proxy-router.local.json', '{"mode":"cost"}');
   h.files.set('/fixture/team/router.json', '{"classifier":"ollama"}');
   h.model('deepseek-flash[1m]');
   await start(h);
   assert.equal(h.view().phase, 'ready');
   assert.equal(h.view().configPath, path);
+  assert.deepEqual(h.view().routingMode, { mode: 'cost', source: 'project local' });
   for (const [index, tier] of ['medium', 'high', 'low'].entries()) {
     const turnId = `mixed-${index}`;
     await h.event('command.run', { command: 'router', args: `pin ${tier}` });
@@ -64,7 +66,8 @@ test('model-proxy switches providers on one connection and saves only its select
     await h.event('turn.complete', { turnId });
   }
   await h.event('command.run', { command: 'router', args: 'activities on' });
-  assert.equal(loadConfig({ provider: 'model-proxy', userFile: JSON.parse(h.files.get(path)) }).activityRouting, 'on');
+  assert.deepEqual(projectPatch(h), { activityRouting: 'on' });
+  assert.deepEqual(JSON.parse(h.files.get(path)), profile);
   assert.equal(h.files.get('/fixture/team/router.json'), '{"classifier":"ollama"}');
   assert.equal(h.env.get('ANTHROPIC_BASE_URL'), 'http://127.0.0.1:43172');
 });

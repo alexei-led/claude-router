@@ -1,6 +1,6 @@
 # Configuration
 
-Select a [provider profile](providers.md), then configure the key of the classifier you use. This page describes the settings inside the selected router file.
+Select a [provider profile](providers.md), then configure the key of the classifier you use. This page describes the selected router file and the project settings that can override it.
 
 ## Key and profile settings
 
@@ -10,7 +10,7 @@ Select a [provider profile](providers.md), then configure the key of the classif
 | Cloudflare API token                        | Sensitive plugin option `cloudflare_api_token`             | The same dialog. Used by Clef, Clef Flash and Clef Omni.                                                                                                                            |
 | Cloudflare account ID                       | Plugin option `cloudflare_account_id`                      | The same dialog, or the config menu row. Not a secret.                                                                                                                              |
 | OpenAI API key                              | Sensitive plugin option `openai_api_key`                   | The same dialog. Used only by the OpenAI classifier. Ollama needs no key.                                                                                                           |
-| Router settings and classifier              | The selected router file in the active Claude Code profile | Edit the file directly, or use the pane's Routes, Policy and Classifier tabs.                                                                                                       |
+| Router settings and classifier              | The selected router file in the active Claude Code profile | Edit the profile file directly; pane changes are separate project overrides.                                                                                                        |
 | Execution provider credentials and API cost | Claude Code                                                | The Mod leaves these to Claude Code.                                                                                                                                                |
 
 The active profile directory is `CLAUDE_CONFIG_DIR` when set. Otherwise it is `~/.claude`. The Mod does not need an Anthropic proxy URL, model alias, hint header, daemon, or custom status line.
@@ -37,7 +37,50 @@ See [Providers](providers.md) for selection examples, built-in defaults and comp
 The same schema applies to every router file. This reference uses `router.json` as shorthand for the selected file.
 A non-Anthropic file must exist and validate. It never falls back to `router.json` or inherits settings from it.
 
-### Model capability declarations
+## Project routing settings
+
+Router resolves routing settings from lowest to highest priority:
+
+1. **Provider defaults**, then the active profile's **`router.json`** (Anthropic) or **`<provider>-router.json`**.
+2. **Shared mode** in the launch directory's **`.claude/router.json`**. This file accepts only `mode`.
+3. **Hand-edited project settings** in **`.claude/router.local.json`** (Anthropic) or
+   **`.claude/<provider>-router.local.json`**. Add the file to `.gitignore` if it should stay private. The file applies
+   to every active profile of that provider in this workspace; choose model and classifier deadline keys that exist
+   in each profile that uses it.
+4. **Stored project overrides** saved from the pane or `/router engine` and `/router activities`. These belong to
+   the canonical Claude Code launch directory **and** the canonical active profile directory and provider. They are
+   not shared with other profiles, checkouts or launch subdirectories, and are not committed with the project.
+5. **Session mode**, set by `/router mode <mode>` until cleared with `/router mode default`. It overrides only `mode`.
+
+The launch directory is not necessarily the Git root. An alias of the same launch directory uses the same scope when
+Claude Code resolves it to the same canonical path. There is no project scope when launched in the active profile or
+home directory (including aliases), when the project's `.claude` resolves to the profile, or when the scope cannot
+be verified. Router checks that the `.claude` directory and the project JSON files under it are regular and not links.
+These checks are best effort: the host checks and reads by path separately, so it cannot guarantee that a path
+was not replaced between those calls. The Mod never writes any of these JSON files. Edit them by hand and run
+`/reload-plugins` to apply changes. An unreadable or invalid optional source is ignored with a warning; the other levels still apply.
+
+The local file accepts `mode`, `routingEngine`, `activityRouting`, `baselineTier`, `routes`, `activities`, `policy`,
+`modes.<mode>.policy`, and `classifiers.<known-id>.timeoutMs`. It cannot add models or classifiers, change a provider,
+choose the active classifier, or change endpoints, protocols or credential bindings. The pane can select an existing
+classifier from the trusted profile catalogue; its Classifier tab shows where it sends prompts. No key is stored in the
+project overrides.
+
+```json
+{
+  "mode": "balanced",
+  "routes": { "high": { "effort": "max" } },
+  "activities": { "code": { "low": null } },
+  "policy": { "activityMass": 0.7 }
+}
+```
+
+A missing field inherits from the next lower layer. Explicit values, even when equal to built-in defaults, override
+lower layers. A project activity cell of `null` explicitly uses the tier's route, without freezing its current model
+or effort. `effort: null` instead leaves the effort to the session. See [Save and undo changes](user-guide.md#save-and-undo-changes)
+for clearing stored overrides and recovering from a store failure.
+
+## Model capability declarations
 
 `models.<alias>.capability` is an optional map of supported efforts to adequacy levels: 0 (micro),
 1 (low), 2 (medium), or 3 (high), with half-steps allowed. For example:
@@ -137,7 +180,7 @@ Missing counters remain unknown. See [provider acceptance checks](evaluation.md#
 
 Set `routingEngine` in the selected profile file (`router.json` or `<provider>-router.json`); the default is `table`.
 For example, set `{"routingEngine":"shadow"}` or `{"routingEngine":"auto"}`; omit the key to use `table`.
-Set it in this file, or with `/router engine table|shadow|auto`, which writes the file with Undo.
+Set it in this file, or with `/router engine table|shadow|auto`, which saves a project override with Undo.
 
 - **`table` (default):** the deterministic tier-by-activity routes are used. Routing modes transform those routes before the table policy.
 - **`shadow`:** the table still sends every request. The automatic engine records one-step proposals against the real incumbent and cache, without keeping a separate route history or asking the classifier again. The Now pane and `/router decisions` show demand, target, capability (or unknown), outcome and a next-turn estimate. While shadow is enabled, the main-turn hook also records bounded replay traces. Export with `/router trace export`; for the work profile (`CLAUDE_CONFIG_DIR=~/.claude-team`) the file is `~/.claude-team/router-traces.json`. Retain all incremental export and rollover files. From a source checkout, run `node scripts/replay-traces.mjs ~/.claude-team/router-traces.json`, adding every rollover file as another argument. The export lives beside the selected profile config; the replay CLI is not included in the npm package. Replay checks table fidelity first; evaluation and exposure gates remain unestablished. See [evaluation](evaluation.md#replay-trace-recorder).
@@ -149,7 +192,7 @@ Useful auto routing depends on the profile's per-effort `models.<alias>.capabili
 
 Auto decision rows show demand, target, outcome and move reasons such as `startup`, `upgrade`, `escalation`, `same-route`, `reentry` and `no-route-native`.
 
-`/router on` turns routing on for the session; `/router off` turns it off. `/router engine table|shadow|auto` selects the engine and writes it to the profile with Undo; `/router mode cost|balanced|quality` selects the mode, and `/router pin <tier>` pins one turn. The pane header carries the same engine choice beside on/off when the line has room for it, and the band shows the engine as a chip only when it is not the `table` default. Evaluation and default cutover remain pending; see [evaluation](evaluation.md). Engine values are case-sensitive.
+`/router on` turns routing on for the session; `/router off` turns it off. `/router engine table|shadow|auto` selects the engine and saves a project override with Undo; `/router mode cost|balanced|quality` selects the mode, and `/router pin <tier>` pins one turn. The pane header carries the same engine choice beside on/off when the line has room for it, and the band shows the engine as a chip only when it is not the `table` default. Evaluation and default cutover remain pending; see [evaluation](evaluation.md). Engine values are case-sensitive.
 
 ## Built-in defaults
 
@@ -259,18 +302,18 @@ An override for a cell with no built-in names both fields, or inherits the missi
 ```
 
 - `effort: null` keeps the session effort, as in `routes`.
-- A cell cannot be `null`. To drop a built-in override, set it to the base route, for example `"ops": { "medium": { "model": "opus", "effort": "medium" } }`. The pane writes this for you when you press **Use tier model** on a built-in cell. The cell keeps that route if you later change the tier's route; drop it again then.
+- A cell in the profile file cannot be `null`. Set it to the base route to run that route explicitly. In [project routing settings](#project-routing-settings), a `null` cell follows the tier’s route as it changes. The pane stores this when you choose **Use tier model** and Save.
 - An override applies to whatever the tier's route is. If you move `routes.low` to Opus, the built-in `code` override at `low` still runs Sonnet. Set it to match, or remove it.
 - Unknown activities and tiers, unknown model aliases, and invalid efforts make the file invalid, like any other invalid setting. The pane refuses to save one and names it, such as `activities.code.low.model is not in models`.
 - The Routes tab counts the prompt caches the routes use: one per model on Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.2, one per (model, effort) pair on a provider that caches each effort apart.
 
 `policy.activityMass` (default `0.6`) is the lowest probability at which an activity applies. The Policy tab sets it under **Activities**, from 50% to 80%. It has not been tuned on any classifier, and the probe results do not record probabilities, so there is no data to tune it on yet.
 
-Switch the mode with `/router activities off|on`, or with the **Activity routing** selector at the top of the Routes tab. The command writes `router.json` at once; the selector joins the routing draft and writes on **Save**. Choosing `on`, the default, removes the key from the file.
+Switch the mode with `/router activities off|on`, or with the **Activity routing** selector at the top of the Routes tab. The command saves a project override at once; the selector joins the routing draft until **Save**. Choosing `on` explicitly overrides a lower-layer `off`.
 
 **Upgrade from 1.6.** 1.6 asked the activity but ran the base routes, with Sonnet at `medium` in every override. A file with `"activityRouting": "off"` keeps it; any other file now runs `on`. Run `/router activities off` after upgrading to keep 1.6's routes. A session started on Sonnet 5.5 now starts with routing on, because Sonnet runs the `code` cell at `low`; to stay on Sonnet in that session, choose it with `/model` or run `/router off`, and run `/router activities off` to make future Sonnet sessions start with routing off. Cells you saved stay as written. A cell that sets one field takes the other from 1.7's built-in for that cell, or from the base route where 1.7 has none (`explore` and `docs` at `medium`, `docs` at `low`). 1.6's overrides in those cells and in `ops` at `medium` were Sonnet · medium, so such a cell can now run another model or effort; write both fields to keep 1.6's route. A 1.6 removal of a built-in that 1.7 no longer has, such as `docs` at `low`, stays in the file as the tier's route; its cell on the Routes tab says "same as the tier’s model: no effect", and **Use tier model** drops it.
 
-**Rollback.** To go back to 1.6 behavior without downgrading, set `"activityRouting": "off"`. Router 1.6 reads the same keys; under 1.6 a file without `activityRouting` runs 1.6's default. Router 1.10.0 and earlier reset the activity stats store that this version writes without a `shadow` key. Router 1.5 rejects unknown keys and makes routing unavailable. Before you install 1.5 again, remove `activities`, `activityRouting`, and `policy.activityMass` from `router.json`. The pane writes them when you set the mode to `off`, change the activity threshold, or edit or remove an override.
+**Rollback.** To go back to 1.6 behavior without downgrading, set `"activityRouting": "off"`. Router 1.6 reads the same keys; under 1.6 a file without `activityRouting` runs 1.6's default. Router 1.10.0 and earlier reset the activity stats store that this version writes without a `shadow` key. Router 1.5 rejects unknown keys and makes routing unavailable. Before you install 1.5 again, remove `activities`, `activityRouting`, and `policy.activityMass` from `router.json`.
 
 ## Classifiers
 
@@ -443,9 +486,9 @@ Policy defaults:
 | `reviewEveryRequests`   |     `4` | Requests between classifier reviews inside a turn; `0` turns them off. Not tuned.                    |
 | `minDwellRequests`      |     `8` | Requests after a model change before a cheaper route on the same task. Not tuned.                    |
 
-The pane writes a subset of these settings. The **Routes** and **Policy** tabs set `routes`, `activities`, `activityRouting`, `baselineTier`, `policy.downgradeVotes`, `policy.downgradeHorizonTurns`, `policy.cashCapUsd`, and `policy.activityMass` in one save: it writes only values that differ from the defaults and removes the rest. `/router activities <mode>` writes `activityRouting` at once, with **Undo**. **Mode** on the Policy tab writes `mode` at once, with **Undo**; `/router mode` changes only the session and writes no file. The **Classifier** tab sets `classifier` and the active classifier's `timeoutMs` at once. **Undo** reverts the settings the last pane write changed. Each save validates the whole file, keeps other keys, and applies from the next turn. A failed check names the setting and leaves the file unchanged. The pane refuses to write through a symlink. Model aliases and the other settings require a direct edit.
+The pane saves a subset of these settings as [project routing overrides](#project-routing-settings). **Routes** and **Policy** share one draft. **Mode**, **Engine**, classifier and deadline picks save at once; `/router activities` and `/router engine` use the same store path. A successful save applies from the next turn. Profile-owned settings such as model aliases, classifier definitions and credential bindings still require a direct edit.
 
-A project can set the routing mode, and only that, in `.claude/router.json` in the directory Claude Code runs in: `{ "mode": "cost" }`. Any other content is ignored with a notice; it never makes routing unavailable. A session's `/router mode` beats it, and it beats the profile's `mode`. See [Routing modes](routing-modes.md).
+The shared `.claude/router.json` can set only `mode`, for example `{ "mode": "cost" }`. See [Project routing settings](#project-routing-settings) for the optional local file, stored overrides and what wins.
 
 Opus 5.5, Sonnet 5.5, Haiku 5.5 and Fable 5.2 keep one prompt cache across effort levels, so the policy prices an effort-only move, such as Opus at `medium` to Opus at `high`, as no cache write. Transcripts support that price, with limits; see [What we do not know yet](activity-routing.md#what-we-do-not-know-yet). On Amazon Bedrock, Google Cloud, Microsoft Foundry, a custom `ANTHROPIC_BASE_URL`, or with `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS`, each effort has its own cache and the move pays its write. A HIPAA configuration cannot be detected; the router then prices those moves as free.
 

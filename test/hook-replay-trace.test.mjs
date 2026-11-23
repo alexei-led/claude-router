@@ -140,8 +140,7 @@ test('first table request consumes freshness before shadow is enabled', async ()
   await begin(h);
   await turn(h);
   h.state.delete('loops:main');
-  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', activityRouting: 'off' }));
-  await h.event('command.run', { command: 'router', args: 'activities off' });
+  await h.event('command.run', { command: 'router', args: 'engine shadow' });
   await turn(h, 'after-enable');
   assert.equal(usableTrace(record(h)), false);
   assert.ok(record(h).incomplete.includes('mid-session'));
@@ -598,8 +597,7 @@ test('shadow-table-shadow between steps cannot lose an unflushed turn silently',
   await turn(h, 'complete');
   await h.event('turn.start', { turnId: 'omitted', text: 'Synthetic task.' });
   await drain(h.step({ ...step, turnId: 'omitted' }));
-  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'table' }));
-  await h.event('command.run', { command: 'router', args: 'activities off' });
+  await h.event('command.run', { command: 'router', args: 'engine table' });
   const set = h.$.store.set;
   const traceWrites = [];
   h.$.store.set = async (key, value) => {
@@ -608,8 +606,7 @@ test('shadow-table-shadow between steps cannot lose an unflushed turn silently',
   };
   await h.event('turn.complete', { turnId: 'omitted' });
   assert.deepEqual(traceWrites, []);
-  h.files.set(CONFIG, JSON.stringify({ routingEngine: 'shadow', activityRouting: 'off' }));
-  await h.event('command.run', { command: 'router', args: 'activities on' });
+  await h.event('command.run', { command: 'router', args: 'engine shadow' });
   await turn(h, 'after');
   assert.equal(usableTrace(record(h)), false);
   assert.ok(record(h).incomplete.includes('mode-gap'));

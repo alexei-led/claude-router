@@ -91,8 +91,10 @@ The router neither detects providers from URLs nor switches endpoints between tu
 - Missing or invalid files produce a warning and leave Claude Code's model and effort unchanged.
 - The router never falls back from a selected provider file to `router.json`.
 - Profiles are independent. Classifier, policy and route overrides in `router.json` do not carry over.
-- Selection is fixed for the session. The pane shows the selected file and writes Save/Undo changes there.
+- Selection is fixed for the session. The pane shows the selected file but never edits it. Save and Undo use the local plugin store, scoped to this launch directory, profile and provider.
 - Project and local settings cannot redirect the profile with `CLAUDE_ROUTER_PROVIDER`, `CLAUDE_CONFIG_DIR`, or `HOME`.
+
+The optional `.claude/<provider>-router.local.json` applies to profiles of the same provider launched in that directory. It can refer to existing model aliases but cannot select an endpoint, provider or credentials. See [Project routing settings](configuration.md#project-routing-settings).
 
 Select a classifier separately. Using Ollama to run your coding model does not also select Ollama as the classifier.
 For an all-local setup, [configure the Ollama classifier](user-guide.md#use-ollama) in your local provider profile.

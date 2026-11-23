@@ -366,6 +366,9 @@ export const paneViews = {
     tuning: { downgradeVotes: 3 },
     tuningBase: null,
     configPath: '~/.claude/router.json',
+    projectRoot: '/work/example',
+    projectLocalFile: 'router.local.json',
+    canClearProject: true,
   },
   classifier: {
     ...base,
@@ -380,7 +383,7 @@ export const paneViews = {
       ollama: null,
     },
     notice: 'Saved: classifier Clef → Clef Flash. Applies from the next turn.',
-    lastWrite: { label: 'classifier Clef → Clef Flash', leaves: [{ path: ['classifier'], value: 'clef' }] },
+    lastWrite: { label: 'classifier Clef → Clef Flash' },
     activityStore,
     activityMetrics: { version: 1, latency: {}, downMoves: { moves: 7, escalations: 0 } },
   },
