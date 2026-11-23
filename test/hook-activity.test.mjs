@@ -411,7 +411,7 @@ test('turning routing off ends the watch after a cheaper activity move', async (
   await h.event('command.run', { command: 'router', args: 'off' });
   await turn(h, 't3', 'claude-sonnet-5-5', ['Bash']);
   assert.equal(h.requests[2].model, 'claude-sonnet-5-5');
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   const failing = [
     user('Fix the test.'),
     assistant('running', ['Bash']),
@@ -453,7 +453,7 @@ test('a Manual turn ends the watch a cheaper move started while routing was turn
   h.messages(async () => [user('Next.'), assistant('done', ['Bash'])]);
   await h.event('turn.complete', { turnId: 't2' });
   await turn(h, 't3', 'claude-sonnet-5-5', ['Bash']);
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   const failing = [
     user('Fix the test.'),
     assistant('running', ['Bash']),
@@ -494,7 +494,7 @@ test('turning routing off mid-turn and straight back on does not keep the watch 
   await h.event('command.run', { command: 'router', args: 'off' });
   h.messages(async () => [user('Next.'), assistant('done', ['Bash'])]);
   await h.event('turn.complete', { turnId: 't2' });
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   const failing = [
     user('Fix the test.'),
     assistant('running', ['Bash']),
@@ -533,7 +533,7 @@ test('turning routing off and back on before the turn finishes does not keep the
   await drain(h.step({ ...step, turnId: 't2', model: 'claude-sonnet-5-5' }));
   assert.equal(h.loop().decision.reason, 'activity-down');
   await h.event('command.run', { command: 'router', args: 'off' });
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   h.messages(async () => [user('Next.'), assistant('done', ['Bash'])]);
   await h.event('turn.complete', { turnId: 't2' });
   const failing = [
@@ -581,7 +581,7 @@ test('turning routing off and back on while the finished turn is recorded does n
     if (reads !== null && ++reads === 2) {
       reads = null;
       await h.event('command.run', { command: 'router', args: 'off' });
-      await h.event('command.run', { command: 'router', args: 'auto' });
+      await h.event('command.run', { command: 'router', args: 'on' });
     }
     return sessionId;
   };

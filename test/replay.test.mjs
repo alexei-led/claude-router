@@ -27,7 +27,7 @@ async function capture({ controls = false, continuations = false, keyword = fals
     }
     if (controls && i === 2) await h.event('command.run', { command: 'router', args: 'off' });
     if (controls && i === 3) {
-      await h.event('command.run', { command: 'router', args: 'auto' });
+      await h.event('command.run', { command: 'router', args: 'on' });
       await h.event('session.compact', { trigger: 'auto' });
     }
     const text = keyword && i === 1 ? 'maxthink synthetic task' : 'Synthetic task';
@@ -1065,7 +1065,7 @@ test('manual interval breaks reversal pairing without losing either policy move'
   for (let i = 0; i < 5; i++) {
     if (i === 1) await h.event('command.run', { command: 'router', args: 'mode quality' });
     if (i === 2) await h.event('command.run', { command: 'router', args: 'off' });
-    if (i === 3) await h.event('command.run', { command: 'router', args: 'auto' });
+    if (i === 3) await h.event('command.run', { command: 'router', args: 'on' });
     if (i === 4) await h.event('command.run', { command: 'router', args: 'mode cost' });
     const turnId = `t${i}`;
     await h.event('turn.start', { turnId, text: 'Synthetic task' });

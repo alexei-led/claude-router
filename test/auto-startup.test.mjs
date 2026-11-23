@@ -99,7 +99,7 @@ test('manual prefix preserves first startup but off/on after routing cannot reus
       ['off', false],
       ['again', true],
     ]) {
-      await command(h, enabled ? 'auto' : 'off');
+      await command(h, enabled ? 'on' : 'off');
       await turn(h, id);
       if (id === 'prefix') {
         assert.equal(h.loop().hasRoutedDecision, false);
@@ -166,7 +166,7 @@ test('prior table routing consumes privilege before engine resets, including unm
       cfg.routingEngine = 'auto';
     });
     await reload(h);
-    await command(h, 'auto');
+    await command(h, 'on');
     await turn(h, 'auto');
     assert.equal(h.requests.at(-1).effort, 'low');
     assert.equal(h.loop().decision.reason, 'no-evidence');
@@ -378,7 +378,7 @@ test('legacy off-only request history conservatively consumes eligibility on aut
   assert.equal(stored.value.hasRoutedDecision, false);
   delete stored.value.hasRoutedDecision;
   h.state.set('loops:main', stored);
-  await command(h, 'auto');
+  await command(h, 'on');
   await turn(h, 'legacy');
   assert.equal(h.requests.at(-1).effort, 'low');
   assert.equal(h.loop().decision.reason, 'no-evidence');

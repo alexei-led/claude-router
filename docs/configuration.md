@@ -43,7 +43,13 @@ A non-Anthropic file must exist and validate. It never falls back to `router.jso
 1 (low), 2 (medium), or 3 (high), with half-steps allowed. For example:
 
 ```json
-{ "models": { "sonnet": { "capability": { "medium": 1.5, "high": { "default": 2, "code": 2.5 } } } } }
+{
+  "models": {
+    "sonnet": {
+      "capability": { "medium": 1.5, "high": { "default": 2, "code": 2.5 } }
+    }
+  }
+}
 ```
 
 Each effort maps to a number or to an activity map `{ default, code, debug, explore, plan, review, ops, docs }`; an
@@ -143,7 +149,7 @@ Useful auto routing depends on the profile's per-effort `models.<alias>.capabili
 
 Auto decision rows show demand, target, outcome and move reasons such as `startup`, `upgrade`, `escalation`, `same-route`, `reentry` and `no-route-native`.
 
-`/router auto` turns routing on for the session; `/router off` turns it off. Neither changes `routingEngine`. `/router mode cost|balanced|quality` selects the mode, and `/router pin <tier>` pins one turn. Evaluation and default cutover remain pending; see [evaluation](evaluation.md). Engine values are case-sensitive.
+`/router on` turns routing on for the session; `/router off` turns it off. `/router engine table|shadow|auto` selects the engine and writes it to the profile with Undo; `/router mode cost|balanced|quality` selects the mode, and `/router pin <tier>` pins one turn. The pane header carries the same engine choice beside on/off when it is at least 80 columns wide, and the band shows the engine as a chip only when it is not the `table` default. Evaluation and default cutover remain pending; see [evaluation](evaluation.md). Engine values are case-sensitive.
 
 ## Built-in defaults
 

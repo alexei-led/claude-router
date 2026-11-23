@@ -447,7 +447,7 @@ To enable custom subagent routes, also configure [subagent routing](configuratio
 ## Check the selected profile
 
 1. Open `/router` and check the provider name and file path.
-2. Start on a model used by a configured route, or run `/router auto`.
+2. Start on a model used by a configured route, or run `/router on`.
 3. Check that the band names the expected model and effort after a prompt.
 
 If routing is unavailable, inspect the selected file first.

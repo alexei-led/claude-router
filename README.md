@@ -18,14 +18,14 @@ CLAUDE_ROUTER_PROVIDER=deepseek claude --model 'deepseek-flash[1m]'
 Create `~/.claude/deepseek-router.json` containing `{}` to use DeepSeek defaults.
 With `CLAUDE_CONFIG_DIR`, put the file in that directory instead.
 
-| Built-in profile | Router file | Default models |
-| --- | --- | --- |
-| Anthropic, the default | `router.json` | Haiku 5.5, Sonnet 5.5, Opus 5.5; Fable 5.2 for routes you set |
-| `deepseek` | `deepseek-router.json` | DeepSeek Flash, routed by effort |
-| `zai` | `zai-router.json` | GLM-5.3-Flash and GLM-5.3 |
-| `minimax` | `minimax-router.json` | MiniMax-M3.1-Flash, routed by effort |
-| `mimo` | `mimo-router.json` | MiMo-V2.6-Flash and MiMo-V2.6-Pro, no routed effort |
-| `kimi` | `kimi-router.json` | Kimi-K3.1-Pro, routed by effort |
+| Built-in profile       | Router file            | Default models                                                |
+| ---------------------- | ---------------------- | ------------------------------------------------------------- |
+| Anthropic, the default | `router.json`          | Haiku 5.5, Sonnet 5.5, Opus 5.5; Fable 5.2 for routes you set |
+| `deepseek`             | `deepseek-router.json` | DeepSeek Flash, routed by effort                              |
+| `zai`                  | `zai-router.json`      | GLM-5.3-Flash and GLM-5.3                                     |
+| `minimax`              | `minimax-router.json`  | MiniMax-M3.1-Flash, routed by effort                          |
+| `mimo`                 | `mimo-router.json`     | MiMo-V2.6-Flash and MiMo-V2.6-Pro, no routed effort           |
+| `kimi`                 | `kimi-router.json`     | Kimi-K3.1-Pro, routed by effort                               |
 
 OpenRouter, Ollama, other local servers and other compatible hosted providers use custom `<provider>-router.json` files.
 They have no built-in model defaults. A selected file must exist and validate, or the router leaves Claude Code's model unchanged.
@@ -37,13 +37,13 @@ Execution provider selection is separate from classifier selection. Observed usa
 
 The active classifier is asked at the start of each logical turn, for the tier, task goal and current phase, and again in the background every 4 requests while the turn runs (`policy.reviewEveryRequests`). Pick one on the pane's **Classifier** tab or in the selected router file; only the active one receives prompt text. With subagent routing `on` (the default), it is also asked once per routed subagent, with the task's description and prompt; set `"subagentRouting": "off"` to keep that text local.
 
-| Classifier | Service                                    | Credential                          | Prompt text goes to       | How it is asked for the activity                                      |
-| ---------- | ------------------------------------------ | ----------------------------------- | ------------------------- | --------------------------------------------------------------------- |
-| Jev        | [typesafe.ai](https://typesafe.ai)         | Jev API key                         | typesafe.ai               | Goal and phase `choice` questions in the same request                 |
-| Clef       | Cloudflare Workers AI, 27B                 | Cloudflare API token and account ID | Cloudflare                | The same                                                              |
-| Clef Flash | Cloudflare Workers AI, 9B                  | Cloudflare API token and account ID | Cloudflare                | The same                                                              |
-| Clef Omni  | Cloudflare Workers AI, 30B MoE             | Cloudflare API token and account ID | Cloudflare                | The same                                                              |
-| OpenAI     | OpenAI, `gpt-6-luna`         | OpenAI API key                      | OpenAI (`api.openai.com`) | Goal and phase choices in `questions`, in the same request                 |
+| Classifier | Service                                    | Credential                          | Prompt text goes to       | How it is asked for the activity                               |
+| ---------- | ------------------------------------------ | ----------------------------------- | ------------------------- | -------------------------------------------------------------- |
+| Jev        | [typesafe.ai](https://typesafe.ai)         | Jev API key                         | typesafe.ai               | Goal and phase `choice` questions in the same request          |
+| Clef       | Cloudflare Workers AI, 27B                 | Cloudflare API token and account ID | Cloudflare                | The same                                                       |
+| Clef Flash | Cloudflare Workers AI, 9B                  | Cloudflare API token and account ID | Cloudflare                | The same                                                       |
+| Clef Omni  | Cloudflare Workers AI, 30B MoE             | Cloudflare API token and account ID | Cloudflare                | The same                                                       |
+| OpenAI     | OpenAI, `gpt-6-luna`                       | OpenAI API key                      | OpenAI (`api.openai.com`) | Goal and phase choices in `questions`, in the same request     |
 | Ollama     | A local [Ollama](https://ollama.com) model | None                                | Stays on this machine     | Goal only in a second request; no phase or continuation answer |
 
 Jev 1.14 is the default; a configured model override stays in force. [Configuration](docs/configuration.md#classifiers) gives the endpoints, timeouts, and how to add another service that speaks one of the supported protocols.
@@ -61,7 +61,7 @@ In the desktop app, VS Code and mobile, the band is one fixed row with nothing r
   <img src="docs/images/desktop-band-routed-light.png" alt="The desktop band in one row: a tier meter, Opus 5.5 xhigh, the code activity and the reason &quot;clearly stronger&quot; on the left; context and cache readings, the Pin to a tier dropdown and the Router button on the right." width="900">
 </picture>
 
-*Rendered from the real component tree with a browser's layout and approximate theme colours; not a screenshot of the Claude app.*
+_Rendered from the real component tree with a browser's layout and approximate theme colours; not a screenshot of the Claude app._
 
 <table>
 <tr>
@@ -83,7 +83,6 @@ In the desktop app, VS Code and mobile, the band is one fixed row with nothing r
 </td>
 </tr>
 </table>
-
 
 In the terminal, the picture above shows the band, whose controls appear on its own row on hover; the colours follow your Claude Code theme. The pane's warnings share one slot under the tab row, and a pending pin shows on its pin button (press it again to unpin).
 
@@ -146,7 +145,7 @@ The Anthropic profile uses these activity defaults. Other profiles have [their o
 
 ## Choose a routing engine
 
-Set `routingEngine` in the selected profile file: `table` (default), `shadow` or `auto`. For example, use `{"routingEngine":"shadow"}` or `{"routingEngine":"auto"}`; omit it for `table`. `/router auto` turns routing on for the session; it does not select the engine. `/router off` turns it off, while `/router mode cost|balanced|quality` selects the routing mode.
+Set `routingEngine` in the selected profile file: `table` (default), `shadow` or `auto`. For example, use `{"routingEngine":"shadow"}` or `{"routingEngine":"auto"}`; omit it for `table`. `/router on` turns routing on for the session; `/router engine table|shadow|auto` selects the engine and writes it to the profile. `/router off` turns routing off, while `/router mode cost|balanced|quality` selects the routing mode.
 
 - **`table` (default):** uses deterministic tier-by-activity routes. The routing mode transforms those routes before the table policy.
 - **`shadow`:** table requests remain unchanged. `/router decisions` shows one-step `alt` proposals. `/router trace export` writes bounded replay inputs; for the work profile (`CLAUDE_CONFIG_DIR=~/.claude-team`), from a source checkout, replay `~/.claude-team/router-traces.json` and any dated rollover files with `node scripts/replay-traces.mjs`.
@@ -165,7 +164,7 @@ claude plugin marketplace add alexei-led/claude-router
 claude plugin install router@alexei-led-claude-router
 ```
 
-For the default Anthropic profile, start on a catalog model such as `claude --model claude-haiku-5-5`. For other providers, [select a provider profile](docs/providers.md#select-a-provider). Run `/plugin configure router` and save credentials for the active classifier, or run `ollama serve` with a pulled local model and select Ollama. With `table` or `shadow`, a new session starts with routing on only when its model is used by a tier or enabled activity override. With `auto`, any model in the selected catalog starts with routing on. `/router auto` turns routing on for the selected engine; see [engine selection](docs/configuration.md#routing-engine).
+For the default Anthropic profile, start on a catalog model such as `claude --model claude-haiku-5-5`. For other providers, [select a provider profile](docs/providers.md#select-a-provider). Run `/plugin configure router` and save credentials for the active classifier, or run `ollama serve` with a pulled local model and select Ollama. With `table` or `shadow`, a new session starts with routing on only when its model is used by a tier or enabled activity override. With `auto`, any model in the selected catalog starts with routing on. `/router on` turns routing on for the selected engine; see [engine selection](docs/configuration.md#routing-engine).
 
 Claude Code updates the plugin at startup when auto-update is on for this marketplace. Otherwise run `claude plugin marketplace update alexei-led-claude-router`, then `claude plugin update router@alexei-led-claude-router`.
 
@@ -181,7 +180,7 @@ claude --plugin-dir "$PWD" --model claude-haiku-5-5
 
 In Claude Code, run `/plugin configure router` and save your classifier key in the sensitive plugin option. The Mod adds its status band and `/router` pane. No status-line setup or gateway environment variables are needed.
 
-Run `/router` to open the pane. `/router auto` turns routing on for the session; `/router off` turns it off, and `/router mode cost|balanced|quality` selects the routing mode. None changes `routingEngine`, which stays in the selected profile file. Run `/model` to select a model (which turns routing off). See the [user guide](docs/user-guide.md).
+Run `/router` to open the pane. `/router on` turns routing on for the session and `/router off` turns it off; `/router engine table|shadow|auto` selects the engine, saved in the selected profile file; `/router mode cost|balanced|quality` selects the routing mode. Run `/model` to select a model (which turns routing off). See the [user guide](docs/user-guide.md).
 
 Before a push, run the same checks as CI. `npm run setup` installs Biome and TypeScript into `tools/`; the plugin root keeps no lockfile, so Claude Code installs nothing with the plugin. `npm run validate` and `npm run test:plugin` need the `claude` CLI: they load the Mod in the Claude Code engine, which refuses some faults that lint and unit tests miss.
 

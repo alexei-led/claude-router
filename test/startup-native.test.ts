@@ -78,7 +78,7 @@ test('first routed quality startup uses native capability and survives reload wi
   await request('manual-prefix');
   expect(sent.at(-1)).toEqual({ model: 'deepseek-flash[1m]', effort: 'low' });
   expect(state.get('loops:main')?.value).toMatchObject({ hasRoutedDecision: false, requests: 1 });
-  await $.command.run({ command: 'router', args: 'auto' });
+  await $.command.run({ command: 'router', args: 'on' });
   await request('first-routed');
   expect(sent.at(-1)).toEqual({ model: 'deepseek-flash[1m]', effort: 'high' });
   expect(state.get('loops:main')?.value).toMatchObject({
@@ -88,7 +88,7 @@ test('first routed quality startup uses native capability and survives reload wi
   });
   await $.command.run({ command: 'router', args: 'off' });
   await request('manual-after');
-  await $.command.run({ command: 'router', args: 'auto' });
+  await $.command.run({ command: 'router', args: 'on' });
   await reload();
   await request('after-reload');
   expect(sent.at(-1)).toEqual({ model: 'deepseek-flash[1m]', effort: 'low' });
