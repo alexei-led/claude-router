@@ -9,7 +9,7 @@ import { unpricedLine } from '../lib/display.mjs';
 import { isSameModel } from '../lib/route.mjs';
 import { compareReply } from '../lib/savings.mjs';
 import { passReason, typeRoute } from '../lib/subagents.mjs';
-import { drain, harness, press, start, step, texts } from './harness.mjs';
+import { drain, harness, press, projectPatch, start, step, texts } from './harness.mjs';
 
 test('provider models match sourced modalities and live-accepted efforts', () => {
   const fixture = JSON.parse(readFileSync(new URL('./fixtures/provider-support.json', import.meta.url), 'utf8'));
@@ -109,7 +109,7 @@ test('automatic-cache comparisons do not fabricate another route cache hit rate'
   );
 });
 
-test('selected provider file is isolated, normalizes response IDs and stays selected for saves', async () => {
+test('selected provider file is isolated, normalizes response IDs and stays selected for project preferences', async () => {
   const h = harness();
   h.env.set('CLAUDE_ROUTER_PROVIDER', 'deepseek');
   h.model('deepseek-flash[1m]');
@@ -138,7 +138,8 @@ test('selected provider file is isolated, normalizes response IDs and stays sele
   assert.equal(h.requests[0].effort, 'max');
   assert.notEqual(h.loop().suspended, true);
   await h.event('command.run', { command: 'router', args: 'activities off' });
-  assert.equal(JSON.parse(h.files.get('/fixture/team/deepseek-router.json')).activityRouting, 'off');
+  assert.deepEqual(projectPatch(h), { activityRouting: 'off' });
+  assert.equal(h.files.get('/fixture/team/deepseek-router.json'), '{}');
   assert.equal(h.files.get('/fixture/team/router.json'), '{"classifier":"ollama"}');
   assert.equal(h.files.has('/fixture/team/zai-router.json'), false);
 });
@@ -180,7 +181,7 @@ test('known automatic-cache costs are not labelled unpriced when only the compar
   assert.ok(!end.includes('unpriced comparison'));
 });
 
-test('provider pane reset uses provider defaults and identifies its selected file', async () => {
+test('provider pane clear inherits the active provider profile and identifies its file', async () => {
   const h = harness();
   h.env.set('CLAUDE_ROUTER_PROVIDER', 'zai');
   h.model('glm-5.3-flash[1m]');
@@ -190,9 +191,12 @@ test('provider pane reset uses provider defaults and identifies its selected fil
   const tree = await h.render();
   assert.ok(texts(tree).join('\n').includes('zai-router.json'));
   await press(h, 'tab-routes');
-  await press(h, 'reset-routes');
+  await press(h, 'cell-tier-low');
+  await press(h, 'route-low-effort', 'low');
   await press(h, 'save-routing');
-  assert.deepEqual(JSON.parse(h.files.get('/fixture/team/zai-router.json')), {});
+  assert.deepEqual(projectPatch(h), { routes: { low: { effort: 'low' } } });
+  await press(h, 'reset-routes');
+  assert.deepEqual(projectPatch(h), {});
   await press(h, 'undo');
   assert.equal(JSON.parse(h.files.get('/fixture/team/zai-router.json')).routes.low.model, 'glm');
 });

@@ -81,17 +81,20 @@ test('desktop shell: tabs without digits, the same warnings under the tabs on ev
 });
 
 // Review Focus: the draft is kept across tabs and Save works from the shell's bar, through a real press.
-test('desktop shell: a Routes draft keeps its save bar on other tabs and Save writes router.json', async ($, on) => {
+test('desktop shell: a Routes draft keeps its save bar on other tabs and Save stores a project preference', async ($, on) => {
   const state = setup(on, {});
   on('session.start', (_$, e) => ({ cwd: e.cwd }));
-  on('session.cwd', () => ({ value: '/fixture/project' }));
+  on('session.root', () => ({ value: '/fixture/project' }));
+  on('session.version', () => ({ value: { version: '2.1.321' } }));
   on('command.register', () => ({ value: { command: 'router' } }));
   on('settings.read', () => ({ value: {} }));
   mock.env(on, { HOME: '/fixture', CLAUDE_CONFIG_DIR: '/fixture/team' });
-  // router.json lives in memory, so Save can write it.
+  // A write to the profile would be caught even if the pane also saved to the store.
   const files = new Map<string, string>([['/fixture/team/router.json', '{}']]);
   on('fs.exists', (_$, e) => ({ value: files.has(e.path) }));
-  on('fs.stat', () => ({ value: { isLink: false } }));
+  on('fs.stat', (_$, e) => ({
+    value: { kind: files.has(e.path) ? 'file' : 'dir', isLink: false, realPath: e.path, size: 0, mtimeMs: 0 },
+  }));
   on('fs.read', (_$, e) => ({ value: files.get(e.path) }));
   on('fs.write', (_$, e) => {
     files.set(e.path, e.text);
@@ -118,9 +121,9 @@ test('desktop shell: a Routes draft keeps its save bar on other tabs and Save wr
   await pane.redraw();
   await pane.press({ key: 'save-routing' });
   await pane.redraw();
-  expect(state.view.notice).toMatch(/^Saved: 1 routing change/);
+  expect(state.view.notice).toMatch(/^Saved: routing changes/);
   expect(state.view.routeDraft ?? null).toBeNull();
-  expect(files.get('/fixture/team/router.json')).toContain('micro');
+  expect(files.get('/fixture/team/router.json')).toEqual('{}');
   expect(await pane.find({ key: 'save-routing' })).toBeUndefined();
   await pane.unmount();
 });

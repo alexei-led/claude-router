@@ -195,13 +195,13 @@ Box flexDirection="column"
     "2 prompt caches in use: one per model; effort changes keep it. A switch to a"
   Text dimColor=true
     "cold cache writes the whole context again, the switch cost on Now."
-  Button hotkey="r" key="reset-routes" label="Reset routes to defaults"
+  Button hotkey="r" key="reset-routes" label="Inherit tiers"
   Text dimColor=true
     "A new model ID needs the active file → models: price, window, efforts."
   Text
     " "
   Text dimColor=true
-    "router.json changes:"
+    "Project routing changes:"
   Text color="error"
     "- activities.code.low            Sonnet 5.5 · high"
   Text color="success"

@@ -24,7 +24,7 @@ For `auto`, `micro` is classifier demand 0, not a pinned table row. A tier pin s
 without a mode margin; eligible model-effort candidates still obey hard constraints. A prompt keyword also sets the
 turn's demand, from the demand the turn's advice gives, and keeps the mode margin.
 
-[Routing engines](configuration.md#routing-engine) are selected separately in the profile file. `auto` is opt-in;
+[Routing engines](configuration.md#routing-engine) are selected separately in the profile or through project overrides. `auto` is opt-in;
 `shadow` records proposals while `table` routes. Auto uses the mode only as a capability margin: `cost` subtracts 0.5
 from demand, `balanced` adds nothing and `quality` adds 0.5, clamped to 0–3. Tier pins use exact demand without a
 margin. Evaluation and default cutover are pending.
@@ -35,11 +35,13 @@ The mode comes from the first of these that sets one:
 
 1. **This session:** `/router mode cost`, `/router mode balanced` or `/router mode quality`. `/router mode default`
    clears it. A resume of the session keeps it; a new session does not.
-2. **The project:** `.claude/router.json` in the directory Claude Code runs in. It may hold only the mode, for
-   example `{ "mode": "cost" }`. A file with any other key, a mode that is not one of the three, or JSON that does not
-   parse is ignored, and the pane and `/router` say why. Add it to `.gitignore` to keep the choice to yourself.
-3. **The profile:** `"mode"` in `router.json`, or **Mode** on the pane's Policy tab, which saves at once with Undo.
-4. `balanced`.
+2. **Stored project override:** **Mode** on the pane’s Policy tab saves at once for this project and profile, with Undo.
+3. **Hand-edited project settings:** `mode` in `.claude/router.local.json` or its provider-specific counterpart.
+4. **Shared project mode:** `.claude/router.json` in the Claude Code launch directory. This file may hold only `mode`.
+5. **The profile:** `mode` in the selected router file.
+6. `balanced`.
+
+See [Project routing settings](configuration.md#project-routing-settings) for filenames, precedence and recovery.
 
 The band, the Now tab and `/router` show the mode and its source, for example `cost (session)`. The prompt footer
 names a mode other than balanced.

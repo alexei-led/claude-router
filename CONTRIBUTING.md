@@ -65,7 +65,7 @@ Rules that keep the layers apart:
 - Import Node built-ins with the `node:` prefix.
 - A name says what the thing means. A comment says why, not what.
 - No speculative options, flags or compatibility shims. Delete dead code; never comment it out. No `TODO` in place of in-scope work: put deferred ideas in `BACKLOG.md`.
-- `biome-ignore` needs a one-line reason (see `lib/config-file.mjs`).
+- `biome-ignore` needs a one-line reason (see `lib/project-routing.mjs`).
 - An error names the setting, never its value. Never log or show a key.
 
 ## Tests

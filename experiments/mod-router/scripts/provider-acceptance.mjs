@@ -1,7 +1,7 @@
 // Real Claude Code + production Mod against a loopback Messages API. No provider credentials or paid calls.
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -88,7 +88,14 @@ async function runCase(root, url, { provider, profile, expectedHigh }) {
   await mkdir(config, { recursive: true });
   const file = join(dir, 'probe.txt');
   await writeFile(file, 'Synthetic provider acceptance fixture.\n');
-  if (profile) await writeFile(join(config, `${provider}-router.json`), profile);
+  const profilePath = join(config, `${provider}-router.json`);
+  if (profile) await writeFile(profilePath, profile);
+  const local = '{ "mode": "cost" }\n';
+  const localPath = join(dir, '.claude', `${provider}-router.local.json`);
+  if (expectedHigh) {
+    await mkdir(join(dir, '.claude'));
+    await writeFile(localPath, local);
+  }
   // A valid default file must never be used for a missing provider file.
   await writeFile(join(config, 'router.json'), '{}');
   const model = preset.models[preset.routes.micro.model].id;
@@ -118,6 +125,7 @@ async function runCase(root, url, { provider, profile, expectedHigh }) {
   const prompts = expectedHigh
     ? [
         '/router',
+        '/router activities off',
         '/router pin high',
         'Read the fixture, then reply OK.',
         '/router pin micro',
@@ -188,6 +196,10 @@ async function runCase(root, url, { provider, profile, expectedHigh }) {
   assert.ok(results.length > 0 && results.every((r) => !r.is_error), 'native session failed');
   if (expectedHigh) {
     assert.match(results[0].result, new RegExp(`${provider}-router.json`));
+    assert.match(results[0].result, /Mode: cost \(project local\)/);
+    assert.match(results[1].result, /Saved: activity routing on → off/);
+    assert.equal(await readFile(profilePath, 'utf8'), profile);
+    assert.equal(await readFile(localPath, 'utf8'), local);
     assert.match(results.at(-1).result, /Observed cache: 800 read, 0 written tokens/);
     assert.deepEqual(
       active.requests.map((r) => [r.model, r.effort, r.afterTool]),
@@ -231,7 +243,7 @@ try {
     JSON.stringify(
       {
         scope:
-          'Production Mod, isolated homes, synthetic auth, loopback only; tool continuations cross models and effort levels.',
+          'Production Mod, isolated homes, synthetic auth, loopback only; tool continuations cross models and effort levels; project-local settings load and project overrides save without rewriting either router file.',
         reports,
       },
       null,

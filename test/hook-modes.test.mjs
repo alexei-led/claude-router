@@ -3,7 +3,7 @@ import test from 'node:test';
 import { loadConfig, resolveRoute, routeSpec, TIERS } from '../lib/config.mjs';
 import { cardRoute } from '../lib/display.mjs';
 import { pinOf } from '../lib/ui/model/band.mjs';
-import { answering, CONFIG, drain, harness, JEV_KEY, press, start, step } from './harness.mjs';
+import { answering, CONFIG, drain, harness, JEV_KEY, press, projectPatch, start, step } from './harness.mjs';
 import { jevResponse } from './helpers.mjs';
 
 const PROJECT = '/fixture/project/.claude/router.json';
@@ -39,10 +39,16 @@ test('a project file that sets anything but the mode is ignored, with the reason
   h.files.set(PROJECT, JSON.stringify({ mode: 'cost', routes: {} }));
   await start(h);
   assert.deepEqual(h.view().routingMode, { mode: 'balanced', source: 'default' });
-  assert.equal(h.view().projectError, 'project .claude/router.json may only set mode, not routes');
+  assert.equal(
+    h.view().projectError,
+    'project .claude/router.json may only set mode; edit or remove it and reload plugins',
+  );
   assert.equal(h.view().phase, 'ready');
   h.surfaces([]);
-  assert.match(await command(h, ''), /Ignored: project \.claude\/router\.json may only set mode, not routes/);
+  assert.match(
+    await command(h, ''),
+    /Ignored: project \.claude\/router\.json may only set mode; edit or remove it and reload plugins/,
+  );
 });
 
 test('the profile router.json is not read as a project file when Claude Code runs in its parent', async () => {
@@ -152,17 +158,17 @@ test('each decision records the mode, its source, the classified tier and the ro
   assert.deepEqual(h.view().routingMode, { mode: 'cost', source: 'profile' });
 });
 
-test('the pane saves the profile mode at once, Undo restores it, and a session mode still wins', async () => {
+test('the pane saves the project preference at once, Undo restores it, and a session mode still wins', async () => {
   const h = harness(JEV_KEY);
   await start(h);
   await h.event('command.run', { command: 'router', args: '' });
   await press(h, 'tab-policy');
   await press(h, 'routing-mode', 'cost');
-  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), { mode: 'cost' });
-  assert.deepEqual(h.view().routingMode, { mode: 'cost', source: 'profile' });
-  assert.equal(h.view().notice, 'Saved: routing mode balanced → cost. Applies from the next turn.');
+  assert.deepEqual(projectPatch(h), { mode: 'cost' });
+  assert.deepEqual(h.view().routingMode, { mode: 'cost', source: 'project preference' });
+  assert.equal(h.view().notice, 'Saved: routing mode balanced → cost. Applies from the next turn in this project.');
   await press(h, 'undo');
-  assert.deepEqual(JSON.parse(h.files.get(CONFIG)), {});
+  assert.deepEqual(projectPatch(h), {});
   assert.deepEqual(h.view().routingMode, { mode: 'balanced', source: 'default' });
   await command(h, 'mode quality');
   await press(h, 'routing-mode', 'cost');
@@ -224,7 +230,7 @@ test('a symlinked project file is refused, and the home directory has no project
   h.links.add(PROJECT);
   await start(h);
   assert.deepEqual(h.view().routingMode, { mode: 'balanced', source: 'default' });
-  assert.equal(h.view().projectError, 'project .claude/router.json is a symlink');
+  assert.equal(h.view().projectError, 'project .claude/router.json is a symlink; edit or remove it and reload plugins');
   const home = harness(JEV_KEY);
   home.env.set('HOME', '/fixture/project');
   home.files.set(PROJECT, JSON.stringify({ routes: {} }));

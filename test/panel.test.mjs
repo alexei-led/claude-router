@@ -385,7 +385,7 @@ test('a removed built-in override shows the tier’s model and can be restored',
   assert.deepEqual(editor(tree), [
     'code at low           haiku ▾       high ▾',
     '                      runs the tier’s model; the built-in default is removed',
-    '                      [ Restore default: Sonnet 5.5 · high ]',
+    '                      [ Use tier model: Haiku 5.5 · high ] [ Restore default: Sonnet 5.5 · high ]',
   ]);
   assert.equal(routingChanges(config, view()).count, 0);
 });
@@ -424,6 +424,7 @@ test('a cell on its tier’s model that equals its built-in default does not say
   };
   assert.deepEqual(editor(routesTab(DEFAULTS, draft, { routeCell: 'ops.medium' })).slice(1), [
     '                      runs the tier’s model',
+    '                      [ Use tier model: Haiku 5.5 · high ]',
   ]);
 });
 
@@ -500,14 +501,14 @@ test('the draft lists activity edits and the mode in the router.json diff on Rou
   assert.equal(changes.count, 3);
   for (const tab of ['routes', 'policy']) {
     const lines = screen(renderPanel(ELEMENTS, config, view({ tab, routeDraft: draft }), null, quiet));
-    const at = lines.indexOf('router.json changes:');
+    const at = lines.indexOf('Project routing changes:');
     assert.deepEqual(
       lines.slice(at + 1, at + 8),
       [
         '- activities.code.high           no override',
         '+ activities.code.high           Opus 5.5 · max',
         '- activities.review.low          Sonnet 5.5 · high',
-        '+ activities.review.low          no override',
+        '+ activities.review.low          tier model (explicit)',
         '- activityRouting                on',
         '+ activityRouting                off',
         '● 3 unsaved routing changes  [ Save ] [ Discard ]',
@@ -516,7 +517,7 @@ test('the draft lists activity edits and the mode in the router.json diff on Rou
     );
   }
   const now = screen(renderPanel(ELEMENTS, config, view({ routeDraft: draft }), null, quiet));
-  assert.ok(!now.includes('router.json changes:'));
+  assert.ok(!now.includes('Project routing changes:'));
   assert.ok(now.includes('● 3 unsaved routing changes  [ Save ] [ Discard ]  listed on Routes and Policy'));
   assert.equal(routingChanges(config, view()).count, 0);
 });

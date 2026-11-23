@@ -1,18 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 649 1104" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 704 1104" role="img" aria-labelledby="title desc">
   <title id="title">Router pane, Usage tab, What if</title>
   <desc id="desc">This session by tier, with What if: the same tokens on Haiku 5.5, Sonnet 5.5 and Opus 5.5 alone against what routing spent.</desc>
   <style>
     text { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; font-size: 13px; }
     .cap { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 12px; fill: #9a988f; }
   </style>
-  <rect width="649" height="1104" rx="8" fill="#1c1c1c"/>
-<rect x="10" y="10" width="629" height="1084" rx="6" fill="none" stroke="#3f5f8f"/>
+  <rect width="704" height="1104" rx="8" fill="#1c1c1c"/>
+<rect x="10" y="10" width="684" height="1084" rx="6" fill="none" stroke="#3f5f8f"/>
 <text x="24.0" y="34" fill="#5fafd7" font-weight="700" xml:space="preserve">ROUTER</text>
 <rect x="86.4" y="20" width="62.4" height="18" rx="4" fill="#87afff"/>
 <text x="86.4" y="34" fill="#0d1016" font-weight="700" xml:space="preserve">[ ◉ on ]</text>
 <rect x="156.6" y="20" width="70.2" height="18" rx="4" fill="#2e3340"/>
 <text x="156.6" y="34" fill="#d0d0d0" xml:space="preserve">[ ○ off ]</text>
-<text x="242.4" y="34" fill="#87d787" xml:space="preserve">Jev ready · 347 ms</text>
+<text x="242.4" y="34" fill="#7c7c7c" xml:space="preserve">engine </text>
+<rect x="297.0" y="20" width="70.2" height="18" rx="4" fill="#87afff"/>
+<text x="297.0" y="34" fill="#0d1016" font-weight="700" xml:space="preserve">[ table ]</text>
+<rect x="375.0" y="20" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="375.0" y="34" fill="#d0d0d0" xml:space="preserve">[ shadow ]</text>
+<rect x="460.8" y="20" width="62.4" height="18" rx="4" fill="#2e3340"/>
+<text x="460.8" y="34" fill="#d0d0d0" xml:space="preserve">[ auto ]</text>
+<text x="538.8" y="34" fill="#87d787" xml:space="preserve">Jev ready · 347 ms</text>
 <rect x="24.0" y="39" width="70.2" height="18" rx="4" fill="#2e3340"/>
 <text x="24.0" y="53" fill="#d0d0d0" xml:space="preserve">[ 1 Now ]</text>
 <rect x="102.0" y="39" width="93.6" height="18" rx="4" fill="#2e3340"/>

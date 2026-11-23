@@ -392,3 +392,20 @@ for (const surface of SURFACES) {
     );
   });
 }
+
+test('unavailable routing does not offer a project clear that cannot run', () => {
+  for (const surface of ['terminal', ...SURFACES]) {
+    const tree = draw(
+      {
+        tab: 'policy',
+        phase: 'unavailable',
+        projectRoot: '/project',
+        canClearProject: true,
+        confirmProjectClear: true,
+      },
+      surface,
+    );
+    assert.equal(byKey(tree, 'ask-clear-project-routing'), undefined);
+    assert.equal(byKey(tree, 'clear-project-routing'), undefined);
+  }
+});

@@ -36,8 +36,8 @@ The desktop app, VS Code and mobile cannot open the `/plugin configure` dialog, 
   <img src="images/desktop-key-card-light.png" alt="The Set up card: a command to run in a terminal that saves the classifier key without showing it, with Copy command and Done buttons." width="560">
 </picture>
 
-In this guide, `router.json` means the selected router file. For example, with `CLAUDE_ROUTER_PROVIDER=zai`, edits go to `zai-router.json`.
-The pane shows its provider and file path.
+In this guide, `router.json` means the active profile's router file. For example, with `CLAUDE_ROUTER_PROVIDER=zai`, that file is `zai-router.json`.
+The pane shows its provider and file path; pane edits go to the plugin store, not this file.
 
 ## Read the status band
 
@@ -158,7 +158,7 @@ What each tab shows:
     <img src="images/desktop-pane-routes-light.png" alt="The Routes tab: a grid of tiers by activities with the models they run, an editor card for code at High, and an Unsaved changes table with Discard and Save." width="560">
   </picture>
 
-- **Policy**: form cards for Routing mode, Switching down, Switching up, Activities and Credits, and a Settings file card with the `router.json` path.
+- **Policy**: form cards for Routing mode, Switching down, Switching up, Activities and Credits, plus the scope and controls for stored project overrides.
 
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="images/desktop-pane-policy-dark.png">
@@ -191,13 +191,13 @@ At a phone's width the same trees narrow: the band shortens its route to fit and
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1 Now        | What runs next turn, and why, with a **pin** dropdown; the plan windows; this session's cost against no routing; context and cache.                       |
 | 2 Routes     | Which model runs: one grid of tiers by activities, the activity routing mode, and an editor for the selected cell.                                        |
-| 3 Policy     | How readily the router changes models: the start tier, going down, going up, the activity threshold, the credits cap; the `router.json` path.             |
+| 3 Policy     | How readily the router changes models: the start tier, going down, going up, the activity threshold and the credits cap; controls for project overrides.  |
 | 4 Classifier | Which classifier to ask: one row per classifier to compare, the active one's deadline, wait, health and credentials, and the counts kept across sessions. |
 | 5 Usage      | What routing cost against no routing this session, today, over 7 or 30 days, this month or in all: by activity, model or tier, and what is worth a look.  |
 
 Under the tab row, one slot shows the warnings on every tab: a project config that was ignored, a native fallback, and missing classifier credentials. They no longer sit inside the Now tab's NEXT TURN block.
 
-The top line of every tab, `ROUTER  [ ◉ on ] [ ○ off ]  engine [ table ] [ shadow ] [ auto ]  Jev ready · 347 ms`, shows the routing mode, switches it, selects the engine, and says whether the classifier is ready. Press `o` or `f` while the pane has focus; an engine press saves the profile setting at once, with **Undo**. A pane too narrow for the full top line drops the engine control (`/router engine` still works). The tabs under it carry their digits, `[ 1 Now ] [ 2 Routes ] …`, and **?** shows what the numbers mean above the tab. In a pane too narrow for them, the tabs drop the digits (the keys still work), and then **?** moves to the end of the top line. While the warnings under the tabs name missing classifier credentials, the top line says `see below` instead of repeating them. When routing is unavailable, the top line reads `ROUTER  unavailable  Claude’s model is kept` with the reason under it, and offers no on or off: see [Troubleshooting](#troubleshooting).
+The top line of every tab, `ROUTER  [ ◉ on ] [ ○ off ]  engine [ table ] [ shadow ] [ auto ]  Jev ready · 347 ms`, shows the routing mode, switches it, selects the engine, and says whether the classifier is ready. Press `o` or `f` while the pane has focus; an engine press saves a project override at once, with **Undo**. A pane too narrow for the full top line drops the engine control (`/router engine` still works). The tabs under it carry their digits, `[ 1 Now ] [ 2 Routes ] …`, and **?** shows what the numbers mean above the tab. In a pane too narrow for them, the tabs drop the digits (the keys still work), and then **?** moves to the end of the top line. While the warnings under the tabs name missing classifier credentials, the top line says `see below` instead of repeating them. When routing is unavailable, the top line reads `ROUTER  unavailable  Claude’s model is kept` with the reason under it, and offers no on or off: see [Troubleshooting](#troubleshooting).
 
 ![The Now tab in four blocks. NEXT TURN: the tier meter, model and activity, the reason with the classifier support and the switch cost, the pin dropdown. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total with one running subagent as an API estimate, the difference against unrouted, the main thread and the subagents as bars, and a strip of every reply colored by tier. CONTEXT: the window fill and the cache reuse](router-pane-now.svg)
 
@@ -233,10 +233,14 @@ SESSION  since 14:18 · 86 replies · 6 agents · 9 switches  ● 1 running  [ b
 
 The settings tabs follow one of two rules, and the section captions say which:
 
-- **Routes** and **Policy**: one draft for both, edited as a set, then saved. Changes stay a draft until **Save** (`s`). **Discard** (`d`) drops them. The draft stays when you change tab or close the pane: the tab whose settings changed reads **Routes ●** or **Policy ●**. Those two tabs list the `router.json` lines that **Save** will write; the other tabs show the count with **Save** and **Discard**. A new session drops the draft.
-- **Classifier**: a row or a deadline is written to `router.json` when you select it.
+- **Routes** and **Policy**: one draft for both, edited as a set, then saved. Changes stay a draft until **Save** (`s`). **Discard** (`d`) drops them. The draft stays when you change tab or close the pane: the tab whose settings changed reads **Routes ●** or **Policy ●**. Those two tabs list the project overrides that **Save** will change; the other tabs show the count with **Save** and **Discard**. A new session drops the draft.
+- **Classifier**: selecting a classifier or changing its deadline saves a project override immediately, without a draft.
 
-Every write applies from the next turn and can be undone. **Undo** (`u`) puts back the settings the last write changed, from any tab, and leaves any other edit to `router.json` alone. A new session clears it. Green notices confirm a write or an undo; a red one names why nothing was written.
+Saves apply from the next turn and never rewrite a JSON file. **Policy** shows the save scope. Open **?** for the canonical launch directory, provider and the **Reload** button. Other sessions in the same scope can read the saved settings with **Reload**; `/reload-plugins` also rereads the hand-edited files.
+
+**Undo** (`u`) restores the last routing save from any tab. It is refused if the record has already changed when Undo reads it. A new session clears Undo. **Clear overrides** asks for confirmation and removes only the stored routing values; the hand-edited project and profile values still apply. **Delete history** leaves routing overrides alone.
+
+Save from one session at a time. Router can merge unrelated edits it sees before saving, but overlapping writes to the same scope are **last-write-wins**: the last write can replace an earlier save even if the two sessions edited different settings. If Router reports a conflict, use **Reload**, discard the conflicting draft and reapply the intended edit. If save status is unknown, refresh before trying again. A corrupt override for the verified scope can be cleared explicitly; if storage itself is unreadable, fix access first.
 
 ### Compare routing with no routing
 
@@ -476,10 +480,10 @@ On the **Classifier** tab, **ACROSS SESSIONS · since the last reset** shows the
 | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/router`                                                                                                         | Open the pane.                                                                                                                                                 |
 | `/router on`                                                                                                      | Turn routing on for this session using the selected engine.                                                                                                    |
-| `/router engine <table\|shadow\|auto>`                                                                            | Select the routing engine and save it to the profile, with Undo. It applies from the next turn; on/off is unchanged. Engine values are case-sensitive.         |
+| `/router engine <table\|shadow\|auto>`                                                                            | Select the routing engine and save it for this project and profile, with Undo. It applies from the next turn; on/off is unchanged. Engine values are case-sensitive. |
 | `/router off`                                                                                                     | Turn routing off and keep Claude's selected model.                                                                                                             |
 | `/router pin <micro\|low\|medium\|high>`                                                                          | Pin the next turn and its tool continuations. Routing on must already be enabled.                                                                              |
-| `/router activities <off\|on>`                                                                                    | Set the [activity routing](#route-by-activity) mode. Saved to `router.json` at once; **Undo** reverts it.                                                      |
+| `/router activities <off\|on>`                                                                                    | Set the [activity routing](#route-by-activity) mode. Saved as a project override at once; **Undo** reverts it.                                                       |
 | `/router mode <cost\|balanced\|quality>`                                                                          | Set this session's [routing mode](routing-modes.md) from the next turn. A resume keeps it.                                                                     |
 | `/router mode default`                                                                                            | Clear the session's mode: the project's or the profile's applies again.                                                                                        |
 | `/router holds`                                                                                                   | List the models and accounts held out of routing, with the cause and the end. See [When a model fails](#when-a-model-fails).                                   |
@@ -536,14 +540,14 @@ not measured savings. A tier pin does not change the next turn after the pinned 
 
 ## Edit routes and policy
 
-![The Routes tab: the activity routing mode, then one grid of tiers by activities with the tiers' own models on top, built-in overrides marked °, unsaved edits ●; the editor of the selected cell, code at high, with Use tier model; the prompt caches in use; and the unsaved router.json changes with Save and Discard](router-pane-routes.svg)
+![The Routes tab: the activity routing mode, then one grid of tiers by activities with the tiers' own models on top, built-in overrides marked °, unsaved edits ●; the editor of the selected cell, code at high, with Use tier model; the prompt caches in use; and the unsaved project overrides with Save and Discard](router-pane-routes.svg)
 
 The **Routes** tab is one grid. Columns are tiers, from `micro` to `high`. The **every turn** row holds each tier's own model and effort. Each activity below it is a row: a cell shows the model the activity runs at that tier, or `·` when it runs the tier's model. Cells read as `models key·effort`, such as `sonnet·high`; a narrow pane shortens the effort (`opus·xh`). `°` marks a built-in default override and **●** an unsaved edit. In the picture, `medium` was changed to Sonnet 5.5 at `xhigh` and `coding` at `high` to Opus 5.5 at `max`.
 
 Select a cell, with the pointer or Tab and Enter, to edit it under the grid:
 
 - **A tier cell** (every turn) has a model and an effort, with the model's list prices and window.
-- **An activity cell** has a model and an effort, and says what the cell is: `built-in default`, `your override`, `runs the tier’s model`, or `same as the tier’s model: no effect`. **Use tier model** drops the override, so the cell runs the tier's model; for a built-in default, Save writes the tier's route for that cell, because the built-in one would come back otherwise. **Restore default** puts a changed or dropped built-in override back. A yellow note flags a cell stronger than the tier above, and a cell that is the only one on its cache.
+- **An activity cell** has a model and an effort, and says what the cell is: `built-in default`, `your override`, `runs the tier’s model`, or `same as the tier’s model: no effect`. **Use tier model** explicitly follows the tier's model and effort even when a lower layer declares an activity override. **Restore default** puts a changed or dropped built-in override back. A yellow note flags a cell stronger than the tier above, and a cell that is the only one on its cache.
 
 The model list comes from the aliases in `router.json` `models`, limited by the `availableModels` setting. `inherit` keeps the effort Claude Code sends. A model without effort levels, such as a custom one with `"efforts": []`, shows `none`.
 
@@ -555,7 +559,7 @@ Automatic-cache profiles, including DeepSeek and z.ai, do not assume a fixed lif
 
 A yellow line flags neighbouring tiers with the same model and effort. That step changes nothing.
 
-**Reset routes to defaults** (`r`) loads the built-in tier routes and start tier into the draft; **Save** then removes your route overrides from `router.json`. Activity edits and the mode stay in the draft.
+**Inherit tiers** (`r`) immediately removes stored tier routes and the start tier, revealing the next lower layer. Pending activity edits stay in the draft.
 
 A new model ID needs an entry in `router.json` `models` with its price, context window, and effort levels. See [Configuration](configuration.md).
 
@@ -571,7 +575,7 @@ The **Policy** tab writes each control inside the sentence it completes, and nam
 - **Activities** apply at 50%, 60%, 70%, or 80% certainty or more. Below it a new task runs its tier's model; the running task follows [Changes during a task](#changes-during-a-task). See [Activity routing](activity-routing.md#change-a-cell).
 - **Credits** caps one cold cache write on a `credits` model at $0.50, $1, $2, or $5. With no `credits` model in `router.json`, the tab says the cap has no effect.
 
-**Reset policy to defaults** loads the built-in values; **Save** then removes your policy overrides. The current turn keeps the settings it started with. A save preserves unrelated `router.json` keys and refuses to write through a symlink. When validation fails, the pane names the setting and leaves the file unchanged. The tab ends with the `router.json` path, a **copy** button, and the [subagent routing](configuration.md#subagent-routing) mode, which is set in `router.json`.
+**Inherit policy** removes the stored policy overrides immediately, revealing the next lower layer; the current turn is unchanged. The tab shows the read-only profile path and a **copy** button. [Subagent routing](configuration.md#subagent-routing) is still configured in the profile.
 
 ## Choose the classifier
 
@@ -592,7 +596,7 @@ The three Clef models take the same request and the same Cloudflare credentials,
 
 You can save credentials for all of them; only the active one is asked. The **Classifier** tab has one row per classifier, as columns to compare: `◉` marks the active one; then where the prompt goes (`this machine` for Ollama); its last checked-in [activity probe](evaluation.md#activity-probe-set), the test prompts with a known activity it answered right, such as `70/70`, and their p95 wait; and whether its credentials are complete. A row that lacks one names it, such as `○ no API token`, and has its own **Set up** button. In a pane too narrow for the widest row, about 80 columns, each classifier takes two lines instead: its name, status and **Set up**, then where the prompt goes and its probe result, such as `api.cloudflare.com · 69/70 · p95 883 ms`. The probe columns read `—` when you configured a model other than the probed one.
 
-Select a row to switch. The choice is written to `router.json` at once and applies from the next turn. **Undo** in the status bar returns to the previous classifier. A turn that is already being classified finishes with the classifier it started with. The new classifier starts with a clean failure count.
+Select a row to switch. The choice is saved as a project override at once and applies from the next turn. **Undo** in the status bar returns to the previous classifier. A turn that is already being classified finishes with the classifier it started with. The new classifier starts with a clean failure count.
 
 Under the rows, a block for the active classifier:
 

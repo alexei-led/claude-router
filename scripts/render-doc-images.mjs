@@ -216,13 +216,13 @@ function pane(view, title, desc, file, paneConfig = config, columns = COLUMNS) {
 pane(
   paneViews.routes,
   'Router pane, Routes tab',
-  'The activity routing mode, then one grid of tiers by activities: the tiers’ own models on top, each activity override in its cell with built-in defaults marked °, unsaved edits ●; the editor of the selected cell, code at high, with Use tier model; the model setups in use; and the unsaved router.json changes with Save and Discard.',
+  'The activity routing mode, then one grid of tiers by activities: the tiers’ own models on top, each activity override in its cell with built-in defaults marked °, unsaved edits ●; the editor of the selected cell, code at high, with Use tier model; the model setups in use; and the unsaved project routing changes with Save and Discard.',
   'router-pane-routes.svg',
 );
 pane(
   paneViews.policy,
   'Router pane, Policy tab',
-  'Each policy control inside the sentence it completes: the start tier, votes and payback horizon for going down, the support needed to go up, the activity threshold and the credits cap, with the default shown beside a changed value, the router.json file, and the unsaved change with Save and Discard.',
+  'Each policy control inside the sentence it completes: the start tier, votes and payback horizon for going down, the support needed to go up, the activity threshold and the credits cap, with the default shown beside a changed value, the project scope and read-only profile path, and the unsaved change with Save and Discard.',
   'router-pane-policy.svg',
 );
 pane(

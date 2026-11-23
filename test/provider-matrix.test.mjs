@@ -6,7 +6,7 @@ import { applyMode, modeRoute } from '../lib/modes.mjs';
 import { classifiedAlias, typeRoute } from '../lib/subagents.mjs';
 import { probeCases } from '../scripts/probe-provider-routes.mjs';
 import { withMatrix } from '../scripts/provider-matrix.mjs';
-import { drain, harness, press, start, step } from './harness.mjs';
+import { drain, harness, press, projectPatch, start, step } from './harness.mjs';
 
 const ENGINEERING = ['code', 'debug', 'plan', 'review'];
 const READONLY = ['ops', 'explore', 'docs'];
@@ -84,7 +84,7 @@ for (const [provider, tiers] of Object.entries(GOLDEN)) {
     );
   });
 
-  test(`${provider}: pins send only its model and supported effort, and reset/undo stay in its file`, async () => {
+  test(`${provider}: pins send only its model and supported effort, and clear/Undo use only its project preference`, async () => {
     const config = loadConfig({ provider });
     const path = `/fixture/team/${provider}-router.json`;
     for (const mode of ROUTING_MODES) {
@@ -109,10 +109,15 @@ for (const [provider, tiers] of Object.entries(GOLDEN)) {
     h.files.set(path, JSON.stringify(patch));
     await start(h);
     await press(h, 'tab-routes');
-    await press(h, 'reset-routes');
+    await press(h, 'tab-policy');
+    await press(h, 'baseline', 'high');
     await press(h, 'save-routing');
-    assert.deepEqual(JSON.parse(h.files.get(path)), {});
+    assert.deepEqual(projectPatch(h), { baselineTier: 'high' });
+    await press(h, 'tab-routes');
+    await press(h, 'reset-routes');
+    assert.deepEqual(projectPatch(h), {});
     await press(h, 'undo');
+    assert.deepEqual(projectPatch(h), { baselineTier: 'high' });
     assert.deepEqual(JSON.parse(h.files.get(path)), patch);
   });
 

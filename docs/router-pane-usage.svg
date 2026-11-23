@@ -12,7 +12,14 @@
 <text x="86.4" y="34" fill="#0d1016" font-weight="700" xml:space="preserve">[ ◉ on ]</text>
 <rect x="156.6" y="20" width="70.2" height="18" rx="4" fill="#2e3340"/>
 <text x="156.6" y="34" fill="#d0d0d0" xml:space="preserve">[ ○ off ]</text>
-<text x="242.4" y="34" fill="#87d787" xml:space="preserve">Jev ready · 347 ms</text>
+<text x="242.4" y="34" fill="#7c7c7c" xml:space="preserve">engine </text>
+<rect x="297.0" y="20" width="70.2" height="18" rx="4" fill="#87afff"/>
+<text x="297.0" y="34" fill="#0d1016" font-weight="700" xml:space="preserve">[ table ]</text>
+<rect x="375.0" y="20" width="78.0" height="18" rx="4" fill="#2e3340"/>
+<text x="375.0" y="34" fill="#d0d0d0" xml:space="preserve">[ shadow ]</text>
+<rect x="460.8" y="20" width="62.4" height="18" rx="4" fill="#2e3340"/>
+<text x="460.8" y="34" fill="#d0d0d0" xml:space="preserve">[ auto ]</text>
+<text x="538.8" y="34" fill="#87d787" xml:space="preserve">Jev ready · 347 ms</text>
 <rect x="24.0" y="39" width="70.2" height="18" rx="4" fill="#2e3340"/>
 <text x="24.0" y="53" fill="#d0d0d0" xml:space="preserve">[ 1 Now ]</text>
 <rect x="102.0" y="39" width="93.6" height="18" rx="4" fill="#2e3340"/>

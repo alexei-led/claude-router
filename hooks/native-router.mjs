@@ -25,15 +25,13 @@ import { advanceDemand, assessCandidates, initialAutoState, selectTarget } from 
 import { adviceActivity, autoRoute, observeAutoFallback } from '../lib/auto-route.mjs';
 import { renderBand, renderRouteLine, switchToast } from '../lib/band.mjs';
 import { ClassifierClient } from '../lib/classifier-client.mjs';
-import { resolveCredentials } from '../lib/classifier-contract.mjs';
+import { classifierDestination, resolveCredentials } from '../lib/classifier-contract.mjs';
 import {
   ACTIVITY_MODES,
   activeClassifier,
   CLASSIFY,
   DEFAULTS,
-  defaultsFor,
   editActivity,
-  effectiveActivities,
   effectiveRoutes,
   loadConfig,
   MIGRATION_HINT,
@@ -44,15 +42,7 @@ import {
   supportedVersion,
   TIERS,
   tuningOf,
-  withActivities,
-  withClassifier,
-  withClassifierTimeout,
-  withEngine,
-  withMode,
-  withRoutes,
-  withTuning,
 } from '../lib/config.mjs';
-import { changedLeaves, notSaved, restored, rewrittenConfig } from '../lib/config-file.mjs';
 import { billingOf, planLimits } from '../lib/costs.mjs';
 import {
   addTurnRow,
@@ -125,6 +115,13 @@ import { KEYWORDS, keywordRaises, promptKeyword } from '../lib/keywords.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
+import {
+  applyRoutingEdits,
+  applyRoutingPatch,
+  readRoutingPreference,
+  routingConflict,
+  routingEdits,
+} from '../lib/project-routing.mjs';
 import { providerFile, providerName } from '../lib/providers.mjs';
 import {
   appendTrace,
@@ -201,7 +198,7 @@ import {
   typeRoute,
 } from '../lib/subagents.mjs';
 import { argumentHint, routerSuggestions } from '../lib/subcommands.mjs';
-import { routeDraftOf, routingChanges } from '../lib/ui/model/draft.mjs';
+import { POLICY_ROWS, routeDraftOf } from '../lib/ui/model/draft.mjs';
 import { keyHelpOf } from '../lib/ui/model/frame.mjs';
 import { isGraphical } from '../lib/ui/tokens.mjs';
 import {
@@ -374,8 +371,9 @@ function createRouter(options) {
     modes: new Map(),
     // Each session's routing mode override (null: none), as read from or written to the store.
     routingModes: new Map(),
-    // The project's `.claude/router.json` mode, read at session.start: { mode, error }.
-    project: { mode: null, error: null },
+    project: null,
+    projectWrite: /** @type {Promise<unknown> | null} */ (null),
+    projectUndo: null,
     // Each routed turn's activity record until turn.complete adds it to the stats, and the session's open run of
     // one activity, flushed to the store when it ends.
     turnActivities: new Map(),
@@ -789,16 +787,19 @@ async function rememberMode($, mode) {
 
 // The routing mode a turn starts with and where it comes from. A store that cannot be read counts as no override.
 async function routingModeOf($, router) {
+  const { project } = router;
+  const active = {
+    preference: project?.preference.record?.patch.mode,
+    local: project?.localMode,
+    project: project?.sharedMode,
+    profile: project?.profileMode,
+  };
   const sessionId = await $.session.id();
   if (!router.routingModes.has(sessionId)) {
     const saved = await $.store.get(`${ROUTING_MODE_PREFIX}${sessionId}`).catch(() => null);
     router.routingModes.set(sessionId, ROUTING_MODES.includes(saved) ? saved : null);
   }
-  return resolveRoutingMode({
-    session: router.routingModes.get(sessionId),
-    project: router.project.mode,
-    profile: router.config.mode,
-  });
+  return resolveRoutingMode({ ...active, session: router.routingModes.get(sessionId) });
 }
 
 // The prompt footer's word for the router: paused or broken routing, or a routing mode other than balanced, which
@@ -814,13 +815,11 @@ const sameMode = (a, b) => a?.mode === b?.mode && a?.source === b?.source;
 
 // A turn's configs when turn.start did not record them, as after a reload of the Mod mid-turn.
 async function turnConfigOf($, router) {
+  const configured = router.config;
   const routingMode = await routingModeOf($, router);
   return {
-    config:
-      router.config.routingEngine === 'auto'
-        ? { ...router.config, routingMode }
-        : applyMode(router.config, routingMode),
-    configured: router.config,
+    config: configured.routingEngine === 'auto' ? { ...configured, routingMode } : applyMode(configured, routingMode),
+    configured,
   };
 }
 
@@ -856,21 +855,143 @@ async function setRoutingMode($, router, value) {
   return [`Routing mode: ${modeLabel(routingMode)}, from the next turn.`, ...(saved ? [] : [unsaved])].join(' ');
 }
 
-// A project's `.claude/router.json`, which may set only `mode`. Never a profile's own file: not the active profile's,
-// and not in the home directory, whose `.claude` is the default profile. A repo controls this file, so a symlink, which
-// could reach a file outside it, is refused as the profile's is. A file that does not read is ignored, with the reason
-// for the pane.
-async function readProject($, profilePath) {
+function projectPath(dir, name) {
+  const separator = dir.startsWith('/') ? '/' : '\\';
+  return `${dir}${dir.endsWith(separator) ? '' : separator}${name}`;
+}
+const hex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+const digest = async (text) =>
+  hex(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))));
+
+/** @param {string | null | undefined} path */
+async function canonicalDirectory($, path) {
+  if (!path) return null;
+  const stat = await $.fs.stat(path, { resolve: true });
+  return stat.kind === 'dir' && typeof stat.realPath === 'string' && stat.realPath ? stat.realPath : null;
+}
+
+// An existence probe can report false for both absence and denial (and for dangling links). Only a successful
+// listing can establish absence after a failed stat on the floor; reject entries reported as links.
+async function projectEntry($, parent, name) {
   try {
-    const cwd = await $.session.cwd();
-    const path = `${cwd}/.claude/router.json`;
-    const home = await $.env.get('HOME');
-    if (path === profilePath || cwd === home || !(await $.fs.exists(path))) return { mode: null, error: null };
-    if ((await $.fs.stat(path)).isLink) return { mode: null, error: 'project .claude/router.json is a symlink' };
-    return readProjectMode(await $.fs.read(path));
-  } catch {
-    return { mode: null, error: 'project .claude/router.json could not be read' };
+    return await $.fs.stat(projectPath(parent, name), { resolve: true });
+  } catch (error) {
+    if ((await $.fs.list(parent)).some((entry) => entry.name === name)) throw error;
+    return null;
   }
+}
+
+async function projectScope($, profilePath, provider) {
+  try {
+    const [root, home, profile] = await Promise.all([
+      canonicalDirectory($, await $.session.root()),
+      canonicalDirectory($, await $.env.get('HOME')),
+      canonicalDirectory($, profilePath),
+    ]);
+    if (!root || !home || !profile || root === home || root === profile) return null;
+    const dir = projectPath(root, '.claude');
+    const entry = await projectEntry($, root, '.claude').catch(() => undefined);
+    if (entry === undefined)
+      return { error: 'project .claude could not be verified; check its access and reload plugins' };
+    if (entry?.realPath === profile) return null;
+    if (entry?.isLink && !entry.realPath)
+      return { error: 'project .claude is an unresolved symlink; remove it and reload plugins' };
+    const id = JSON.stringify([root, profile, provider]);
+    return {
+      root,
+      dir: entry ? dir : null,
+      dirError: entry && (entry.isLink || entry.kind !== 'dir' || entry.realPath !== dir),
+      localFile: providerFile(provider).replace(/\.json$/, '.local.json'),
+      key: `project-routing:v1:${await digest(`key:${id}`)}`,
+      identity: await digest(`identity:${id}`),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function readProjectFile($, scope, name, parse) {
+  if (!scope?.dir) return { value: null, error: null };
+  const label = `project .claude/${name}`;
+  const recovery = 'edit or remove it and reload plugins';
+  const ignored = (why) => ({ value: null, error: `${label} ${why}; ${recovery}` });
+  if (scope.dirError) return ignored('is outside a regular, unlinked .claude directory');
+  let text;
+  try {
+    const stat = await projectEntry($, scope.dir, name);
+    if (!stat) return { value: null, error: null };
+    const path = projectPath(scope.dir, name);
+    if (stat.isLink) return ignored('is a symlink');
+    if (stat.kind !== 'file' || stat.realPath !== path) return ignored('is not a regular file in the project scope');
+    // The floor reads by path, so the link check is best effort if the filesystem changes before the read.
+    text = await $.fs.read(path);
+    if (typeof text !== 'string') return ignored('could not be read');
+  } catch {
+    return ignored('could not be read');
+  }
+  try {
+    return { value: parse(text), error: null };
+  } catch {
+    return ignored('has invalid or unsupported routing settings');
+  }
+}
+
+async function projectPreference($, scope, base) {
+  if (!scope) return readRoutingPreference(undefined, '', base);
+  try {
+    const raw = await $.store.get(scope.key);
+    return { ...readRoutingPreference(raw, scope.identity, base), raw };
+  } catch {
+    return {
+      record: null,
+      config: base,
+      resettable: false,
+      error: 'project routing preferences could not be read. Check plugin storage and refresh',
+    };
+  }
+}
+
+async function loadProjectRouting($, { config, profile, userFile }, overlay) {
+  const resolved = await projectScope($, profile, config.provider);
+  const scope = resolved?.key ? resolved : null;
+  const trusted = applyEvidenceOverlay(config, overlay, userFile);
+  const shared = await readProjectFile($, scope, 'router.json', readProjectMode);
+  const sharedMode = shared.value?.mode ?? null;
+  const inherited = sharedMode === null ? trusted : { ...trusted, mode: sharedMode };
+  const local = await readProjectFile($, scope, scope?.localFile, (text) => {
+    const patch = JSON.parse(text);
+    return { config: applyRoutingPatch(inherited, patch), mode: patch.mode ?? null };
+  });
+  const base = local.value?.config ?? inherited;
+  return {
+    scope,
+    base,
+    sharedMode,
+    profileMode: userFile?.mode ?? null,
+    localMode: local.value?.mode ?? null,
+    fileErrors: [
+      resolved?.error,
+      shared.error ?? (shared.value?.error && `${shared.value.error}; edit or remove it and reload plugins`),
+      local.error,
+    ].filter(Boolean),
+    preference: await projectPreference($, scope, base),
+  };
+}
+
+function projectRoutingView(project) {
+  return {
+    projectRoot: project.scope?.root ?? null,
+    projectLocalFile: project.scope?.localFile ?? null,
+    projectError: project.fileErrors.join(' · ') || null,
+    projectPreferenceError: project.preference.error,
+    projectClearDestination:
+      project.preference.config.classifier !== project.base.classifier
+        ? classifierDestination(activeClassifier(project.base).endpoint).text
+        : null,
+    canClearProject:
+      project.preference.resettable &&
+      Boolean(project.preference.error || Object.keys(project.preference.record?.patch ?? {}).length),
+  };
 }
 
 async function updateView($, router, patch) {
@@ -996,6 +1117,7 @@ async function openPane($, router) {
   await updateView($, router, {
     notice: null,
     confirmDelete: false,
+    confirmProjectClear: false,
     holds: await readHolds($, router),
     ...(await storeView($, router)),
   });
@@ -1139,7 +1261,7 @@ async function routerCommand($, router, args) {
   return {};
 }
 
-// `/router engine <name>`: the engine is a profile setting like the activity mode, saved at once with Undo.
+// `/router engine <name>` and `/router activities <mode>` share the pane's project write and Undo.
 async function setEngine($, router, engine) {
   const view = router.view ?? (await readView($, router));
   if (view.phase === 'unavailable') return unavailableText(view);
@@ -1148,7 +1270,6 @@ async function setEngine($, router, engine) {
   return router.view.notice;
 }
 
-// `/router activities <mode>`: the pane's write, so the file keeps the rest and Undo in the pane restores it.
 async function setActivityRouting($, router, mode) {
   const view = router.view ?? (await readView($, router));
   if (view.phase === 'unavailable') return unavailableText(view);
@@ -1293,6 +1414,7 @@ async function loadNativeConfig($, router) {
     return {
       config: { ...loadConfig({ userFile, provider }), nativePath: path, effortSplitsCache },
       userFile,
+      profile,
     };
   } catch (error) {
     throw invalid(error);
@@ -1311,30 +1433,6 @@ async function loadEvidenceOverlay($) {
     return parseEvidenceOverlay(await $.fs.read(path));
   } catch {
     return null;
-  }
-}
-
-// Writes router.json through `change(previousFile)` once the result validates. Returns the new config or an error
-// line for the pane; a failure leaves the file untouched.
-async function saveConfig($, active, change, evidence = null) {
-  const path = active.nativePath;
-  const filename = path?.split('/').at(-1) ?? 'router.json';
-  try {
-    if (active.provider !== 'anthropic' && !(await $.fs.exists(path)))
-      throw new Error('selected provider router file is missing');
-    if ((await $.fs.exists(path)) && (await $.fs.stat(path)).isLink)
-      return { error: `Not saved: ${filename} is a symlink. Edit its maintained source instead.` };
-    const { config, text, userFile } = rewrittenConfig(
-      (await $.fs.exists(path)) ? await $.fs.read(path) : null,
-      change,
-      active.provider,
-    );
-    await $.fs.write(path, text);
-    // The adopted config keeps the session's evidence overlay, so a pane or `/router` save does not drop priors.
-    const merged = applyEvidenceOverlay(config, evidence, userFile);
-    return { config: { ...merged, nativePath: path, effortSplitsCache: active.effortSplitsCache } };
-  } catch (error) {
-    return { error: notSaved(error, filename) };
   }
 }
 
@@ -1358,6 +1456,7 @@ function detailText(config, view, usage) {
     ...(config.provider !== 'anthropic' ? [`Provider: ${config.provider} · ${config.nativePath}`] : []),
     ...(view.routingMode ? [`Mode: ${modeLabel(view.routingMode)}`] : []),
     ...(view.projectError ? [`Ignored: ${view.projectError}`] : []),
+    ...(view.projectPreferenceError ? [`Ignored: ${view.projectPreferenceError}`] : []),
     `Native model: ${view.nativeModel}`,
     `Selected: ${view.selectedModel ?? 'not selected'} · effort ${view.effort ?? 'session/default'}`,
     `Last recorded completed engine request: ${view.delegatedModel ?? 'none'} · effort ${view.delegatedEffort ?? 'session/default'}`,
@@ -2753,13 +2852,161 @@ async function toggleBandDetail($, router, view) {
   await updateView($, router, { bandDetail });
 }
 
-// The pane's engine control and `/router engine`: the profile setting, saved at once like the activity mode. `write` is
-// the pane's save, so Undo restores the leaf the same way.
-const engineAction = (write, router, engine) => {
-  const from = router.config.routingEngine;
-  if (engine === from || !ROUTING_ENGINES.includes(engine)) return undefined;
-  return write(`routing engine ${from} → ${engine}`, (file) => withEngine(file, engine));
-};
+const EMPTY_PROJECT_PATCH = {};
+const EMPTY_ROUTING_DRAFT = { routeDraft: null, tuning: null, tuningBase: null };
+
+// Rebasing is safe only across a change made here from the held revision. Never rebase an edit across an
+// unseen external write or a refresh: keep its original expected values for the next conflict check.
+function rebaseProjectDraft(view, config) {
+  const routeDraft = view?.routeDraft;
+  const next = routeDraftOf(config, {});
+  const base = tuningOf(config);
+  const tuning = Object.fromEntries(
+    Object.entries(view?.tuning ?? {}).filter(
+      ([key, value]) => value !== view?.tuningBase?.[key] && value !== base[key],
+    ),
+  );
+  const { base: original, ...desired } = routeDraft ?? {};
+  const { base: current, ...draft } = next;
+  const edits = original ? routingEdits(original, desired) : [];
+  return {
+    routeDraft: edits.length ? { ...applyRoutingEdits(draft, edits), base: current } : null,
+    tuning: Object.keys(tuning).length ? tuning : null,
+    tuningBase: Object.keys(tuning).length ? base : null,
+  };
+}
+
+async function adoptProjectPreference($, router, project, preference, patch) {
+  const loaded = preference.config;
+  const switched = loaded.classifier !== router.config.classifier;
+  if (switched) clientOf(router, loaded.classifier).restore(null);
+  traceConfigAdopted(router, loaded);
+  project.preference = preference;
+  router.config = loaded;
+  const routingMode = await routingModeOf($, router);
+  return updateView($, router, {
+    ...(switched
+      ? {
+          ...CLEARED_READINGS,
+          error: router.view?.phase === 'unavailable' ? router.view.error : null,
+          credentials: await credentialsOf($, router.options, loaded).catch(() => router.view?.credentials ?? null),
+          health: healthOf(clientOf(router, loaded.classifier), loaded.classifier),
+        }
+      : {}),
+    ...projectRoutingView(project),
+    projectReloadNeeded: false,
+    routingMode,
+    confirmProjectClear: false,
+    ...patch,
+    ...(switched && patch.notice
+      ? {
+          notice: `${patch.notice} Classifier prompts go to ${classifierDestination(activeClassifier(loaded).endpoint).text}.`,
+        }
+      : {}),
+  });
+}
+
+// Null means the intent no longer applies to the store record the user acted on.
+function intendedProjectPatch(intent, held, current, before) {
+  if (intent.clearAll)
+    return JSON.stringify(intent.clearAll.raw) === JSON.stringify(current.raw) ? EMPTY_PROJECT_PATCH : null;
+  if (intent.undo) {
+    // An intervening writer may have replaced a value and later set it back. Do not undo their edit.
+    return current.record?.revision === intent.undo.revision ? intent.undo.patch : null;
+  }
+  if (intent.clearFields) {
+    if (intent.clearFields.some((key) => JSON.stringify(held.record?.patch[key]) !== JSON.stringify(before[key])))
+      return null;
+    return Object.fromEntries(Object.entries(before).filter(([key]) => !intent.clearFields.includes(key)));
+  }
+  const { edits, base } = intent;
+  if (
+    routingConflict(edits, held.record?.patch ?? EMPTY_PROJECT_PATCH, before) ||
+    routingConflict(edits, base, current.config)
+  )
+    return null;
+  return applyRoutingEdits(before, edits);
+}
+
+// One store mutation path for pane and commands. No caller-side timeout: even a timed-out host request may commit.
+// Each intent checks the record it reads; only acknowledged writes are adopted. With no store CAS, overlapping
+// writes from other Mod instances are last-write-wins, even when their intents touch different fields.
+async function changeProjectPreference($, router, intent) {
+  const project = router.project;
+  const scope = project?.scope;
+  const notice = (message, extra = {}) => updateView($, router, { notice: message, ...extra });
+  if (router.view?.phase === 'unavailable')
+    return notice('Not saved: routing is unavailable. Resolve the routing warning first.');
+  if (!scope)
+    return notice(
+      'Not saved: no verified project routing scope. Launch Claude Code in a project and reload the plugin.',
+    );
+  if (router.projectWrite) return notice('A project routing change is already in progress.');
+  const run = Promise.resolve().then(async () => {
+    const current = await projectPreference($, scope, project.base);
+    if (intent.refresh)
+      return adoptProjectPreference($, router, project, current, {
+        notice: current.error ? `Ignored: ${current.error}.` : 'Project routing preferences refreshed.',
+      });
+    const conflict = () =>
+      notice('Not saved: project routing overrides changed elsewhere. Use Reload, then review your changes.', {
+        confirmProjectClear: false,
+        projectReloadNeeded: true,
+      });
+    if (current.error && !(intent.clearAll && current.resettable)) return notice(`Not saved: ${current.error}.`);
+    const before = current.record?.patch ?? EMPTY_PROJECT_PATCH;
+    const patch = intendedProjectPatch(intent, project.preference, current, before);
+    if (patch === null) return conflict();
+    let config;
+    try {
+      config = applyRoutingPatch(project.base, patch, true);
+    } catch {
+      return notice('Not saved: the overrides do not make a valid routing configuration. Review the pending changes.');
+    }
+    if (!current.error && JSON.stringify(before) === JSON.stringify(patch))
+      return notice('No stored overrides changed.', { confirmProjectClear: false });
+    // Keep an empty stamped record after a clear so a later Undo cannot resurrect a superseded edit.
+    const record = {
+      version: 1,
+      identity: scope.identity,
+      revision: hex(crypto.getRandomValues(new Uint8Array(16))),
+      patch,
+    };
+    try {
+      await $.store.set(scope.key, record);
+    } catch {
+      return notice('Save status unknown: the store did not confirm the change. Use Reload before retrying.', {
+        projectReloadNeeded: true,
+      });
+    }
+    const drafts = router.view;
+    const ownRevision = project.preference.record?.revision === current.record?.revision;
+    const rebased = ownRevision ? rebaseProjectDraft(drafts, config) : {};
+    const committedDraft =
+      intent.draft && drafts?.routeDraft === intent.draft.routeDraft && drafts?.tuning === intent.draft.tuning;
+    router.projectUndo = intent.undo || current.error ? null : { revision: record.revision, patch: before };
+    return adoptProjectPreference(
+      $,
+      router,
+      project,
+      { config, record, raw: record, error: null, resettable: true },
+      {
+        ...rebased,
+        ...(committedDraft ? EMPTY_ROUTING_DRAFT : {}),
+        lastWrite: router.projectUndo ? { label: intent.label } : null,
+        notice: intent.undo
+          ? `Undid: ${intent.label}. Applies from the next turn.`
+          : `Saved: ${intent.label}. Applies from the next turn in this project.`,
+      },
+    );
+  });
+  router.projectWrite = run;
+  try {
+    return await run;
+  } finally {
+    if (router.projectWrite === run) router.projectWrite = null;
+  }
+}
 
 // The pane's handlers. `view` is the view the pane was drawn from; a handler reads `router.view` first, which holds
 // any press since.
@@ -2784,72 +3031,10 @@ function paneActions($, router, view) {
       ),
       notice: null,
     });
-  // Every pane save adopts the file as written, which may name another classifier than before: a hand edit
-  // meanwhile, or a row press. Then the new classifier starts clean and the old one's readings leave the view;
-  // an unavailable reason stays.
-  const adopt = async (loaded) => {
-    const switched = loaded.classifier !== router.config.classifier;
-    traceConfigAdopted(router, loaded);
-    router.config = loaded;
-
-    if (!switched) return {};
-    clientOf(router, router.config.classifier).restore(null);
-    const current = router.view ?? view;
-    return {
-      ...CLEARED_READINGS,
-      error: current.phase === 'unavailable' ? current.error : null,
-      credentials: await credentialsOf($, router.options, router.config),
-      health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
-    };
-  };
-  // Pending drafts re-pointed at the config a write just adopted. An edit that still differs stays; everything else
-  // follows the file, and the file becomes what the draft compares against, so picking a value the write replaced
-  // counts as a change again.
-  const rebased = ({ routeDraft, tuning, tuningBase }) => {
-    const routes = routeDraft && {
-      ...effectiveRoutes(routeDraft, router.config),
-      ...effectiveActivities(routeDraft, router.config),
-    };
-    const edited = Object.entries(tuning ?? {}).filter(([key, value]) => value !== tuningBase?.[key]);
-    return {
-      routeDraft: routes ? { ...routes, base: routeDraftOf(router.config, {}).base } : null,
-      tuning: edited.length ? Object.fromEntries(edited) : null,
-      tuningBase: edited.length ? tuningOf(router.config) : null,
-    };
-  };
-  const save = async (change, saved) => {
-    const result = await saveConfig($, router.config, change, router.evidence);
-    if (result.error) return updateView($, router, { notice: result.error });
-    const drafts = router.view ?? view;
-    const reset = await adopt(result.config);
-    // A saved or undone profile mode changes the mode shown, unless a session or project mode wins.
-    const routingMode = await routingModeOf($, router);
-    return updateView($, router, { ...reset, ...rebased(drafts), ...saved(router.config), routingMode });
-  };
-  // Defaults go into the routing draft like any edit; the notice says whether Save has anything of that section left
-  // to write.
-  const loadDefaults = (patch, what) => {
-    const changes = routingChanges(router.config, { ...(router.view ?? view), ...patch });
-    const pending = what === 'route' ? changes.tiers.length + Number(changes.baseline) : changes.policy.length;
-    return updateView($, router, {
-      ...patch,
-      notice: pending
-        ? `${what === 'route' ? 'Route' : 'Policy'} defaults loaded. Save removes your ${what} overrides from ${router.config.nativePath?.split('/').at(-1) ?? 'router.json'}.`
-        : `${what === 'route' ? 'Routes' : 'Policy'} already at defaults.`,
-    });
-  };
-  // A pane write keeps the leaves it changed as router.json had them, read from the file it rewrites rather than from
-  // the loaded config, so Undo restores them verbatim. A later write replaces them, and Undo clears them.
-  const write = (label, change, patch = {}) => {
-    let leaves = [];
-    return save(
-      (file) => {
-        const written = change(file);
-        leaves = changedLeaves(file, written);
-        return written;
-      },
-      () => ({ ...patch, lastWrite: { label, leaves }, notice: `Saved: ${label}. Applies from the next turn.` }),
-    );
+  const save = (intent) => changeProjectPreference($, router, intent);
+  const write = (label, desired) => {
+    const { config } = router;
+    return save({ label, base: config, edits: routingEdits(config, { ...config, ...desired }) });
   };
   // The Usage tab's period, kept across sessions; a failed save keeps it for this session.
   const showPeriod = async (period, patch = {}) => {
@@ -2859,7 +3044,7 @@ function paneActions($, router, view) {
   };
   return {
     mode: (mode) => changeMode($, router, mode),
-    tab: (tab) => updateView($, router, { tab, notice: null, confirmDelete: false }),
+    tab: (tab) => updateView($, router, { tab, notice: null, confirmDelete: false, confirmProjectClear: false }),
     help: () => updateView($, router, { help: !(router.view ?? view).help }),
     toggleDetail: () => toggleBandDetail($, router, view),
     pin: async (tier) => {
@@ -2882,24 +3067,22 @@ function paneActions($, router, view) {
       const draft = routeDraftOf(router.config, router.view ?? view);
       await updateView($, router, { routeDraft: { ...draft, baselineTier: tier }, notice: null });
     },
-    saveRouting: async () => {
+    saveRouting: () => {
       const current = router.view ?? view;
-      const routeDraft = current.routeDraft;
-      const saved = tuningOf(router.config);
-      const base = current.tuningBase ?? saved;
-      const edited = Object.keys(current.tuning ?? {}).filter((key) => current.tuning[key] !== base[key]);
-      const changes = routingChanges(router.config, current).count;
-      if (!changes) return updateView($, router, { notice: 'No routing changes to save.' });
-      const after = Object.fromEntries(edited.map((key) => [key, current.tuning[key]]));
-      return write(
-        `${changes} routing change${changes === 1 ? '' : 's'}`,
-        (file) => {
-          // withActivities reads the routes withRoutes wrote: a removed built-in override is saved as its tier's route.
-          const routed = routeDraft ? withActivities(withRoutes(file, routeDraft), routeDraft) : file;
-          return edited.length ? withTuning(routed, { ...base, ...after }, base) : routed;
-        },
-        { routeDraft: null, tuning: null, tuningBase: null },
+      const draft = routeDraftOf(router.config, current);
+      const tuned = current.tuningBase ?? tuningOf(router.config);
+      const policy = Object.fromEntries(
+        POLICY_ROWS.map(([key, , , path]) => [path.slice('policy.'.length), tuned[key]]),
       );
+      const after = { ...policy };
+      for (const [key, , , path] of POLICY_ROWS) {
+        if (Object.hasOwn(current.tuning ?? {}, key)) after[path.slice('policy.'.length)] = current.tuning[key];
+      }
+      const { base: initial, ...edited } = draft;
+      const base = { ...initial, policy };
+      const edits = routingEdits(base, { ...edited, policy: after });
+      if (!edits.length) return updateView($, router, { notice: 'No routing changes to save.' });
+      return save({ label: 'routing changes', base, edits, draft: current });
     },
     activityMode: (mode) =>
       updateView($, router, {
@@ -2922,21 +3105,34 @@ function paneActions($, router, view) {
     // An insight's link: the Routes tab with the grid cell it names open.
     openRoute: (cell) => updateView($, router, { tab: 'routes', routeCell: cell, notice: null }),
     confirmDelete: (asked) => updateView($, router, { confirmDelete: asked }),
-    // The profile's routing mode, saved at once with Undo. A session or project mode still wins over it.
-    routingMode: async (mode) => {
+    routingMode: (mode) => {
       const from = router.config.mode;
       if (mode === from || !ROUTING_MODES.includes(mode)) return undefined;
-      return write(`routing mode ${from} → ${mode}`, (file) => withMode(file, mode));
+      return write(`routing mode ${from} → ${mode}`, { mode });
     },
-    // `/router activities <mode>`: the mode alone, saved at once like a classifier press, with Undo.
     activityRouting: (mode) => {
       const from = router.config.activityRouting;
-      if (mode === from) return undefined;
-      return write(`activity routing ${from} → ${mode}`, (file) =>
-        withActivities(file, { base: { activityRouting: from }, activityRouting: mode }),
-      );
+      if (mode === from || !ACTIVITY_MODES.includes(mode)) return undefined;
+      return write(`activity routing ${from} → ${mode}`, { activityRouting: mode });
     },
-    engine: (engine) => engineAction(write, router, engine),
+    engine: (engine) => {
+      const from = router.config.routingEngine;
+      if (engine === from || !ROUTING_ENGINES.includes(engine)) return undefined;
+      return write(`routing engine ${from} → ${engine}`, { routingEngine: engine });
+    },
+    refreshProject: () => save({ refresh: true }),
+    confirmProjectClear: (asked) => {
+      if (router.project) router.project.confirmedClear = asked ? { raw: router.project.preference.raw } : null;
+      return updateView($, router, { confirmProjectClear: asked, notice: null });
+    },
+    clearProject: () => {
+      if (!(router.view ?? view).confirmProjectClear || !router.project?.confirmedClear) return undefined;
+      return save({
+        label: 'cleared stored project routing overrides',
+        clearAll: router.project.confirmedClear,
+        draft: router.view ?? view,
+      });
+    },
     // Delete history: every record kept across sessions (usage, the undated savings, activity stats and metrics,
     // subagents) and this session's counts.
     resetStats: async () => {
@@ -2987,60 +3183,38 @@ function paneActions($, router, view) {
           : 'This session’s counts cleared. The saved history could not be deleted.',
       });
     },
-    discardRouting: () => updateView($, router, { routeDraft: null, tuning: null, tuningBase: null, notice: null }),
-    // Routes only: pending activity edits and the mode stay in the draft.
+    discardRouting: () => updateView($, router, { ...EMPTY_ROUTING_DRAFT, notice: null }),
     resetRoutes: () =>
-      !Object.keys(defaultsFor(router.config.provider).routes).length
-        ? updateView($, router, { notice: 'No built-in route defaults for this provider.' })
-        : loadDefaults(
-            {
-              routeDraft: {
-                ...routeDraftOf(router.config, router.view ?? view),
-                ...structuredClone({
-                  routes: defaultsFor(router.config.provider).routes,
-                  baselineTier: defaultsFor(router.config.provider).baselineTier,
-                }),
-                base: routeDraftOf(router.config, {}).base,
-              },
-            },
-            'route',
-          ),
+      save({ label: 'cleared stored tier routes and start tier', clearFields: ['routes', 'baselineTier'] }),
     tune: (key, value) =>
       updateView($, router, {
         tuning: { ...(router.view ?? view).tuning, [key]: value },
         tuningBase: (router.view ?? view).tuningBase ?? tuningOf(router.config),
         notice: null,
       }),
-    resetPolicy: () =>
-      loadDefaults(
-        // The draft is replaced whole, so it starts from the saved values, not from an older draft's base.
-        { tuning: tuningOf(defaultsFor(router.config.provider)), tuningBase: tuningOf(router.config) },
-        'policy',
-      ),
+    resetPolicy: () => save({ label: 'cleared stored policy overrides', clearFields: ['policy', 'modes'] }),
     classifier: (id) => {
       const { config } = router;
       if (!id || id === config.classifier || !Object.hasOwn(config.classifiers, id)) return undefined;
-      const from = config.classifier;
-      return write(`classifier ${config.classifiers[from].label} → ${config.classifiers[id].label}`, (file) =>
-        withClassifier(file, id),
-      );
+      return write(`classifier ${config.classifiers[config.classifier].label} → ${config.classifiers[id].label}`, {
+        classifier: id,
+      });
     },
     classifierTimeout: (timeoutMs) => {
-      const active = activeClassifier(router.config);
+      const { classifier, classifiers } = router.config;
+      const active = classifiers[classifier];
       if (timeoutMs === active.timeoutMs) return undefined;
-      return write(`${active.label} deadline ${active.timeoutMs} → ${timeoutMs} ms`, (file) =>
-        withClassifierTimeout(file, router.config.classifier, timeoutMs),
-      );
+      return write(`${active.label} deadline ${active.timeoutMs} → ${timeoutMs} ms`, {
+        classifiers: { ...classifiers, [classifier]: { ...active, timeoutMs } },
+      });
     },
     release: (scope, key) => releaseKey($, router, scope, key),
     undo: async () => {
       const last = (router.view ?? view).lastWrite;
       if (!last) return undefined;
       if (last.restore) return undoRelease($, router, last);
-      return save(
-        (file) => restored(file, last.leaves),
-        () => ({ lastWrite: null, notice: `Undid: ${last.label}.` }),
-      );
+      if (!router.projectUndo) return undefined;
+      return save({ label: last.label, undo: router.projectUndo });
     },
   };
 }
@@ -3360,13 +3534,13 @@ async function initializeSession($, router) {
     const model = await $.session.model();
     const loaded = await loadNativeConfig($, router);
     // The optional private overlay seeds capability where the profile declares none. It is read when a session starts
-    // or the Mod is reloaded (/reload-plugins); a save in between re-applies the same overlay to the adopted config.
+    // or the Mod is reloaded (/reload-plugins). Project settings compose on that evidence-enriched profile.
     const overlay = await loadEvidenceOverlay($);
-    const config = applyEvidenceOverlay(loaded.config, overlay, loaded.userFile);
-    const project = await readProject($, config.nativePath);
+    const project = await loadProjectRouting($, loaded, overlay);
+    const { config } = project.preference;
     const existing = await readView($, router);
     // A successful reload adopts this config even for the current turn; stale jobs must not route with the old engine.
-    Object.assign(router, { config, project, view: existing, evidence: overlay });
+    Object.assign(router, { config, project, view: existing, projectUndo: null });
     for (const controller of router.controllers) controller.abort();
     router.decisions.clear();
     router.turnConfigs.clear();
@@ -3394,7 +3568,9 @@ async function initializeSession($, router) {
       health: healthOf(clientOf(router, router.config.classifier), router.config.classifier),
       configPath: router.config.nativePath,
       routingMode: await routingModeOf($, router),
-      projectError: router.project.error,
+      ...projectRoutingView(project),
+      projectReloadNeeded: false,
+      confirmProjectClear: false,
       tuning: null,
       tuningBase: null,
       routeDraft: null,
@@ -3720,6 +3896,7 @@ export function register(on, options) {
 
   // The router's bookkeeping never keeps a session or a turn from starting.
   on('session.start', async ($, e, next) => {
+    await router.projectWrite?.catch(() => {});
     await startSession($, router, e).catch(() => {});
     return next(e);
   });

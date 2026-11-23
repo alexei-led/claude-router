@@ -46,10 +46,10 @@ test('every POLICY_ROWS key has its card and help line in POLICY_FORM', () => {
 for (const surface of SURFACES) {
   test(`${surface}: the form is one card per group, titled in order`, () => {
     const titles = cards(body(draw({}, { surface }))).map(titleOf);
-    assert.deepEqual(titles, [...GROUPS, 'Settings file']);
+    assert.deepEqual(titles, [...GROUPS, 'Profile settings file (read-only)']);
   });
 
-  test(`${surface}: Reset sits on its own row after the group cards; the path and Copy path in Settings file`, () => {
+  test(`${surface}: Reset sits on its own row after the group cards; the path and Copy path in Profile settings file (read-only)`, () => {
     const tree = draw({}, { surface });
     const stack = kids(kids(body(tree))[0]);
     const credits = stack.indexOf(card(tree, 'Credits'));
@@ -58,8 +58,8 @@ for (const surface of SURFACES) {
       controls(reset).map((c) => c.key),
       ['reset-policy'],
     );
-    assert.equal(stack[credits + 2], card(tree, 'Settings file'));
-    const settings = card(tree, 'Settings file');
+    assert.equal(stack[credits + 2], card(tree, 'Profile settings file (read-only)'));
+    const settings = card(tree, 'Profile settings file (read-only)');
     assert.ok(texts(settings).includes('/fixture/team/router.json'));
     assert.deepEqual(
       controls(settings).map((c) => c.key),
