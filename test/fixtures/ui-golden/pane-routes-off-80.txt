@@ -10,17 +10,6 @@ Box flexDirection="column"
     Button hotkey="f" key="manual" label="◉ off" variant="primary"
     Text
       "  "
-    Text dimColor=true
-      "engine "
-    Button key="engine-table" label="table" variant="primary"
-    Text
-      " "
-    Button key="engine-shadow" label="shadow" variant="secondary"
-    Text
-      " "
-    Button key="engine-auto" label="auto" variant="secondary"
-    Text
-      "  "
     Text color="success"
       "Jev ready · 347 ms"
   Box

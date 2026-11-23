@@ -137,7 +137,7 @@ Missing counters remain unknown. See [provider acceptance checks](evaluation.md#
 
 Set `routingEngine` in the selected profile file (`router.json` or `<provider>-router.json`); the default is `table`.
 For example, set `{"routingEngine":"shadow"}` or `{"routingEngine":"auto"}`; omit the key to use `table`.
-The engine is selected in this file, not by a `/router` command.
+Set it in this file, or with `/router engine table|shadow|auto`, which writes the file with Undo.
 
 - **`table` (default):** the deterministic tier-by-activity routes are used. Routing modes transform those routes before the table policy.
 - **`shadow`:** the table still sends every request. The automatic engine records one-step proposals against the real incumbent and cache, without keeping a separate route history or asking the classifier again. The Now pane and `/router decisions` show demand, target, capability (or unknown), outcome and a next-turn estimate. While shadow is enabled, the main-turn hook also records bounded replay traces. Export with `/router trace export`; for the work profile (`CLAUDE_CONFIG_DIR=~/.claude-team`) the file is `~/.claude-team/router-traces.json`. Retain all incremental export and rollover files. From a source checkout, run `node scripts/replay-traces.mjs ~/.claude-team/router-traces.json`, adding every rollover file as another argument. The export lives beside the selected profile config; the replay CLI is not included in the npm package. Replay checks table fidelity first; evaluation and exposure gates remain unestablished. See [evaluation](evaluation.md#replay-trace-recorder).
@@ -149,7 +149,7 @@ Useful auto routing depends on the profile's per-effort `models.<alias>.capabili
 
 Auto decision rows show demand, target, outcome and move reasons such as `startup`, `upgrade`, `escalation`, `same-route`, `reentry` and `no-route-native`.
 
-`/router on` turns routing on for the session; `/router off` turns it off. `/router engine table|shadow|auto` selects the engine and writes it to the profile with Undo; `/router mode cost|balanced|quality` selects the mode, and `/router pin <tier>` pins one turn. The pane header carries the same engine choice beside on/off when it is at least 80 columns wide, and the band shows the engine as a chip only when it is not the `table` default. Evaluation and default cutover remain pending; see [evaluation](evaluation.md). Engine values are case-sensitive.
+`/router on` turns routing on for the session; `/router off` turns it off. `/router engine table|shadow|auto` selects the engine and writes it to the profile with Undo; `/router mode cost|balanced|quality` selects the mode, and `/router pin <tier>` pins one turn. The pane header carries the same engine choice beside on/off when the line has room for it, and the band shows the engine as a chip only when it is not the `table` default. Evaluation and default cutover remain pending; see [evaluation](evaluation.md). Engine values are case-sensitive.
 
 ## Built-in defaults
 

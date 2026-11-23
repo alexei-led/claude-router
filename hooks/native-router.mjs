@@ -1139,7 +1139,6 @@ async function routerCommand($, router, args) {
   return {};
 }
 
-// `/router activities <mode>`: the pane's write, so the file keeps the rest and Undo in the pane restores it.
 // `/router engine <name>`: the engine is a profile setting like the activity mode, saved at once with Undo.
 async function setEngine($, router, engine) {
   const view = router.view ?? (await readView($, router));
@@ -1149,6 +1148,7 @@ async function setEngine($, router, engine) {
   return router.view.notice;
 }
 
+// `/router activities <mode>`: the pane's write, so the file keeps the rest and Undo in the pane restores it.
 async function setActivityRouting($, router, mode) {
   const view = router.view ?? (await readView($, router));
   if (view.phase === 'unavailable') return unavailableText(view);
