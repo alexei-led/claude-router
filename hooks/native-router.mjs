@@ -39,6 +39,7 @@ import {
   MIGRATION_HINT,
   MIN_CLAUDE_CODE,
   PLAN_ACCOUNT,
+  ROUTING_ENGINES,
   ROUTING_MODES,
   supportedVersion,
   TIERS,
@@ -46,6 +47,7 @@ import {
   withActivities,
   withClassifier,
   withClassifierTimeout,
+  withEngine,
   withMode,
   withRoutes,
   withTuning,
@@ -1062,10 +1064,16 @@ async function setPin($, router, tier) {
 // function it can name. A word with no case, or one that answers nothing, leaves the command to open the pane.
 async function runSubcommand($, router, action, value) {
   switch (action) {
-    case 'auto':
+    case 'on':
       return switchRouting($, router, 'auto');
     case 'off':
       return switchRouting($, router, 'manual');
+    case 'engine':
+      return {
+        text: ROUTING_ENGINES.includes(value)
+          ? await setEngine($, router, value)
+          : `Choose engine ${ROUTING_ENGINES.join(', ')}.`,
+      };
     case 'trace':
       return value === 'export' ? { text: await exportTraces($, router) } : undefined;
     case 'line':
@@ -1129,6 +1137,15 @@ async function routerCommand($, router, args) {
     return { text: detailText(router.config, view, await $.session.usage().catch(() => null)) };
   await openPane($, router);
   return {};
+}
+
+// `/router engine <name>`: the engine is a profile setting like the activity mode, saved at once with Undo.
+async function setEngine($, router, engine) {
+  const view = router.view ?? (await readView($, router));
+  if (view.phase === 'unavailable') return unavailableText(view);
+  if (engine === router.config.routingEngine) return `Engine is already ${engine}.`;
+  await paneActions($, router, view).engine(engine);
+  return router.view.notice;
 }
 
 // `/router activities <mode>`: the pane's write, so the file keeps the rest and Undo in the pane restores it.
@@ -2736,6 +2753,14 @@ async function toggleBandDetail($, router, view) {
   await updateView($, router, { bandDetail });
 }
 
+// The pane's engine control and `/router engine`: the profile setting, saved at once like the activity mode. `write` is
+// the pane's save, so Undo restores the leaf the same way.
+const engineAction = (write, router, engine) => {
+  const from = router.config.routingEngine;
+  if (engine === from || !ROUTING_ENGINES.includes(engine)) return undefined;
+  return write(`routing engine ${from} → ${engine}`, (file) => withEngine(file, engine));
+};
+
 // The pane's handlers. `view` is the view the pane was drawn from; a handler reads `router.view` first, which holds
 // any press since.
 function paneActions($, router, view) {
@@ -2911,6 +2936,7 @@ function paneActions($, router, view) {
         withActivities(file, { base: { activityRouting: from }, activityRouting: mode }),
       );
     },
+    engine: (engine) => engineAction(write, router, engine),
     // Delete history: every record kept across sessions (usage, the undated savings, activity stats and metrics,
     // subagents) and this session's counts.
     resetStats: async () => {
@@ -3326,7 +3352,7 @@ async function initializeSession($, router) {
       await $.command.register({
         name: 'router',
         description:
-          'Open the Router pane, or switch routing: auto, off, pin <tier>, activities <mode>, mode <mode>, line <mode>; decisions [n] lists the last routing decisions; holds lists what is held out of routing, release <model|account> ends a hold.',
+          'Open the Router pane, or switch routing: on, off, engine <table|shadow|auto>, pin <tier>, activities <mode>, mode <mode>, line <mode>; decisions [n] lists the last routing decisions; holds lists what is held out of routing, release <model|account> ends a hold.',
         argumentHint: argumentHint(),
         immediate: true,
       });

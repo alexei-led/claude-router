@@ -38,6 +38,18 @@ test('a 60-column band keeps the missing-credential warning and Set up beside th
   }
 });
 
+test('the engine shows as a chip only when it is not the table default', () => {
+  const view = { mode: 'auto', phase: 'routed', tier: 'medium', selectedModel: 'claude-opus-5-5', effort: 'medium' };
+  const chips = (config) =>
+    bandSegments(config, view, null, quiet)
+      .flatMap((s) => s.parts)
+      .filter((p) => p.chip)
+      .map((p) => p.text);
+  assert.deepEqual(chips(DEFAULTS), []);
+  assert.deepEqual(chips({ ...DEFAULTS, routingEngine: 'auto' }), [' auto ']);
+  assert.deepEqual(chips({ ...DEFAULTS, routingEngine: 'shadow' }), [' shadow ']);
+});
+
 test('a wide band shows the warning, the route kept and the reason', () => {
   const config = { ...DEFAULTS, classifier: 'clef-flash' };
   const view = { mode: 'auto', phase: 'routed', tier: 'medium', selectedModel: 'claude-opus-5-5', effort: 'medium' };

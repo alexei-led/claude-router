@@ -242,7 +242,7 @@ test('a fresh session on a model no tier routes to says why routing starts off, 
   await start(h);
   const line = (await band(h)).line;
   assert.match(line, /^○ Sonnet 5\.5 +routing off +not a routing tier/);
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   assert.doesNotMatch((await band(h)).line, /not a routing tier/);
 });
 
@@ -348,7 +348,7 @@ test('an unsupported Claude version leaves the native request unchanged', async 
   const h = harness();
   h.version('2.1.320');
   await start(h);
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   await h.event('command.run', { command: 'router', args: 'pin high' });
   await drain(h.step(step));
   assert.equal(h.view().phase, 'unavailable');
@@ -358,14 +358,15 @@ test('an unsupported Claude version leaves the native request unchanged', async 
   assert.equal(h.requests[0].effort, step.effort);
 });
 
-test('while routing is unavailable, /router says why and its on, off and activity commands change nothing', async () => {
+test('while routing is unavailable, /router says why and its on, off, engine and activity commands change nothing', async () => {
   const h = harness();
   h.version('2.1.320');
   await start(h);
   const command = async (args) => (await h.event('command.run', { command: 'router', args })).text;
   const why = 'Routing unavailable: requires Claude Code 2.1.321 or newer. Claude’s model is kept.';
   const mode = h.preferences.get('mode:s1');
-  for (const args of ['auto', 'off', 'pin high', 'activities off']) assert.equal(await command(args), why, args);
+  for (const args of ['on', 'off', 'engine auto', 'pin high', 'activities off'])
+    assert.equal(await command(args), why, args);
   assert.equal(h.preferences.get('mode:s1'), mode);
   assert.equal(h.files.get(CONFIG), undefined);
   h.surfaces([]);
@@ -481,7 +482,7 @@ test('a session that starts on a model no route names keeps it when routing is t
   await start(h);
   await drain(h.step(fableStep));
   assert.equal(h.view().mode, 'manual');
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   h.messages(async () => [
     user('Fix the test.'),
     assistant('running', ['Bash']),
@@ -507,7 +508,7 @@ test('a /model change before routing starts replaces the seeded route, so Auto d
   h.model(step.model);
   await h.event('command.run', { command: 'model', origin: { kind: 'user' } });
   await drain(h.step({ ...step, turnId: 't2' }));
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   await drain(h.step({ ...step, turnId: 't3' }));
   assert.equal(h.requests.at(-1).model, step.model);
 });
@@ -589,7 +590,7 @@ test('the router command opens the pane, switches modes and pins, with no setup 
   await start(h);
   assert.deepEqual(await h.event('command.run', { command: 'router', args: '' }), {});
   assert.match((await h.event('command.run', { command: 'router', args: 'off' })).text, /^Routing off:/);
-  assert.match((await h.event('command.run', { command: 'router', args: 'auto' })).text, /^Routing on\./);
+  assert.match((await h.event('command.run', { command: 'router', args: 'on' })).text, /^Routing on\./);
   assert.equal(h.commandCalls(), 0);
   assert.deepEqual(await h.event('command.run', { command: 'router', args: 'setup' }), {});
   assert.equal(h.commandCalls(), 0);
@@ -743,7 +744,7 @@ test('routing turned off and on while the classifier answers routes the turn’s
   const running = drain(h.step(opus));
   await new Promise((resolve) => setImmediate(resolve));
   await h.event('command.run', { command: 'router', args: 'off' });
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   release();
   await running;
   const asked = answering(h, HIGH);

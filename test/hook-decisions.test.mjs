@@ -260,7 +260,7 @@ test('a manual interval fences stale shadow votes', async () => {
   await turn(h, 't1', 'First task.', 'composer');
   await h.event('command.run', { command: 'router', args: 'off' });
   await turn(h, 't2', 'Manual task.', 'composer');
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   await turn(h, 't3', 'Routed task.', 'composer');
   assert.equal(h.loop().shadow.state.turn, 1);
 });
@@ -274,7 +274,7 @@ test('fresh shadow demand starts at the configured baseline, not the accepted ta
   await turn(h, 't1', 'Task.', 'composer');
   assert.equal(h.loop().shadow.state.demand, 1);
   await h.event('command.run', { command: 'router', args: 'off' });
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   await turn(h, 't2', 'Next task.', 'composer');
   assert.equal(h.loop().shadow.state.demand, 1);
 });

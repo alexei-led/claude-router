@@ -743,7 +743,7 @@ test('recorder failures during controls, compaction and turn completion do not e
   assert.equal(h.loop().generation, generation + 1);
   await h.event('turn.complete', { turnId: 'second' });
   fail = false;
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   await turn(h, 'recovered');
   assert.equal(usableTrace(record(h)), false);
   assert.ok(record(h).lostWrites > 0);
@@ -796,7 +796,7 @@ test('pins/mode/off-on/config changes and compaction carry explicit replay bound
   await turn(h, 'pinned');
   await h.event('command.run', { command: 'router', args: 'off' });
   await turn(h, 'manual');
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   await h.event('session.compact', { trigger: 'auto' });
   await turn(h, 'after-compact');
   const events = record(h).events;

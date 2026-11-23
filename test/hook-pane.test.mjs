@@ -576,7 +576,7 @@ test('a turn classified when the switch lands keeps its route, and its answer to
       }),
   );
   await start(h);
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   const turn = drain(h.step({ ...step, model: 'claude-sonnet-5-5' }));
   for (let i = 0; i < 20 && !release; i += 1) await new Promise((resolve) => setImmediate(resolve));
   assert.ok(release, 'the Jev request is in flight');

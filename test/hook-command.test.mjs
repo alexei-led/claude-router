@@ -20,7 +20,8 @@ const labels = async (h, text, engine) => (await h.autocomplete(typed(text), eng
 test('typeahead after /router offers the words that start with what is typed', async () => {
   const h = await started();
   const cases = [
-    ['/router a', ['auto', 'activities <off|on>']],
+    ['/router a', ['activities <off|on>']],
+    ['/router e', ['engine <table|shadow|auto>']],
     ['/router p', ['pin <tier>']],
     ['/router d', ['decisions [n]']],
     ['/router t', ['trace export']],
@@ -28,8 +29,8 @@ test('typeahead after /router offers the words that start with what is typed', a
     ['/router r', ['release <model|account>']],
     ['/router release p', []],
     ['/router m', ['mode <mode>']],
-    ['/router  o', ['off']],
-    ['/router O', ['off']],
+    ['/router  o', ['on', 'off']],
+    ['/router O', ['on', 'off']],
     ['/router z', []],
     ['/router pin h', ['high']],
     ['/router pin m', ['micro', 'medium']],
@@ -82,6 +83,13 @@ test('every word and value in the table runs a command, not the pane', async () 
   }
   assert.deepEqual(pane, {});
   assert.deepEqual(await run('nonsense'), {});
+});
+
+test('/router engine writes the profile engine and answers with the save', async () => {
+  const h = await started();
+  const answer = await h.event('command.run', { command: 'router', args: 'engine auto' });
+  assert.match(answer.text, /Saved: routing engine table → auto\. Applies from the next turn\./);
+  assert.match(h.files.get(CONFIG), /"routingEngine": "auto"/);
 });
 
 test('the argument hint names every word of the table', () => {

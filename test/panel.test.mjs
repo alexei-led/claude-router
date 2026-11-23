@@ -66,7 +66,11 @@ test('the pane header is one line: the on/off pair with its o and f hotkeys, the
     for (const c of pair) c.onPress();
     assert.deepEqual(pressed, ['auto', 'manual'], mode);
     const [first] = screen(tree);
-    assert.equal(first, `ROUTER  [ ${expected[0][1]} ] [ ${expected[1][1]} ]  Jev ready · 347 ms`, mode);
+    assert.equal(
+      first,
+      `ROUTER  [ ${expected[0][1]} ] [ ${expected[1][1]} ]  engine [ table ] [ shadow ] [ auto ]  Jev ready · 347 ms`,
+      mode,
+    );
   }
 });
 

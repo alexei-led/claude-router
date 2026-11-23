@@ -474,7 +474,7 @@ test('a reply whose cache lifetime cannot be read is not counted, and your model
   await h.event('command.run', { command: 'router', args: 'off' });
   await turn(h, 't1', 'claude-haiku-5-5');
   assert.equal(yours(h).onYours, true);
-  await h.event('command.run', { command: 'router', args: 'auto' });
+  await h.event('command.run', { command: 'router', args: 'on' });
   const usage = h.$.session.usage;
   h.$.session.usage = async () => {
     throw new Error('usage unavailable');

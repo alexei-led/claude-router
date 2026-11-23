@@ -731,7 +731,7 @@ test('manual interval fences an in-flight frozen auto response after the profile
   assert.equal(h.loop().auto, null);
   assert.equal((await stream.next()).done, true);
   assert.equal(h.loop().auto, null);
-  await command(h, 'auto');
+  await command(h, 'on');
   patch(h, (c) => {
     c.routingEngine = 'auto';
   });
@@ -770,7 +770,7 @@ test('usage-read failure retains the measured context lower bound for listed and
     h.$.session.usage = async () => {
       throw new Error('usage unavailable');
     };
-    if (unlisted) await command(h, 'auto');
+    if (unlisted) await command(h, 'on');
     await h.event('turn.start', { turnId: 'oversized', text: 'Continue.' });
     const incoming = { ...native, turnId: 'oversized' };
     await drain(h.step(incoming));
