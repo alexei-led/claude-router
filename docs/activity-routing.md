@@ -288,7 +288,7 @@ Limits:
 ## What we do not know yet
 
 - The answer quality of routed sessions.
-- How well the classifier labels real turns. On 70 synthetic prompts, Jev and OpenAI labelled all 70 right; see
+- How well the classifier labels real turns. On 70 synthetic prompts, Jev (`jev-1.13.0`, not the current default) and OpenAI labelled all 70 right; see
   [Evaluation](evaluation.md#activity-probe-set). The **Tool compatibility** lines, on the
   Classifier tab for this session and across sessions, check your own turns against the tools they used.
 - Whether an effort change on the same model always keeps the cache. Claude Code's prompt-caching docs say it does on

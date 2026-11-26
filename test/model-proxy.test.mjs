@@ -88,10 +88,12 @@ test('a missing or malformed model-proxy profile never falls back to Anthropic d
 
 test('documented model-proxy profile matches the tested complete profile', () => {
   const guide = readFileSync(new URL('../docs/providers.md', import.meta.url), 'utf8');
-  const section = guide.split('## Mix Anthropic and DeepSeek with model-proxy')[1];
-  const json = /```json\n([\s\S]*?)\n```/.exec(section)?.[1];
-  assert.ok(json);
-  assert.deepEqual(JSON.parse(json), profile);
+  const section = guide.split('## Mix Anthropic and DeepSeek with model-proxy')[1].split('\n## ')[0];
+  // The section also holds the proxy's own configuration; the router profile is the block with routes.
+  const blocks = [...section.matchAll(/```json\n([\s\S]*?)\n```/g)].map(([, json]) => JSON.parse(json));
+  const documented = blocks.find((block) => block.routes);
+  assert.ok(documented);
+  assert.deepEqual(documented, profile);
 });
 
 test('model-proxy automatic advice can move between DeepSeek and Opus', async () => {

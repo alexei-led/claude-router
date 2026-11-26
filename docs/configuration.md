@@ -170,8 +170,10 @@ Claude Code's `DISABLE_PROMPT_CACHING` does not establish whether an automatic s
 
 Known observed usage is retained in Usage even when savings cannot be compared.
 For automatic caches, routing-versus-your-model comparisons require an identical observed route.
-Otherwise the band and pane show observed spend, replies, tokens and activity costs with `comparison unavailable`.
-A partially comparable period labels the savings subset; rows without full comparison coverage show `—` under `vs yours`.
+Otherwise the band and pane show observed spend, replies, tokens and activity costs, and no saving.
+The band's second row says `not compared`, or how many replies are not, such as `3 of 20 not compared`.
+A period with any uncompared reply shows no saving. In the Usage breakdown, a row without full comparison coverage shows
+`—` under `vs unrouted`, and its opened row says `comparison unavailable`.
 The router never substitutes zero savings or invents another route's cache hit rate.
 Models with `efforts: []`, including MiMo, ignore session effort in the comparison identity.
 Missing counters remain unknown. See [provider acceptance checks](evaluation.md#provider-profiles).
