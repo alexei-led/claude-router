@@ -292,9 +292,11 @@ function createRouter(options) {
     lastRequested: /** @type {string | null} */ (null),
     // The latest main turn's id: `StopFailure` carries none, and its failure row belongs to that turn.
     mainTurnId: /** @type {string | null} */ (null),
-    // The main turn whose API error held something, until turn.complete runs it again (rerunFailedTurn), and how many
-    // re-runs in a row were queued: a turn that ends any other way starts the count over.
+    // The main turn whose API error held something, and the main turn that completed on an error: the engine raises
+    // StopFailure and turn.complete in either order, so whichever comes second runs the turn again (rerunTurn). And
+    // how many re-runs in a row were queued: a turn that ends any other way starts the count over.
     failedTurn: /** @type {{ turnId: string, model: string, cause: string } | null} */ (null),
+    erroredTurn: /** @type {string | null} */ (null),
     reruns: 0,
     decisionRecord: null,
     trace: /** @type {TraceHold | null} */ (null),
@@ -4071,7 +4073,14 @@ async function holdFailedModel($, router, e, agentModel = null) {
     if (agentModel !== null) return;
     const turnId = router.mainTurnId;
     if (turnId === null) return;
-    if (held?.hold) router.failedTurn = { turnId, model, cause: holdCause(held.hold) };
+    if (held?.hold) {
+      router.failedTurn = { turnId, model, cause: holdCause(held.hold) };
+      // turn.complete came first. A StopFailure hook may not submit a prompt (it would wait on the turn), so a timer does.
+      if (router.erroredTurn === turnId) {
+        router.erroredTurn = null;
+        $.clock.after(0, () => rerunTurn($, router).catch(() => {}));
+      }
+    }
     addDecision(
       router,
       turnId,
@@ -4302,16 +4311,26 @@ async function canRerun($, router) {
   return Object.values(router.config.models).some((spec) => !held.some((id) => isSameModel(id, spec.id)));
 }
 
-// A main turn that an API error ended, after the router held its cause, is run again as a new prompt, so the work goes on
-// without the person; at most MAX_RERUNS in a row, as a task that fails on every model would never stop.
-async function rerunFailedTurn($, router, e) {
-  const failed = router.failedTurn;
-  router.failedTurn = null;
+// A main turn's end: one that an API error ended runs again once its StopFailure has held the cause, now or when the
+// StopFailure comes later; any other end starts the count of re-runs over.
+async function completeFailedTurn($, router, e) {
   if (e.reason !== 'error') {
+    router.failedTurn = null;
+    router.erroredTurn = null;
     router.reruns = 0;
     return;
   }
-  if (failed?.turnId !== e.turnId || !(await canRerun($, router))) return;
+  if (router.failedTurn?.turnId === e.turnId) return rerunTurn($, router);
+  router.failedTurn = null;
+  router.erroredTurn = e.turnId;
+}
+
+// A main turn that an API error ended, after the router held its cause, is run again as a new prompt, so the work goes on
+// without the person; at most MAX_RERUNS in a row, as a task that fails on every model would never stop.
+async function rerunTurn($, router) {
+  const failed = router.failedTurn;
+  router.failedTurn = null;
+  if (!failed || !(await canRerun($, router))) return;
   if (router.reruns >= MAX_RERUNS) {
     $.ui.toast(`Stopped retrying after ${MAX_RERUNS} re-runs in a row: ${failed.cause}`);
     return;
@@ -4384,6 +4403,7 @@ async function startSession($, router, e) {
   router.lastRequested = null;
   router.mainTurnId = null;
   router.failedTurn = null;
+  router.erroredTurn = null;
   router.reruns = 0;
   router.initialized = false;
   router.loadFailed = false;
@@ -4490,7 +4510,7 @@ export function register(on, options) {
   on('turn.complete', async ($, e, next) => {
     // The router's bookkeeping never keeps the turn from completing.
     await completeTurn($, router, e).catch(() => {});
-    if (e.agentId === undefined) await rerunFailedTurn($, router, e).catch(() => {});
+    if (e.agentId === undefined) await completeFailedTurn($, router, e).catch(() => {});
     return next(e);
   });
 

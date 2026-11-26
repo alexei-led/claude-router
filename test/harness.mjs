@@ -89,6 +89,8 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   let opened = {};
   const copied = [];
   const toasts = [];
+  // The prompts the router submits with `$.prompt.submit`, in order.
+  const submitted = [];
   const views = [];
   const places = [];
   let placeResult = { isPlaced: true, requestId: 'placed-1' };
@@ -162,6 +164,10 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       },
     },
     prompt: {
+      submit: async (input) => {
+        submitted.push(input.text);
+        return { text: input.text };
+      },
       read: async () => ({ text: draft, cursor: draft.length }),
       fill: async ({ text }) => {
         draft = text;
@@ -268,6 +274,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     commandCalls: () => commandCalls,
     copied,
     toasts,
+    submitted,
     // The calls of `$.ui.place`, in order; `placeAnswer` is what it resolves to next (`{ isPlaced: false, reason }` where
     // no surface is attached).
     places,

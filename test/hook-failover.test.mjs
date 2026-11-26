@@ -1144,3 +1144,25 @@ test('the shadow engine sends a failed probe again and marks its trace incomplet
   assert.deepEqual(sentModels(h), [OPUS, GLM_ID]);
   assert.ok(h.preferences.get(`${TRACE_PREFIX}s1`).incomplete.includes('gap'));
 });
+
+// The engine raises StopFailure and turn.complete in either order; seen live on 2.1.332, turn.complete came first.
+const SPEND_TEXT = "You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit";
+const RERUN = `The last request failed on Opus 5.5 (spend limit), so the router held it out of routing. Continue the task from where it stopped.`;
+for (const [order, events] of [
+  ['StopFailure comes before turn.complete', ['failure', 'complete']],
+  ['turn.complete comes before StopFailure', ['complete', 'failure']],
+])
+  test(`a turn a spend cap ended is run again once when ${order}`, async (t) => {
+    const h = await started(t, { models: { opus: { account: 'work-claude' } } });
+    await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+    await drain(h.step({ ...step, turnId: 't1', model: OPUS }));
+    for (const event of events)
+      if (event === 'failure')
+        await h.event('classic.StopFailure', {
+          hook_event_name: 'StopFailure',
+          error: 'rate_limit',
+          last_assistant_message: SPEND_TEXT,
+        });
+      else await h.event('turn.complete', { turnId: 't1', isAborted: false, reason: 'error' });
+    assert.deepEqual(h.submitted, [RERUN]);
+  });
