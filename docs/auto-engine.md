@@ -84,6 +84,10 @@ including an unresolved or numeric native effort, the output part is unscaled an
 effort. The scale treats a benchmark's cost per task as output spend, so it is a rough proxy for output and
 thinking volume, not a token forecast. Input and cache estimates and the switch taxes do not use it. A catalog with
 scales for only some routes compares scaled with unscaled estimates.
+The cheaper-move and downgrade economics of `decideMove` (`switchEconomics` and `downgradeTaxUsd` in `lib/cost.mjs`)
+also stay unscaled: they price the difference in output rates over the last reply's length, the same for every effort.
+Target selection can therefore rank a route cheaper by its scaled estimate while the move gate prices the switch
+differently. With an automatic cache, the switch tax has no output part.
 Selection uses the conservative `maxUsd` bound, then the incumbent, lower sufficient declared capability and
 config order. The mode margin supplies headroom through the requirement, not a tie preference. Automatic prefix
 caches have no assumed TTL or warm-cache exemption.

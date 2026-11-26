@@ -37,7 +37,9 @@ numeric values on this router's demand scale.
 The private [evidence overlay](evidence.md#artificial-analysis-overlay) also carries cost data. For each configured
 effort with a positive cost per task and output price, the router derives `outputScale`: cost per task divided by
 that source's output price, a relative output volume that is comparable across models. A model with no efforts reads
-the `default` entry. The [auto engine](auto-engine.md) uses it to scale the output part of its next-turn estimate.
+the `default` entry. Limit: the Artificial Analysis adapter writes the scores of a row without an effort suffix under
+`max` only, so a model with no efforts gets no output scale from it, although it can get a `default` capability. The
+[auto engine](auto-engine.md) uses the scale in the output part of its next-turn estimate.
 It is not capability policy, so it applies even when your profile declares that model's capability; your declarations
 and token prices stay as they are. It cannot be set in the profile file. Without an overlay value, estimates are
 unchanged.
@@ -65,23 +67,25 @@ ID itself wins, and no other suffix is matched this way.
 With the `auto` or `shadow` engine and routing on, the pane warns about routed cells whose capability is unknown:
 
 ```
-Auto cannot rank deepseek@max, kimi-fast@high +1 more: set models.<alias>.capability
+Auto cannot rank flash@low, flash@high, flash@max: set models.<alias>.capability
 ```
 
-While a rated candidate is eligible, auto never selects an unrated one, and a move away from it is judged without
-its capability. The warning covers the tier routes and, with activity routing on, the activity cells, each read
+While a rated candidate is eligible, auto does not target an unrated one, except on escalation. There only rated
+candidates stronger than the incumbent count (any rated one that meets the requirement, when the incumbent is
+unrated), and when there is none, auto chooses among the unrated ones. A move away from an unrated incumbent is judged
+without its capability. The warning covers the tier routes and, with activity routing on, the activity cells, each read
 under its activity. With `shadow` it also covers the routes the active [routing mode](routing-modes.md) moves to,
 because those are what the table sends. Subagent routes and fallbacks are not listed. A name without `@effort` is a
 model with no efforts, or a session-effort route on a model rated at none of its efforts.
 
-To fix it, declare the effort in the profile. Include every effort you want rated, because the declared map replaces
-the overlay's and the preset's:
+To fix it, declare the effort in the profile, under the model's alias (`flash` in the DeepSeek preset). Include every
+effort you want rated, because the declared map replaces the overlay's and the preset's:
 
 ```json
 {
   "models": {
-    "deepseek": {
-      "capability": { "high": 1.5, "max": { "default": 2, "code": 2.5 } }
+    "flash": {
+      "capability": { "low": 1, "high": 1.5, "max": { "default": 2, "code": 2.5 } }
     }
   }
 }
