@@ -37,6 +37,21 @@ numeric values on this router's demand scale.
 The auto engine selects the cheapest eligible unknown when no eligible declaration is known. Neither the seeds nor
 unknown-only selections establish quality or escalation-headroom calibration; users can configure their own maps.
 
+### Where a model's capability comes from
+
+In order of precedence, per model:
+
+1. A `capability` map the profile declares for the model. It replaces the others for that model in full; cells are
+   not merged.
+2. The [local evidence overlay](evidence.md), for the configured efforts it has cells for.
+3. The preset seeds, where the overlay is silent.
+
+An overlay entry matches a model whose ID equals its key or one of its aliases; the `[1m]` suffix is ignored. When
+no entry matches an ID ending in `-fast`, the entry for the ID without that suffix applies:
+`zai-org/GLM-5.3-fast[1m]` takes the `zai-org/GLM-5.3` evidence. A `-fast` ID serves the same weights faster at a
+higher price, so quality evidence carries over; prices still come from your configuration. An entry for the `-fast`
+ID itself wins, and no other suffix is matched this way.
+
 ## Select a provider
 
 For DeepSeek, create `deepseek-router.json` in your Claude Code profile directory with this content:

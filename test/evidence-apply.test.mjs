@@ -33,6 +33,46 @@ test('an overlay seeds a model matched by a canonical id or alias', () => {
   }
 });
 
+test('a -fast id takes the base entry only when no entry names it exactly', () => {
+  const base = { high: { default: 2 } };
+  const fast = { high: { default: 1 } };
+  const cases = [
+    ['base key', 'glm-5.3-fast[1m]', { 'glm-5.3': entry([], base) }, base],
+    ['base alias', 'zai-org/GLM-5.3-fast[1m]', { 'glm-5.3': entry(['zai-org/GLM-5.3'], base) }, base],
+    ['exact key', 'glm-5.3-fast', { 'glm-5.3': entry([], base), 'glm-5.3-fast': entry([], fast) }, fast],
+    [
+      'exact alias over base key',
+      'zai-org/GLM-5.3-fast',
+      { 'zai-org/GLM-5.3': entry([], base), other: entry(['zai-org/GLM-5.3-fast[1m]'], fast) },
+      fast,
+    ],
+    [
+      'exact entry without a usable cell',
+      'glm-5.3-fast',
+      { 'glm-5.3': entry([], base), 'glm-5.3-fast': entry([], {}) },
+      {},
+    ],
+    ['another suffix', 'glm-5.3-turbo', { 'glm-5.3': entry([], base) }, {}],
+    ['suffix inside the id', 'glm-5.3-fast-preview', { 'glm-5.3': entry([], base) }, {}],
+    ['no reverse match', 'glm-5.3', { 'glm-5.3-fast': entry([], fast) }, {}],
+    ['one suffix only', 'glm-5.3-fast-fast', { 'glm-5.3': entry([], base) }, {}],
+  ];
+  for (const [name, id, entries, expected] of cases) {
+    const result = applyEvidenceOverlay(config({ glm: model({ id }) }), overlay(entries));
+    assert.deepEqual(result.models.glm.capability, expected, name);
+  }
+});
+
+test('a user-declared capability map wins over the base entry of a -fast id', () => {
+  const declared = { low: 0.5 };
+  const result = applyEvidenceOverlay(
+    config({ glm: model({ id: 'glm-5.3-fast', capability: { ...declared } }) }),
+    overlay({ 'glm-5.3': entry([], { high: { default: 3 } }) }),
+    { models: { glm: { capability: declared } } },
+  );
+  assert.deepEqual(result.models.glm.capability, declared);
+});
+
 test('a user-declared capability map wins in full and other models still seed', () => {
   const declared = { low: 0.5 };
   const result = applyEvidenceOverlay(

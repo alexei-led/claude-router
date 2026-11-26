@@ -81,7 +81,9 @@ mode 600. It refuses more than ten pages, so a changed API fails loudly instead 
   published cost per task, so a value can be audited without another request.
 - `confidence` — `medium` when the row names its effort, `low` when the free row has no effort suffix and the
   adapter records it at the strongest effort with a note.
-- `aliases` — the exact configured ids the canonical model answers to, including namespaced proxy ids.
+- `aliases` — the exact configured ids the canonical model answers to, including namespaced proxy ids. The router
+  also reads an unmatched `-fast` id from its base entry; see
+  [Providers](providers.md#where-a-models-capability-comes-from). `evidence:report` matches exact ids only.
 
 Capability is derived from the index through the router's existing policy anchors (Haiku 5.5 high = 1,
 Opus 5.5 medium = 2, Opus 5.5 xhigh = 3), piecewise-linearly and rounded to a half-step. It is a
