@@ -222,7 +222,7 @@ test('malformed shadow fields cannot retain arbitrary text on read or write', ()
     requirement: NaN,
     reason: 'secret prompt',
     outcome: 'secret tools',
-    route: '/private/project@high',
+    route: 'secret\nprompt@high',
     capability: -1,
     headroom: 'yes',
     minUsd: -1,
@@ -662,12 +662,13 @@ test('a shadow row keeps its counterfactual move, blocked candidates and profile
 });
 
 for (const [name, field, value] of [
-  ['a would-serve path', 'serve', '/private/project@high'],
+  ['a would-serve route without an effort', 'serve', '/private/project'],
+  ['a would-serve route over 64 alias characters', 'serve', `${'m'.repeat(65)}@high`],
   ['an unknown move reason', 'move', 'secret prompt'],
   ['an incumbent capability out of range', 'incumbentCap', 9],
   ['a profile path', 'profile', '/Users/someone/router.json'],
   ['blocked text', 'blocked', 'secret'],
-  ['a blocked path', 'blocked', [{ route: '/private/project@high', reasons: ['cash-cap'] }]],
+  ['a blocked route with a control character', 'blocked', [{ route: 'secret\u001b@high', reasons: ['cash-cap'] }]],
   ['blocked unknown reasons only', 'blocked', [{ route: 'fable@max', reasons: ['secret'] }]],
   ['an empty blocked list', 'blocked', []],
 ]) {
@@ -676,6 +677,17 @@ for (const [name, field, value] of [
     assert.equal(Object.hasOwn(row.alt, field), false);
   });
 }
+
+test('a shadow row keeps routes named by any alias the config accepts', () => {
+  for (const alias of ['modèle', '模型', 'my model', 'gpt+5', 'vendor/model']) {
+    const route = `${alias}@high`;
+    const alt = { route, serve: route, blocked: [{ route, reasons: ['cash-cap'] }] };
+    const row = decisionRow({ at: T, kind: 'start', decision, engine: 'shadow', alt });
+    const [stored] = readDecisions({ version: 1, since: T, rows: [row] }).rows;
+    for (const kept of [row, stored])
+      assert.deepEqual([kept.alt.route, kept.alt.serve, kept.alt.blocked], [route, route, alt.blocked], alias);
+  }
+});
 
 test('a shadow row keeps at most 3 blocked candidates and only their known reasons', () => {
   const blocked = Array.from({ length: 5 }, (_, i) => ({
