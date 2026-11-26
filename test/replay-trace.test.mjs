@@ -293,6 +293,23 @@ test('damage to the retained turns marks a record, capped or not, and so does th
   }
 });
 
+test('a turn recorded past an unfinished one leaves a hole, and one left out does not', () => {
+  const turnEnd = (turn) => ({ type: 'end', at: NOW, turn });
+  const record = initial();
+  for (const [name, events, options, incomplete] of [
+    ['recorded past an open turn', [turnEnd(2)], { openTurn: 1 }, ['aborted']],
+    ['recorded before an open turn', [turnEnd(2)], { openTurn: 3 }, []],
+    ['no open turn', [turnEnd(2)], {}, []],
+    ['events of no turn', [event()], { openTurn: 1 }, []],
+    ['nothing to record', [], { openTurn: 1 }, []],
+    ['left out by the size cap', [turnEnd(2)], { openTurn: 1, maxBytes: storedBytes(record) + 1 }, []],
+    ['left out as too long', [], { openTurn: 1, excludedEvents: 3 }, []],
+  ])
+    assert.deepEqual(appendTrace(record, events, NOW + 1, options).incomplete, incomplete, name);
+  for (const [cause, capped] of Object.entries(cappedRecords()))
+    assert.deepEqual(appendTrace(capped, [turnEnd(2)], NOW + 3, { openTurn: 1 }).incomplete, [], cause);
+});
+
 test('a long single turn discards its entire bounded buffer and counts subsequent payload-free events', () => {
   let buffer;
   for (let i = 0; i < 10_000; i++) {

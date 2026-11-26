@@ -611,6 +611,8 @@ function pendingTrace(held, turn, ending) {
   return {
     events: [...events, ...controls],
     excludedEvents: turn?.buffer?.excludedEvents ?? held.controls?.excludedEvents ?? 0,
+    // `held.turns` holds the turns that have not completed (flushTraceLater takes a completed one).
+    openTurn: Math.min(...[...held.turns.values()].map((open) => open.number)),
   };
 }
 
@@ -618,12 +620,12 @@ function pendingTrace(held, turn, ending) {
 // failed write loses nothing: a later flush writes it, and until then the stored prefix stays usable. Nothing from
 // before the last reset is kept: a turn whose flush waited across a reset in another session keeps only what came
 // after it.
-function appendHeld(held, { events, excludedEvents }, at, resetAt) {
+function appendHeld(held, { events, excludedEvents, openTurn }, at, resetAt) {
   held.record = appendTrace(
     held.record,
     events.filter((event) => !(Number.isFinite(resetAt) && event.at < resetAt)),
     at,
-    { lostWrites: held.lostWrites, reasons: [...held.reasons], excludedEvents },
+    { lostWrites: held.lostWrites, reasons: [...held.reasons], excludedEvents, openTurn },
   );
   held.lostWrites = 0;
   held.reasons.clear();
@@ -692,7 +694,7 @@ async function flushTrace($, router, turnId = null, ending = false, captured = n
         // The turn is lost: the record is marked at once, so no write can show a usable trace with a hole in it.
         held.lostWrites++;
         held.reasons.add('recorder-error');
-        appendHeld(held, { events: [], excludedEvents: 0 }, at, resetAt);
+        appendHeld(held, { ...pending, events: [], excludedEvents: 0 }, at, resetAt);
       }
     };
     try {
@@ -786,13 +788,6 @@ function flushTraceLater($, router, turnId) {
     return flushed;
   });
 }
-
-// A capped record takes no later turn, so none can be recorded past an unfinished one.
-const leavesHole = (held) => {
-  if (!held.record || held.record.capped) return false;
-  const recorded = Math.max(0, ...held.record.events.map((event) => event.turn ?? 0));
-  return [...held.turns.values()].some((turn) => turn.number < recorded);
-};
 
 // The queued trace flushes started at once and awaited (flushTraceLater): what completed turns hold is written.
 async function drainTraces(router) {
@@ -4774,10 +4769,6 @@ export function register(on, options) {
     // A completed shadow turn's queued flush writes it even after a switch to another engine.
     await drainTraces(router);
     if (router.config.routingEngine === 'shadow') {
-      // The completed turns are flushed by now; any left never completed. One left behind a recorded turn is a hole;
-      // the rest are only not recorded.
-      // biome-ignore lint/suspicious/noUnnecessaryConditions: router.trace is set by helpers that take `router`, which Biome cannot follow
-      if (router.trace && leavesHole(router.trace)) router.trace.reasons.add('aborted');
       await flushTrace($, router, null, true);
     }
     // biome-ignore lint/nursery/useAtomicUpdates: the session is over, so whatever trace the final flush held or created is dropped

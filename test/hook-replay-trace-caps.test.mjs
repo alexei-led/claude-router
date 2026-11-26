@@ -59,3 +59,24 @@ test('a long single tool turn discards its entire batch and retains capped cover
   assert.equal(usableTrace(record(h)), true);
   assert.equal(JSON.stringify(record(h)).includes('Synthetic task'), false);
 });
+
+for (const [name, recordedBehind] of [
+  ['a recorded turn before the one that caps the trace', true],
+  ['only the turn that caps the trace', false],
+])
+  test(`an unfinished turn followed by ${name} ${recordedBehind ? 'is a hole' : 'is no hole'}`, async () => {
+    const h = shadowHarness();
+    await begin(h);
+    await turn(h, 'first');
+    await h.event('turn.start', { turnId: 'open', text: 'Synthetic task.' });
+    await drain(h.step({ ...step, turnId: 'open' }));
+    if (recordedBehind) await turn(h, 'behind');
+    assert.equal(record(h).capped, null);
+    // A model list larger than the session budget: this turn alone caps the record.
+    const availableModels = Array.from({ length: 40_000 }, (_, i) => `synthetic-model-${i}`);
+    h.$.settings.read = async () => ({ availableModels: ['haiku', 'sonnet', 'opus', ...availableModels] });
+    await turn(h, 'capping');
+    assert.equal(record(h).capped.turns, 1);
+    await h.event('session.end', { reason: 'exit' });
+    assert.equal(usableTrace(record(h)), !recordedBehind);
+  });

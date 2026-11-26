@@ -404,14 +404,37 @@ test('a turn left unfinished after a reload leaves the stored turns usable', asy
   assert.equal(usableTrace(record(next)), true);
 });
 
-test('a turn left unfinished behind a recorded one leaves a hole, so the trace is unusable', async () => {
+async function leftOpen(h, id = 'open') {
+  await h.event('turn.start', { turnId: id, text: 'Synthetic task.' });
+  await drain(h.step({ ...step, turnId: id }));
+}
+
+test('a turn left unfinished behind a recorded one marks the write that records it', async () => {
   const h = setup();
   await begin(h);
-  await h.event('turn.start', { turnId: 'open', text: 'Synthetic task.' });
-  await drain(h.step({ ...step, turnId: 'open' }));
+  await leftOpen(h);
   await turn(h, 't2');
-  await h.event('session.end', { reason: 'exit' });
-  assert.ok(record(h).incomplete.includes('aborted'));
+  // No session.end: the process can die here, and a resume must still read the hole.
+  assert.deepEqual(record(h).incomplete, ['aborted']);
+  const resumed = setup({}, h.preferences);
+  await begin(resumed);
+  await turn(resumed, 't3', [user('one'), assistant('reply'), user('two')]);
+  await resumed.event('session.end', { reason: 'exit' });
+  assert.deepEqual(record(resumed).incomplete, ['aborted']);
+  assert.equal(usableTrace(record(resumed)), false);
+});
+
+test('an unfinished turn with nothing recorded past it leaves no hole, on a resumed record too', async () => {
+  const first = setup();
+  await begin(first);
+  await turn(first);
+  const next = setup({}, first.preferences);
+  await begin(next);
+  await leftOpen(next);
+  await turn(next, 't3', [user('one'), assistant('reply'), user('two')]);
+  await next.event('session.end', { reason: 'exit' });
+  assert.deepEqual(record(next).incomplete, []);
+  assert.equal(usableTrace(record(next)), true);
 });
 
 test('retention expires old whole sessions including killed active leases, not decision-row counts', async (t) => {
