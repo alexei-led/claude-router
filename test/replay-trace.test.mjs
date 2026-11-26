@@ -601,6 +601,18 @@ test('packed events read back exactly through config changes, resets, reordered 
   assert.equal(JSON.stringify(read.events), JSON.stringify(record.events.map(traceEvent)), 'catalog order is kept');
 });
 
+// `config` shares its kind with nothing else: the first of each is whole, and a later one holds only what changed.
+test('the initial and first config events are packed whole, and an unchanged config packs to its place', () => {
+  const packed = packEvents([
+    ...initial().events,
+    ...[1, 2].map((turn) => traceEvent({ type: 'config', at: NOW, turn, index: 0, configured, config })),
+  ]);
+  const [first, config1, config2] = packed.map((entry) => Object.keys(entry[2]));
+  assert.equal(first.includes(''), false, 'the initial event drops no field');
+  assert.equal(config1.includes(''), false, 'the first config event drops no field');
+  assert.deepEqual(config2, ['~0']);
+});
+
 test('a completed turn’s unanswered request is settled, an answered one is left alone', () => {
   const [request, response] = syntheticTurn(1, 1, { at: NOW, messages: 0 });
   assert.deepEqual(settleTrace([request, response]), [request, response]);
