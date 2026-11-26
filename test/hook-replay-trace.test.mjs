@@ -805,3 +805,95 @@ test('pins/mode/off-on/config changes and compaction carry explicit replay bound
   assert.equal(usableTrace(record(h)), true);
   assert.ok(TRACE_ACTIVE_MS > 0);
 });
+
+test('a trace export after Delete history leaves out the traces it deleted, before its background delete runs too', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 25, 12).getTime() });
+  const h = setup();
+  await begin(h);
+  await turn(h);
+  h.preferences.set(`${TRACE_PREFIX}other`, structuredClone(record(h)));
+  t.mock.timers.tick(1000);
+  h.$.clock.after = () => ({ cancel: () => {} });
+  await press(h, 'tab-usage');
+  await press(h, 'delete-history');
+  await press(h, 'delete-confirm');
+  assert.equal(record(h), undefined);
+  assert.ok(record(h, 'other'), 'another session’s trace deleted inside the press');
+  assert.match((await h.event('command.run', { command: 'router', args: 'trace export' })).text, /Exported 0 /);
+});
+
+test('turns whose queued trace flushes run after a reset in another session keep none of their earlier events', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: new Date(2026, 10, 25, 12).getTime() });
+  const h = setup();
+  await begin(h);
+  await turn(h);
+  const later = [];
+  h.$.clock.after = (_ms, fn) => {
+    later.push(fn);
+    return { cancel: () => {} };
+  };
+  await turn(h, 't2');
+  await turn(h, 't3');
+  t.mock.timers.tick(1000);
+  h.preferences.set('savings:reset:v1', Date.now());
+  t.mock.timers.tick(1000);
+  while (later.length) await later.shift()();
+  const trace = record(h);
+  assert.ok(trace.startedAt >= h.preferences.get('savings:reset:v1'));
+  assert.deepEqual(trace.events, []);
+});
+
+test('a turn whose trace flush waits keeps its events when the engine is switched away from shadow first', async () => {
+  const h = setup();
+  await begin(h);
+  const later = [];
+  h.$.clock.after = (_ms, fn) => {
+    later.push(fn);
+    return { cancel: () => {} };
+  };
+  await turn(h);
+  await h.event('command.run', { command: 'router', args: 'engine table' });
+  while (later.length) await later.shift()();
+  assert.equal(record(h)?.events.filter((event) => event.type === 'end').length, 1);
+});
+
+test('a trace export right after a turn includes that turn’s queued trace', async () => {
+  const h = setup();
+  await begin(h);
+  h.$.clock.after = () => ({ cancel: () => {} });
+  await turn(h);
+  assert.match((await h.event('command.run', { command: 'router', args: 'trace export' })).text, /Exported 1 /);
+  const exported = JSON.parse(h.files.get('/fixture/team/router-traces.json'));
+  assert.equal(exported.sessions[`${TRACE_PREFIX}s1`].events.filter((event) => event.type === 'end').length, 1);
+});
+
+test('a shadow turn’s trace is written after turn.complete returns, and session.end writes one still waiting', async () => {
+  const h = setup();
+  await begin(h);
+  const later = [];
+  h.$.clock.after = (_ms, fn) => {
+    later.push(fn);
+    return { cancel: () => {} };
+  };
+  await turn(h);
+  assert.equal(record(h)?.events.some((event) => event.type === 'end') ?? false, false);
+  await h.event('session.end', { reason: 'exit' });
+  assert.equal(record(h).events.filter((event) => event.type === 'end').length, 1);
+  assert.equal(record(h).incomplete.includes('aborted'), false);
+});
+
+test('a shadow turn’s end reads the trace records, not the whole store, once the store is measured', async () => {
+  const preferences = new Map(Array.from({ length: 300 }, (_, i) => [`mode:old-${i}`, 'auto']));
+  const h = setup({}, preferences);
+  await begin(h);
+  await turn(h);
+  const reads = [];
+  const get = h.$.store.get;
+  h.$.store.get = async (key) => {
+    reads.push(key);
+    return get(key);
+  };
+  await turn(h, 't2');
+  assert.equal(reads.filter((key) => key.startsWith('mode:old-')).length, 0);
+  assert.equal(record(h).events.filter((event) => event.type === 'end').length, 2);
+});

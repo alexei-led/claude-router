@@ -64,12 +64,64 @@ Box flexDirection="column"
     Text dimColor=true
       "    other models: /model, with routing off"
   Box borderColor="subtle" borderStyle="single" flexDirection="column" paddingX=1
-    Text color="suggestion" weight="semibold"
-      "RECENT DECISIONS"
-    Text
-      "15:50:00  start     composer  asked code 91% code 80%  new task  -> medium code claude-sonnet-5-5@high  (jump)"
-    Text
-      "15:55:00  start     composer  asked timeout  -> medium claude-sonnet-5-5@high  (no-advice)"
+    Box
+      Text color="suggestion" weight="semibold"
+        "RECENT DECISIONS"
+    Text dimColor=true
+      "time   took  route                   work  calls  why"
+    Box
+      Text dimColor=true
+        "15:50"
+      Text dimColor=true
+        "  —   "
+      Text
+        "  "
+      Text color="#d7af5f"
+        "▂▄▆"
+      Text
+        "  "
+      Text
+        "Sonnet 5.5 · high"
+      Text
+        "  "
+      Text color="#d77757" italic=true
+        "code"
+      Text
+        "      —  "
+      Text
+        "↑ clearly stronger"
+    Box
+      Text dimColor=true
+        "15:55"
+      Text dimColor=true
+        "  …   "
+      Text
+        "  "
+      Text color="#d7af5f"
+        "▂▄▆"
+      Text
+        "  "
+      Text
+        "Sonnet 5.5 · high"
+      Text
+        "  "
+      Text
+        "    "
+      Text
+        "      …  "
+      Text
+        "= no advice"
+    Box
+      Text
+        "             "
+      Text color="warning"
+        "⚠ classifier"
+      Text
+        " "
+      Text dimColor=true
+        "timeout"
+    Text dimColor=true
+      "every row: /router decisions"
   Box borderColor="subtle" borderStyle="single" flexDirection="column" paddingX=1
     Box
       Text color="suggestion" weight="semibold"

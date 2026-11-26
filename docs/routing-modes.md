@@ -43,8 +43,8 @@ The mode comes from the first of these that sets one:
 
 See [Project routing settings](configuration.md#project-routing-settings) for filenames, precedence and recovery.
 
-The band, the Now tab and `/router` show the mode and its source, for example `cost (session)`. The prompt footer
-names a mode other than balanced.
+The band shows the mode as a chip, `balanced` included. The Now tab and `/router` show the mode and its source, for
+example `cost (session)`. The prompt footer names a mode other than balanced.
 
 ## When a change applies
 

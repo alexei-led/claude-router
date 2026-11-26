@@ -38,7 +38,14 @@ test('two patches applied while the first view read is pending both stay in the 
 test('turns that end while the decision record is being read all keep their rows', async () => {
   const h = harness(JEV_KEY);
   answering(h, jevResponse('high', { micro: 0, low: 0, medium: 0.05, high: 0.95, uncertain: 0 }, 0.2));
+  // The start's own read of the record fails, so the turns' ends read it, both at once.
+  const unread = h.$.store.get;
+  h.$.store.get = async (key) => {
+    if (key.startsWith(DECISIONS_PREFIX)) throw new Error('busy');
+    return unread(key);
+  };
   await h.event('session.start', { cwd: '/fixture' });
+  h.$.store.get = unread;
   const ids = ['t1', 't2'];
   for (const turnId of ids) {
     const text = `Task ${turnId}.`;

@@ -3,22 +3,10 @@ import {
   ACTIVITY_CONTRACT,
   advanceDown,
   advanceRun,
-  emptyMetrics,
   emptySession,
-  emptyStore,
-  LEGACY_STORE_PREFIX,
-  METRICS_PREFIX,
-  mergeMetrics,
-  mergeStores,
-  metricsAfterReset,
-  readMetrics,
-  readStore,
   recordMetrics,
   recordStore,
   recordTurn,
-  STORE_KEY,
-  STORE_PREFIX,
-  storeAfterReset,
   turnActivity,
 } from '../lib/activity-stats.mjs';
 import { advanceDemand, assessCandidates, initialAutoState, selectTarget } from '../lib/auto-engine.mjs';
@@ -112,6 +100,16 @@ import {
 } from '../lib/failover.mjs';
 import { heldCause, heldRows, holdsText, releaseRow } from '../lib/holds.mjs';
 import { KEYWORDS, keywordRaises, promptKeyword } from '../lib/keywords.mjs';
+import {
+  absorbedKeys,
+  archiveKey,
+  archiveValue,
+  deadKeys,
+  foldChunks,
+  settledSessions,
+  withoutFolded,
+} from '../lib/ledger-fold.mjs';
+import { addTurn, checkDue, checkedHeld, heldRecord, historyKeys, LEDGER_KINDS, LEDGERS } from '../lib/ledgers.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { sameTaskOf } from '../lib/policy.mjs';
@@ -123,15 +121,16 @@ import {
   routingEdits,
 } from '../lib/project-routing.mjs';
 import { providerFile, providerName } from '../lib/providers.mjs';
+import { startedSince } from '../lib/records.mjs';
 import {
   appendTrace,
   bufferTrace,
+  isTraceKey,
   mergeTraceExport,
   newTrace,
   readTrace,
   TRACE_ACTIVE_MS,
   TRACE_EXPORT_BYTES,
-  TRACE_LEGACY_PREFIX,
   TRACE_PREFIX,
   TRACE_SESSION_BYTES,
   TRACE_STORE_BYTES,
@@ -164,14 +163,9 @@ import {
 } from '../lib/route.mjs';
 import { LINE_MODES, lineId, lineModeOf, lineOf, routeOf, showsLine } from '../lib/route-line.mjs';
 import {
-  afterReset,
   compareModels,
-  emptySavingsStore,
-  mergeSavingsStores,
   modelSpec,
   observedReplyUsd,
-  readSavingsStore,
-  SAVINGS_PREFIX,
   SAVINGS_RESET_KEY,
   sessionCacheTtl,
   subagentCacheTtl,
@@ -182,37 +176,21 @@ import {
   agentFrontmatter,
   classifiedAlias,
   coreModelOf,
-  emptySubagentStore,
   flushedAgent,
-  mergeSubagentStores,
   moveOf,
   passReason,
   RESPAWN_WINDOW_MS,
-  readSubagentStore,
   recordAgent,
   SPAWN_DEADLINE_MS,
-  SUBAGENT_PREFIX,
   spawnPrompt,
   spawnRecord,
-  subagentsAfterReset,
   typeRoute,
 } from '../lib/subagents.mjs';
 import { argumentHint, routerSuggestions } from '../lib/subcommands.mjs';
 import { POLICY_ROWS, routeDraftOf } from '../lib/ui/model/draft.mjs';
 import { keyHelpOf } from '../lib/ui/model/frame.mjs';
 import { isGraphical } from '../lib/ui/tokens.mjs';
-import {
-  emptyUsage,
-  mergeUsage,
-  PERIOD_KEY,
-  PERIODS,
-  prunedUsage,
-  readUsage,
-  recordUsage,
-  replyEntry,
-  USAGE_PREFIX,
-  usageAfterReset,
-} from '../lib/usage.mjs';
+import { PERIOD_KEY, PERIODS, recordUsage, replyEntry } from '../lib/usage.mjs';
 import {
   CLEARED_READINGS,
   continuationView,
@@ -242,63 +220,20 @@ const UNAVAILABLE_NOTICE_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const ROUTING_MODE_PREFIX = 'routing-mode:';
 const isSet = (value) => /^(1|true|yes|on)$/i.test(String(value ?? '').trim());
 
-// The counts kept across sessions: each session writes only its own record of a kind, `prefix` and its session id,
-// because $.store has no atomic update; the view's `field` shows every session's record since the last reset added
-// up, and `ownField`, where a kind has one, this session's alone. One marker, SAVINGS_RESET_KEY, resets them all.
-// `legacy` is the key all sessions shared before 1.10.3: it counts as another session's record until a reset deletes
-// it. Another session's records that `prune` names are deleted when read. `savings` is no longer written: its records
-// are the undated totals from before `usage`, which the All period adds.
-const LEDGERS = {
-  usage: {
-    prefix: USAGE_PREFIX,
-    field: 'usageStore',
-    ownField: 'usageSession',
-    read: readUsage,
-    afterReset: usageAfterReset,
-    merge: mergeUsage,
-    empty: emptyUsage,
-    prune: prunedUsage,
-  },
-  savings: {
-    prefix: SAVINGS_PREFIX,
-    field: 'savingsStore',
-    read: readSavingsStore,
-    afterReset,
-    merge: mergeSavingsStores,
-    empty: emptySavingsStore,
-  },
-  metrics: {
-    prefix: METRICS_PREFIX,
-    field: 'activityMetrics',
-    read: readMetrics,
-    afterReset: metricsAfterReset,
-    merge: mergeMetrics,
-    empty: emptyMetrics,
-  },
-  subagents: {
-    prefix: SUBAGENT_PREFIX,
-    field: 'subagentStore',
-    ownField: 'subagentSession',
-    read: readSubagentStore,
-    afterReset: subagentsAfterReset,
-    merge: mergeSubagentStores,
-    empty: emptySubagentStore,
-  },
-  activity: {
-    prefix: STORE_PREFIX,
-    legacy: STORE_KEY,
-    field: 'activityStore',
-    read: readStore,
-    afterReset: storeAfterReset,
-    merge: mergeStores,
-    empty: emptyStore,
-  },
-};
-const LEDGER_KINDS = Object.keys(LEDGERS);
+// Claude Code runs one plugin's $.store calls one at a time, each reading the whole store file. A bulk read goes
+// STORE_SLICE keys at a time, so a press or a turn's store call waits for one slice, not for the whole read.
+const STORE_SLICE = 20;
 
+/** The values of `keys`, in order, read STORE_SLICE at a time. */
+async function getMany($, keys) {
+  const values = [];
+  for (let i = 0; i < keys.length; i += STORE_SLICE)
+    values.push(...(await Promise.all(keys.slice(i, i + STORE_SLICE).map((key) => $.store.get(key)))));
+  return values;
+}
+
+/** @typedef {import('../lib/ledger-fold.mjs').LedgerRead} LedgerRead */
 /** @typedef {ReturnType<typeof readTrace> | ReturnType<typeof newTrace>} TraceRecord */
-// Read and retire records from both schema versions; a session writes only the current one.
-const isTraceKey = (key) => key.startsWith(TRACE_PREFIX) || key.startsWith(TRACE_LEGACY_PREFIX);
 /**
  * @typedef {object} TraceHold
  * @property {string} sessionId
@@ -310,6 +245,7 @@ const isTraceKey = (key) => key.startsWith(TRACE_PREFIX) || key.startsWith(TRACE
  * @property {number} nextTurn
  * @property {string | null} config
  * @property {{ events: object[], excludedEvents?: number } | null} controls
+ * @property {{ bytes: number, at: number } | null} [measured] the store's bytes outside the trace records, and when
  */
 
 // Everything the hooks change between events, in one object `register()` creates and passes to its helpers. Module
@@ -360,6 +296,25 @@ function createRouter(options) {
     traceClearSession: null,
     traceStartedSession: null,
     traceFailures: 0,
+    // The trace flush in progress (flushTraceLater), so flushes run one at a time and session.end waits for the last;
+    // and the starts of flushes whose timer has not fired, which session.end runs at once.
+    traceFlushing: /** @type {Promise<void> | null} */ (null),
+    traceDue: /** @type {Set<() => void>} */ (new Set()),
+    // The account holds a turn read (accountHoldsOf), by the accounts' names; null to read them again.
+    accountHolds: /** @type {{ id: string, value: Record<string, unknown> } | null} */ (null),
+    // The auto|manual mode this process last wrote or read for each session, so a turn does not write it again.
+    storedModes: /** @type {Map<string, string>} */ (new Map()),
+    // The read of the counts kept across sessions in progress (readLedgers), a refresh of them due from a timer
+    // (refreshLedgersLater), and the pane's refresh (refreshPane).
+    ledgerRead: /** @type {{ sessionId: string, read: Promise<{ patch: object, read: LedgerRead[] }> } | null} */ (
+      null
+    ),
+    ledgerRefreshDue: false,
+    // The checks of this session's records against the store in progress, by kind (checkOwn), and a fold chain
+    // running (foldLater).
+    ownChecks: /** @type {Map<string, Promise<void>>} */ (new Map()),
+    folding: false,
+    paneRefresh: /** @type {Promise<void> | null} */ (null),
     traceOperations: new Map(),
     // The surfaces that showed the unavailable toast this session, so an attach never repeats it on the same one.
     noticeSurfaces: new Set(),
@@ -395,6 +350,8 @@ function createRouter(options) {
     ),
     // Bumped by Reset activity stats, so a store write that read the counts before the reset skips.
     statsResets: 0,
+    // The last reset (ms) any store read saw, for what a pane draws without a store read; null for none.
+    resetAt: /** @type {number | null} */ (null),
     // Bumped by each pin press, and each pinned turn's count when its route was written: the pin is used up when the
     // first request goes out on that route, unless it was pressed again meanwhile.
     pinPresses: 0,
@@ -443,6 +400,7 @@ async function ensureTrace($, router, e, turn, loop, loaded, fresh) {
       nextTurn: 1,
       config: null,
       controls: null,
+      measured: null,
     };
     router.trace = held;
     router.traceFailures = 0;
@@ -606,19 +564,30 @@ function traceControl(router) {
   }
 }
 
-async function flushTrace($, router, turnId = null, ending = false) {
+// `captured`: a completed turn flushTraceLater took when the turn ended, written even after the engine left shadow.
+async function flushTrace($, router, turnId = null, ending = false, captured = null) {
   try {
     const held = router.trace;
-    if (!held || router.config.routingEngine !== 'shadow') return;
-    const turn = held.turns.get(turnId);
+    if (!held || (router.config.routingEngine !== 'shadow' && !captured)) return;
+    const turn = captured ?? held.turns.get(turnId);
     held.turns.delete(turnId);
     try {
       const at = Date.now();
+      // Only the trace records are read each time; the rest of the store is measured now and then (measureStore).
       const keys = await $.store.keys();
-      let entries = await Promise.all(keys.map(async (name) => [name, await $.store.get(name)]));
-      if (entries.some(([, value]) => value === undefined)) throw new Error('store-guard');
-      if (traceBytes(Object.fromEntries(entries)) > TRACE_STORE_BYTES) throw new Error('store-guard');
-      const resetAt = entries.find(([name]) => name === SAVINGS_RESET_KEY)?.[1];
+      let traces = await readTraces($, keys);
+      if (traces.some(([, value]) => value === undefined)) throw new Error('store-guard');
+      const traceTotal = traceBytes(Object.fromEntries(traces));
+      const measured = held.measured;
+      if (
+        !measured ||
+        at - measured.at > TRACE_MEASURE_MS ||
+        measured.bytes + traceTotal > TRACE_STORE_BYTES - TRACE_MEASURE_MARGIN
+      )
+        held.measured = { bytes: await measureStore($, keys), at };
+      const otherBytes = held.measured?.bytes ?? 0;
+      if (otherBytes + traceTotal > TRACE_STORE_BYTES) throw new Error('store-guard');
+      const resetAt = await $.store.get(SAVINGS_RESET_KEY);
       if (Number.isFinite(resetAt) && held.record.startedAt < resetAt) {
         held.record = {
           version: TRACE_VERSION,
@@ -634,9 +603,12 @@ async function flushTrace($, router, turnId = null, ending = false) {
         held.reasons.add('reset');
       }
       const key = `${TRACE_PREFIX}${held.sessionId}`;
-      const raw = entries.find(([name]) => name === key)?.[1];
+      const raw = traces.find(([name]) => name === key)?.[1];
       if (raw !== undefined && !readTrace(raw)) throw new Error('conflict');
-      if (JSON.stringify(raw) !== JSON.stringify(held.persisted)) {
+      // A stored trace from before the last reset is history it deleted, though another session's background delete
+      // may not have reached it yet: it is written over, never merged back.
+      const deleted = raw !== undefined && Number.isFinite(resetAt) && !startedSince(raw, resetAt);
+      if (!deleted && JSON.stringify(raw) !== JSON.stringify(held.persisted)) {
         held.reasons.add('conflict');
         if (raw)
           held.record = mergeTraceExport(null, [
@@ -646,17 +618,20 @@ async function flushTrace($, router, turnId = null, ending = false) {
       }
       if (held.record.events.length === 1 && traceBytes(held.record) > TRACE_SESSION_BYTES - 1024)
         throw new Error('store-guard');
-      const events = turn?.buffer?.events ?? [];
-      if (ending && held.controls && !held.controls.excludedEvents) events.push(...held.controls.events);
+      // Nothing from before the last reset is written: a turn whose flush waited across a reset in another session
+      // keeps only what came after it.
+      const sinceReset = (event) => !(Number.isFinite(resetAt) && event.at < resetAt);
+      const events = (turn?.buffer?.events ?? []).filter(sinceReset);
+      if (ending && held.controls && !held.controls.excludedEvents)
+        events.push(...held.controls.events.filter(sinceReset));
       const candidate = appendTrace(held.record, events, at, {
         lostWrites: held.lostWrites,
         reasons: [...held.reasons],
         excludedEvents: turn?.buffer?.excludedEvents ?? held.controls?.excludedEvents ?? 0,
       });
       candidate.active = !ending;
-      const traces = entries.filter(([name]) => isTraceKey(name));
       for (const victim of traceVictims(traces, at, key, candidate)) {
-        const previous = entries.find(([name]) => name === victim)?.[1];
+        const previous = traces.find(([name]) => name === victim)?.[1];
         const current = await $.store.get(victim);
         if (
           readTrace(current) &&
@@ -665,10 +640,9 @@ async function flushTrace($, router, turnId = null, ending = false) {
         )
           await $.store.delete(victim);
       }
-      // Scan again after eviction: missing/unreadable values never become a quota undercount.
-      const after = await $.store.keys();
-      entries = await Promise.all(after.map(async (name) => [name, await $.store.get(name)]));
-      if (entries.some(([, value]) => value === undefined) || !traceAdmission(entries, key, candidate))
+      // Read the traces again after eviction: missing/unreadable values never become a quota undercount.
+      traces = await readTraces($, await $.store.keys());
+      if (traces.some(([, value]) => value === undefined) || !traceAdmission(traces, key, candidate, otherBytes))
         throw new Error('store-guard');
       await $.store.set(key, candidate);
       held.record = candidate;
@@ -686,10 +660,69 @@ async function flushTrace($, router, turnId = null, ending = false) {
   }
 }
 
+// The trace records of `keys`, read.
+const readTraces = ($, keys) =>
+  Promise.all(keys.filter((key) => isTraceKey(key)).map(async (key) => [key, await $.store.get(key)]));
+
+// The shared-store guard needs the bytes of every record, but each store read waits behind every other store call of
+// the router and reads the whole file: the records outside the traces are measured once per session, again when the
+// figure is older than TRACE_MEASURE_MS, and again whenever the guard would be within TRACE_MEASURE_MARGIN of its
+// limit, so a store that shrank lets traces back at once.
+const TRACE_MEASURE_MS = 15 * 60 * 1000;
+const TRACE_MEASURE_MARGIN = 256 * 1024;
+
+// The bytes of the records of `keys` outside the traces. A record deleted since the listing counts nothing; one that
+// cannot be read throws.
+async function measureStore($, keys) {
+  const names = keys.filter((key) => !isTraceKey(key));
+  const values = await getMany($, names);
+  return values.reduce(
+    (bytes, value, i) => (value === undefined ? bytes : bytes + traceBytes(names[i]) + traceBytes(value) + 2),
+    2,
+  );
+}
+
+// A turn's trace is written after the turn, from a timer, one flush at a time: the next prompt does not wait on it.
+// The flush joins the queue at once, so session.end, which starts any whose timer has not fired, waits for it.
+function flushTraceLater($, router, turnId) {
+  // The turn is taken now: a switch away from shadow before the flush clears what the trace holds.
+  const turn = router.trace?.turns.get(turnId) ?? null;
+  router.trace?.turns.delete(turnId);
+  /** @type {() => void} */
+  let start = () => {};
+  const due = new Promise((resolve) => {
+    start = () => resolve(undefined);
+  });
+  router.traceDue.add(start);
+  const flushed = (router.traceFlushing ?? Promise.resolve())
+    .then(() => due)
+    .then(() => flushTrace($, router, turnId, false, turn));
+  router.traceFlushing = flushed;
+  $.clock.after(0, () => {
+    router.traceDue.delete(start);
+    start();
+    return flushed;
+  });
+}
+
+// The queued trace flushes started at once and awaited (flushTraceLater): what completed turns hold is written.
+async function drainTraces(router) {
+  for (const start of router.traceDue) start();
+  router.traceDue.clear();
+  await router.traceFlushing?.catch(() => {});
+}
+
 async function exportTraces($, router) {
   try {
+    // The turns that completed are written first, so the export ends at the last of them.
+    await drainTraces(router);
     const keys = (await $.store.keys()).filter((key) => isTraceKey(key));
-    const entries = await Promise.all(keys.map(async (key) => [key, await $.store.get(key)]));
+    const resetAt = await $.store.get(SAVINGS_RESET_KEY);
+    // A trace from before the last reset is history Delete history removed, though its background delete may not have
+    // run yet.
+    const entries = (await Promise.all(keys.map(async (key) => [key, await $.store.get(key)]))).filter(
+      ([, value]) => !Number.isFinite(resetAt) || startedSince(value, resetAt),
+    );
     const root = router.config.nativePath.slice(0, router.config.nativePath.lastIndexOf('/'));
     let path = `${root}/router-traces.json`;
     if ((await $.fs.exists(path)) && (await $.fs.stat(path)).isLink) throw new Error('linked export');
@@ -741,6 +774,7 @@ async function savedMode($, router) {
   }
   if (saved !== 'manual' && saved !== 'auto') return null;
   router.modes.set(sessionId, saved);
+  router.storedModes.set(sessionId, saved);
   return saved;
 }
 
@@ -1002,55 +1036,226 @@ async function updateView($, router, patch) {
   await $.state.set(VIEW, router.view);
 }
 
-// This session's record of `kind`, read from the store once per session, and the last reset (ms) from any session,
-// read each time: a Reset in another session empties a record held from before it.
+// This session's record of `kind`, read from the store once per session (heldRecord), and the last reset (ms) from any
+// session, read each time: a Reset in another session empties a record held from before it. The reset is kept in
+// `router.resetAt` too, for what a pane draws without a store read.
 async function ownRecord($, router, kind) {
-  const { prefix, read, afterReset: resetRecord } = LEDGERS[kind];
+  const spec = LEDGERS[kind];
   const held = router.ledgers[kind];
   const sessionId = await $.session.id();
   const resetAt = await $.store.get(SAVINGS_RESET_KEY);
+  // biome-ignore lint/nursery/useAtomicUpdates: the newest read of the one marker wins; any order of reads is right
+  router.resetAt = resetAt ?? null;
   if (held.own?.sessionId !== sessionId) {
-    const record = read(await $.store.get(`${prefix}${sessionId}`));
+    const stored = await $.store.get(`${spec.prefix}${sessionId}`);
     // Another call may have read it meanwhile and a turn added to it: that one stands.
-    if (held.own?.sessionId !== sessionId) held.own = { sessionId, record };
+    if (held.own?.sessionId !== sessionId) held.own = heldRecord(spec, sessionId, stored);
   }
-  held.own.record = resetRecord(held.own.record, resetAt);
+  held.own.record = spec.afterReset(held.own.record, resetAt);
   return { own: held.own, resetAt };
 }
 
+// Deletes each of `keys`, unless `keep(value, key)` holds for its value read just before (no `keep`: no read). $.store
+// has no conditional delete, so a write between that read and the delete is still lost; a key at a time keeps that
+// window to one read. A failed read or delete leaves its key. Returns the keys deleted.
+/**
+ * @param {string[]} keys
+ * @param {((value: unknown, key: string) => boolean) | null} [keep]
+ * @returns {Promise<Set<string>>}
+ */
+async function deleteUnless($, keys, keep = null) {
+  /** @type {Set<string>} */
+  const deleted = new Set();
+  for (const key of keys) {
+    try {
+      if (keep?.(await $.store.get(key), key)) continue;
+      await $.store.delete(key);
+      deleted.add(key);
+    } catch {}
+  }
+  return deleted;
+}
+
 // Every other session's record of `kind` since the last reset, added up and held. `keys` is one $.store.keys() listing.
+// Returns what it read, for a fold.
+/** @returns {Promise<Pick<LedgerRead, 'entries' | 'absorbed'>>} */
 async function readOthers($, router, kind, { sessionId, resetAt, keys }) {
-  const { prefix, legacy, merge, prune } = LEDGERS[kind];
+  const { prefix, legacy, merge, prune, read } = LEDGERS[kind];
   const own = `${prefix}${sessionId}`;
   const names = keys.filter((key) => (key.startsWith(prefix) && key !== own) || key === legacy);
-  let values = await Promise.all(names.map((key) => $.store.get(key)));
+  const values = new Map((await getMany($, names)).map((value, i) => [names[i], value]));
   if (prune) {
     // An expired record holds nothing a period shows, a capped one only the oldest days; a session still running
-    // writes its own again at its next turn.
-    const gone = prune(
-      names.map((key, i) => [key, values[i]]),
-      Date.now(),
-    );
-    // Read again just before deleting: a session that wrote its record since keeps it, and it counts as written. The
-    // window between the read and the delete stays, as $.store has no conditional delete; it needs that session's write
-    // inside it. A record whose delete failed still counts.
-    const deleted = new Set();
-    // Every check settles before the merge, a failed read or delete included.
-    await Promise.allSettled(
-      [...gone].map(async (key) => {
-        const i = names.indexOf(key);
-        const current = await $.store.get(key);
-        if (JSON.stringify(current) !== JSON.stringify(values[i])) values[i] = current;
-        else {
-          await $.store.delete(key);
-          deleted.add(key);
-        }
-      }),
-    );
-    values = values.filter((_, i) => !deleted.has(names[i]));
+    // writes its own again at its next turn. One its session wrote since stays, and counts as written.
+    const gone = prune([...values], Date.now());
+    const deleted = await deleteUnless($, [...gone], (current, key) => {
+      const changed = JSON.stringify(current) !== JSON.stringify(values.get(key));
+      if (changed) values.set(key, current);
+      return changed;
+    });
+    for (const key of deleted) values.delete(key);
   }
-  const others = merge(values, resetAt);
+  /** @type {Array<[string, unknown]>} */
+  const entries = [...values];
+  // A record an archive holds, left by a fold cut off before its delete, counts in the archive alone.
+  const absorbed = absorbedKeys(entries, { prefix, read });
+  const others = merge(
+    entries.filter(([key]) => !absorbed.has(key)).map(([, value]) => withoutFolded(value)),
+    resetAt,
+  );
   router.ledgers[kind] = { ...router.ledgers[kind], others, othersResetAt: resetAt ?? null };
+  return { entries, absorbed };
+}
+
+// This session's record of `kind` checked against the store right before its write (checkDue): its stored value and
+// the archives of its kind, read fresh, as only an archive lists what it holds. A record a fold took, or one an archive
+// holds, starts over (checkedHeld). A few reads; one check of a kind at a time, which every write of it shares. A
+// failed check leaves the record as held: the write goes ahead, and the next write checks again.
+function checkOwn($, router, kind) {
+  if (!router.ownChecks.has(kind))
+    router.ownChecks.set(
+      kind,
+      checkOwnNow($, router, kind)
+        .catch(() => {})
+        .finally(() => router.ownChecks.delete(kind)),
+    );
+  return router.ownChecks.get(kind);
+}
+
+async function checkOwnNow($, router, kind) {
+  const held = router.ledgers[kind].own;
+  const { prefix, read } = LEDGERS[kind];
+  const own = `${prefix}${held.sessionId}`;
+  const keys = await $.store.keys();
+  const resetAt = await $.store.get(SAVINGS_RESET_KEY);
+  const archives = keys.filter((key) => key.startsWith(archiveKey(prefix, '')));
+  const values = await getMany($, [...archives, own]);
+  const value = keys.includes(own) ? values.at(-1) : undefined;
+  const entries = [...archives.map((key, i) => /** @type {[string, unknown]} */ ([key, values[i]])), [own, value]];
+  const absorbed = value !== undefined && absorbedKeys(entries, { prefix, read }).has(own);
+  // A reset or another session replaced the held record meanwhile: that one is checked at its own write.
+  if (router.ledgers[kind].own === held) Object.assign(held, checkedHeld(LEDGERS[kind], { value, absorbed, resetAt }));
+}
+
+// Claude Code runs one plugin's $.store calls one at a time, each reading the whole store file, and a delete writes it
+// again: a fold in one go held every other store call (a pane's draw, a turn's records) for seconds. It goes a chunk at
+// a time (foldChunks), FOLD_PAUSE_MS apart, from a timer.
+const FOLD_PAUSE_MS = 1000;
+
+// Folds `chunks` (foldChunks) one at a time into this session's archive of each kind, while this session holds the
+// lease. A chunk with `drop` deletes keys: with `held`, records an archive already holds, each only if unchanged since
+// read; without, keys nothing reads. `done`: the records this chain saw deleted, which archives stop listing
+// (archiveValue). The chain stops at a Reset in this session.
+function foldLater($, router, chunks, sessionId, resets = router.statsResets, done = new Set()) {
+  const [chunk, ...rest] = chunks;
+  if (!chunk || router.statsResets !== resets) {
+    endFold($, router, sessionId);
+    return;
+  }
+  $.clock.after(FOLD_PAUSE_MS, async () => {
+    try {
+      if (router.statsResets !== resets || !(await renewFoldLease($, sessionId))) {
+        endFold($, router, sessionId);
+        return;
+      }
+      if (chunk.drop) {
+        const changed =
+          chunk.held && ((current, key) => JSON.stringify(current) !== JSON.stringify(chunk.held.get(key)));
+        for (const key of await deleteUnless($, chunk.drop, changed)) done.add(key);
+      } else await foldChunk($, chunk, archiveKey(LEDGERS[chunk.kind].prefix, sessionId), done);
+      foldLater($, router, rest, sessionId, resets, done);
+    } catch {
+      endFold($, router, sessionId);
+    }
+  });
+}
+
+// A fold chain's end: the lease goes back, and this process may fold again.
+function endFold($, router, sessionId) {
+  router.folding = false;
+  releaseFoldLease($, sessionId).catch(() => {});
+}
+
+// One chunk of a kind's settled records folded into `own`, this session's archive of the kind. Each record is read
+// again first, as in readOthers: one its session wrote since stays out. The archive is written before the records are
+// deleted and lists them until their deletes are seen to finish, so a reader in between, or after a fold cut off,
+// counts each record once; the sums do not move, as the archive adds up to what it replaces.
+async function foldChunk($, chunk, own, done) {
+  const { prefix, read } = LEDGERS[chunk.kind];
+  const current = await Promise.all(chunk.keys.map((key) => $.store.get(key)));
+  // The archives as they stand now: another start may have folded a record of this chunk since it was planned, and
+  // been cut off before its delete; that record is the other archive's.
+  const listing = await $.store.keys();
+  const archiveKeys = listing.filter((key) => key.startsWith(archiveKey(prefix, '')));
+  const archives = await getMany($, archiveKeys);
+  const held = absorbedKeys(
+    [
+      ...archiveKeys.map((key, i) => /** @type {[string, unknown]} */ ([key, archives[i]])),
+      ...chunk.keys.map((key, i) => /** @type {[string, unknown]} */ ([key, current[i]])),
+    ],
+    { prefix, read },
+  );
+  // An undated record folds while its session is done (settledSessions): its usage record read again, as the session
+  // may have resumed since the read that planned the fold. A usage record gone since was folded, by this chain first.
+  const dated = Boolean(LEDGERS[chunk.kind].dated);
+  const sessionOf = (key) => (key.startsWith(prefix) ? key.slice(prefix.length) : null);
+  const ids = dated ? [] : chunk.keys.map(sessionOf).filter((id) => id !== null);
+  const usageKeys = ids.map((id) => `${LEDGERS.usage.prefix}${id}`);
+  const usage = await getMany($, usageKeys);
+  const finished = settledSessions(
+    usageKeys.map((key, i) => /** @type {[string, unknown]} */ ([key, usage[i]])),
+    { prefix: LEDGERS.usage.prefix, read: LEDGERS.usage.read, now: Date.now() },
+  );
+  const gone = new Set(ids.filter((_, i) => usage[i] === undefined));
+  const settled = (key) => {
+    const id = sessionOf(key);
+    return dated || id === null || finished.has(id) || gone.has(id);
+  };
+  const keys = chunk.keys.filter(
+    (key, i) => !held.has(key) && settled(key) && JSON.stringify(current[i]) === JSON.stringify(chunk.held.get(key)),
+  );
+  if (!keys.length) return;
+  const values = keys.map((key) => current[chunk.keys.indexOf(key)]);
+  const archive = archives[archiveKeys.indexOf(own)];
+  await $.store.set(
+    own,
+    archiveValue(LEDGERS[chunk.kind], {
+      archive,
+      keys,
+      values,
+      resetAt: chunk.resetAt,
+      now: Date.now(),
+      present: chunk.present,
+      done,
+    }),
+  );
+  const deletes = await Promise.allSettled(keys.map((key) => $.store.delete(key)));
+  deletes.forEach((one, i) => {
+    if (one.status === 'fulfilled') done.add(keys[i]);
+  });
+}
+
+// Only one session folds at a time: two folding the same record would each keep it in their archive. A session claims
+// the lease and renews it before each chunk, folding only while it is still its own, so a start that claimed it
+// meanwhile wins. A lease older than FOLD_LEASE_MS is a session that stopped while folding.
+const FOLD_LEASE = 'ledger:fold:v1';
+const FOLD_LEASE_MS = 2 * 60 * 1000;
+
+async function claimFoldLease($, sessionId) {
+  const held = await $.store.get(FOLD_LEASE);
+  if (held?.sessionId !== sessionId && Number.isFinite(held?.at) && Date.now() - held.at < FOLD_LEASE_MS) return false;
+  await $.store.set(FOLD_LEASE, { sessionId, at: Date.now() });
+  return true;
+}
+
+async function renewFoldLease($, sessionId) {
+  if ((await $.store.get(FOLD_LEASE))?.sessionId !== sessionId) return false;
+  await $.store.set(FOLD_LEASE, { sessionId, at: Date.now() });
+  return true;
+}
+
+async function releaseFoldLease($, sessionId) {
+  if ((await $.store.get(FOLD_LEASE))?.sessionId === sessionId) await $.store.delete(FOLD_LEASE);
 }
 
 // The view's sums of `kinds`, this session's record and the others', from what the router holds; a kind whose others
@@ -1072,23 +1277,28 @@ function ledgerView(router, kinds = LEDGER_KINDS) {
   return patch;
 }
 
-// Adds to this session's record of `kind` (`add(record, now)` returns the record itself when it adds nothing) and
-// writes it. A record read before a Reset is never written back: the reset counter is compared after the reads. The
-// record is added to in memory before the write, so a refresh during the write counts it once. True when the view
-// may show the new sums: no reset ran meanwhile.
+// Adds a turn to this session's record of `kind` (addTurn) and writes it. A record read before a Reset is never written
+// back: the reset counter is compared after the reads. The record is added to in memory before the write, so a refresh
+// during the write counts it once. True when the view may show the new sums: no reset ran meanwhile.
 async function addToLedger($, router, kind, add) {
   const resets = router.statsResets;
   const { own, resetAt } = await ownRecord($, router, kind);
   const held = router.ledgers[kind];
-  // The others held from before a reset in another session are read again: a record from before 1.10.3 has no
-  // `since` to tell.
-  if (!held.others || held.othersResetAt !== (resetAt ?? null))
-    await readOthers($, router, kind, { sessionId: own.sessionId, resetAt, keys: await $.store.keys() });
+  // The others' sums are only for the view, and reading them takes a store read per record: the turn writes its own
+  // record without them. They are read from a timer when not yet read, or held from before a reset in another session
+  // (a record from before 1.10.3 has no `since` to tell).
+  if (!held.others || held.othersResetAt !== (resetAt ?? null)) refreshLedgersLater($, router);
   if (router.statsResets !== resets) return false;
-  const record = add(own.record, Date.now());
-  if (record !== own.record) {
-    own.record = record;
-    await $.store.set(`${LEDGERS[kind].prefix}${own.sessionId}`, record);
+  const key = `${LEDGERS[kind].prefix}${own.sessionId}`;
+  // A stored record another session's fold may hold is checked right before the write (checkDue), so its counts are
+  // never written beside an archive that holds them.
+  if (checkDue(LEDGERS[kind], own, Date.now(), router.ledgers.usage.own)) await checkOwn($, router, kind);
+  if (router.statsResets !== resets || router.ledgers[kind].own !== own) return false;
+  const { patch, write } = addTurn(own, add, Date.now());
+  Object.assign(own, patch);
+  if (write) {
+    await $.store.set(key, write);
+    own.stored = true;
   }
   return router.statsResets === resets;
 }
@@ -1096,35 +1306,100 @@ async function addToLedger($, router, kind, add) {
 // The counts kept across sessions for the view, read when the session starts and the pane opens: another session
 // may have added to them. A failed read keeps what the view has; it never breaks a turn or a render. The sums are
 // taken from the router after the reads, so a turn that finished meanwhile counts once; a Reset meanwhile gives
-// nothing, as the reset view stands.
-async function storeView($, router) {
+// nothing, as the reset view stands. `read`: what each kind read, for a fold. One read runs at a time: a pane opened
+// or a refresh asked while one runs shares it.
+async function readLedgers($, router) {
+  // A read another session started (before a /clear or a resume) counts that session's records as others.
+  const sessionId = await $.session.id();
+  if (router.ledgerRead?.sessionId !== sessionId) {
+    const read = readLedgersNow($, router).finally(() => {
+      if (router.ledgerRead?.read === read) router.ledgerRead = null;
+    });
+    router.ledgerRead = { sessionId, read };
+  }
+  return router.ledgerRead.read;
+}
+
+// The counts kept across sessions read again for the view from a timer, once however many turns' writes ask.
+function refreshLedgersLater($, router) {
+  if (router.ledgerRefreshDue) return;
+  router.ledgerRefreshDue = true;
+  $.clock.after(0, async () => {
+    // A write asking while this read runs shares it (readLedgers), and its record is in the sums taken at the end.
+    router.ledgerRefreshDue = false;
+    await updateView($, router, (await readLedgers($, router)).patch).catch(() => {});
+  });
+}
+
+/** @returns {Promise<{ patch: object, read: LedgerRead[] }>} */
+async function readLedgersNow($, router) {
   const resets = router.statsResets;
+  /** @type {LedgerRead[]} */
+  const read = [];
   try {
     const keys = await $.store.keys();
     for (const kind of LEDGER_KINDS) {
       try {
         const { own, resetAt } = await ownRecord($, router, kind);
-        await readOthers($, router, kind, { sessionId: own.sessionId, resetAt, keys });
+        const { entries, absorbed } = await readOthers($, router, kind, { sessionId: own.sessionId, resetAt, keys });
+        read.push({ kind, entries, absorbed, resetAt, listing: new Set(keys) });
       } catch {}
     }
   } catch {}
-  return router.statsResets === resets ? ledgerView(router) : {};
+  return { patch: router.statsResets === resets ? ledgerView(router) : {}, read };
+}
+
+const storeView = async ($, router) => (await readLedgers($, router)).patch;
+
+// What a session start reads from the store, from a timer so the start does not wait on it (a press and the first
+// prompt wait on session.start): the counts kept across sessions, this session's decision record and the holds; then
+// it prunes old decision records and folds settled ledger records in the background.
+async function refreshAfterStart($, router) {
+  // The session this start is for: a /clear or a resume during the reads makes another one current, whose own start
+  // reads and folds for it.
+  const sessionId = await $.session.id();
+  // The holds first: the sums go to the view as soon as they are read, so no turn's newer sums are written over.
+  const holds = await readHolds($, router);
+  const { patch, read } = await readLedgers($, router);
+  await updateView($, router, { ...patch, holds }).catch(() => {});
+  await loadDecisionRecord($, router).catch(() => {});
+  await pruneDecisionRecords($);
+  // One fold chain per process: the lease names a session, and two chains of one session would both pass it.
+  if ((await $.session.id()) !== sessionId || router.folding) return;
+  const dead = deadKeys(await $.store.keys(), { modePrefix: MODE_PREFIX, ownMode: `${MODE_PREFIX}${sessionId}` });
+  const chunks = foldChunks(read, { sessionId, now: Date.now(), dead });
+  if (!chunks.length || router.folding) return;
+  // biome-ignore lint/nursery/useAtomicUpdates: read and set with no await between, so no other chain starts in between
+  router.folding = true;
+  if (await claimFoldLease($, sessionId).catch(() => false)) foldLater($, router, chunks, sessionId);
+  else endFold($, router, sessionId);
 }
 
 // A notice answers the last press in the pane, so the pane opens without one; the last write keeps its Undo in the
-// status bar.
+// status bar. The pane shows from what the router holds, and the press returns: the holds, the decision record and
+// the counts kept across sessions are read again from a timer (refreshPane), as they take a store read per record.
 async function openPane($, router) {
-  await updateView($, router, {
-    notice: null,
-    confirmDelete: false,
-    confirmProjectClear: false,
-    holds: await readHolds($, router),
-    ...(await storeView($, router)),
-  });
+  await updateView($, router, { notice: null, confirmDelete: false, confirmProjectClear: false });
   const opened = await $.ui.open({ id: PANE, title: PANE_TITLE, focus: true, closeOnEscape: true });
   // The pane is open but undrawn, as where no surface places panes or the terminal is too narrow for it; saying why beats
   // a press that shows nothing.
   if (opened?.isPlaced === false) $.ui.toast(`The Router pane is not shown: ${opened.reason}`);
+  $.clock.after(0, () => refreshPane($, router));
+}
+
+// What the pane shows beyond the view, read again; one refresh at a time, so opening the pane twice reads once.
+function refreshPane($, router) {
+  router.paneRefresh ??= refreshPaneNow($, router)
+    .catch(() => {})
+    .finally(() => {
+      router.paneRefresh = null;
+    });
+  return router.paneRefresh;
+}
+
+async function refreshPaneNow($, router) {
+  await loadDecisionRecord($, router).catch(() => {});
+  await updateView($, router, { holds: await readHolds($, router), ...(await storeView($, router)) });
 }
 
 async function changeMode($, router, mode) {
@@ -1160,14 +1435,15 @@ async function changeMode($, router, mode) {
     }
   }
   router.modes.set(await $.session.id(), mode);
-  const saved = await rememberMode($, mode);
+  // The band redraws before the save, which can wait behind other store calls; a failed save then says so.
   await updateView($, router, {
     mode,
     pendingPin: null,
     phase: view.phase === 'unavailable' ? 'unavailable' : mode === 'manual' ? 'manual' : 'ready',
     reason: mode === 'manual' ? 'routing off' : 'ready',
-    ...(!saved ? { notice: 'Mode changed for this session. Resume preference could not be saved.' } : {}),
   });
+  if (await rememberMode($, mode)) router.storedModes.set(await $.session.id(), mode);
+  else await updateView($, router, { notice: 'Mode changed for this session. Resume preference could not be saved.' });
   if (router.config.routingEngine === 'shadow') traceControl(router);
 }
 
@@ -1709,7 +1985,7 @@ async function decideTurn($, router, e, signal, step) {
       router.turnConfigs.set(e.turnId, { config: { ...cfg, routingMode: step.cfg.routingMode }, configured: cfg });
     // A keyword is read from a prompt a person or an agent sent, never from a progress report or a pinned turn.
     const keyword = pin || isProgressOrigin(origin) ? null : promptKeyword(router.prompts.get(e.turnId));
-    const accountHolds = await accountHoldsOf($, cfg);
+    const accountHolds = await accountHoldsOf($, cfg, router);
     const traceInput = {
       facts,
       advice: result.advice,
@@ -1903,7 +2179,7 @@ async function moveOnObserved($, router, cfg, loop, e, context) {
   const observed = routingBucket(
     observedActivity(messages, Math.max(promptIndex(messages), (loop.observedFrom ?? 0) - 1)),
   );
-  const observedHolds = await accountHoldsOf($, cfg);
+  const observedHolds = await accountHoldsOf($, cfg, router);
   const now = Date.now();
   const traceInput = {
     observed,
@@ -1959,7 +2235,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
     const advice =
       messages.length === review.observedUpTo ? review.answer.advice : { ...review.answer.advice, phase: null };
     const facts = { ...stepFacts(cfg, router, loop, e, messages, context), midTurn: true };
-    const reviewHolds = await accountHoldsOf($, cfg);
+    const reviewHolds = await accountHoldsOf($, cfg, router);
     const traceInput = {
       facts,
       advice,
@@ -2274,6 +2550,8 @@ async function flushUsage($, router, turnId, switched) {
 // its report as dialogue (progressInput); without a goal from this session it reads as before. A goal origin's prompt
 // becomes the goal.
 async function startTurn($, router, e) {
+  // Each turn reads the account holds again, another session's included (accountHoldsOf).
+  router.accountHolds = null;
   if (!(await ensureInitialized($, router))) return;
   const epoch = ++router.goalEpoch;
   router.goalTurnId = e.turnId;
@@ -2415,6 +2693,8 @@ async function flushDecisions($, router, turnId, turn) {
     if (turn && turn.sessionId !== sessionId) return;
     const key = `${DECISIONS_PREFIX}${sessionId}`;
     const resetAt = await $.store.get(SAVINGS_RESET_KEY);
+    // biome-ignore lint/nursery/useAtomicUpdates: the newest read of the one marker wins; any order of reads is right
+    router.resetAt = resetAt ?? null;
     if (router.decisionRecord?.sessionId !== sessionId) {
       const record = readDecisions(await $.store.get(key));
       // Another flush may have read it meanwhile and added its rows to it: that one stands.
@@ -2468,16 +2748,22 @@ async function pruneDecisionRecords($) {
   } catch {}
 }
 
-// `/router decisions [n]`: this session's newest routing decisions, the running turn's included.
+// This session's decision record, read from the store once per session, as a turn's flush reads it.
+async function loadDecisionRecord($, router) {
+  const sessionId = await $.session.id();
+  if (router.decisionRecord?.sessionId === sessionId) return;
+  const record = readDecisions(await $.store.get(`${DECISIONS_PREFIX}${sessionId}`));
+  if (router.decisionRecord?.sessionId !== sessionId) router.decisionRecord = { sessionId, record };
+}
+
+// The pane's routing decisions, this session's newest, the running turn's included. Drawn from memory, never the
+// store: a store read waits behind every other store call of the router, and the pane would stay blank meanwhile. The
+// record is read as the session starts and as the pane opens (loadDecisionRecord).
 async function paneDecisionRows($, router) {
   if (!['shadow', 'auto'].includes(router.config.routingEngine)) return [];
   const sessionId = await $.session.id();
-  const record =
-    router.decisionRecord?.sessionId === sessionId
-      ? router.decisionRecord.record
-      : readDecisions(await $.store.get(`${DECISIONS_PREFIX}${sessionId}`).catch(() => null));
-  const resetAt = await $.store.get(SAVINGS_RESET_KEY).catch(() => null);
-  return [...decisionsAfterReset(record, resetAt).rows, ...[...router.turnDecisions.values()].flat()];
+  const record = router.decisionRecord?.sessionId === sessionId ? router.decisionRecord.record : readDecisions(null);
+  return [...decisionsAfterReset(record, router.resetAt).rows, ...[...router.turnDecisions.values()].flat()];
 }
 
 async function decisionsText($, router, value) {
@@ -2650,7 +2936,7 @@ async function decideSpawn($, router, cfg, e, definition, signal) {
   // The router's own override is suppressed when its chosen model is held out right now: the spawn keeps Claude
   // Code's model, which may itself be the held one (main routing reaches the same conclusion for its own requests).
   const { value: loop } = await $.state.get({ ...LOOP, id: 'main' });
-  const held = heldIds(cfg, loop?.held, await accountHoldsOf($, cfg), Date.now());
+  const held = heldIds(cfg, loop?.held, await accountHoldsOf($, cfg, router), Date.now());
   if (held.some((id) => isSameModel(id, model))) return { choice: 'core', model: null, failed };
   return { choice: alias, model, failed };
 }
@@ -2846,10 +3132,11 @@ function traceConfigAdopted(router, loaded) {
 
 // The session row under the band, on or off. The band's button and the pane's setting share it; `view` is the view the
 // caller was drawn from, and `router.view` holds any press since.
+// The band redraws first; the choice is then saved, as a store write can wait behind other store calls.
 async function toggleBandDetail($, router, view) {
   const bandDetail = !(router.view ?? view).bandDetail;
-  await $.store.set(BAND_DETAIL, bandDetail).catch(() => {});
   await updateView($, router, { bandDetail });
+  await $.store.set(BAND_DETAIL, bandDetail).catch(() => {});
 }
 
 const EMPTY_PROJECT_PATCH = {};
@@ -3039,8 +3326,8 @@ function paneActions($, router, view) {
   // The Usage tab's period, kept across sessions; a failed save keeps it for this session.
   const showPeriod = async (period, patch = {}) => {
     if (!PERIODS.includes(period)) return;
-    await $.store.set(PERIOD_KEY, period).catch(() => {});
     await updateView($, router, { usagePeriod: period, usageOpen: null, ...patch });
+    await $.store.set(PERIOD_KEY, period).catch(() => {});
   };
   return {
     mode: (mode) => changeMode($, router, mode),
@@ -3149,18 +3436,18 @@ function paneActions($, router, view) {
       const clearRecords = async () => {
         const resetAt = Date.now();
         await $.store.set(SAVINGS_RESET_KEY, resetAt);
-        const keys = (await $.store.keys()).filter(
-          (key) =>
-            key.startsWith(DECISIONS_PREFIX) ||
-            isTraceKey(key) ||
-            key === LEGACY_STORE_PREFIX ||
-            key.startsWith(`${LEGACY_STORE_PREFIX}:`) ||
-            Object.values(LEDGERS).some(({ prefix, legacy }) => key.startsWith(prefix) || key === legacy),
-        );
-        await Promise.all(keys.map((key) => $.store.delete(key)));
+        router.resetAt = resetAt;
+        const { now, later } = historyKeys(await $.store.keys(), await $.session.id());
+        // This session's own records go now, as a delete without a read races none of its writes, with the shared
+        // record from before 1.10.3, which the marker cannot hide. Every other session's go from a timer, so the press
+        // does not wait on a whole-file rewrite per key; the marker already empties them for every reader. Each is read
+        // again first: one its session started over after the reset holds counts the reset left, and stays.
+        const deleted = await deleteUnless($, now);
+        $.clock.after(0, () => deleteUnless($, later, (current) => startedSince(current, resetAt)));
         for (const kind of LEDGER_KINDS)
           router.ledgers[kind] = { own: null, others: LEDGERS[kind].empty(), othersResetAt: resetAt };
-        return true;
+        // A record that stays may come back: the shared one from before 1.10.3 has no first count for the marker.
+        return now.every((key) => deleted.has(key));
       };
       router.trace = null;
       router.traceFreshSession = null;
@@ -3171,7 +3458,8 @@ function paneActions($, router, view) {
       if (!cleared)
         for (const kind of LEDGER_KINDS) {
           const held = router.ledgers[kind];
-          if (held.own) held.own = { ...held.own, record: LEDGERS[kind].empty() };
+          if (held.own)
+            held.own = { ...heldRecord(LEDGERS[kind], held.own.sessionId, undefined), stored: held.own.stored };
         }
       await updateView($, router, {
         activityStats: null,
@@ -3431,8 +3719,11 @@ async function* mainStep($, router, e, next) {
   router.traceFreshSession = null;
   router.traceClearSession = null;
   if (e.index === 0) {
-    // A mode the store could not give is not written over the saved one it may hide.
-    const remembered = saved === undefined || (await rememberMode($, mode));
+    // A mode the store could not give is not written over the saved one it may hide; one already saved is not
+    // written again, as each write rewrites the whole store before the request goes.
+    const remembered =
+      saved === undefined || router.storedModes.get(sessionId) === mode || (await rememberMode($, mode));
+    if (remembered && saved !== undefined) router.storedModes.set(sessionId, mode);
     await updateView($, router, {
       mode,
       nativeEffort: e.effort ?? null,
@@ -3491,7 +3782,7 @@ async function* mainStep($, router, e, next) {
     // A review answer applies first, so tool calls made after its snapshot can still move the route up.
     loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
     loop = await moveOnObserved($, router, cfg, loop, e, context);
-    const stepHolds = await accountHoldsOf($, cfg);
+    const stepHolds = await accountHoldsOf($, cfg, router);
     const traceInput = {
       hasImages: cfg.routingEngine === 'auto' ? false : await imagesOf($, cfg, loop.decision),
       nativeModel,
@@ -3577,9 +3868,7 @@ async function initializeSession($, router) {
       lastWrite: null,
       bandDetail: (await $.store.get(BAND_DETAIL).catch(() => false)) === true,
       usagePeriod: await periodOf($),
-      ...(await storeView($, router)),
     });
-    await pruneDecisionRecords($);
     // biome-ignore lint/nursery/useAtomicUpdates: ensureInitialized runs this once at a time, and the flag marks it done
     router.initialized = true;
     return true;
@@ -3686,23 +3975,30 @@ async function holdFailedModel($, router, e, agentModel = null) {
   } catch {}
 }
 
-// The account holds in $.store at this moment, account name to hold, for routing to skip the models they cover. A hold
-// that cannot be read holds nothing: a turn is never blocked on the store. Every engine reads them, as the pane and
-// `/router holds` do.
-async function accountHoldsOf($, cfg) {
+// The account holds of `cfg`'s accounts in $.store, account name to hold, for routing to skip the models they cover. A
+// hold that cannot be read holds nothing: a turn is never blocked on the store. Every engine reads them, as the pane and
+// `/router holds` do. With `router`, as a turn's requests and spawns read them, they are read once per turn and held, so
+// a hold another session writes mid-turn counts from the next turn: a hold changes only when a turn fails on a window or
+// a balance, and each store read waits behind every other store call of the router. A turn's start, this session's own
+// hold writes and readHolds drop what is held.
+/** @param {ReturnType<typeof createRouter> | null} [router] */
+async function accountHoldsOf($, cfg, router = null) {
+  const names = accountNames(cfg);
+  const id = names.join('\n');
+  if (router?.accountHolds?.id === id) return router.accountHolds.value;
   const read = await Promise.all(
-    accountNames(cfg).map(async (name) => [
-      name,
-      readHold(await $.store.get(`${HOLDS_PREFIX}${name}`).catch(() => null)),
-    ]),
+    names.map(async (name) => [name, readHold(await $.store.get(`${HOLDS_PREFIX}${name}`).catch(() => null))]),
   );
-  return Object.fromEntries(read.filter(([, hold]) => hold));
+  const value = Object.fromEntries(read.filter(([, hold]) => hold));
+  if (router) router.accountHolds = { id, value };
+  return value;
 }
 
 // The holds in force now, as the pane, the band and `/router holds` read them: each account's from $.store and the models'
-// from the loop. A read that fails shows none.
+// from the loop. A read that fails shows none. The read replaces what a turn holds.
 async function readHolds($, router) {
   const loaded = await $.state.get({ ...LOOP, id: 'main' }).catch(() => null);
+  router.accountHolds = null;
   return { accounts: await accountHoldsOf($, router.config), models: loaded?.value?.held ?? {} };
 }
 
@@ -3797,6 +4093,7 @@ async function applyHold($, router, failure, error, key, now) {
     const running = readHold(await $.store.get(store)) ?? undefined;
     const hold = failureHold(failure, error, running, now);
     if (!hold) return null;
+    router.accountHolds = null;
     if (hold !== running) await $.store.set(store, hold);
     if ((await modeOf($, router)) === 'auto')
       $.ui.toast(`${key === PLAN_ACCOUNT ? 'Claude plan' : key} held out of routing: ${holdText(hold, now)}`);
@@ -3865,7 +4162,7 @@ async function completeTurn($, router, e) {
   }
   if (router.config.routingEngine === 'shadow' && router.trace?.turns.has(e.turnId)) {
     addTrace(router, e, { type: 'end', at: Date.now() });
-    await flushTrace($, router, e.turnId);
+    flushTraceLater($, router, e.turnId);
   }
   router.traceOperations.delete(e.turnId);
 }
@@ -3894,10 +4191,14 @@ async function startSession($, router, e) {
 export function register(on, options) {
   const router = createRouter(options);
 
-  // The router's bookkeeping never keeps a session or a turn from starting.
+  // The router's bookkeeping never keeps a session or a turn from starting. What the session reads from the store
+  // beyond its settings (refreshAfterStart) runs from a timer: it takes a store read per record, Claude Code waits for
+  // session.start before the first prompt and drops a press on the band meanwhile, and the band shows the mode and a
+  // turn routes without it.
   on('session.start', async ($, e, next) => {
     await router.projectWrite?.catch(() => {});
     await startSession($, router, e).catch(() => {});
+    $.clock.after(0, () => refreshAfterStart($, router).catch(() => {}));
     return next(e);
   });
 
@@ -4024,8 +4325,13 @@ export function register(on, options) {
     return result;
   });
 
+  // The session's own counts go first; Claude Code bounds session.end, and the trace is closed after them.
   on('session.end', async ($, e, next) => {
+    await endSession($, router);
+    // A completed shadow turn's queued flush writes it even after a switch to another engine.
+    await drainTraces(router);
     if (router.config.routingEngine === 'shadow') {
+      // The completed turns are flushed by now; any left never completed.
       if (router.trace?.turns.size) router.trace.reasons.add('aborted');
       await flushTrace($, router, null, true);
     }
@@ -4034,7 +4340,6 @@ export function register(on, options) {
     router.traceOperations.clear();
     router.traceFreshSession = null;
     router.traceClearSession = e.reason === 'clear' && typeof e.sessionId === 'string' ? e.sessionId : null;
-    await endSession($, router);
     return next(e);
   });
 

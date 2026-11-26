@@ -21,9 +21,13 @@ Box flexDirection="column" key="router-band"
     Text dimColor=true
       "! fallback"
     Text
+      "   "
+    Text backgroundColor="#2a3040" color="subtle"
+      " balanced "
+    Text
       "  "
     Button key="details" label="Router"
-    Box display="none" hover={"display":"flex"} left=59 position="absolute" top=0
+    Box display="none" hover={"display":"flex"} left=72 position="absolute" top=0
       Button key="band-manual" label="Turn off"
       Text
-        "                             "
+        "                "
