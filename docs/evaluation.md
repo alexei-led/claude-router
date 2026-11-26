@@ -54,7 +54,7 @@ A **capped** or cut-short trace is usable: replay covers the turns it holds.
 | Reload (`/reload-plugins`, plugin update) or resume (`--continue`) of a recorded session | Recording stops; later turns are counted as capped. The earlier process's unwritten turn cannot be recovered |
 | A write is refused (store guard, trace budget full of active sessions) or fails | The turn stays in memory and the next flush writes it. If none succeeds, the stored turns remain |
 | The record was evicted while the session was idle | The session writes it again |
-| A request is interrupted, or its API call fails, before any reply | It is recorded as unanswered; replay observes no reply and its cost stays unpriced |
+| A request is interrupted, or its API call fails, before any reply, and that step is not sent again | It is recorded as unanswered; replay observes no reply and its cost stays unpriced |
 | A turn is still running when the session ends | It is left out |
 
 These mark the whole session **incomplete**, and replay excludes it:
@@ -62,7 +62,7 @@ These mark the whole session **incomplete**, and replay excludes it:
 | Reason | Cause |
 | --- | --- |
 | `mid-session` | Recording began after the session did: late switch to `shadow`, a resumed or reloaded session with no stored trace, an unreadable history, or a Delete history in another session |
-| `gap` | A main step went out without a record (unreadable settings, a dropped or retried decision, a failed hook), or a routing state write lost to a newer one |
+| `gap` | A main step went out without a record (unreadable settings, a dropped or retried decision, a failed hook), a step was sent again at the same index after a request that got no reply, or a routing state write lost to a newer one |
 | `mode-gap` | A turn ran outside `shadow` between recorded turns |
 | `aborted` | A reply arrived under another session ID, a request was stopped before it was recorded, or a turn that never finished sits behind a recorded one |
 | `conflict` | Another writer's record under the same session diverged, or the stored record cannot be read |
