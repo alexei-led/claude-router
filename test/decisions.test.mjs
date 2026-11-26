@@ -718,3 +718,20 @@ test('reviews whose would-serve route changed stay separate rows', () => {
   assert.equal(addTurnRow([review('opus@high')], review('opus@high')).length, 1);
   assert.equal(addTurnRow([review('opus@high')], review('sonnet@high')).length, 2);
 });
+
+test('reviews held for different move reasons stay separate rows', () => {
+  const review = (move) =>
+    decisionRow({
+      at: T,
+      kind: 'review',
+      decision,
+      engine: 'shadow',
+      alt: { route: 'sonnet@high', serve: 'opus@high', move },
+    });
+  assert.equal(addTurnRow([review('dwell-held')], review('dwell-held')).length, 1);
+  const rows = addTurnRow([review('downgrade-pending')], review('dwell-held'));
+  assert.deepEqual(
+    rows.map((row) => row.alt.move),
+    ['downgrade-pending', 'dwell-held'],
+  );
+});
