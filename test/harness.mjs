@@ -112,6 +112,8 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   const settleTimers = async () => {
     while (timers.length) await Promise.allSettled(timers.splice(0));
   };
+  // Where `$.clock.after` callbacks wait, unrun, after `holdTimers`.
+  let heldTimers = null;
   const $ = {
     plugin: { name: 'router', root: '/fixture/plugin' },
     env: { get: async (key) => env.get(key), set: async (key, value) => env.set(key, value) },
@@ -189,7 +191,8 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     settings: { read: async () => settings },
     clock: {
       after: (_ms, fn) => {
-        timers.push(Promise.resolve(fn()));
+        if (heldTimers) heldTimers.push(fn);
+        else timers.push(Promise.resolve(fn()));
         return { cancel: () => {} };
       },
       sleep: (_ms, { signal }) =>
@@ -322,6 +325,11 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     },
     // What `$.clock.after` callbacks left running, settled: a press returns before them, as in the engine.
     settle: settleTimers,
+    // From now on `$.clock.after` callbacks run only when the test calls them from the returned list.
+    holdTimers: () => {
+      heldTimers = [];
+      return heldTimers;
+    },
     render: async (props = PANE, surface = undefined) => {
       snapshot = new Map();
       return handler('ui.render', { component: 'Pane' })(
@@ -347,11 +355,13 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       const core = async () => ({ suggestions: engine });
       return (await handler('prompt.autocomplete', input)($, input, core)).suggestions;
     },
-    // `response` overrides the reply's fields; a function gets each request, for one that answers some of them.
+    // `response` overrides the reply's fields; a function gets each request, for one that answers some of them. Its
+    // `chunks` replace the items the request streams.
     step: (input, response = {}, signal = new AbortController().signal) => {
       snapshot = new Map();
       const send = async function* (request) {
         requests.push(request);
+        const { chunks, ...fields } = (typeof response === 'function' ? response(request) : response) ?? {};
         const reply = {
           turnId: request.turnId,
           index: request.index,
@@ -365,12 +375,13 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
             cache_creation_input_tokens: 200,
             output_tokens: 10,
           },
-          ...(typeof response === 'function' ? response(request) : response),
+          ...fields,
         };
         // A request that failed streams only the engine's own items, as Claude Code's does (an API error, no answer).
         let read = false;
         try {
-          if (reply.stopReason === null && reply.usage === null) yield { kind: 'engine', ref: requests.length };
+          if (chunks) yield* chunks;
+          else if (reply.stopReason === null && reply.usage === null) yield { kind: 'engine', ref: requests.length };
           else yield { kind: 'text', text: 'ok', index: 0 };
           read = true;
           return reply;

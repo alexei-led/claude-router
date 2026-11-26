@@ -1148,24 +1148,39 @@ test('the shadow engine sends a failed probe again and marks its trace incomplet
 // The engine raises StopFailure and turn.complete in either order; seen live, turn.complete came first.
 const SPEND_TEXT = "You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit";
 const RERUN = `The last request failed on Opus 5.5 (spend limit), so the router held it out of routing. Continue the task from where it stopped.`;
-for (const [order, events] of [
-  ['StopFailure comes before turn.complete', ['failure', 'complete']],
-  ['turn.complete comes before StopFailure', ['complete', 'failure']],
-])
-  test(`a turn a spend cap ended is run again once when ${order}`, async (t) => {
-    const h = await started(t, { models: { opus: { account: 'work-claude' } } });
-    await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
-    await drain(h.step({ ...step, turnId: 't1', model: OPUS }));
-    for (const event of events)
-      if (event === 'failure')
-        await h.event('classic.StopFailure', {
-          hook_event_name: 'StopFailure',
-          error: 'rate_limit',
-          last_assistant_message: SPEND_TEXT,
-        });
-      else await h.event('turn.complete', { turnId: 't1', isAborted: false, reason: 'error' });
-    assert.deepEqual(h.submitted, [RERUN]);
+// A turn Opus runs on a spend-capped account, ready for the events that end it.
+async function spendCapped(t) {
+  const h = await started(t, { models: { opus: { account: 'work-claude' } } });
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't1', model: OPUS }));
+  return h;
+}
+
+const spendFailure = (h) =>
+  h.event('classic.StopFailure', {
+    hook_event_name: 'StopFailure',
+    error: 'rate_limit',
+    last_assistant_message: SPEND_TEXT,
   });
+const completeSpendCapped = (h) => h.event('turn.complete', { turnId: 't1', isAborted: false, reason: 'error' });
+
+test('a turn a spend cap ended is run again once when StopFailure comes before turn.complete', async (t) => {
+  const h = await spendCapped(t);
+  await spendFailure(h);
+  await completeSpendCapped(h);
+  assert.deepEqual(h.submitted, [RERUN]);
+});
+
+// A StopFailure hook may not submit a prompt, so it leaves the submission to a timer.
+test('a turn a spend cap ended is run again once, from a timer, when turn.complete comes first', async (t) => {
+  const h = await spendCapped(t);
+  await completeSpendCapped(h);
+  const timers = h.holdTimers();
+  await spendFailure(h);
+  assert.deepEqual(h.submitted, []);
+  for (const run of timers) await run();
+  assert.deepEqual(h.submitted, [RERUN]);
+});
 
 // A failed request streams only the engine's own items; passed on, they record its API error in the turn and open
 // Claude Code's usage-limit menu, as seen live.
@@ -1190,6 +1205,22 @@ for (const [name, router, items] of [
     await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
     assert.deepEqual(await streamedItems(h.step({ ...step, turnId: 't1', model: OPUS }, opusFails)), items);
   });
+
+test('an answered probe passes the engine’s items on where they came, before the answer', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  const chunks = [
+    { kind: 'engine', ref: 1 },
+    { kind: 'text', text: 'ok', index: 0 },
+    { kind: 'engine', ref: 2 },
+  ];
+  const stream = h.step({ ...step, turnId: 't1', model: OPUS }, { chunks });
+  const items = [];
+  for await (const item of stream) items.push(item);
+  assert.deepEqual(sentModels(h), [OPUS]);
+  assert.deepEqual(items, chunks);
+});
 
 for (const engine of ['table', 'shadow'])
   test(`routing turned off while a ${engine} probe is on its way sends the conversation nowhere else`, async (t) => {

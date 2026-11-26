@@ -162,9 +162,23 @@ test('a used-up 5h plan window holds the plan account in the engine’s store, n
   expect(toasts.at(-1)).toMatch(/^Claude plan held out of routing: usage limit, /);
 });
 
+// An account other than the plan's, whose spend cap resets on the 1st: a 24-hour default hold would end earlier or later.
+const WORK_OPUS = {
+  models: { opus: { account: 'work-claude' } },
+  accounts: { 'work-claude': { reset: { monthly: 1, tz: 'UTC' } } },
+};
+
+// Checks the stored hold against the first reset after it was set, read from the hold so no clock is raced.
+function expectHeldUntilReset(stored: unknown) {
+  const hold = stored as { kind: string; since: number; until: number } | undefined;
+  expect(hold?.kind).toBe('calendar');
+  const set = new Date(hold?.since ?? 0);
+  expect(hold?.until).toBe(Date.UTC(set.getUTCFullYear(), set.getUTCMonth() + 1, 1));
+}
+
 // A spend cap reaches the plugin only as the synthetic error message: Claude Code gives no error_details for it.
 test('a spend cap named only in the last assistant message holds the account until its calendar reset', async ($, on) => {
-  const { held, request, store } = session($, on, [], { models: { opus: { account: 'work-claude' } } });
+  const { held, request, store } = session($, on, [], WORK_OPUS);
   await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
   await request('t1');
   await $.classic.StopFailure({
@@ -172,7 +186,7 @@ test('a spend cap named only in the last assistant message holds the account unt
     last_assistant_message:
       "You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit",
   });
-  expect((store.get('holds/work-claude') as { kind: string } | undefined)?.kind).toBe('calendar');
+  expectHeldUntilReset(store.get('holds/work-claude'));
   expect(held()).toBeUndefined();
 });
 
@@ -207,13 +221,13 @@ test('a due probe that gets no reply is answered by another model in the same st
 const SPEND_TEXT = "You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit";
 const rerunText = (model: string, cause: string) =>
   `The last request failed on ${model} (${cause}), so the router held it out of routing. Continue the task from where it stopped.`;
-const WORK_OPUS = { models: { opus: { account: 'work-claude' } } };
 const START = { cwd: '/fixture/project', surface: null, isInteractive: false };
 
 test('a turn that a spend cap ends is run again, once, on another model', async ($, on) => {
-  const { sent, toasts, prompts, request, fail } = session($, on, [], WORK_OPUS);
+  const { sent, toasts, prompts, request, fail, store } = session($, on, [], WORK_OPUS);
   await $.session.start(START);
   await fail('t1', 'billing_error', SPEND_TEXT);
+  expectHeldUntilReset(store.get('holds/work-claude'));
   expect(prompts).toEqual([rerunText('Opus 5.5', 'spend limit')]);
   expect(toasts).toContain('Retrying on another model: spend limit');
   await request('t2');
