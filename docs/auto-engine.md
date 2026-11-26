@@ -72,7 +72,13 @@ An invalid incumbent and no eligible candidate produce explicit `no-route`, neve
 Target outcomes are `meets-demand`, `declared-below-demand`, `unknown-only`, `incumbent` and `no-route`.
 
 Estimates are absolute next-turn `{ minUsd, maxUsd }` ranges: `cost.inputBounds` plus the last reply's output
-length at `cost.ratesAt` prices. This estimate is effort-blind; it does not model additional thinking tokens.
+length at `cost.ratesAt` prices. When `models.<alias>.outputScale.<effort>` is known for both the candidate and the
+incumbent at its effective effort, the output part is also multiplied by candidate scale / incumbent scale. The
+[evidence overlay](providers.md#capability-evidence) is the only source of these scales. Without both of them,
+including an unresolved or numeric native effort, the output part is unscaled and the estimate does not depend on
+effort. The scale treats a benchmark's cost per task as output spend, so it is a rough proxy for output and
+thinking volume, not a token forecast. Input and cache estimates and the switch taxes do not use it. A catalog with
+scales for only some routes compares scaled with unscaled estimates.
 Selection uses the conservative `maxUsd` bound, then the incumbent, lower sufficient declared capability and
 config order. The mode margin supplies headroom through the requirement, not a tie preference. Automatic prefix
 caches have no assumed TTL or warm-cache exemption.
