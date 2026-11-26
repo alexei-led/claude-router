@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## 1.33.0 (2026-11-26)
+
+### Summary
+
+A minor release that makes the `auto` engine measurable and prices effort. With the private evidence overlay, `auto` and `shadow` price a route's output by its effort, so a top effort on a model with a cheaper token price no longer looks cheap. Shadow rows record what `auto` would actually serve and which capable routes a hard limit excluded, so they can be compared with the table fairly. Replay traces are about 5 times smaller and survive reloads, resumes and interrupts. The pane names routed cells `auto` cannot rank. Claude Code 2.1.332 or newer is still required.
+
+### Upgrade
+
+1. Run `/reload-plugins` or restart each running session. A session still on 1.32.1 or older does not recognise the new `trace:v3:` replay records: it counts them as other store bytes and does not evict or delete them.
+2. Effort pricing needs the private evidence overlay (`~/.config/claude-router/evidence.local.mjs`, see [Evidence](docs/evidence.md)). Without it, estimates are unchanged. No configuration change is needed.
 
 ### Added
 
