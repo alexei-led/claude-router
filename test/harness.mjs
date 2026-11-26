@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { register } from '../hooks/native-router.mjs';
+import { MIN_CLAUDE_CODE } from '../lib/config.mjs';
 import { jevResponse } from './helpers.mjs';
 
 // The engine refuses a prop it cannot read, and the whole pane with it, so the stubs refuse the same cheap cases: a
@@ -93,7 +94,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   let placeResult = { isPlaced: true, requestId: 'placed-1' };
   let agents = [];
   let viewResult = {};
-  let version = '2.1.332';
+  let version = MIN_CLAUDE_CODE;
   let settings = {};
   let sessionId = 's1';
   let snapshot = new Map();

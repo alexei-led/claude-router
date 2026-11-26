@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ACTIVITIES, DEFAULTS, editActivity, loadConfig } from '../lib/config.mjs';
+import { ACTIVITIES, DEFAULTS, editActivity, loadConfig, MIN_CLAUDE_CODE } from '../lib/config.mjs';
 import { GATEWAY_CLEANUP, GATEWAY_SETTINGS } from '../lib/display.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { isSameModel } from '../lib/route.mjs';
@@ -107,7 +107,7 @@ test('five tabs take the digits 1 to 5, and a draft marks the tab whose settings
 
 test('while routing is unavailable the header says why and offers no on/off or pins', () => {
   for (const [error, reason, cleanup] of [
-    ['requires Claude Code 2.1.332 or newer', 'requires Claude Code 2.1.332 or newer', false],
+    [`requires Claude Code ${MIN_CLAUDE_CODE} or newer`, `requires Claude Code ${MIN_CLAUDE_CODE} or newer`, false],
     [GATEWAY_SETTINGS, 'v0.8 gateway settings remain', true],
   ]) {
     const tree = pane({ phase: 'unavailable', error, tier: null });

@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'claude-code/testing';
+import { MIN_CLAUDE_CODE } from '../lib/config.mjs';
 import { jevResponse, user } from './helpers.mjs';
 
 test('auto opt-in rewrites real Mod requests, refits pins and preserves native no-route fallback', async ($, on) => {
@@ -30,7 +31,7 @@ test('auto opt-in rewrites real Mod requests, refits pins and preserves native n
   on('session.id', () => ({ value: 'native-auto' }));
   on('session.model', () => ({ value: 'claude-haiku-5-5' }));
   on('session.cwd', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.332' } }));
+  on('session.version', () => ({ value: { version: MIN_CLAUDE_CODE } }));
   on('session.messages', () => ({ value: [user('Synthetic task.')] }));
   on('session.usage', () => ({
     value: { context: { tokens: 8000, breakdown: { totalTokens: 8000 } }, rateLimits: [] },
@@ -132,7 +133,7 @@ test('DeepSeek first-turn native capability and same-turn auto reload use the au
   on('session.id', () => ({ value: 'native-startup' }));
   on('session.model', () => ({ value: 'deepseek-flash[1m]' }));
   on('session.cwd', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.332' } }));
+  on('session.version', () => ({ value: { version: MIN_CLAUDE_CODE } }));
   on('session.messages', () => ({ value: [user('Synthetic task.')] }));
   on('session.usage', () => ({
     value: { context: { tokens: 8000, breakdown: { totalTokens: 8000 } }, rateLimits: [] },

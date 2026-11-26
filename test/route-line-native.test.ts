@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'claude-code/testing';
+import { MIN_CLAUDE_CODE } from '../lib/config.mjs';
 
 const LINE = {
   model: 'claude-sonnet-5-5',
@@ -21,7 +22,7 @@ test('a placed route line draws on the terminal and desktop, and another pluginâ
   on('session.id', () => ({ value: 'route-line' }));
   on('session.model', () => ({ value: 'claude-opus-5-5' }));
   on('session.cwd', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.332' } }));
+  on('session.version', () => ({ value: { version: MIN_CLAUDE_CODE } }));
   on('ui.log', () => ({ value: undefined }));
   const drawn: Record<string, boolean> = {};
   for (const surface of ['terminal', 'desktop'] as const) {

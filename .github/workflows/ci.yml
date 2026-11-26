@@ -12,7 +12,6 @@ permissions:
   contents: read
 
 env:
-  CLAUDE_CODE_VERSION: 2.1.332
   DISABLE_AUTOUPDATER: 1
 
 concurrency:
@@ -106,9 +105,10 @@ jobs:
       - name: Install dependencies
         run: npm ci --prefix tools --ignore-scripts
       # The engine loads the hooks module the way a session does and refuses what lint and unit tests miss,
-      # such as a binding that shadows the hook's `next`. The version is the oldest one the router supports.
+      # such as a binding that shadows the hook's `next`. The version is MIN_CLAUDE_CODE in lib/config.mjs, the oldest
+      # one the router supports.
       - name: Install Claude Code
-        run: npm install --global "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
+        run: npm install --global "@anthropic-ai/claude-code@$(node --input-type=module -e 'import("./lib/config.mjs").then((m) => console.log(m.MIN_CLAUDE_CODE))')"
       - name: Plugin validate
         run: npm run validate
       - name: Engine tests (claude plugin test)

@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'claude-code/testing';
+import { MIN_CLAUDE_CODE } from '../lib/config.mjs';
 
 // The engine's own PostModelSwitch, as the model picker or an SDK set_model raises it, reaches the router: a person's
 // choice turns routing off, while the engine's fallback and a resume leave it on.
@@ -17,7 +18,7 @@ test('a picker or SDK model switch turns routing off; a fallback or resume does 
   on('session.id', () => ({ value: 'model-switch' }));
   on('session.model', () => ({ value: 'claude-opus-5-5' }));
   on('session.cwd', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.332' } }));
+  on('session.version', () => ({ value: { version: MIN_CLAUDE_CODE } }));
   on('ui.log', () => ({ value: undefined }));
   on('classic.PostModelSwitch', () => ({}));
   const modes: Record<string, unknown> = {};

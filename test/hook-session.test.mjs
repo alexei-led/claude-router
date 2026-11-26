@@ -1,6 +1,7 @@
 // The native router hook's session life: start mode, pins, fallbacks, resume and clear, and what it does when routing is unavailable.
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { MIN_CLAUDE_CODE } from '../lib/config.mjs';
 import { TRACE_PREFIX, usableTrace } from '../lib/replay-trace.mjs';
 import { readUsage, summarize } from '../lib/usage.mjs';
 import {
@@ -346,13 +347,13 @@ test('turn completion removes an interrupted choosing indicator', async () => {
 
 test('an unsupported Claude version leaves the native request unchanged', async () => {
   const h = harness();
-  h.version('2.1.320');
+  h.version('0.0.0');
   await start(h);
   await h.event('command.run', { command: 'router', args: 'on' });
   await h.event('command.run', { command: 'router', args: 'pin high' });
   await drain(h.step(step));
   assert.equal(h.view().phase, 'unavailable');
-  assert.match(h.view().error, /2\.1\.332/);
+  assert.equal(h.view().error, `requires Claude Code ${MIN_CLAUDE_CODE} or newer`);
   assert.equal(h.view().pendingPin, null);
   assert.equal(h.requests[0].model, step.model);
   assert.equal(h.requests[0].effort, step.effort);
@@ -360,10 +361,10 @@ test('an unsupported Claude version leaves the native request unchanged', async 
 
 test('while routing is unavailable, /router says why and its on, off, engine and activity commands change nothing', async () => {
   const h = harness();
-  h.version('2.1.320');
+  h.version('0.0.0');
   await start(h);
   const command = async (args) => (await h.event('command.run', { command: 'router', args })).text;
-  const why = 'Routing unavailable: requires Claude Code 2.1.332 or newer. Claude’s model is kept.';
+  const why = `Routing unavailable: requires Claude Code ${MIN_CLAUDE_CODE} or newer. Claude’s model is kept.`;
   const mode = h.preferences.get('mode:s1');
   for (const args of ['on', 'off', 'engine auto', 'pin high', 'activities off'])
     assert.equal(await command(args), why, args);

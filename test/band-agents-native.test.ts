@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'claude-code/testing';
+import { MIN_CLAUDE_CODE } from '../lib/config.mjs';
 
 // The band's agent rows in the engine: a spawn the router routed, an agent the engine lists as running, a press on its
 // row, and the `$.ui.view` call that press raises. The test engine has no core for `ui.view` (an unanswered call rejects
@@ -20,7 +21,7 @@ test('a press on a running agent’s row asks the engine to show that agent', as
   on('session.id', () => ({ value: 'band-agents' }));
   on('session.model', () => ({ value: 'claude-opus-5-5' }));
   on('session.cwd', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.332' } }));
+  on('session.version', () => ({ value: { version: MIN_CLAUDE_CODE } }));
   on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 8000 }, rateLimits: [] } }));
   on('settings.read', () => ({ value: {} }));
   on('ui.log', () => ({ value: undefined }));
