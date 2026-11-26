@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`auto` prices effort.** With the private evidence overlay (`~/.config/claude-router/evidence.local.mjs`), `auto` and `shadow` scale a route's next-turn output cost by its effort, from the overlay's cost per task and output price, so a top effort on a model with a cheaper token price is no longer priced like a lower effort. Without overlay values for both the proposed and the current route, estimates are unchanged. The `cheaper` and downgrade switch checks still price output per token.
+- **Shadow rows can be compared with the table.** Each shadow decision row now records the route `auto` would serve from the running route and why, the running route's capability, up to three capable routes that a hard limit excluded with the reason (such as `cash-cap`), and a profile tag without any path. `/router decisions` shows "auto would serve …", and the Now pane's shadow agreement counts the would-serve route. [Evaluation](docs/evaluation.md) describes a fair agreement measure.
+- **The pane names routes `auto` cannot rank.** With `auto` or `shadow`, the router pane warns about routed cells whose capability is unknown: "Auto cannot rank deepseek@max, kimi-fast@high: set models.<alias>.capability".
+
+### Changed
+
+- **`cash-capped` outcome.** `auto` and `shadow` report `cash-capped` instead of `declared-below-demand` when a strong enough route was excluded only by the cash cap. The selected route is the same.
+- **`-fast` models use their base model's evidence.** A model ID ending in `-fast` with no evidence overlay entry of its own takes the entry of the same ID without `-fast`, for example `GLM-5.3-fast` and `Kimi-K3.1-Pro-fast`. Prices still come from the profile.
+- **Replay traces stay usable.** Shadow replay traces are stored about 5 times smaller, as `trace:v3:` records, and a session may hold 512 KiB (was 128 KiB): about 200 turns at 8 requests a turn. A refused or failed write, an interrupted request or a turn left unfinished at exit no longer makes the whole session unusable. A reload or resume stops the recording and keeps the earlier turns usable. A recorder failure while appending a turn marks the session incomplete, and a packed record with fields from a later version is rejected. Older `trace:v1` and `trace:v2` records and exports still replay.
+
 ## 1.32.0 (2026-11-26)
 
 ### Summary
