@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { coldWriteUsd } from '../lib/cost.mjs';
@@ -410,7 +411,18 @@ for (const version of [1, 2])
 
 test('a stored trace whose packed events cannot be read is rejected', () => {
   const stored = storedTrace(initial());
-  for (const packed of [[null], [[99, 0, {}]], [['x']]]) assert.equal(readTrace({ ...stored, packed }), null);
+  const laterField = [[...stored.packed[0].slice(0, 2), { ...stored.packed[0][2], '~zz': 1 }]];
+  for (const packed of [[null], [[99, 0, {}]], [['x']], laterField])
+    assert.equal(readTrace({ ...stored, packed }), null);
+});
+
+// The fixture is a literal stored record whose aliases run from the first key to the last: moving a key, type or
+// operation it uses, or removing any key, reads it differently. Appending keys keeps it passing.
+test('a committed version 3 record still reads as the events it was written from', () => {
+  const { stored, events } = JSON.parse(
+    readFileSync(new URL('./fixtures/trace-packed-v3.json', import.meta.url), 'utf8'),
+  );
+  assert.deepEqual(JSON.parse(JSON.stringify(readTrace(stored).events)), events);
 });
 
 // A turn of `steps` requests as the recorder writes it: one decision, then tool continuations.
