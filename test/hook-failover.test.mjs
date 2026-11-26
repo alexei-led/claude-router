@@ -1145,7 +1145,7 @@ test('the shadow engine sends a failed probe again and marks its trace incomplet
   assert.ok(h.preferences.get(`${TRACE_PREFIX}s1`).incomplete.includes('gap'));
 });
 
-// The engine raises StopFailure and turn.complete in either order; seen live on 2.1.332, turn.complete came first.
+// The engine raises StopFailure and turn.complete in either order; seen live, turn.complete came first.
 const SPEND_TEXT = "You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit";
 const RERUN = `The last request failed on Opus 5.5 (spend limit), so the router held it out of routing. Continue the task from where it stopped.`;
 for (const [order, events] of [
@@ -1168,7 +1168,7 @@ for (const [order, events] of [
   });
 
 // A failed request streams only the engine's own items; passed on, they record its API error in the turn and open
-// Claude Code's usage-limit menu, as seen live on 2.1.332.
+// Claude Code's usage-limit menu, as seen live.
 async function streamedItems(stream) {
   const items = [];
   let item = await stream.next();
@@ -1190,3 +1190,260 @@ for (const [name, router, items] of [
     await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
     assert.deepEqual(await streamedItems(h.step({ ...step, turnId: 't1', model: OPUS }, opusFails)), items);
   });
+
+for (const engine of ['table', 'shadow'])
+  test(`routing turned off while a ${engine} probe is on its way sends the conversation nowhere else`, async (t) => {
+    const h = await started(t, { ...CHAINED, routingEngine: engine });
+    h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+    t.mock.timers.tick(HOUR);
+    await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+    const response = () => {
+      // The transcript is read again once the probe has failed: the person turns routing off meanwhile.
+      h.messages(async () => {
+        await command(h, 'off');
+        return [user('One edit.')];
+      });
+      return NO_REPLY;
+    };
+    const items = await streamedItems(h.step({ ...step, turnId: 't1', model: OPUS }, response));
+    assert.deepEqual(items, ['engine']);
+    assert.deepEqual(sentModels(h), [OPUS]);
+    assert.deepEqual(
+      h.toasts.filter((text) => text.includes('still limited')),
+      [],
+    );
+  });
+
+// A conversation a stand-in must be able to take: an image, or more tokens than its window holds.
+for (const [name, standIn, prepare] of [
+  [
+    'images a stand-in cannot read',
+    { imageInput: false },
+    (h) =>
+      h.messages(async () => [
+        { role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/png', data: '' } }] },
+      ]),
+  ],
+  [
+    'more context than a stand-in holds',
+    { contextWindow: 200_000 },
+    (h) => h.usage({ startedAt: 0, context: { tokens: 500_000, breakdown: { totalTokens: 500_000 } }, rateLimits: [] }),
+  ],
+])
+  test(`a failed probe with ${name} passes its failure on, not to the session model`, async (t) => {
+    const router = { models: { glm: { ...GLM, ...standIn } }, fallbacks: { opus: ['glm@max'] } };
+    const h = await started(t, router);
+    h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+    // Every plan model is held, and the session model, GLM here, cannot take the conversation.
+    h.model(GLM.id);
+    prepare(h);
+    t.mock.timers.tick(HOUR);
+    await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+    const items = await streamedItems(h.step({ ...step, turnId: 't1', model: OPUS }, opusFails));
+    assert.deepEqual(items, ['engine']);
+    assert.deepEqual(sentModels(h), [OPUS]);
+  });
+
+test('a stream closed after its first item closes the request’s stream', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  const stream = h.step({ ...step, turnId: 't1', model: OPUS });
+  await stream.next();
+  await stream.return(undefined);
+  assert.deepEqual(h.abandoned, [OPUS]);
+});
+
+for (const [name, look] of [
+  ['the pane is opened', (h) => h.event('command.run', { command: 'router', args: '' })],
+  ['the holds are listed', (h) => command(h, 'holds')],
+])
+  test(`an answer ends the hold when ${name} before it arrives`, async (t) => {
+    const h = await probing(t);
+    t.mock.timers.tick(HOUR);
+    await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+    const stream = h.step({ ...step, turnId: 't1', model: OPUS });
+    await stream.next();
+    await look(h);
+    await drain(stream);
+    assert.equal(h.preferences.has(HOLDS_PLAN), false);
+    assert.deepEqual(
+      h.toasts.filter((text) => text === ANSWERED),
+      [ANSWERED],
+    );
+  });
+
+// What a reply says served the request, and whether that ends the plan account's hold.
+for (const [name, served, ends] of [
+  ['another model of the held account', HAIKU, true],
+  ['a model of another account', GLM.id, false],
+])
+  test(`a probe answered by ${name} ${ends ? 'ends' : 'leaves'} the hold`, async (t) => {
+    const h = await probing(t);
+    t.mock.timers.tick(HOUR);
+    await sentTurn(h, 't1', { usage: { model: served, input_tokens: 1, output_tokens: 1 } });
+    assert.equal(h.preferences.has(HOLDS_PLAN), !ends);
+  });
+
+test('an answer ends the stored hold even when the pane’s state cannot be saved', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  const set = h.$.state.set;
+  await sentTurn(h, 't1', () => {
+    // The first view write after the reply fails: the one that drops the hold from the pane.
+    h.$.state.set = async (ref, ...rest) => {
+      if (ref.key !== 'view') return set(ref, ...rest);
+      h.$.state.set = set;
+      throw new Error('state unavailable');
+    };
+    return {};
+  });
+  assert.equal(h.preferences.has(HOLDS_PLAN), false);
+});
+
+test('a turn that runs another account keeps a due hold in the pane, with its Release', async (t) => {
+  const h = await started(t, CHEAP_HAIKU);
+  h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+  t.mock.timers.tick(HOUR);
+  answering(h, LOW);
+  assert.equal(await sentTurn(h, 't1'), HAIKU);
+  assert.deepEqual(Object.keys(h.view().holds.accounts), ['plan']);
+  assert.ok((await typeahead(h, '/router release p')).some((row) => row.includes('plan')));
+});
+
+test('a failed probation model is found under another spelling of its id', async (t) => {
+  const h = await started(t, CHAINED);
+  await failedTurn(h, 't1', { error: 'overloaded' });
+  const held = h.state.get('loops:main');
+  held.value.held = { [`${OPUS}[1m]`]: held.value.held[OPUS] };
+  t.mock.timers.tick(5 * MINUTE);
+  await sentTurn(h, 't2', opusFails);
+  assert.deepEqual(sentModels(h).slice(1), [OPUS, GLM.id]);
+  assert.deepEqual(Object.keys(h.loop().held), [`${OPUS}[1m]`]);
+  assert.equal(h.loop().held[`${OPUS}[1m]`].streak, 2);
+});
+
+test('an aborted stand-in leaves the renewed hold in the loop', async (t) => {
+  const h = await started(t, CHAINED);
+  await failedTurn(h, 't1', { error: 'overloaded' });
+  t.mock.timers.tick(5 * MINUTE);
+  await h.event('turn.start', { turnId: 't2', text: 'One edit.' });
+  const abort = new AbortController();
+  const response = (request) => {
+    if (request.model === OPUS) return NO_REPLY;
+    abort.abort();
+    return NO_REPLY;
+  };
+  await drain(h.step({ ...step, turnId: 't2', model: OPUS }, response, abort.signal));
+  assert.equal(h.loop().held[OPUS].streak, 2);
+  assert.equal(h.loop().held[OPUS].until, Date.now() + 10 * MINUTE);
+  assert.equal(h.view().holds.models[OPUS].streak, 2);
+});
+
+test('a subagent’s failure on a due account leaves the probe to the main turn', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  await drain(h.step({ ...step, turnId: 'a1-t', agentId: 'a1', model: OPUS }, NO_REPLY));
+  await h.event('classic.StopFailure', {
+    hook_event_name: 'StopFailure',
+    agent_id: 'a1',
+    error: 'rate_limit',
+    last_assistant_message: SPEND_TEXT,
+  });
+  assert.equal(await sentTurn(h, 't1'), OPUS);
+});
+
+// One main turn that an API error ends.
+async function erroredTurn(h, turnId, failure = { error: 'overloaded' }) {
+  await h.event('turn.start', { turnId, text: 'One edit.' });
+  await drain(h.step({ ...step, turnId, model: OPUS }, NO_REPLY));
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', ...failure });
+  await h.event('turn.complete', { turnId, isAborted: false, reason: 'error' });
+}
+
+for (const [name, allowed, reruns] of [
+  ['no other model the session may select', ['opus'], 0],
+  ['another model the session may select', ['opus', 'haiku'], 1],
+])
+  test(`a failed turn with ${name} ${reruns ? 'is' : 'is not'} run again`, async (t) => {
+    const h = await started(t);
+    h.settings({ availableModels: allowed });
+    await erroredTurn(h, 't1');
+    assert.equal(h.submitted.length, reruns);
+  });
+
+test('a rejected re-run does not count towards the limit', async (t) => {
+  const h = await started(t);
+  const submit = h.$.prompt.submit;
+  h.$.prompt.submit = async () => {
+    throw new Error('refused');
+  };
+  await erroredTurn(h, 't1', { error: 'server_error' });
+  t.mock.timers.tick(HOUR);
+  await erroredTurn(h, 't2', { error: 'server_error' });
+  t.mock.timers.tick(HOUR);
+  h.$.prompt.submit = submit;
+  await erroredTurn(h, 't3', { error: 'server_error' });
+  assert.equal(h.submitted.length, 1);
+});
+
+test('a failure that lands after the next turn started stays with its own turn', async (t) => {
+  // A second account, so the spend cap on the plan leaves a model to run the turn again on.
+  const h = await started(t, CHAINED);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't1', model: OPUS }, NO_REPLY));
+  await h.event('turn.complete', { turnId: 't1', isAborted: false, reason: 'error' });
+  // The next turn starts, on another model, while the failure's plan reading is on its way.
+  const usage = h.$.session.usage;
+  h.$.session.usage = async () => {
+    h.$.session.usage = usage;
+    answering(h, LOW);
+    await h.event('turn.start', { turnId: 't2', text: 'One edit.' });
+    await drain(h.step({ ...step, turnId: 't2', model: OPUS }));
+    return usage();
+  };
+  await h.event('classic.StopFailure', {
+    hook_event_name: 'StopFailure',
+    error: 'rate_limit',
+    last_assistant_message: SPEND_TEXT,
+  });
+  assert.equal(h.requests.at(-1).model, HAIKU);
+  assert.deepEqual(h.submitted, [RERUN]);
+  // Rows of the turn that ended are stored at once; the running turn's would still be pending.
+  assert.deepEqual(
+    failureRows(h).map((row) => row.held),
+    ['plan'],
+  );
+});
+
+test('a subagent’s answer ends the hold when the pane is opened before it arrives', async (t) => {
+  const h = await started(t);
+  h.preferences.set(HOLDS_PLAN, { ...SPEND_HOLD, kind: 'window' });
+  await sentTurn(h, 't1', NO_REPLY);
+  const stream = h.step({ ...step, turnId: 'a1-t', agentId: 'a1', model: HAIKU });
+  await stream.next();
+  await command(h, 'holds');
+  await drain(stream);
+  assert.equal(h.preferences.has(HOLDS_PLAN), false);
+});
+
+test('a failure of a model held under another spelling of its id says how long it is held', async (t) => {
+  const h = await started(t);
+  await failedTurn(h, 't1', { error: 'overloaded' });
+  const held = h.state.get('loops:main');
+  held.value.held = { [`${OPUS}[1m]`]: held.value.held[OPUS] };
+  t.mock.timers.tick(5 * MINUTE);
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded' });
+  assert.equal(h.toasts.at(-1), 'Opus 5.5 held out of routing: overloaded, 10 min');
+});
+
+test('Undo of a release keeps a hold set since under another spelling of the model’s id', async (t) => {
+  const h = await started(t);
+  await turn(h, 't1', { error: 'overloaded' });
+  await command(h, 'release opus');
+  const loop = h.state.get('loops:main');
+  const newer = { kind: 'availability', error: 'overloaded', since: Date.now(), until: Date.now() + HOUR, streak: 1 };
+  loop.value.held = { [`${OPUS}[1m]`]: newer };
+  await press(h, 'undo');
+  assert.deepEqual(Object.keys(h.loop().held), [`${OPUS}[1m]`]);
+});

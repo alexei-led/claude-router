@@ -665,7 +665,14 @@ for (const [name, until] of [
   ['one that ends later', now + 2 * DAY],
   ['one that ends no later', now + DAY],
 ])
-  test(`a failure once the probe is due counts as a failed probe: ${name}`, () => {
+  test(`a failure once the probe is due leaves it due, as any request can fail then: ${name}`, () => {
     const again = quotaHold('calendar', until, quotaHold('calendar', now + DAY), now + 5 * HOUR);
-    assert.deepEqual([again.until, again.streak, again.probeAt], [until, 2, now + 7 * HOUR]);
+    assert.deepEqual([again.until, again.streak, again.probeAt], [until, 1, now + HOUR]);
   });
+
+test('a failure under another spelling of a held model’s id doubles that hold under its own key', () => {
+  const first = fails({}, 'glm-5.3', 'overloaded', now);
+  const again = fails(first, 'glm-5.3[1m]', 'overloaded', now + 5 * MINUTE);
+  assert.deepEqual(Object.keys(again), ['glm-5.3']);
+  assert.equal(again['glm-5.3'].streak, 2);
+});

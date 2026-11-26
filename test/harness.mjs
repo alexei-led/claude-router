@@ -79,6 +79,8 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     ['CLAUDE_CONFIG_DIR', '/fixture/team'],
   ]);
   const requests = [];
+  // The models of the request streams closed before they were read to their end.
+  const abandoned = [];
   const files = new Map();
   const links = new Set();
   let model = 'claude-haiku-5-5';
@@ -258,6 +260,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     state,
     env,
     requests,
+    abandoned,
     files,
     links,
     preferences,
@@ -365,9 +368,15 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
           ...(typeof response === 'function' ? response(request) : response),
         };
         // A request that failed streams only the engine's own items, as Claude Code's does (an API error, no answer).
-        if (reply.stopReason === null && reply.usage === null) yield { kind: 'engine', ref: requests.length };
-        else yield { kind: 'text', text: 'ok', index: 0 };
-        return reply;
+        let read = false;
+        try {
+          if (reply.stopReason === null && reply.usage === null) yield { kind: 'engine', ref: requests.length };
+          else yield { kind: 'text', text: 'ok', index: 0 };
+          read = true;
+          return reply;
+        } finally {
+          if (!read) abandoned.push(request.model);
+        }
       };
       send.signal = signal;
       return handler('turn.step', input)($, input, send);
