@@ -1049,3 +1049,116 @@ test('the auto engine does not send a failed step again', async (t) => {
   await drain(h.step({ ...step, turnId: 't2', model: OPUS }, NO_REPLY));
   assert.equal(h.requests.length, 2);
 });
+
+test('an answer leaves a hold another session set after the request was sent', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  const newer = { ...SPEND_HOLD, since: Date.now() + 1, probeAt: Date.now() + HOUR };
+  await sentTurn(h, 't1', () => {
+    h.preferences.set(HOLDS_PLAN, newer);
+    return {};
+  });
+  assert.deepEqual(h.preferences.get(HOLDS_PLAN), newer);
+  assert.deepEqual(h.view().holds.accounts.plan, newer);
+  assert.equal(h.toasts.includes(ANSWERED), false);
+});
+
+test('a probe another session already put off is not put off again', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  const put = { ...SPEND_HOLD, streak: 2, probeAt: Date.now() + 2 * HOUR };
+  const get = h.$.store.get;
+  let reads = 0;
+  h.$.store.get = async (key) => {
+    if (key === HOLDS_PLAN && ++reads === 2) h.preferences.set(HOLDS_PLAN, put);
+    return get(key);
+  };
+  await sentTurn(h, 't1', NO_REPLY);
+  assert.deepEqual(h.preferences.get(HOLDS_PLAN), put);
+});
+
+// A reply the router learns nothing from: the request ran, with no usage to count.
+const NO_USAGE = { usage: null };
+
+test('a turn whose probe is due keeps the held account’s model on its continuation steps', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  for (const index of [0, 1]) await drain(h.step({ ...step, turnId: 't1', model: OPUS, index }, NO_USAGE));
+  assert.deepEqual(sentModels(h), [OPUS, OPUS]);
+});
+
+// Haiku on its own account, so a turn can start outside the held plan and move onto it.
+const CHEAP_HAIKU = { models: { haiku: { account: 'cheap' } } };
+
+test('a turn’s own edits move it up onto an account whose probe is due', async (t) => {
+  const h = await started(t, CHEAP_HAIKU);
+  h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+  t.mock.timers.tick(HOUR);
+  answering(h, jevResponse('medium', { medium: 0.97, high: 0.03 }, 0, { ops: 0.9, code: 0.1 }, 'execute'));
+  await h.event('turn.start', { turnId: 't1', text: 'Run the worker brief.' });
+  h.messages(async () => [user('Run the worker brief.')]);
+  await drain(h.step({ ...step, turnId: 't1', model: OPUS }));
+  h.messages(async () => [user('Run the worker brief.'), assistant('fixing', ['Edit']), toolResult('ok')]);
+  await drain(h.step({ ...step, turnId: 't1', model: OPUS, index: 1, messageCount: 3 }));
+  assert.deepEqual(sentModels(h), [HAIKU, OPUS]);
+});
+
+test('a mid-turn review moves a turn up onto an account whose probe is due', async (t) => {
+  const h = await started(t, { ...CHEAP_HAIKU, policy: { reviewEveryRequests: 1 } });
+  h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+  t.mock.timers.tick(HOUR);
+  answering(h, LOW, jevResponse('high', { high: 0.97, uncertain: 0.03 }));
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  for (const index of [0, 1, 2, 3]) {
+    await drain(h.step({ ...step, turnId: 't1', model: OPUS, index, messageCount: 1 + 2 * index }));
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.equal(sentModels(h)[0], HAIKU);
+  assert.equal(sentModels(h).at(-1), OPUS);
+});
+
+test('a reply to a step the router passed on unrouted ends the account hold', async (t) => {
+  const capability = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
+  const h = await started(t, { routingEngine: 'auto', models: { opus: { capability } } });
+  h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+  await sentTurn(h, 't1');
+  assert.equal(h.view().reason, 'no-route-native');
+  assert.equal(h.preferences.has(HOLDS_PLAN), false);
+  assert.deepEqual(
+    h.toasts.filter((text) => text === ANSWERED),
+    [ANSWERED],
+  );
+});
+
+test('a step whose session changed during the failed request is not sent again', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  await sentTurn(h, 't1', () => {
+    h.clear('s2');
+    return NO_REPLY;
+  });
+  assert.deepEqual(sentModels(h), [OPUS]);
+});
+
+test('a probe with no other model free is not sent again, and records and says nothing', async (t) => {
+  const h = await started(t);
+  h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+  t.mock.timers.tick(HOUR);
+  await sentTurn(h, 't1', NO_REPLY);
+  assert.deepEqual(sentModels(h), [OPUS]);
+  assert.deepEqual(
+    h.toasts.filter((text) => text.includes('still limited')),
+    [],
+  );
+  assert.deepEqual(failureRows(h), []);
+});
+
+test('the shadow engine sends a failed probe again and marks its trace incomplete', async (t) => {
+  const h = await started(t, { ...CHAINED, routingEngine: 'shadow' });
+  h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+  t.mock.timers.tick(HOUR);
+  await sentTurn(h, 't1', opusFails);
+  assert.deepEqual(sentModels(h), [OPUS, GLM_ID]);
+  assert.ok(h.preferences.get(`${TRACE_PREFIX}s1`).incomplete.includes('gap'));
+});

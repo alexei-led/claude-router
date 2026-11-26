@@ -4141,14 +4141,19 @@ async function showAccountHold($, router, account, hold) {
 }
 
 // A model of a held account answered: the limit was raised or reset early. A reply to a request sent before the hold
-// was set says nothing about it, and a substitute's reply is not the account's.
+// was set says nothing about it, and a substitute's reply is not the account's. The store is read before the delete,
+// as another session may have held the account again since this turn read it; only a reply that ends a hold pays that.
 async function endAnsweredHold($, router, cfg, model, usage, sentAt) {
   try {
     const held = cachedAccountHold(router, cfg, model, Date.now());
     if (!held || held.hold.since > sentAt || !usage.model || !isSameModel(model, usage.model)) return;
     // The view and the turn's holds drop it before the delete, so a reply that lands meanwhile does not end it again.
     await showAccountHold($, router, held.account, null);
-    await $.store.delete(`${HOLDS_PREFIX}${held.account}`);
+    const store = `${HOLDS_PREFIX}${held.account}`;
+    const current = readHold(await $.store.get(store));
+    if (!current) return;
+    if (current.since > sentAt) return await showAccountHold($, router, held.account, current);
+    await $.store.delete(store);
     $.ui.toast(`${accountLabel(held.account)} answered again: routing may use it`);
   } catch {}
 }

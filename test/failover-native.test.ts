@@ -3,6 +3,13 @@ import { jevResponse, user } from './helpers.mjs';
 
 type Engine = Parameters<Parameters<typeof test>[1]>;
 
+// One whole step of a subagent's request.
+async function agentStep($: Engine[0], model = 'claude-haiku-5-5') {
+  const stream = $.turn.step({ turnId: 'a1-t', agentId: 'a1', index: 0, model, effort: 'medium', messageCount: 1 });
+  let result = await stream.next();
+  while (!result.done) result = await stream.next();
+}
+
 // An Opus session whose classifier answers medium: the models each step sent, the toasts, the loop's holds, and one
 // whole turn.
 // A model in `failing` gets no reply, as a failed request resolves in a step.
@@ -282,13 +289,15 @@ test('nothing is run again with routing off', async ($, on) => {
 });
 
 test('an aborted turn and a subagent’s failure are not run again', async ($, on) => {
-  const { prompts, run } = session($, on);
+  const { held, prompts, run } = session($, on);
   await $.session.start(START);
   await run('t1');
   await $.classic.StopFailure({ error: 'overloaded' });
   await $.turn.complete({ turnId: 't1', answer: '', durationMs: 1, isAborted: true, reason: 'aborted' });
   await run('t2');
+  await agentStep($);
   await $.classic.StopFailure({ error: 'overloaded', agent_id: 'a1' });
+  expect(Object.keys(held() ?? {})).toEqual(['claude-opus-5-5', 'claude-haiku-5-5']);
   await $.turn.complete({
     turnId: 'a1-t',
     agentId: 'a1',
@@ -318,4 +327,45 @@ test('a re-run the engine refuses leaves the turn as it ended', async ($, on) =>
   };
   await fail('t1', 'overloaded');
   expect(prompts.length).toBe(1);
+});
+
+test('a subagent that answers does not start the count of re-runs over', async ($, on) => {
+  const { prompts, fail } = session($, on);
+  await $.session.start(START);
+  await fail('t1', 'overloaded');
+  await fail('t2', 'overloaded');
+  await $.turn.complete({
+    turnId: 'a1-t',
+    agentId: 'a1',
+    answer: 'ok',
+    durationMs: 1,
+    isAborted: false,
+    reason: 'answer',
+  });
+  await fail('t3', 'overloaded');
+  expect(prompts.length).toBe(2);
+});
+
+test('a failure is run again only when its own turn completes', async ($, on) => {
+  const { prompts, run } = session($, on);
+  await $.session.start(START);
+  await run('t1');
+  await $.classic.StopFailure({ error: 'overloaded' });
+  await $.turn.complete({ turnId: 'other', answer: '', durationMs: 1, isAborted: false, reason: 'error' });
+  expect(prompts).toEqual([]);
+});
+
+test('a new session forgets the last one’s failed turn and its count of re-runs', async ($, on) => {
+  const { prompts, run, fail } = session($, on);
+  await $.session.start(START);
+  await run('t1');
+  await $.classic.StopFailure({ error: 'overloaded' });
+  await $.session.start(START);
+  await $.turn.complete({ turnId: 't1', answer: '', durationMs: 1, isAborted: false, reason: 'error' });
+  expect(prompts).toEqual([]);
+  await fail('t2', 'overloaded');
+  await fail('t3', 'overloaded');
+  await $.session.start(START);
+  await fail('t4', 'overloaded');
+  expect(prompts.length).toBe(3);
 });

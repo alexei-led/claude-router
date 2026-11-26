@@ -254,7 +254,7 @@ for (const [text, expected, extra] of [
 
 for (const [name, details, expected] of [
   ['a spend cap', "You've hit your individual spend limit", calendar],
-  ['a plan window', "You've hit your weekly limit", none],
+  ['a plan window', "You've hit your weekly limit", balance],
 ])
   test(`a billing error that names ${name} classifies as ${expected.kind ?? 'nothing to hold'}`, () => {
     assert.deepEqual(classify('billing_error', { details, account: 'work-claude', billing: 'billed' }), expected);
@@ -477,7 +477,7 @@ test('a quota hold that ends later stays, one that ends sooner is extended, a ba
     now,
   );
   assert.equal(balance?.until, null);
-  assert.equal(failureHold(longer, 'rate_limit', balance ?? undefined, now + 10 * DAY), balance);
+  assert.equal(failureHold(longer, 'rate_limit', balance ?? undefined, now + MINUTE), balance);
 });
 
 test('releasing ends a model hold or an account hold, and names nothing else', () => {
@@ -664,3 +664,12 @@ test('a hold with a probe says when the next try is, in local time', () => {
   assert.equal(holdText(hold, at), 'spend limit, 24 h, next try 11:00');
   assert.equal(holdText(hold, at + HOUR), 'spend limit, 23 h, next try now');
 });
+
+for (const [name, running, next] of [
+  ['one that ends later', quotaHold('calendar', now + DAY), quotaHold.bind(null, 'calendar', now + 2 * DAY)],
+  ['one that ends no later', quotaHold('calendar', now + DAY), quotaHold.bind(null, 'calendar', now + DAY)],
+])
+  test(`a failure once the probe is due counts as a failed probe: ${name}`, () => {
+    const again = next(running, now + 5 * HOUR);
+    assert.deepEqual([again.streak, again.probeAt], [2, now + 7 * HOUR]);
+  });
