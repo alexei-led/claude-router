@@ -42,17 +42,25 @@ class CountingStore extends Map {
   }
 }
 
+// Holds every `$.store.keys()` until the returned release() runs; `release.reached` resolves at the first call held.
 function gated(h) {
   const { promise, resolve } = Promise.withResolvers();
+  const reached = Promise.withResolvers();
   const keys = h.$.store.keys;
   h.$.store.keys = async () => {
+    reached.resolve(undefined);
     await promise;
     return keys();
   };
-  return resolve;
+  return Object.assign(resolve, { reached: reached.promise });
 }
 
-const settle = () => new Promise((resolve) => setImmediate(resolve));
+// Waits until `check()` holds, up to `ms` of wall time (never the mocked Date): a slow machine takes more event-loop
+// turns than a fast one.
+async function until(check, ms = 2000) {
+  const end = performance.now() + ms;
+  while (!check() && performance.now() < end) await new Promise((resolve) => setTimeout(resolve, 5));
+}
 
 // `$.clock.after` callbacks held until the test runs them.
 function heldTimers(h) {
@@ -69,7 +77,7 @@ function heldTimers(h) {
   };
 }
 
-const within = (promise, ms = 200) =>
+const within = (promise, ms = 2000) =>
   Promise.race([promise.then(() => 'answered'), new Promise((r) => setTimeout(() => r('waiting'), ms))]);
 
 async function turn(h, turnId) {
@@ -267,7 +275,7 @@ test('a session switch while a start reads the counts kept across sessions folds
   await h.event('session.start', { cwd: '/fixture' });
   const release = gated(h);
   const reading = timers.runAll();
-  for (let i = 0; i < 20; i++) await settle();
+  await release.reached;
   h.clear('s2');
   release();
   await reading;
@@ -428,7 +436,7 @@ test('the band’s Router opens the pane and answers the press before the counts
   const pressed = router.onPress();
   const answer = await Promise.race([
     pressed.then(() => 'answered'),
-    new Promise((r) => setTimeout(() => r('waiting'), 200)),
+    new Promise((r) => setTimeout(() => r('waiting'), 2000)),
   ]);
   assert.deepEqual([opened, answer], [['jev-router'], 'answered']);
   release();
@@ -440,7 +448,7 @@ test('a session start shows the routing mode before the counts kept across sessi
   const h = harness(JEV_KEY, new Map(others(FOLD_MIN)));
   const release = gated(h);
   const started = h.event('session.start', { cwd: '/fixture' });
-  for (let i = 0; i < 50 && !h.view()?.routingMode; i++) await settle();
+  await until(() => h.view()?.routingMode);
   assert.deepEqual([h.view().routingMode?.mode, h.view().usageStore], ['balanced', null]);
   release();
   await started;
