@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { HOLDS_PREFIX } from '../lib/failover.mjs';
 import { evaluateReplay } from '../lib/replay.mjs';
 import {
   readTrace,
@@ -810,6 +811,34 @@ test('recorder failures during controls, compaction and turn completion do not e
   assert.equal(JSON.stringify(record(h)).includes('CANARY'), false);
 });
 
+test('a recorder failure while a turn is appended leaves the missing turn marked, never a usable hole', async (t) => {
+  const h = setup();
+  await begin(h);
+  await turn(h, 't1');
+  await h.event('turn.start', { turnId: 't2', text: 'Synthetic task.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  const encode = TextEncoder.prototype.encode;
+  let failed = false;
+  // The first whole record measured from here on is the one taking the turn.
+  t.mock.method(TextEncoder.prototype, 'encode', function (value) {
+    if (!failed && value.startsWith('{"version":')) {
+      failed = true;
+      throw new Error('CANARY_APPEND_FAILURE');
+    }
+    return encode.call(this, value);
+  });
+  await h.event('turn.complete', { turnId: 't2' });
+  assert.equal(failed, true);
+  assert.equal(usableTrace(record(h)), false);
+  await turn(h, 't3');
+  const trace = record(h);
+  assert.equal(ends(trace), 2);
+  assert.equal(trace.lostWrites, 1);
+  assert.ok(trace.incomplete.includes('lost-write'));
+  assert.ok(trace.incomplete.includes('recorder-error'));
+  assert.equal(usableTrace(trace), false);
+});
+
 test('failed session-end tracing does not prevent the session lifecycle and the stored turns stay usable', async (t) => {
   const h = setup();
   await begin(h);
@@ -827,6 +856,65 @@ test('failed session-end tracing does not prevent the session lifecycle and the 
   await turn(resumed);
   assert.equal(ends(record(resumed)), 1);
   assert.equal(usableTrace(record(resumed)), true);
+});
+
+test('a reply the loop took is recorded as answered even when reading the holds afterwards fails', async () => {
+  const h = setup();
+  await begin(h);
+  await turn(h, 't1');
+  const agent = { ...step, agentId: 'a1', model: 'claude-haiku-5-5' };
+  await drain(h.step({ ...agent, turnId: 'a1-t' }, { usage: undefined }));
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded', agent_id: 'a1' });
+  assert.deepEqual(Object.keys(h.loop().held), [agent.model]);
+  // The agent's successful reply lands while the main step is deciding, so its clear waits for the main write.
+  let release = () => {};
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let entered = () => {};
+  const reached = new Promise((resolve) => {
+    entered = resolve;
+  });
+  let gated = false;
+  h.messages(async () => {
+    if (!gated) {
+      gated = true;
+      entered();
+      await gate;
+    }
+    return [user('Synthetic task.')];
+  });
+  await h.event('turn.start', { turnId: 't2', text: 'Synthetic task.' });
+  const main = drain(h.step({ ...step, turnId: 't2' }));
+  await reached;
+  await drain(h.step({ ...agent, turnId: 'a1-t2' }));
+  let fail = false;
+  let threw = false;
+  const { set } = h.$.state;
+  h.$.state.set = async (ref, value, options) => {
+    const result = await set(ref, value, options);
+    // The write that carries the cleared hold is the main reply's.
+    if (ref.key === 'loops' && !Object.keys(value.held ?? {}).length) fail = true;
+    return result;
+  };
+  const { get } = h.$.store;
+  h.$.store.get = (key) => {
+    if (fail && key.startsWith(HOLDS_PREFIX)) {
+      threw = true;
+      throw new Error('holds read failed');
+    }
+    return get(key);
+  };
+  release();
+  await main.catch(() => {});
+  fail = false;
+  await h.event('turn.complete', { turnId: 't2' });
+  assert.equal(threw, true);
+  const replies = record(h).events.filter((event) => event.type === 'response');
+  assert.deepEqual(
+    replies.map((reply) => reply.unanswered ?? false),
+    [false, false],
+  );
 });
 
 test('a step that passes through on a routing failure leaves the trace incomplete', async () => {

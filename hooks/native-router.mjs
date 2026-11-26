@@ -662,7 +662,14 @@ async function flushTrace($, router, turnId = null, ending = false, captured = n
     const append = () => {
       if (appended) return;
       appended = true;
-      appendHeld(held, pending, at, resetAt);
+      try {
+        appendHeld(held, pending, at, resetAt);
+      } catch {
+        // The turn is lost: the record is marked at once, so no write can show a usable trace with a hole in it.
+        held.lostWrites++;
+        held.reasons.add('recorder-error');
+        appendHeld(held, { events: [], excludedEvents: 0 }, at, resetAt);
+      }
     };
     try {
       // Only the trace records are read each time; the rest of the store is measured now and then (measureStore).
