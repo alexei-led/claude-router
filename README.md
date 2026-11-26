@@ -22,7 +22,7 @@ _Illustrative example. No proxy; prompt text goes to the classifier you choose._
 
 ## Quick start
 
-You need Claude Code **2.1.321** or newer, and credentials for one [classifier](#classifiers-and-privacy) or a local [Ollama](https://ollama.com) model.
+You need a Claude Code version at or above `MIN_CLAUDE_CODE` in [`lib/config.mjs`](lib/config.mjs) (on an older one the router names that minimum and keeps Claude's model), and credentials for one [classifier](#classifiers-and-privacy) or a local [Ollama](https://ollama.com) model.
 
 ```sh
 claude plugin marketplace add alexei-led/claude-router

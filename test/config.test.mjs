@@ -12,6 +12,7 @@ import {
   editActivity,
   effectiveActivities,
   loadConfig,
+  MIN_CLAUDE_CODE,
   resolveRoute,
   supportedVersion,
   TIERS,
@@ -460,18 +461,18 @@ test('a draft edits only the activity cells it changed and follows the saved con
   });
 });
 
-test('supportedVersion accepts Claude Code 2.1.321 and newer, with or without a prerelease', () => {
+test('supportedVersion accepts the minimum Claude Code and newer, with or without a prerelease', () => {
+  const [major, minor, patch] = MIN_CLAUDE_CODE.split('.').map(Number);
   for (const [version, supported] of [
-    ['2.1.321', true],
-    ['2.1.322-beta.1', true],
-    ['2.2.0', true],
-    ['3.0.0', true],
-    ['2.1.320', false],
-    ['2.1.289', false],
-    ['2.0.999', false],
-    ['1.9.400', false],
-    ['2.1.321.1', false],
-    ['2.1', false],
+    [MIN_CLAUDE_CODE, true],
+    [`${major}.${minor}.${patch + 1}-beta.1`, true],
+    [`${major}.${minor + 1}.0`, true],
+    [`${major + 1}.0.0`, true],
+    [`${major}.${minor}.${patch - 1}`, false],
+    [`${major}.${minor - 1}.999`, false],
+    [`${major - 1}.99.999`, false],
+    [`${MIN_CLAUDE_CODE}.1`, false],
+    [`${major}.${minor}`, false],
     ['', false],
     [undefined, false],
   ])

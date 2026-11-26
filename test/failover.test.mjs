@@ -8,6 +8,7 @@ import {
   classifyFailure,
   clearedModel,
   clearedSince,
+  dueProbes,
   failureHold,
   heldAsSeen,
   heldIds,
@@ -15,11 +16,12 @@ import {
   holdCause,
   holdModel,
   holdMs,
-  holdText,
   nextReset,
+  probeFailed,
   readHold,
   releaseHold,
 } from '../lib/failover.mjs';
+import { holdText } from '../lib/holds.mjs';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -214,6 +216,45 @@ for (const [name, input, expected] of [
     assert.deepEqual(classify(input.error, input), expected);
   });
 
+// The texts Claude Code gives for a used-up quota, as found in transcripts, each with a straight and a curly apostrophe.
+// The account is billed by key unless `plan` names the Claude plan, whose rate limit is never a balance.
+const calendar = { kind: 'calendar', scope: 'account', until: now + DAY };
+const balance = { kind: 'balance', scope: 'account', until: null };
+for (const [text, expected, extra] of [
+  ["You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit", calendar],
+  ["You've hit your monthly spend limit", calendar],
+  ["You've hit your org's monthly spend limit", calendar],
+  ["You've hit your channel's monthly spend limit", calendar],
+  ["You've hit your team's pooled group budget", calendar],
+  ["You've hit your individual usage limit", calendar],
+  ["You've hit your usage credit limit", calendar],
+  ['Usage is paused for your organization', calendar],
+  ["You've hit your session limit · resets 7pm (Asia/Jerusalem)", availability],
+  ["You've hit your weekly limit · resets Nov 3 at 7am (Asia/Jerusalem)", availability],
+  ["You've hit your 5-hour limit · run /usage-credits to continue", availability],
+  [
+    "You've hit your monthly spend limit · raise it at claude.ai/settings/usage · your 5-hour limit resets 12:40am (Asia/Jerusalem)",
+    availability,
+  ],
+  ['Your credit balance is running low … please recharge', balance],
+  ['[1113][Insufficient balance or no resource package. Please recharge.]', balance],
+  ["You're out of usage credits", balance],
+  ['Your org is out of usage · add funds', balance],
+  ["You're out of extra usage", balance],
+  ['Fable 5 requires usage credits', balance],
+  ['Credit balance is too low', balance],
+  ["You're out of usage credits", availability, { account: 'plan', billing: 'plan' }],
+  ['Your org is out of usage · add funds', availability, { account: 'plan', billing: 'plan' }],
+  ['Usage is paused for your organization', calendar, { error: 'billing_error' }],
+  // A billing error stays a balance, whatever window its text names.
+  ['5-hour limit', balance, { error: 'billing_error' }],
+])
+  for (const details of new Set([text, text.replaceAll("'", '\u2019')]))
+    test(`${extra?.error ?? 'rate_limit'} "${details}" on ${extra?.account ?? 'a billed account'} classifies as ${expected.kind}`, () => {
+      const { error = 'rate_limit', ...input } = { details, account: 'work-claude', billing: 'billed', ...extra };
+      assert.deepEqual(classify(error, input), expected);
+    });
+
 for (const [name, reset, at, expected] of [
   ['next month on the 1st', { monthly: 1, tz: 'UTC' }, '2026-11-19T10:00:00Z', '2026-12-01T00:00:00Z'],
   ['this month when the day is ahead', { monthly: 25, tz: 'UTC' }, '2026-11-19T10:00:00Z', '2026-11-25T00:00:00Z'],
@@ -389,6 +430,7 @@ for (const [kind, failure, until] of [
       since: now,
       until,
       streak: 1,
+      ...(kind === 'window' ? {} : { probeAt: now + HOUR }),
     });
   });
 
@@ -430,7 +472,7 @@ test('a quota hold that ends later stays, one that ends sooner is extended, a ba
     now,
   );
   assert.equal(balance?.until, null);
-  assert.equal(failureHold(longer, 'rate_limit', balance ?? undefined, now + 10 * DAY), balance);
+  assert.equal(failureHold(longer, 'rate_limit', balance ?? undefined, now + MINUTE), balance);
 });
 
 test('releasing ends a model hold or an account hold, and names nothing else', () => {
@@ -553,4 +595,84 @@ test('a held id is named too by the snapshot its reply resolved it to', () => {
     'a-dated',
     'b-dated',
   ]);
+});
+
+const quotaHold = (kind, until, running, at = now) =>
+  failureHold({ kind, scope: 'account', until }, 'rate_limit', running, at);
+
+test('each failed probe doubles the wait for the next one, up to a day', () => {
+  let hold = quotaHold('balance', null);
+  const waits = [hold.probeAt - now];
+  for (let i = 0; i < 6; i += 1) {
+    const at = hold.probeAt;
+    hold = probeFailed(hold, at);
+    waits.push(hold.probeAt - at);
+  }
+  assert.deepEqual(
+    waits.map((ms) => ms / HOUR),
+    [1, 2, 4, 8, 16, 24, 24],
+  );
+  assert.equal(hold.streak, 7);
+});
+
+for (const [name, hold] of [
+  ['a first probe at the hold’s end', quotaHold('calendar', now + HOUR)],
+  ['a next probe past the hold’s end', probeFailed(quotaHold('calendar', now + 2 * HOUR), now + HOUR)],
+  ['a window hold', quotaHold('window', now + 5 * HOUR)],
+  ['an availability hold', failureHold(classified('overloaded'), 'overloaded', undefined, now)],
+])
+  test(`${name} gets no probe`, () => {
+    assert.equal(Object.hasOwn(hold, 'probeAt'), false);
+  });
+
+test('a probe is due from its time until the hold ends', () => {
+  const holds = { work: quotaHold('calendar', now + DAY), plan: quotaHold('window', now + DAY) };
+  assert.deepEqual(dueProbes(holds, now + HOUR - 1), []);
+  assert.deepEqual(dueProbes(holds, now + HOUR), ['work']);
+  assert.deepEqual(dueProbes(holds, now + DAY), []);
+  assert.deepEqual(dueProbes(undefined, now), []);
+});
+
+test('another failure on a held account keeps the backoff its probes reached', () => {
+  const probed = probeFailed(quotaHold('calendar', now + DAY), now + HOUR);
+  // Between the two probes, so a wait counted again from this failure would end at another time.
+  const again = quotaHold('calendar', now + 2 * DAY, probed, now + 2 * HOUR);
+  assert.deepEqual([again.until, again.streak, again.probeAt], [now + 2 * DAY, 2, now + 3 * HOUR]);
+  const balance = quotaHold('balance', null, probed, now + 2 * HOUR);
+  assert.deepEqual([balance.until, balance.streak, balance.probeAt], [null, 2, now + 3 * HOUR]);
+});
+
+test('a longer failure on a hold whose probes had run out schedules the next one', () => {
+  const spent = probeFailed(quotaHold('calendar', now + 2 * HOUR), now + HOUR);
+  const again = quotaHold('calendar', now + DAY, spent, now + HOUR);
+  assert.deepEqual([again.streak, again.probeAt], [2, now + 3 * HOUR]);
+});
+
+test('a stored hold reads back with its probe time, and without one that is not a time', () => {
+  const hold = quotaHold('calendar', now + DAY);
+  assert.deepEqual(readHold(hold), hold);
+  assert.equal(Object.hasOwn(readHold({ ...hold, probeAt: 'soon' }), 'probeAt'), false);
+});
+
+test('a hold with a probe says when the next try is, in local time', () => {
+  const at = new Date(2026, 10, 19, 10, 0).getTime();
+  const hold = quotaHold('calendar', at + DAY, undefined, at);
+  assert.equal(holdText(hold, at), 'spend limit, 24 h, next try 11:00');
+  assert.equal(holdText(hold, at + HOUR), 'spend limit, 23 h, next try now');
+});
+
+for (const [name, until] of [
+  ['one that ends later', now + 2 * DAY],
+  ['one that ends no later', now + DAY],
+])
+  test(`a failure once the probe is due leaves it due, as any request can fail then: ${name}`, () => {
+    const again = quotaHold('calendar', until, quotaHold('calendar', now + DAY), now + 5 * HOUR);
+    assert.deepEqual([again.until, again.streak, again.probeAt], [until, 1, now + HOUR]);
+  });
+
+test('a failure under another spelling of a held model’s id doubles that hold under its own key', () => {
+  const first = fails({}, 'glm-5.3', 'overloaded', now);
+  const again = fails(first, 'glm-5.3[1m]', 'overloaded', now + 5 * MINUTE);
+  assert.deepEqual(Object.keys(again), ['glm-5.3']);
+  assert.equal(again['glm-5.3'].streak, 2);
 });

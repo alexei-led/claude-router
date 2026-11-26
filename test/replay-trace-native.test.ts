@@ -1,5 +1,5 @@
 import { expect, mock, test } from 'claude-code/testing';
-import { loadConfig } from '../lib/config.mjs';
+import { loadConfig, MIN_CLAUDE_CODE } from '../lib/config.mjs';
 import { newTrace, observedFromTrace, readTrace, storedTrace, traceBytes, usableTrace } from '../lib/replay-trace.mjs';
 import { emptyLoop } from '../lib/route.mjs';
 import { assistant, jevResponse, user } from './helpers.mjs';
@@ -32,7 +32,7 @@ for (const hasAssistant of [false, true]) {
     on('session.id', () => ({ value: 'native-trace' }));
     on('session.model', () => ({ value: 'claude-haiku-5-5' }));
     on('session.cwd', () => ({ value: '/fixture/project' }));
-    on('session.version', () => ({ value: { version: '2.1.325' } }));
+    on('session.version', () => ({ value: { version: MIN_CLAUDE_CODE } }));
     const messages = Array.from({ length: 17 }, () => user('CANARY_PROMPT'));
     if (hasAssistant) messages[8] = assistant('CANARY_REPLY');
     on('session.messages', () => ({ value: messages }));

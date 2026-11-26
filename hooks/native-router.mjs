@@ -95,18 +95,21 @@ import {
   classifyFailure,
   clearedModel,
   clearedSince,
+  dueProbes,
   failureHold,
   HOLDS_PREFIX,
   heldAsSeen,
   heldIds,
+  heldKey,
+  holdCause,
   holdModel,
-  holdText,
   isActive,
   planAccountsOf,
+  probeFailed,
   readHold,
   releaseHold,
 } from '../lib/failover.mjs';
-import { heldCause, heldRows, holdsText, releaseRow } from '../lib/holds.mjs';
+import { heldCause, heldRows, holdsText, holdText, releaseRow } from '../lib/holds.mjs';
 import { KEYWORDS, keywordRaises, promptKeyword } from '../lib/keywords.mjs';
 import {
   absorbedKeys,
@@ -156,6 +159,7 @@ import {
 } from '../lib/replay-trace.mjs';
 import {
   canMoveUp,
+  canTakeOver,
   cellForModel,
   chooseRoute,
   continueRoute,
@@ -171,6 +175,7 @@ import {
   ownRoute,
   prepareLoop,
   resetHistory,
+  selectableModels,
   servesOneTurn,
 } from '../lib/route.mjs';
 import { LINE_MODES, lineId, lineModeOf, lineOf, routeOf, showsLine } from '../lib/route-line.mjs';
@@ -261,6 +266,8 @@ async function getMany($, keys) {
  * @property {{ record: TraceRecord, bytes: number } | null} [measuredRecord] `record`'s stored bytes
  */
 
+/** A main turn an API error ended, with the count of re-runs it belongs to. @typedef {{ turnId: string, model: string, cause: string, reruns: { count: number } }} FailedTurn */
+
 // Everything the hooks change between events, in one object `register()` creates and passes to its helpers. Module
 // variables, not $.state: a reload starts them over, and the view is written through to $.state as it changes.
 function createRouter(options) {
@@ -303,6 +310,13 @@ function createRouter(options) {
     lastRequested: /** @type {string | null} */ (null),
     // The latest main turn's id: `StopFailure` carries none, and its failure row belongs to that turn.
     mainTurnId: /** @type {string | null} */ (null),
+    // The main turn whose API error held something, and the main turn that completed on an error: the engine raises
+    // StopFailure and turn.complete in either order, so whichever comes second runs the turn again (rerunTurn). And
+    // how many re-runs in a row were queued: a turn that ends any other way starts a new count, so a failure or a
+    // rejected submit that belongs to the old one leaves the new one alone.
+    failedTurn: /** @type {FailedTurn | null} */ (null),
+    erroredTurn: /** @type {string | null} */ (null),
+    reruns: { count: 0 },
     decisionRecord: null,
     trace: /** @type {TraceHold | null} */ (null),
     traceFreshSession: null,
@@ -314,7 +328,9 @@ function createRouter(options) {
     traceFlushing: /** @type {Promise<void> | null} */ (null),
     traceDue: /** @type {Set<() => void>} */ (new Set()),
     // The account holds a turn read (accountHoldsOf), by the accounts' names; null to read them again.
-    accountHolds: /** @type {{ id: string, value: Record<string, unknown> } | null} */ (null),
+    accountHolds: /** @type {{ id: string, value: Record<string, import('../lib/failover.mjs').Hold> } | null} */ (
+      null
+    ),
     // The auto|manual mode this process last wrote or read for each session, so a turn does not write it again.
     storedModes: /** @type {Map<string, string>} */ (new Map()),
     // The read of the counts kept across sessions in progress (readLedgers), a refresh of them due from a timer
@@ -1862,7 +1878,7 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
   const sessionId = await $.session.id();
   if (turn.config.routingEngine === 'shadow')
     traceRequest(router, e, turn, e, reason === 'manual' ? 'manual' : 'auto', loop);
-  const response = yield* next(e);
+  const response = yield* sendMain($, router, e, next, turn.config);
   if (!next.signal.aborted && (await $.session.id()) === sessionId) {
     const at = Date.now();
     const cfg = auto ? turn.config : router.config;
@@ -2097,7 +2113,7 @@ async function decideTurn($, router, e, signal, step) {
       router.turnConfigs.set(e.turnId, { config: { ...cfg, routingMode: step.cfg.routingMode }, configured: cfg });
     // A keyword is read from a prompt a person or an agent sent, never from a progress report or a pinned turn.
     const keyword = pin || isProgressOrigin(origin) ? null : promptKeyword(router.prompts.get(e.turnId));
-    const accountHolds = await accountHoldsOf($, cfg, router);
+    const accountHolds = await routingHoldsOf($, cfg, router);
     const traceInput = {
       facts,
       advice: result.advice,
@@ -2146,7 +2162,8 @@ async function decideTurn($, router, e, signal, step) {
       $.ui.toast('Auto cannot rank models: declare models.<alias>.capability; selection falls back to cheapest.');
     }
     rememberGoal(router, e.turnId, result.advice, cfg.policy.continuationMass, messages);
-    const holds = { accounts: traceInput.accountHolds, models: selected.held ?? {} };
+    // Every hold, a due one too: routing may try that account, while the pane still lists it and offers its Release.
+    const holds = { accounts: await accountHoldsOf($, cfg, router), models: selected.held ?? {} };
     if (previous?.model && previous.model !== selected.decision.model && !selected.decision.pinned)
       $.ui.toast(
         switchToast(
@@ -2292,7 +2309,7 @@ async function moveOnObserved($, router, cfg, loop, e, context) {
   const observed = routingBucket(
     observedActivity(messages, Math.max(promptIndex(messages), (loop.observedFrom ?? 0) - 1)),
   );
-  const observedHolds = await accountHoldsOf($, cfg, router);
+  const observedHolds = await routingHoldsOf($, cfg, router);
   const now = Date.now();
   const traceInput = {
     observed,
@@ -2348,7 +2365,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
     const advice =
       messages.length === review.observedUpTo ? review.answer.advice : { ...review.answer.advice, phase: null };
     const facts = { ...stepFacts(cfg, router, loop, e, messages, context), midTurn: true };
-    const reviewHolds = await accountHoldsOf($, cfg, router);
+    const reviewHolds = await routingHoldsOf($, cfg, router);
     const traceInput = {
       facts,
       advice,
@@ -3160,7 +3177,11 @@ async function* stepAgent($, router, e, next) {
   // The model this agent's request ran, for a failure's hold: StopFailure names no model and `lastRequested` is the
   // main conversation's request.
   if (typeof e.model === 'string') router.agentRequests.set(e.agentId, e.model);
+  const sentAt = Date.now();
+  const sentHolds = router.accountHolds?.value;
   const response = yield* next(e);
+  if (response?.usage)
+    await endAnsweredHold($, router, router.config, e.model, response.usage, { at: sentAt, holds: sentHolds });
   if (router.agents.has(e.agentId) && response?.usage) {
     try {
       const ttl = await subagentTtlOf($);
@@ -3690,7 +3711,142 @@ function configurationError(error) {
   return error.message === 'selected provider router file is missing' ? error.message : 'invalid router configuration';
 }
 
-async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, sessionId, nativeModel, turn }) {
+// A request's stream with the engine's own items kept in `withheld` until the first item of an answer, which passes
+// them on first. A failed request streams those items alone, and passing them on records its API error in the turn
+// (and opens Claude Code's usage-limit menu): one sent again leaves them out.
+async function* untilAnswered(stream, withheld) {
+  let answering = false;
+  let item;
+  try {
+    item = await stream.next();
+    while (!item.done) {
+      if (!answering && item.value.kind === 'engine') withheld.push(item.value);
+      else {
+        if (!answering) yield* withheld.splice(0);
+        answering = true;
+        yield item.value;
+      }
+      item = await stream.next();
+    }
+    return item.value;
+  } finally {
+    // Read by hand, so, unlike under `yield*`, a caller that stops early closes the stream only here.
+    if (!item?.done) await stream.return?.(undefined);
+  }
+}
+
+// A main request on its way to the API. A reply ends a hold on the account of its model; a request to an account whose
+// probe is due is that probe, and one that gets no reply (a failed request resolves empty) waits longer for the next.
+// With `withheld`, the failed request's engine items wait there for the caller (untilAnswered).
+/** @param {unknown[] | null} [withheld] */
+async function* sendMain($, router, request, next, cfg, withheld = null) {
+  const sentAt = Date.now();
+  // Taken now: opening the pane before the reply drops the turn's reading (readHolds).
+  const sentHolds = router.accountHolds?.value;
+  const probe = dueProbeOf(router, cfg, request.model, sentAt);
+  const response = withheld ? yield* untilAnswered(next(request), withheld) : yield* next(request);
+  if (response?.usage)
+    await endAnsweredHold($, router, cfg, request.model, response.usage, { at: sentAt, holds: sentHolds });
+  else if (probe && response?.stopReason === null && !next.signal.aborted)
+    await rescheduleProbe($, router, probe.account);
+  return response;
+}
+
+// What a main request to `model` tries again: its account, held with a probe due, or the model itself, whose
+// availability hold ended with no answer since. Null for a model with no failure to try again.
+function probationOf(router, cfg, loop, model, now) {
+  const probe = dueProbeOf(router, cfg, model, now);
+  const key = heldKey(loop.held, model);
+  const hold = key === undefined ? undefined : loop.held[key];
+  const ended = hold?.kind === 'availability' && !isActive(hold, now) ? { key, hold } : null;
+  return probe || ended ? { probe, ended } : null;
+}
+
+// The route of the second request for a step whose try of a model on probation got no reply: the model or its account
+// is held again and the step's route is computed around it. Null when no other model can serve, and the failure stands.
+// Only a model on probation: a step does not see why a request failed, so any other failure ends the turn, where
+// StopFailure names it, and a request the provider refused is not sent to another model.
+async function standInStep($, router, e, { cfg, loop, failed, probation, nativeModel, context, availableModels }) {
+  try {
+    const { probe, ended } = probation;
+    const now = Date.now();
+    const held = ended
+      ? holdModel(loop.held, ended.key, { kind: 'availability', scope: 'model', until: null }, ended.hold.error, now)
+      : loop.held;
+    const holds = await routingHoldsOf($, cfg, router);
+    // The probed account stays held for this step even when its next probe could not be written.
+    const accountHolds = probe ? { ...holds, [probe.account]: probe.hold } : holds;
+    const messages = await transcript($);
+    const input = {
+      nativeModel,
+      contextTokens: context.tokens,
+      contextKnown: context.known,
+      availableModels,
+      effort: e.effort,
+      // An unreadable transcript cannot establish that a stand-in without image input is safe.
+      hasImages: messages === null || hasImages(messages),
+      accountHolds,
+      now,
+    };
+    const renewed = { ...loop, held };
+    const moved = continueRoute(cfg, renewed, input);
+    const { model } = moved.decision;
+    if (isSameModel(model, failed) || !canTakeOver(cfg, renewed, model, input)) return null;
+    return moved;
+  } catch {
+    return null;
+  }
+}
+
+// The model holds a failed try renewed, written before the stand-in is sent: an aborted stand-in writes no reply, and
+// the next turn would try the failed model at once. Returns the loop and the version its reply is written at, or null
+// when the write did not succeed: the loop the stand-in was chosen from may be stale, and the stand-in held by now.
+async function keepRenewedHold($, router, loop, held, loopVersion) {
+  const renewed = { ...loop, held };
+  const written = await $.state.set({ ...LOOP, id: 'main' }, renewed, { ifVersion: loopVersion }).catch(() => null);
+  if (!written?.isSet) return null;
+  const shown = /** @type {import('../lib/holds.mjs').HoldSet | null | undefined} */ (router.view?.holds);
+  if (shown) await updateView($, router, { holds: { ...shown, models: held } }).catch(() => {});
+  return { loop: renewed, loopVersion: written.version };
+}
+
+// The row, toast and view of a step sent again as `decision` routes it. Everything but the view's save is done when it
+// returns, so nothing waits between the caller's checks and its request.
+function announceStandIn($, router, e, { cfg, decision, failed, probation, context }) {
+  const { probe, ended } = probation;
+  const { model, effort } = decision;
+  addDecision(
+    router,
+    e.turnId,
+    failureRow({
+      at: Date.now(),
+      failure: probe ? probe.hold.kind : 'availability',
+      scope: probe ? 'account' : 'model',
+      held: probe ? probe.account : ended.key,
+      route: `${model}@${effort ?? 'session'}`,
+    }),
+  );
+  $.ui.toast(`${modelName(failed)} still limited → ${modelName(model)}`);
+  return updateView($, router, continuationView(cfg, decision, context)).catch(() => {});
+}
+
+// Whether routing is off now: unavailable, or turned off, which can happen while a request is on its way.
+async function routingOff($, router) {
+  const view = router.view;
+  return view?.phase === 'unavailable' || (await modeOf($, router, view?.mode)) === 'manual';
+}
+
+// The step's request as `decision` routes it.
+function routedRequest(e, decision) {
+  const request = { ...e, model: decision.model };
+  if (decision.effort === null) delete request.effort;
+  else request.effort = decision.effort;
+  return request;
+}
+
+async function* sendRouted($, router, e, next, step) {
+  const { cfg, sessionId, nativeModel, context, availableModels, turn } = step;
+  let { loop, loopVersion } = step;
   const pinPresses = router.turnPins.get(e.turnId);
   if (pinPresses !== undefined) {
     router.turnPins.delete(e.turnId);
@@ -3698,15 +3854,45 @@ async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, session
   }
   if (cfg.routingEngine === 'auto' && !loop.decision.route)
     return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'no-route-native', router);
-  const request = { ...e, model: loop.decision.model };
-  if (loop.decision.effort === null) delete request.effort;
-  else request.effort = loop.decision.effort;
+  let request = routedRequest(e, loop.decision);
   // Read again, not `turn`: a pinned turn's decision (decideTurn) fixed its pin's configs during this step.
   const traced = cfg.routingEngine === 'shadow' && !next.signal.aborted && (await $.session.id()) === sessionId;
   if (traced) traceRequest(router, e, router.turnConfigs.get(e.turnId) ?? turn, request, 'auto', loop);
   // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
   router.lastRequested = request.model;
-  const response = yield* next(request);
+  // `auto` keeps a failed step as it is: its turn ends, and the failure holds what it names.
+  const probation = cfg.routingEngine === 'auto' ? null : probationOf(router, cfg, loop, request.model, Date.now());
+  // Only a request on probation can be sent again, so only its failure's items are held back.
+  const withheld = probation ? /** @type {unknown[]} */ ([]) : null;
+  let response = yield* sendMain($, router, request, next, cfg, withheld);
+  const unanswered = response?.stopReason === null && response.usage === null;
+  if (probation && unanswered && !next.signal.aborted && (await $.session.id()) === sessionId) {
+    const failed = request.model;
+    const retry = { cfg, loop, failed, probation, nativeModel, context, availableModels };
+    let moved = await standInStep($, router, e, retry);
+    if (moved && probation.ended) {
+      const kept = await keepRenewedHold($, router, loop, moved.held, loopVersion);
+      if (kept) ({ loop, loopVersion } = kept);
+      else moved = null;
+    }
+    if (moved) {
+      // Read last: routing turned off or a new session since the try sends the conversation nowhere else.
+      const live = (await $.session.id()) === sessionId && !(await routingOff($, router));
+      if (live && !next.signal.aborted) {
+        withheld?.splice(0);
+        loop = moved;
+        request = routedRequest(e, loop.decision);
+        // A trace holds one request per step, so a replay cannot follow this one.
+        traceGap(router, cfg.routingEngine);
+        router.lastRequested = request.model;
+        const published = announceStandIn($, router, e, { ...retry, decision: loop.decision });
+        response = yield* sendMain($, router, request, next, cfg);
+        await published;
+      }
+    }
+  }
+  // Not sent again: the failure stands as Claude Code reported it.
+  if (withheld?.length) yield* withheld.splice(0);
   if (!next.signal.aborted && (await $.session.id()) === sessionId)
     await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
   // A traced request stopped before its reply is recorded as unanswered when the turn is written (settleTrace). One
@@ -3900,7 +4086,7 @@ async function* mainStep($, router, e, next) {
     // A review answer applies first, so tool calls made after its snapshot can still move the route up.
     loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
     loop = await moveOnObserved($, router, cfg, loop, e, context);
-    const stepHolds = await accountHoldsOf($, cfg, router);
+    const stepHolds = await routingHoldsOf($, cfg, router);
     const traceInput = {
       hasImages: cfg.routingEngine === 'auto' ? false : await imagesOf($, cfg, loop.decision),
       nativeModel,
@@ -3924,7 +4110,8 @@ async function* mainStep($, router, e, next) {
     (next.signal.aborted || (await $.session.id()) !== sessionId || (await modeOf($, router)) !== 'auto')
   )
     return yield* next(e);
-  return yield* sendRouted($, router, e, next, { cfg, loop, loopVersion, sessionId, nativeModel, turn });
+  const step = { cfg, loop, loopVersion, sessionId, nativeModel, context, availableModels, turn };
+  return yield* sendRouted($, router, e, next, step);
 }
 
 async function initializeSession($, router) {
@@ -4029,6 +4216,8 @@ async function noticeUnavailable($, router, e) {
 }
 
 const MODEL_SELECTED_MANUALLY = 'model selected manually';
+// The most turns in a row that an API error ended which the router runs again on its own.
+const MAX_RERUNS = 2;
 const MANUAL_SWITCH_SOURCES = new Set(['picker', 'sdk']);
 
 // A person chose the session's model: routing turns off and keeps it.
@@ -4037,26 +4226,38 @@ async function keepChosenModel($, router, reason) {
   await updateView($, router, { nativeModel: await $.session.model(), ...(reason ? { reason } : {}) });
 }
 
+// The request an API error ended, read as `StopFailure` arrives: by the time its hold is written, the next turn can
+// have started. Null for an agent whose request is unknown.
+function failedRequestOf(router, e) {
+  if (e.agent_id === undefined) return { agent: false, turnId: router.mainTurnId, model: router.lastRequested };
+  const model = router.agentRequests.get(e.agent_id);
+  return model === undefined ? null : { agent: true, turnId: null, model };
+}
+
 // A turn ended on an API error (`StopFailure`): the request is lost, and Claude Code reports neither the model nor a
 // retry-after. The failure goes into the turn's decision rows with what Claude Code gave and the plan's readings, then
 // classifies (classifyFailure) and holds: an error that is the model's holds the model the last request ran, which can
 // be a stand-in, out of routing for a while in the loop; a used-up quota holds its account in $.store, where every
 // session and restart sees it (lib/failover.mjs). Every engine holds: table and shadow stand a stand-in in for the held
-// route, auto excludes the held model from its candidates. An agent's failure names its model (`agentModel`) and holds
-// it too, but belongs to the agent's turn: the main turn's decision rows are not where its evidence goes.
-async function holdFailedModel($, router, e, agentModel = null) {
+// route, auto excludes the held model from its candidates. `failedRequest` names the model and the main turn as the
+// failure found them (failedRequestOf). An agent's failure holds its model too, but belongs to the agent's turn: the
+// main turn's decision rows are not where its evidence goes.
+async function holdFailedModel($, router, e, failedRequest) {
   // A failed hold changes no route; the turn's result stands.
   try {
     if (!(await ensureInitialized($, router))) return;
     const { config } = router;
-    const model = agentModel ?? router.lastRequested ?? (await $.session.model());
+    const { agent, turnId } = failedRequest;
+    const model = failedRequest.model ?? (await $.session.model());
     const usage = await $.session.usage().catch(() => null);
     const limits = planLimits(usage);
     const now = Date.now();
     const account = accountOfModel(config, model);
+    // Some failures, a spend cap among them, carry no error_details: only the synthetic message names the cause.
+    const details = [e.error_details, e.last_assistant_message].find((text) => typeof text === 'string' && text !== '');
     const failure = classifyFailure({
       error: e.error,
-      details: e.error_details,
+      details,
       limits,
       billing: billingOf(config, usage),
       planAccounts: planAccountsOf(config),
@@ -4071,16 +4272,22 @@ async function holdFailedModel($, router, e, agentModel = null) {
             () => null,
           );
     if (held) await updateView($, router, { holds: await holdsAfter($, router, held.models) });
-    if (agentModel !== null) return;
-    const turnId = router.mainTurnId;
-    if (turnId === null) return;
+    if (agent || turnId === null) return;
+    if (held?.hold) {
+      const failed = { turnId, model, cause: holdCause(held.hold), reruns: router.reruns };
+      // turn.complete came first. A StopFailure hook may not submit a prompt (it would wait on the turn), so a timer does.
+      if (router.erroredTurn === turnId) {
+        router.erroredTurn = null;
+        $.clock.after(0, () => rerunTurn($, router, failed).catch(() => {}));
+      } else router.failedTurn = failed;
+    }
     addDecision(
       router,
       turnId,
       failureRow({
         at: now,
         error: e.error,
-        details: e.error_details,
+        details,
         limits,
         failure: held ? failure.kind : null,
         scope: held ? failure.scope : null,
@@ -4110,6 +4317,68 @@ async function accountHoldsOf($, cfg, router = null) {
   const value = Object.fromEntries(read.filter(([, hold]) => hold));
   if (router) router.accountHolds = { id, value };
   return value;
+}
+
+// The account holds main routing skips: one whose probe is due is left out, so a main turn may try its account.
+// Spawns, the pane, the band and `/router holds` read every hold.
+async function routingHoldsOf($, cfg, router) {
+  const holds = await accountHoldsOf($, cfg, router);
+  const due = dueProbes(holds, Date.now());
+  return Object.fromEntries(Object.entries(holds).filter(([account]) => !due.includes(account)));
+}
+
+// The running hold, with a probe due, on `model`'s account among those already read, so a request to `model` is the
+// probe; or null. Never a store read.
+function dueProbeOf(router, cfg, model, now) {
+  const account = accountOfModel(cfg, model);
+  const hold = account === null ? undefined : router.accountHolds?.value[account];
+  return account !== null && hold && dueProbes({ [account]: hold }, now).length > 0 ? { account, hold } : null;
+}
+
+// `account`'s hold as now known, in the holds read for this turn and in the view; null when it has none.
+async function showAccountHold($, router, account, hold) {
+  const patched = (holds) => (hold ? { ...holds, [account]: hold } : releaseHold(holds, account));
+  const read = router.accountHolds;
+  if (read) router.accountHolds = { ...read, value: patched(read.value) };
+  const shown = /** @type {import('../lib/holds.mjs').HoldSet | null | undefined} */ (router.view?.holds);
+  if (shown) await updateView($, router, { holds: { ...shown, accounts: patched(shown.accounts) } });
+}
+
+// A model of a held account answered: the limit was raised or reset early. `sent` is when the request left and the
+// account holds read by then; a reply never waits on a store read for one it did not have. A dated snapshot is the
+// requested model, and any other reply names the model, and so the account, that answered. The store is read before the
+// delete, as another session may have held the account again since; only a reply that ends a hold pays that.
+async function endAnsweredHold($, router, cfg, model, usage, sent) {
+  try {
+    if (!usage.model) return;
+    const account = accountOfModel(cfg, isSameModel(model, usage.model) ? model : usage.model);
+    const hold = account === null ? undefined : sent.holds?.[account];
+    if (!hold || !isActive(hold, Date.now())) return;
+    // Another reply ended it meanwhile. No reading at all says nothing: opening the pane drops it.
+    if (router.accountHolds && !router.accountHolds.value[account]) return;
+    // The view and the turn's holds drop it before the delete, so a reply that lands meanwhile does not end it again.
+    // A view that cannot be saved still lets the stored hold go.
+    await showAccountHold($, router, account, null).catch(() => {});
+    const store = `${HOLDS_PREFIX}${account}`;
+    const current = readHold(await $.store.get(store));
+    if (!current) return;
+    if (current.since > sent.at) return await showAccountHold($, router, account, current);
+    await $.store.delete(store);
+    $.ui.toast(`${accountLabel(account)} answered again: routing may use it`);
+  } catch {}
+}
+
+// A probe got no reply. The hold is read again: another session may have released it or already put its probe off.
+async function rescheduleProbe($, router, account) {
+  try {
+    const store = `${HOLDS_PREFIX}${account}`;
+    const current = readHold(await $.store.get(store));
+    const now = Date.now();
+    const due = current !== null && dueProbes({ [account]: current }, now).length > 0;
+    const hold = due ? probeFailed(current, now) : current;
+    if (due) await $.store.set(store, hold);
+    await showAccountHold($, router, account, hold);
+  } catch {}
 }
 
 // The holds in force now, as the pane, the band and `/router holds` read them: each account's from $.store and the models'
@@ -4142,7 +4411,7 @@ async function writeHold($, scope, key, hold, keepRunning = false) {
   const ref = { ...LOOP, id: 'main' };
   const { value: loop, version } = await $.state.get(ref);
   if (!loop) return { models: null };
-  if (runs(loop.held?.[key])) return null;
+  if (runs(loop.held?.[heldKey(loop.held, key) ?? key])) return null;
   const held = hold ? { ...loop.held, [key]: hold } : releaseHold(loop.held, key);
   if (!(await $.state.set(ref, { ...loop, held }, { ifVersion: version })).isSet)
     throw new Error('the hold changed while it was written');
@@ -4202,9 +4471,11 @@ async function releaseCommand($, router, word) {
   return found.row ? releaseHeld($, router, found.row) : found.text;
 }
 
-// Holds `key`, the account or model a failure names, and returns it, or null when nothing was held. $.store has no
-// atomic update, so two sessions that fail together can each write their own hold; the later write stands, and both
-// say the same account is out.
+const accountLabel = (account) => (account === PLAN_ACCOUNT ? 'Claude plan' : account);
+
+// Holds `key`, the account or model a failure names, and returns it with the hold now on it, or null when nothing was
+// held. $.store has no atomic update, so two sessions that fail together can each write their own hold; the later write
+// stands, and both say the same account is out.
 async function applyHold($, router, failure, error, key, now) {
   if (failure.scope === 'account') {
     const store = `${HOLDS_PREFIX}${key}`;
@@ -4214,8 +4485,8 @@ async function applyHold($, router, failure, error, key, now) {
     router.accountHolds = null;
     if (hold !== running) await $.store.set(store, hold);
     if ((await modeOf($, router)) === 'auto')
-      $.ui.toast(`${key === PLAN_ACCOUNT ? 'Claude plan' : key} held out of routing: ${holdText(hold, now)}`);
-    return { key, models: null };
+      $.ui.toast(`${accountLabel(key)} held out of routing: ${holdText(hold, now)}`);
+    return { key, hold, models: null };
   }
   const ref = { ...LOOP, id: 'main' };
   // A write that lost to another holds nothing: reads are frozen for the event, so reading the loop again would only
@@ -4226,10 +4497,63 @@ async function applyHold($, router, failure, error, key, now) {
   const held = holdModel(loop.held, key, failure, error, at);
   const written = await $.state.set(ref, { ...loop, held }, { ifVersion: version });
   if (!written.isSet) return null;
-  const hold = activeHolds(held, at)[key];
+  const hold = activeHolds(held, at)[heldKey(held, key) ?? key];
   if (hold && (await modeOf($, router)) === 'auto')
     $.ui.toast(`${modelName(key)} held out of routing: ${holdText(hold, at)}`);
-  return { key, models: held };
+  return { key, hold, models: held };
+}
+
+// Whether routing is on and a turn run again can go to a model not held now: `auto` picks from the whole catalog the
+// session may select; `table` and `shadow` reach only what their routes select, or the session model.
+async function canRerun($, router) {
+  const [{ accounts, models }, settings, nativeModel, { config }] = await Promise.all([
+    readHolds($, router),
+    $.settings.read().catch(() => null),
+    $.session.model(),
+    turnConfigOf($, router),
+  ]);
+  // Settings that cannot be read may hold an availableModels list. The mode is read last, after the waits.
+  if (!settings || (await routingOff($, router))) return false;
+  const held = heldIds(config, models, accounts, Date.now());
+  const free = (model) => !held.some((id) => isSameModel(id, model));
+  const usable = (model) => isModelAllowed(model, settings.availableModels, nativeModel) && free(model);
+  if (config.routingEngine === 'auto') return Object.values(config.models).some((spec) => usable(spec.id));
+  return free(nativeModel) || selectableModels(config, held).some(usable);
+}
+
+// A main turn's end: one that an API error ended runs again once its StopFailure has held the cause, now or when the
+// StopFailure comes later; any other end starts a new count of re-runs.
+async function completeFailedTurn($, router, e) {
+  const failed = router.failedTurn;
+  router.failedTurn = null;
+  if (e.reason !== 'error') {
+    router.erroredTurn = null;
+    router.reruns = { count: 0 };
+    return;
+  }
+  if (failed?.turnId === e.turnId) return rerunTurn($, router, failed);
+  router.erroredTurn = e.turnId;
+}
+
+// A main turn that an API error ended, after the router held its cause, is run again as a new prompt, so the work goes on
+// without the person; at most MAX_RERUNS in a row, as a task that fails on every model would never stop.
+/** @param {FailedTurn} failed */
+async function rerunTurn($, router, failed) {
+  const { reruns } = failed;
+  if (!(await canRerun($, router)) || reruns !== router.reruns) return;
+  if (reruns.count >= MAX_RERUNS) {
+    $.ui.toast(`Stopped retrying after ${MAX_RERUNS} re-runs in a row: ${failed.cause}`);
+    return;
+  }
+  reruns.count += 1;
+  $.ui.toast(`Retrying on another model: ${failed.cause}`);
+  const text = `The last request failed on ${modelName(failed.model)} (${failed.cause}), so the router held it out of routing. Continue the task from where it stopped.`;
+  // Not awaited: it resolves when the queued turn starts, which waits for this turn.complete to return.
+  $.prompt.submit({ text }).catch((error) => {
+    // Nothing was queued, so it does not count.
+    reruns.count -= 1;
+    $.ui.log(`router re-run not queued: ${error}`, { to: 'debug' });
+  });
 }
 
 async function ensureInitialized($, router) {
@@ -4292,6 +4616,9 @@ async function startSession($, router, e) {
   router.lastRoute = null;
   router.lastRequested = null;
   router.mainTurnId = null;
+  router.failedTurn = null;
+  router.erroredTurn = null;
+  router.reruns = { count: 0 };
   router.initialized = false;
   router.loadFailed = false;
   router.noticeSurfaces.clear();
@@ -4397,18 +4724,16 @@ export function register(on, options) {
   on('turn.complete', async ($, e, next) => {
     // The router's bookkeeping never keeps the turn from completing.
     await completeTurn($, router, e).catch(() => {});
+    if (e.agentId === undefined) await completeFailedTurn($, router, e).catch(() => {});
     return next(e);
   });
 
-  // Since 2.1.296 (present at the 2.1.321 floor): a turn that ended on an API error. A subagent's holds the model its
+  // Since 2.1.296 (present at the floor): a turn that ended on an API error. A subagent's holds the model its
   // agent ran, when that request is known. A hook failure leaves the event to the hooks beneath, as without the router.
   on('classic.StopFailure', async ($, e, next) => {
+    const failed = failedRequestOf(router, e);
     const result = await next(e);
-    if (e.agent_id === undefined) await holdFailedModel($, router, e);
-    else {
-      const agentModel = router.agentRequests.get(e.agent_id) ?? null;
-      if (agentModel !== null) await holdFailedModel($, router, e, agentModel);
-    }
+    if (failed) await holdFailedModel($, router, e, failed);
     return result;
   }).catch((_$, e, next) => next(e));
 

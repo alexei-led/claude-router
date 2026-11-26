@@ -1,5 +1,6 @@
 import type { PluginState } from 'claude-code';
 import { expect, mock, test } from 'claude-code/testing';
+import { MIN_CLAUDE_CODE } from '../lib/config.mjs';
 
 type View = PluginState['router']['view'];
 
@@ -12,7 +13,7 @@ test('floor panes Save, Clear and Undo scoped routing without writing configurat
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 1_000_000 }, rateLimits: [] } }));
   on('session.start', (_$, e) => ({ cwd: e.cwd }));
   on('session.root', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.321' } }));
+  on('session.version', () => ({ value: { version: MIN_CLAUDE_CODE } }));
   on('settings.read', () => ({ value: {} }));
   on('command.register', () => ({ value: { command: 'router' } }));
   on('ui.log', () => ({ value: undefined }));

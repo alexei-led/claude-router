@@ -1,19 +1,20 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
+import { MIN_CLAUDE_CODE } from '../lib/config.mjs';
 import { CONFIG, harness, JEV_KEY } from './harness.mjs';
 
 const REPL = { cwd: '/fixture', surface: 'terminal', isInteractive: true };
 const DAY = 24 * 60 * 60 * 1000;
 
 const CAUSES = {
-  'an old Claude Code': (h) => h.version('2.1.289'),
+  'an old Claude Code': (h) => h.version('0.0.0'),
   'v0.8 gateway settings': (h) => h.env.set('ANTHROPIC_BASE_URL', 'http://127.0.0.1:43170'),
   'a router.json that does not load': (h) => h.files.set(CONFIG, '{'),
 };
 
 test('a session that starts with routing unavailable toasts why, once', async () => {
   const wording = {
-    'an old Claude Code': /requires Claude Code 2\.1\.321 or newer/,
+    'an old Claude Code': /requires Claude Code \d+\.\d+\.\d+ or newer/,
     'v0.8 gateway settings': /v0\.8 gateway settings remain/,
     'a router.json that does not load': /invalid router configuration/,
   };
@@ -41,7 +42,7 @@ test('the same cause toasts again only after a day, each cause on its own clock'
     mock.timers.setTime(1_000_000 + DAY);
     await h.event('session.start', REPL);
     assert.equal(h.toasts.length, 2);
-    h.version('2.1.321');
+    h.version(MIN_CLAUDE_CODE);
     CAUSES['v0.8 gateway settings'](h);
     await h.event('session.start', REPL);
     assert.equal(h.toasts.length, 3);

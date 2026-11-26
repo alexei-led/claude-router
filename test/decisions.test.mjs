@@ -618,6 +618,19 @@ test('a stored failure row with text over 300 characters or a reading that is no
   assert.equal(row?.err, 'rate_limit');
 });
 
+test('a failure row for a step sent again keeps and lists the stand-in’s route', () => {
+  const row = failureRow({
+    at: T,
+    failure: 'calendar',
+    scope: 'account',
+    held: 'plan',
+    route: 'glm-5.3[1m]@max',
+  });
+  assert.deepEqual(readDecisions({ version: 1, since: T, rows: [row] }).rows, [row]);
+  const [line] = decisionLines([row]);
+  assert.match(line ?? '', /failure +no reply {2}calendar held account plan {2}-> glm-5\.3\[1m\]@max$/);
+});
+
 test('a failure row is listed with what it held and never its text', () => {
   const [held, nothing] = decisionLines([
     failureRow({ at: T, error: 'rate_limit', details: 'secret', failure: 'window', scope: 'account', held: 'plan' }),

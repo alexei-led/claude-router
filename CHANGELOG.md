@@ -14,6 +14,30 @@
 - **`-fast` models use their base model's evidence.** A model ID ending in `-fast` with no evidence overlay entry of its own takes the entry of the same ID without `-fast`, for example `GLM-5.3-fast` and `Kimi-K3.1-Pro-fast`. Prices still come from the profile.
 - **Replay traces stay usable.** Shadow replay traces are stored about 5 times smaller, as `trace:v3:` records, and a session may hold 512 KiB (was 128 KiB): about 200 turns at 8 requests a turn. A refused or failed write, an interrupted request or a turn left unfinished at exit no longer makes the whole session unusable. A reload or resume stops the recording and keeps the earlier turns usable. A recorder failure while appending a turn marks the session incomplete, and a packed record with fields from a later version is rejected. Older `trace:v1` and `trace:v2` records and exports still replay.
 
+## 1.32.1 (2026-11-26)
+
+### Summary
+
+A patch release that keeps a session working when a provider's quota runs out. A spend or usage limit now holds every model of its account until the limit resets, instead of one model for a few minutes, so routing stops sending turns that fail. The account is tried again on a backoff and released when it answers; a failed try is sent to the fallback model inside the same step, and a turn an API error ended is run again on another model. Checked live on a real enterprise spend limit. Claude Code 2.1.332 or newer is now required.
+
+### Upgrade
+
+1. Update Claude Code to 2.1.332 or newer. An older build shows routing unavailable and keeps Claude's model.
+2. Run `/reload-plugins` or restart each running session.
+3. For an account with a monthly spend limit, set its reset in `router.json`, such as `"accounts": { "work-claude": { "reset": { "monthly": 1, "tz": "UTC" } } }`, so a spend-limit hold lasts until then. Without it the hold lasts 24 hours, and the account is tried again on the backoff either way.
+
+### Changed
+
+- **Claude Code 2.1.332 or newer is required** (was 2.1.321): the failover below was checked on it. An older build shows routing unavailable and keeps Claude's model.
+
+### Fixed
+
+- **A spend cap holds its account.** The router now reads the error message Claude Code shows when the failure has no error details, so "You've hit your individual spend limit" holds the account until its reset (`accounts.<name>.reset`, else 24 hours) instead of the one model for a few minutes. More quota texts are recognised, and a message that names a plan window (session, 5-hour or weekly limit) is never read as a spend cap or an empty balance (a `billing_error` still holds its account as a balance).
+- **A spend cap or empty balance is tried again.** After 1 hour, then 2, 4, 8, 16 and 24 hours, one main turn may try the held account again; an answer from any of its models, a subagent's included, in a turn with routing on ends the hold. `/router holds`, the pane and the hold notice show the next try. A hold written by 1.32.0 has no next try and ends as before.
+- **A failed try does not end the turn.** Under `table` and `shadow`, when a due try of a held account, or the first request to a model after its availability hold ended, gets no reply, the router holds it again and, with routing still on and a stand-in that can take the conversation, sends the same step once to it, with a toast such as "Opus 5.5 still limited → GLM 5.3". The failed try leaves no error in the conversation and does not open Claude Code's usage-limit menu. A model with no earlier failure is not sent again.
+- **A stand-in inside a turn has room for the conversation.** When the turn runs your session model with no tier, a stand-in with a smaller window than that model's, or too little room for the estimated context, is no longer chosen.
+- **A turn that an API error ended is run again.** When the router holds something for a failed main turn and another model that routing can use is free, it submits a prompt that says which model failed and asks to continue, with the toast "Retrying on another model: spend limit". At most 2 re-runs follow each other; after that a toast says it stopped. In the terminal, Claude Code's own usage-limit menu, shown once per limit, drops that prompt; the account stays held, so your next prompt runs on another model.
+
 ## 1.32.0 (2026-11-26)
 
 ### Summary

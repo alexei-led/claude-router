@@ -1,11 +1,26 @@
 import { expect, mock, test } from 'claude-code/testing';
+import { MIN_CLAUDE_CODE } from '../lib/config.mjs';
 import { jevResponse, user } from './helpers.mjs';
 
 type Engine = Parameters<Parameters<typeof test>[1]>;
 
+// One whole step of a subagent's request.
+async function agentStep($: Engine[0], model = 'claude-haiku-5-5') {
+  const stream = $.turn.step({ turnId: 'a1-t', agentId: 'a1', index: 0, model, effort: 'medium', messageCount: 1 });
+  let result = await stream.next();
+  while (!result.done) result = await stream.next();
+}
+
 // An Opus session whose classifier answers medium: the models each step sent, the toasts, the loop's holds, and one
 // whole turn.
-function session($: Engine[0], on: Engine[1], rateLimits: object[] = []) {
+// A model in `failing` gets no reply, as a failed request resolves in a step.
+function session(
+  $: Engine[0],
+  on: Engine[1],
+  rateLimits: object[] = [],
+  file?: object,
+  failing: ReadonlySet<string> = new Set(),
+) {
   const store = new Map<string, unknown>();
   on('store.get', (_$, e) => ({ value: store.get(e.key) }));
   on('store.set', (_$, e) => {
@@ -27,12 +42,13 @@ function session($: Engine[0], on: Engine[1], rateLimits: object[] = []) {
     return { value: { isSet: true, version: previous + 1 } };
   });
   mock.env(on, { HOME: '/fixture', CLAUDE_CONFIG_DIR: '/fixture/team', TYPESAFE_API_KEY: 'synthetic-key' });
-  on('fs.exists', () => ({ value: false }));
+  on('fs.exists', (_$, e) => ({ value: file !== undefined && e.path === '/fixture/team/router.json' }));
+  on('fs.read', () => ({ value: JSON.stringify(file) }));
   on('command.register', () => ({ value: { command: 'router' } }));
   on('session.id', () => ({ value: 'native-failover' }));
   on('session.model', () => ({ value: 'claude-opus-5-5' }));
   on('session.cwd', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.321' } }));
+  on('session.version', () => ({ value: { version: MIN_CLAUDE_CODE } }));
   on('session.messages', () => ({ value: [user('Synthetic task.')] }));
   on('session.usage', () => ({
     value: { context: { tokens: 8000, breakdown: { totalTokens: 8000 } }, rateLimits },
@@ -60,6 +76,8 @@ function session($: Engine[0], on: Engine[1], rateLimits: object[] = []) {
   on('turn.step', async function* (_$, e) {
     sent.push(e.model);
     yield* [];
+    if (failing.has(e.model))
+      return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: null, usage: null };
     return {
       turnId: e.turnId,
       index: e.index,
@@ -75,15 +93,32 @@ function session($: Engine[0], on: Engine[1], rateLimits: object[] = []) {
       },
     };
   });
-  const request = async (turnId: string) => {
+  // The prompts the router queues. `submission` is what the engine answers each with: it resolves when its turn starts.
+  const prompts: string[] = [];
+  const submission = { answer: async () => {} };
+  on('prompt.submit', async (_$, e) => {
+    prompts.push(e.text);
+    await submission.answer();
+    return { text: e.text, origin: e.origin };
+  });
+  const run = async (turnId: string) => {
     await $.turn.start({ turnId, text: 'Synthetic task.' });
     const stream = $.turn.step({ turnId, index: 0, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1 });
     let result = await stream.next();
     while (!result.done) result = await stream.next();
+  };
+  const request = async (turnId: string) => {
+    await run(turnId);
     await $.turn.complete({ turnId, answer: 'ok', durationMs: 1, isAborted: false, reason: 'answer' });
   };
+  // One turn that an API error ends, in the engine's order: StopFailure, then turn.complete.
+  const fail = async (turnId: string, error: 'overloaded' | 'billing_error' | 'invalid_request', text?: string) => {
+    await run(turnId);
+    await $.classic.StopFailure({ error, ...(text === undefined ? {} : { last_assistant_message: text }) });
+    await $.turn.complete({ turnId, answer: '', durationMs: 1, isAborted: false, reason: 'error' });
+  };
   const held = () => (state.get('loops:main')?.value as { held?: object } | undefined)?.held;
-  return { sent, toasts, held, request, store };
+  return { sent, toasts, held, request, store, prompts, submission, run, fail };
 }
 
 // The engine raises classic.StopFailure for a main turn that ended on an API error: an overloaded model is held out, so
@@ -125,4 +160,189 @@ test('a used-up 5h plan window holds the plan account in the engine’s store, n
   expect(stored?.until).toBe(Date.parse(resetsAt) + 60_000);
   expect(held()).toBeUndefined();
   expect(toasts.at(-1)).toMatch(/^Claude plan held out of routing: usage limit, /);
+});
+
+// An account other than the plan's, whose spend cap resets on the 1st: a 24-hour default hold would end earlier or later.
+const WORK_OPUS = {
+  models: { opus: { account: 'work-claude' } },
+  accounts: { 'work-claude': { reset: { monthly: 1, tz: 'UTC' } } },
+};
+
+// Checks the stored hold against the first reset after it was set, read from the hold so no clock is raced.
+function expectHeldUntilReset(stored: unknown) {
+  const hold = stored as { kind: string; since: number; until: number } | undefined;
+  expect(hold?.kind).toBe('calendar');
+  const set = new Date(hold?.since ?? 0);
+  expect(hold?.until).toBe(Date.UTC(set.getUTCFullYear(), set.getUTCMonth() + 1, 1));
+}
+
+// A spend cap reaches the plugin only as the synthetic error message: Claude Code gives no error_details for it.
+test('a spend cap named only in the last assistant message holds the account until its calendar reset', async ($, on) => {
+  const { held, request, store } = session($, on, [], WORK_OPUS);
+  await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
+  await request('t1');
+  await $.classic.StopFailure({
+    error: 'rate_limit',
+    last_assistant_message:
+      "You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit",
+  });
+  expectHeldUntilReset(store.get('holds/work-claude'));
+  expect(held()).toBeUndefined();
+});
+
+test('a due probe that gets no reply is answered by another model in the same step', async ($, on) => {
+  const glm = {
+    id: 'zai-org/GLM-5.3',
+    input: 1,
+    output: 2,
+    cacheRead: 0.1,
+    contextWindow: 1_000_000,
+    billing: 'credits',
+    efforts: ['high', 'max'],
+  };
+  const file = { models: { glm }, fallbacks: { opus: ['glm@max'] } };
+  const { sent, toasts, request, store } = session($, on, [], file, new Set(['claude-opus-5-5']));
+  const now = Date.now();
+  store.set('holds/plan', {
+    kind: 'calendar',
+    error: 'rate_limit',
+    since: now - 2 * 60 * 60_000,
+    until: now + 24 * 60 * 60_000,
+    streak: 1,
+    probeAt: now - 60 * 60_000,
+  });
+  await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
+  await request('t1');
+  expect(sent).toEqual(['claude-opus-5-5', glm.id]);
+  expect((store.get('holds/plan') as { streak: number } | undefined)?.streak).toBe(2);
+  expect(toasts).toContain('Opus 5.5 still limited → Zai Org/GLM 5.3');
+});
+
+const SPEND_TEXT = "You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit";
+const rerunText = (model: string, cause: string) =>
+  `The last request failed on ${model} (${cause}), so the router held it out of routing. Continue the task from where it stopped.`;
+const START = { cwd: '/fixture/project', surface: null, isInteractive: false };
+
+test('a turn that a spend cap ends is run again, once, on another model', async ($, on) => {
+  const { sent, toasts, prompts, request, fail, store } = session($, on, [], WORK_OPUS);
+  await $.session.start(START);
+  await fail('t1', 'billing_error', SPEND_TEXT);
+  expectHeldUntilReset(store.get('holds/work-claude'));
+  expect(prompts).toEqual([rerunText('Opus 5.5', 'spend limit')]);
+  expect(toasts).toContain('Retrying on another model: spend limit');
+  await request('t2');
+  expect(sent.at(-1) === 'claude-opus-5-5').toBe(false);
+  expect(prompts.length).toBe(1);
+});
+
+test('the third turn in a row that fails is not run again, and the router says it stopped', async ($, on) => {
+  const { toasts, prompts, fail } = session($, on);
+  await $.session.start(START);
+  await fail('t1', 'overloaded');
+  await fail('t2', 'overloaded');
+  expect(prompts.length).toBe(2);
+  await fail('t3', 'overloaded');
+  expect(prompts.length).toBe(2);
+  expect(toasts.at(-1)).toBe('Stopped retrying after 2 re-runs in a row: overloaded');
+});
+
+for (const [name, file, command, error, text] of [
+  ['an error that holds nothing', undefined, null, 'invalid_request', 'API Error: the request was flagged'],
+  ['a failure that leaves every configured model held', undefined, null, 'billing_error', SPEND_TEXT],
+  ['a failure with routing off', undefined, 'off', 'overloaded', undefined],
+] as const)
+  test(`${name} is not run again`, async ($, on) => {
+    const { prompts, fail } = session($, on, [], file);
+    await $.session.start(START);
+    if (command !== null) await $.command.run({ command: 'router', args: command });
+    await fail('t1', error, text);
+    expect(prompts).toEqual([]);
+  });
+
+test('an aborted turn and a subagent’s failure are not run again', async ($, on) => {
+  const { held, prompts, run } = session($, on);
+  await $.session.start(START);
+  await run('t1');
+  await $.classic.StopFailure({ error: 'overloaded' });
+  await $.turn.complete({ turnId: 't1', answer: '', durationMs: 1, isAborted: true, reason: 'aborted' });
+  await run('t2');
+  await agentStep($);
+  await $.classic.StopFailure({ error: 'overloaded', agent_id: 'a1' });
+  expect(Object.keys(held() ?? {})).toEqual(['claude-opus-5-5', 'claude-haiku-5-5']);
+  await $.turn.complete({
+    turnId: 'a1-t',
+    agentId: 'a1',
+    answer: '',
+    durationMs: 1,
+    isAborted: false,
+    reason: 'error',
+  });
+  await $.turn.complete({ turnId: 't2', answer: '', durationMs: 1, isAborted: false, reason: 'error' });
+  expect(prompts).toEqual([]);
+});
+
+// The submission resolves only when its turn starts, which cannot happen while this turn.complete runs.
+test('the turn completes without waiting for the re-run to start', async ($, on) => {
+  const { prompts, submission, fail } = session($, on);
+  await $.session.start(START);
+  submission.answer = () => new Promise<void>(() => {});
+  await fail('t1', 'overloaded');
+  expect(prompts.length).toBe(1);
+});
+
+test('a re-run the engine refuses leaves the turn as it ended', async ($, on) => {
+  const { prompts, submission, fail } = session($, on);
+  await $.session.start(START);
+  submission.answer = async () => {
+    throw new Error('refused');
+  };
+  await fail('t1', 'overloaded');
+  expect(prompts.length).toBe(1);
+});
+
+// Two re-runs, then `between`, then a third failure: only a main turn that ends another way frees a third re-run.
+for (const [name, between, agentId, reason, reruns] of [
+  ['a main turn that answers', 't3', undefined, 'answer', 3],
+  ['an aborted main turn', 't3', undefined, 'aborted', 3],
+  ['a subagent that answers', 'a1-t', 'a1', 'answer', 2],
+] as const)
+  test(`${name} ${reruns === 3 ? 'starts' : 'does not start'} the count of re-runs over`, async ($, on) => {
+    const { prompts, fail } = session($, on);
+    await $.session.start(START);
+    await fail('t1', 'overloaded');
+    await fail('t2', 'overloaded');
+    await $.turn.complete({
+      turnId: between,
+      ...(agentId === undefined ? {} : { agentId }),
+      answer: '',
+      durationMs: 1,
+      isAborted: reason === 'aborted',
+      reason,
+    });
+    await fail('t4', 'overloaded');
+    expect(prompts.length).toBe(reruns);
+  });
+
+test('a failure is run again only when its own turn completes', async ($, on) => {
+  const { prompts, run } = session($, on);
+  await $.session.start(START);
+  await run('t1');
+  await $.classic.StopFailure({ error: 'overloaded' });
+  await $.turn.complete({ turnId: 'other', answer: '', durationMs: 1, isAborted: false, reason: 'error' });
+  expect(prompts).toEqual([]);
+});
+
+test('a new session forgets the last one’s failed turn and its count of re-runs', async ($, on) => {
+  const { prompts, run, fail } = session($, on);
+  await $.session.start(START);
+  await run('t1');
+  await $.classic.StopFailure({ error: 'overloaded' });
+  await $.session.start(START);
+  await $.turn.complete({ turnId: 't1', answer: '', durationMs: 1, isAborted: false, reason: 'error' });
+  expect(prompts).toEqual([]);
+  await fail('t2', 'overloaded');
+  await fail('t3', 'overloaded');
+  await $.session.start(START);
+  await fail('t4', 'overloaded');
+  expect(prompts.length).toBe(3);
 });

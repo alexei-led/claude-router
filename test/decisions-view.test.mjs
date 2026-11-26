@@ -118,3 +118,11 @@ for (const columns of [88, 60, 44])
     for (const line of block) assert.ok([...line].length <= inner, `${[...line].length} > ${inner}: ${line}`);
     assert.equal(block.filter((line) => /^\d\d:\d\d /.test(line)).length, 3);
   });
+
+test('a failed try the router sent elsewhere notes that it got no reply', () => {
+  const rows = [
+    decisionRow({ at: NOW, kind: 'start' }),
+    failureRow({ at: NOW + 1, failure: 'calendar', scope: 'account', held: 'plan', route: 'opus@medium' }),
+  ];
+  assert.ok(JSON.stringify(decisionsOf(DEFAULTS, rows)).includes('no reply · held plan'));
+});
