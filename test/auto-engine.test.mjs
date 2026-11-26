@@ -1349,10 +1349,12 @@ const scaled = (input, outputScale, extra = {}) =>
     ...(outputScale ? { outputScale } : {}),
     ...extra,
   });
-const replied = facts({ lastRequest: { tokens: 1000, outputTokens: 100_000 } });
-const upperBounds = (cfg, incumbent) =>
+const replied = ({ model, effort }, extra = {}) =>
+  facts({ lastRequest: { model, effort, tokens: 1000, outputTokens: 100_000 }, ...extra });
+// `reply` names the route that produced the last reply: the incumbent's, unless a case says otherwise.
+const upperBounds = (cfg, incumbent, reply = incumbent) =>
   Object.fromEntries(
-    assessCandidates({ config: cfg, incumbent, facts: replied, now: T0 })
+    assessCandidates({ config: cfg, incumbent, facts: replied(reply), now: T0 })
       .filter((c) => c.selectable)
       .map((c) => [`${c.route.model}@${c.route.effort}`, Number(c.estimate.maxUsd.toFixed(6))]),
   );
@@ -1360,14 +1362,15 @@ const upperBounds = (cfg, incumbent) =>
 test('output scales move the winner from a cheap model at max effort to a pricier model at low effort', () => {
   const pick = (a, b) => {
     const cfg = config({ a: scaled(1, a, { capability: { low: 1, max: 2 } }), b: scaled(2, b) });
-    const candidates = assessCandidates({ config: cfg, incumbent: route('a', 'max'), facts: replied, now: T0 });
+    const incumbent = route('a', 'max');
+    const candidates = assessCandidates({ config: cfg, incumbent, facts: replied(incumbent), now: T0 });
     return selectTarget({ candidates, demand: 2 }).route;
   };
   assert.deepEqual(pick(null, null), route('a', 'max'));
   assert.deepEqual(pick({ low: 4, max: 20 }, { low: 1, max: 8 }), route('b', 'low'));
 });
 
-test('the output estimate scales by the candidate volume over the incumbent volume, input unchanged', () => {
+test('the output estimate scales by the candidate volume over the last reply’s volume, input unchanged', () => {
   // The next context is 101k tokens: $0.101 on a, $0.303 on b. The last reply's output is $0.2 on a, $0.6 on b.
   const cfg = config({ a: scaled(1, { low: 1, max: 4 }), b: scaled(3, { low: 0.5 }) });
   assert.deepEqual(upperBounds(cfg, route('a', 'max')), {
@@ -1378,31 +1381,50 @@ test('the output estimate scales by the candidate volume over the incumbent volu
   });
 });
 
-test('an output estimate stays unscaled unless both the candidate and the incumbent volume are known', () => {
+test('an output estimate stays unscaled unless both the candidate and the last reply’s volume are known', () => {
   const plain = config({ a: scaled(1), b: scaled(3) });
   const scales = config({ a: scaled(1, { low: 1, max: 4 }), b: scaled(3, { low: 0.5 }) });
-  const noIncumbentScale = config({ a: scaled(1, { low: 1 }), b: scaled(3, { low: 0.5, max: 2 }) });
-  for (const [name, cfg, incumbent] of [
-    ['incumbent effort without a scale', noIncumbentScale, route('a', 'max')],
-    ['unresolved native effort', scales, route('a', null)],
-    ['numeric native effort', scales, route('a', 4000)],
-    ['incumbent outside the catalog', scales, route('gone', 'max')],
+  const noMaxScale = config({ a: scaled(1, { low: 1 }), b: scaled(3, { low: 0.5, max: 2 }) });
+  const incumbent = route('a', 'low');
+  for (const [name, cfg, reply] of [
+    ['reply effort without a scale', noMaxScale, route('a', 'max')],
+    ['reply with the session effort unknown', scales, route('a', null)],
+    ['reply with a numeric effort', scales, route('a', 4000)],
+    ['reply from a loop saved without its effort', scales, route('a', undefined)],
+    ['reply naming no configured model', scales, route('gone', 'max')],
+    ['reply naming no model', scales, route(undefined, 'max')],
   ]) {
-    const expected = upperBounds(plain, incumbent);
-    assert.deepEqual(upperBounds(cfg, incumbent), expected, name);
+    assert.deepEqual(upperBounds(cfg, incumbent, reply), upperBounds(plain, incumbent, reply), name);
   }
-  assert.equal(upperBounds(scales, route('a', 'max'))['b@max'], upperBounds(plain, route('a', 'max'))['b@max']);
+  const reply = route('a', 'max');
+  assert.equal(upperBounds(scales, incumbent, reply)['b@max'], upperBounds(plain, incumbent, reply)['b@max']);
 });
 
-test('a native session effort selects the incumbent output volume', () => {
+test('after a one-turn pin the reply’s volume comes from the pinned route, not the restored incumbent', () => {
+  const cfg = config({ a: scaled(1, { low: 1, max: 4 }), b: scaled(3, { low: 0.5 }) });
+  const pinned = route('a', 'max');
+  for (const restored of [route('a', 'low'), route('b', 'low'), route('gone', 'max')])
+    assert.deepEqual(
+      upperBounds(cfg, restored, pinned),
+      { 'a@low': 0.151, 'a@max': 0.301, 'b@low': 0.378, 'b@max': 0.903 },
+      `${restored.model}@${restored.effort}`,
+    );
+});
+
+test('a reply from a model two aliases name takes the volume of the one that rates its effort', () => {
   const cfg = config({ a: scaled(1, { low: 1, max: 4 }) });
-  const candidates = assessCandidates({
-    config: cfg,
-    incumbent: route('a', null),
-    facts: { ...replied, effort: 'max' },
-    now: T0,
-  });
-  assert.equal(Number(candidates.find((c) => c.route.effort === 'low').estimate.maxUsd.toFixed(6)), 0.151);
+  cfg.models = {
+    unrated: scaled(1, null, { id: 'claude-sonnet-5-5' }),
+    a: { ...cfg.models.a, id: 'claude-sonnet-5-5' },
+  };
+  assert.equal(upperBounds(cfg, route('a', 'low'), route('claude-sonnet-5-5', 'max'))['a@low'], 0.151);
+});
+
+test('a model without efforts scales its reply by the default volume', () => {
+  const flat = (scale) => model(2, 1, { contextWindow: 1_000_000, outputScale: { default: scale } });
+  const cfg = config({ a: flat(4), b: flat(1) });
+  const candidates = assessCandidates({ config: cfg, incumbent: route('b'), facts: replied(route('a')), now: T0 });
+  assert.equal(Number(candidates.find((c) => c.route.model === 'b').estimate.maxUsd.toFixed(6)), 0.151);
 });
 
 test('a stronger route blocked only by the cash cap names the shortfall cash-capped without changing the route', () => {

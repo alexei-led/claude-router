@@ -615,6 +615,22 @@ test('a completed turn’s unanswered request is settled, an answered one is lef
   assert.equal(usableTrace(appendTrace(initial(), settled, NOW + 1)), true);
 });
 
+test('a stored loop keeps the last request’s effort, and adds none to a loop saved without one', () => {
+  const reply = { model: 'claude-sonnet-5-5', tokens: 10, outputTokens: 2 };
+  for (const [name, saved, expected] of [
+    ['a named effort', { effort: 'max' }, { effort: 'max' }],
+    ['a numeric effort', { effort: 4000 }, { effort: 4000 }],
+    ['no effort', { effort: null }, { effort: null }],
+    ['an invalid effort', { effort: 'CANARY' }, { effort: null }],
+    ['saved without one', {}, {}],
+  ]) {
+    const lastRequest = { ...reply, ...saved };
+    const record = newTrace(NOW, { configured, config, loop: { ...loop, lastRequest } });
+    const read = readTrace(JSON.parse(JSON.stringify(storedTrace(record))));
+    assert.deepEqual(read.events[0].loop.lastRequest, { ...reply, ...expected }, name);
+  }
+});
+
 test('trace projection keeps only valid capability cells', () => {
   const projected = traceConfig({
     models: {

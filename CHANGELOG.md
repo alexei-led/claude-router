@@ -4,7 +4,7 @@
 
 ### Added
 
-- **`auto` prices effort.** With the private evidence overlay (`~/.config/claude-router/evidence.local.mjs`), `auto` and `shadow` scale a route's next-turn output cost by its effort, from the overlay's cost per task and output price, so a top effort on a model with a cheaper token price is no longer priced like a lower effort. Without overlay values for both the proposed and the current route, estimates are unchanged. The `cheaper` and downgrade switch checks still price output per token.
+- **`auto` prices effort.** With the private evidence overlay (`~/.config/claude-router/evidence.local.mjs`), `auto` and `shadow` scale a route's next-turn output cost by its effort, from the overlay's cost per task and output price, so a top effort on a model with a cheaper token price is no longer priced like a lower effort. Without overlay values for both the proposed route and the one that produced the last reply, estimates are unchanged. The `cheaper` and downgrade switch checks still price output per token.
 - **Shadow rows can be compared with the table.** Each shadow decision row now records the route `auto` would serve from the running route and why, the running route's capability, up to three capable routes that a hard limit excluded with the reason (such as `cash-cap`), and a profile tag without any path. `/router decisions` shows "auto would serve …", and the Now pane's shadow agreement counts the would-serve route. [Evaluation](docs/evaluation.md) describes a fair agreement measure.
 - **The pane names routes `auto` cannot rank.** With `auto` or `shadow`, the router pane warns about routed cells whose capability is unknown: "Auto cannot rank deepseek@max, kimi-fast@high: set models.<alias>.capability".
 

@@ -21,7 +21,7 @@ The facts object uses the existing controller shapes:
 
 - `contextTokens`, `historyMeasured`, `hasImages`;
 - `models`: cache key → `{ prefixTokens, lastAt, ... }`;
-- `effort`: native session effort, and `lastRequest: { tokens, outputTokens, ... }`;
+- `effort`: native session effort, and `lastRequest: { model, effort, tokens, outputTokens, ... }`;
 - `ineligible`: model IDs excluded for this history;
 - `dwellAllowed`: a separate boolean for physical downgrades, required even on a new task. Set it to
   `requests - switchedAt.requests >= config.policy.minDwellRequests`, using the actual route's last switch and
@@ -78,10 +78,11 @@ with any second reason, such as `context-full` or `held-out`, does not count.
 
 Estimates are absolute next-turn `{ minUsd, maxUsd }` ranges: `cost.inputBounds` plus the last reply's output
 length at `cost.ratesAt` prices. When `models.<alias>.outputScale.<effort>` is known for both the candidate and the
-incumbent at its effective effort, the output part is also multiplied by candidate scale / incumbent scale. The
+model and effort that produced the last reply (`lastRequest`, which after a one-turn pin is not the incumbent), the
+output part is also multiplied by candidate scale / reply scale. The
 [evidence overlay](providers.md#capability-evidence) is the only source of these scales. Without both of them,
-including an unresolved or numeric native effort, the output part is unscaled and the estimate does not depend on
-effort. The scale treats a benchmark's cost per task as output spend, so it is a rough proxy for output and
+including an unknown or numeric reply effort or a substituted model, the output part is unscaled and the estimate does
+not depend on effort. The scale treats a benchmark's cost per task as output spend, so it is a rough proxy for output and
 thinking volume, not a token forecast. Input and cache estimates and the switch taxes do not use it. A catalog with
 scales for only some routes compares scaled with unscaled estimates.
 The cheaper-move and downgrade economics of `decideMove` (`switchEconomics` and `downgradeTaxUsd` in `lib/cost.mjs`)
