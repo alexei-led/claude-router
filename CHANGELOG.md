@@ -1,6 +1,16 @@
 # Changelog
 
-## Unreleased
+## 1.32.1 (2026-11-26)
+
+### Summary
+
+A patch release that keeps a session working when a provider's quota runs out. A spend or usage limit now holds every model of its account until the limit resets, instead of one model for a few minutes, so routing stops sending turns that fail. The account is tried again on a backoff and released when it answers; a failed try is sent to the fallback model inside the same step, and a turn an API error ended is run again on another model. Checked live on a real enterprise spend limit. Claude Code 2.1.332 or newer is now required.
+
+### Upgrade
+
+1. Update Claude Code to 2.1.332 or newer. An older build shows routing unavailable and keeps Claude's model.
+2. Run `/reload-plugins` or restart each running session.
+3. For an account with a monthly spend limit, set its reset in `router.json`, such as `"accounts": { "work-claude": { "reset": { "monthly": 1, "tz": "UTC" } } }`, so a spend-limit hold lasts until then. Without it the hold lasts 24 hours, and the account is tried again on the backoff either way.
 
 ### Changed
 
