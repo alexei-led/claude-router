@@ -1,8 +1,7 @@
 // The hook reads the private overlay once per session; the file is optional and a bad one must never fail a turn.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { TRACE_PREFIX } from '../lib/replay-trace.mjs';
-import { CONFIG, drain, harness, press, step } from './harness.mjs';
+import { CONFIG, drain, harness, press, step, traceOf } from './harness.mjs';
 
 const HOME = '/fixture/home';
 const OVERLAY = `${HOME}/.config/claude-router/evidence.local.mjs`;
@@ -37,7 +36,7 @@ async function turn(h) {
   await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
   await drain(h.step(step));
   await h.event('turn.complete', { turnId: 't1' });
-  return h.preferences.get(`${TRACE_PREFIX}s1`);
+  return traceOf(h);
 }
 
 test('the hook seeds a configured model from a valid private overlay', async () => {

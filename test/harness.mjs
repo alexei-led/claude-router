@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { register } from '../hooks/native-router.mjs';
+import { readTrace, TRACE_PREFIX } from '../lib/replay-trace.mjs';
 import { jevResponse } from './helpers.mjs';
 
 // The engine refuses a prop it cannot read, and the whole pane with it, so the stubs refuse the same cheap cases: a
@@ -587,6 +588,9 @@ export function shadowHarness(
   answering(h, answer);
   return h;
 }
+
+// A session's stored replay trace as readers see it, its events unpacked.
+export const traceOf = (h, id = 's1') => readTrace(h.preferences.get(`${TRACE_PREFIX}${id}`)) ?? undefined;
 
 // An element's children as a list, nulls dropped.
 export const kids = (node) =>

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readDecisions } from '../lib/decisions.mjs';
 import { replayAuto, replayTable } from '../lib/replay.mjs';
-import { TRACE_PREFIX, traceLoop } from '../lib/replay-trace.mjs';
-import { answering, drain, harness, JEV_KEY, step } from './harness.mjs';
+import { traceLoop } from '../lib/replay-trace.mjs';
+import { answering, drain, harness, JEV_KEY, step, traceOf } from './harness.mjs';
 import { jevResponse } from './helpers.mjs';
 
 const PATH = '/fixture/team/deepseek-router.json';
@@ -76,7 +76,7 @@ test('first quality startup at zero and one has distinct persisted decision and 
       }
       runs.push(h);
     }
-    const record = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+    const record = traceOf(runs[0]);
     assert.deepEqual(record.events[0].config.routingMode, { mode: 'quality', source: 'profile' });
     const table = replayTable(record);
     assert.deepEqual(table.mismatches, []);
@@ -117,7 +117,7 @@ test('manual prefix preserves first startup but off/on after routing cannot reus
         ['low', 'high', 'low', 'low'],
       );
     else {
-      const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+      const record = traceOf(h);
       const table = replayTable(record);
       assert.deepEqual(table.mismatches, []);
       const rows = replayAuto(record, table.rows);
@@ -215,7 +215,7 @@ test('clear creates a new eligible history; compaction does not, live and replay
       await turn(h, 'after-compact');
       if (engine === 'auto') assert.equal(h.loop().decision.reason, 'no-evidence');
       else {
-        const record = h.preferences.get(`${TRACE_PREFIX}${sessionId}`);
+        const record = traceOf(h, sessionId);
         const table = replayTable(record);
         assert.deepEqual(table.mismatches, []);
         assert.equal(replayAuto(record, table.rows).at(-1).reason, 'no-evidence');
@@ -227,7 +227,7 @@ test('clear creates a new eligible history; compaction does not, live and replay
     await turn(h, 'clear-first');
     if (engine === 'auto') assert.equal(h.loop().decision.reason, 'startup');
     else {
-      const record = h.preferences.get(`${TRACE_PREFIX}s3`);
+      const record = traceOf(h, 's3');
       const table = replayTable(record);
       assert.deepEqual(table.mismatches, []);
       assert.equal(replayAuto(record, table.rows)[0].reason, 'startup');
@@ -265,14 +265,14 @@ test('real mode and catalog edits before or during pins remain explicit choices 
           assert.equal(h.loop().auto.state.routeCause, edit);
           assert.equal(h.requests.at(-1).effort, 'high');
         } else {
-          const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+          const record = traceOf(h);
           const table = replayTable(record);
           if (edit === 'mode') {
             assert.deepEqual(table.mismatches, [], `${edit}/${timing}`);
             const rows = replayAuto(record, table.rows);
             assert.equal(rows.at(-1).reason, 'explicit-up', `${edit}/${timing}`);
             assert.equal(rows.at(-1).pair.effort, 'high');
-          } else assert.ok(record.incomplete.includes('reload'));
+          } else assert.ok(record.capped.turns > 0, 'a reload ends the recording');
         }
       }
     }
@@ -299,7 +299,7 @@ test('first cap-zero low .57 uses startup mass one but fresh micro .95 still sta
         assert.equal(h.loop().auto.state.routedDemand, micro ? 0 : 1);
         assert.equal(h.requests.at(-1).effort, micro ? 'low' : 'high');
       } else {
-        const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+        const record = traceOf(h);
         const table = replayTable(record);
         assert.deepEqual(table.mismatches, []);
         const rows = replayAuto(record, table.rows);
@@ -335,7 +335,7 @@ test('tax or cash blocks consume the only startup chance without a second-turn r
         assert.equal(h.loop().decision.reason, gate === 'tax' ? 'no-evidence' : 'same-route');
         assert.equal(h.requests.at(-1).effort, 'low');
       } else {
-        const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+        const record = traceOf(h);
         const table = replayTable(record);
         assert.deepEqual(table.mismatches, []);
         const rows = replayAuto(record, table.rows);

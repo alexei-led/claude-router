@@ -74,6 +74,7 @@ test('Delete history deletes this session’s records and the shared record from
     'usage:v1:archive:s1',
     'decisions:v1:s1',
     'decisions:v1:s2',
+    'trace:v3:s1',
     'trace:v2:s1',
     'trace:v1:s1',
     'activity:goals:v1',
@@ -81,7 +82,7 @@ test('Delete history deletes this session’s records and the shared record from
     'savings:reset:v1',
   ];
   assert.deepEqual(historyKeys(keys, 's1'), {
-    now: ['usage:v1:s1', 'decisions:v1:s1', 'trace:v2:s1', 'activity:goals:v1'],
-    later: ['usage:v1:s2', 'usage:v1:archive:s1', 'decisions:v1:s2', 'trace:v1:s1'],
+    now: ['usage:v1:s1', 'decisions:v1:s1', 'trace:v3:s1', 'activity:goals:v1'],
+    later: ['usage:v1:s2', 'usage:v1:archive:s1', 'decisions:v1:s2', 'trace:v2:s1', 'trace:v1:s1'],
   });
 });
