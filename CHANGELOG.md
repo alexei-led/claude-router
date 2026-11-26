@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.32.0 (2026-11-26)
+
+### Summary
+
+A minor release that makes the router fast on a large store. Measured once each on a 4.9 MB store with about 3000 keys, with only the router loaded: session start went from 28 s to under 0.6 s, a **Router** press from over a minute to the pane in 0.2 s, and `turn.complete` from 72 s to about 1 s once the one-time background cleanup is done. RECENT DECISIONS is one line per turn, the band shows the routing mode in `balanced` too, and the README and provider guide are rewritten. No configuration change; Claude Code 2.1.321 or newer is still required.
+
+### Upgrade
+
+1. Run `/reload-plugins` or restart each running session. A session still on 1.31.0, or a downgrade, does not count the activity statistics and pre-1.23 savings totals this release moves into archive records; nothing is deleted, and 1.32.0 counts them.
 
 ### Fixed
 
