@@ -3586,12 +3586,32 @@ function configurationError(error) {
   return error.message === 'selected provider router file is missing' ? error.message : 'invalid router configuration';
 }
 
+// A request's stream with the engine's own items kept in `withheld` until the first item of an answer, which passes
+// them on first. A failed request streams those items alone, and passing them on records its API error in the turn
+// (and opens Claude Code's usage-limit menu): one sent again leaves them out.
+async function* untilAnswered(stream, withheld) {
+  let answering = false;
+  let item = await stream.next();
+  while (!item.done) {
+    if (!answering && item.value.kind === 'engine') withheld.push(item.value);
+    else {
+      if (!answering) yield* withheld.splice(0);
+      answering = true;
+      yield item.value;
+    }
+    item = await stream.next();
+  }
+  return item.value;
+}
+
 // A main request on its way to the API. A reply ends a hold on the account of its model; a request to an account whose
 // probe is due is that probe, and one that gets no reply (a failed request resolves empty) waits longer for the next.
-async function* sendMain($, router, request, next, cfg) {
+// With `withheld`, the failed request's engine items wait there for the caller (untilAnswered).
+/** @param {unknown[] | null} [withheld] */
+async function* sendMain($, router, request, next, cfg, withheld = null) {
   const sentAt = Date.now();
   const probe = dueProbeOf(router, cfg, request.model, sentAt);
-  const response = yield* next(request);
+  const response = withheld ? yield* untilAnswered(next(request), withheld) : yield* next(request);
   if (response?.usage) await endAnsweredHold($, router, cfg, request.model, response.usage, sentAt);
   else if (probe && response?.stopReason === null && !next.signal.aborted)
     await rescheduleProbe($, router, probe.account);
@@ -3688,13 +3708,16 @@ async function* sendRouted($, router, e, next, step) {
   router.lastRequested = request.model;
   // `auto` keeps a failed step as it is: its turn ends, and the failure holds what it names.
   const probation = cfg.routingEngine === 'auto' ? null : probationOf(router, cfg, loop, request.model, Date.now());
-  let response = yield* sendMain($, router, request, next, cfg);
+  // Only a request on probation can be sent again, so only its failure's items are held back.
+  const withheld = probation ? /** @type {unknown[]} */ ([]) : null;
+  let response = yield* sendMain($, router, request, next, cfg, withheld);
   const unanswered = response?.stopReason === null && response.usage === null;
   if (probation && unanswered && !next.signal.aborted && (await $.session.id()) === sessionId) {
     const failed = request.model;
     const retry = { cfg, loop, failed, probation, nativeModel, context, availableModels };
     const moved = await standInStep($, router, e, retry);
     if (moved && !next.signal.aborted) {
+      withheld?.splice(0);
       loop = moved;
       request = routedRequest(e, loop.decision);
       // A trace holds one request per step, so a replay cannot follow this one.
@@ -3703,6 +3726,8 @@ async function* sendRouted($, router, e, next, step) {
       response = yield* sendMain($, router, request, next, cfg);
     }
   }
+  // Not sent again: the failure stands as Claude Code reported it.
+  if (withheld?.length) yield* withheld.splice(0);
   if (!next.signal.aborted && (await $.session.id()) === sessionId)
     await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
   else if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('aborted');

@@ -349,8 +349,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       snapshot = new Map();
       const send = async function* (request) {
         requests.push(request);
-        yield { kind: 'text', text: 'ok', index: 0 };
-        return {
+        const reply = {
           turnId: request.turnId,
           index: request.index,
           answer: 'ok',
@@ -365,6 +364,10 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
           },
           ...(typeof response === 'function' ? response(request) : response),
         };
+        // A request that failed streams only the engine's own items, as Claude Code's does (an API error, no answer).
+        if (reply.stopReason === null && reply.usage === null) yield { kind: 'engine', ref: requests.length };
+        else yield { kind: 'text', text: 'ok', index: 0 };
+        return reply;
       };
       send.signal = signal;
       return handler('turn.step', input)($, input, send);

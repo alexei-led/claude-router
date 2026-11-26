@@ -1166,3 +1166,27 @@ for (const [order, events] of [
       else await h.event('turn.complete', { turnId: 't1', isAborted: false, reason: 'error' });
     assert.deepEqual(h.submitted, [RERUN]);
   });
+
+// A failed request streams only the engine's own items; passed on, they record its API error in the turn and open
+// Claude Code's usage-limit menu, as seen live on 2.1.332.
+async function streamedItems(stream) {
+  const items = [];
+  let item = await stream.next();
+  while (!item.done) {
+    items.push(item.value.kind);
+    item = await stream.next();
+  }
+  return items;
+}
+
+for (const [name, router, items] of [
+  ['a probe sent again passes on only the stand-in’s answer', CHAINED, ['text']],
+  ['a probe with no stand-in passes its failure on as it came', null, ['engine']],
+])
+  test(name, async (t) => {
+    const h = await started(t, router);
+    h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+    t.mock.timers.tick(HOUR);
+    await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+    assert.deepEqual(await streamedItems(h.step({ ...step, turnId: 't1', model: OPUS }, opusFails)), items);
+  });
