@@ -3,6 +3,7 @@ import test from 'node:test';
 import { DEFAULTS, loadConfig } from '../lib/config.mjs';
 import { applyMode } from '../lib/modes.mjs';
 import {
+  canTakeOver,
   cellForModel,
   chooseRoute,
   continueRoute,
@@ -1080,6 +1081,22 @@ test('a continuation whose model became held skips a smaller window while the co
   assert.equal(unmeasured.model, 'claude-sonnet-5-5');
   assert.equal(continueRoute(config, loop, continueInput(native)).decision.model, GLM.id);
 });
+
+// A native decision has no tier or route to read the running window from: it is the session model's.
+for (const [name, native, contextKnown, takes] of [
+  ['a listed session model of the same window', OPUS, false, true],
+  ['an unlisted session model, whose window nothing states', 'claude-unlisted-1', false, false],
+  ['an unlisted session model on a measured history', 'claude-unlisted-1', true, true],
+])
+  test(`a stand-in for a native decision on ${name} ${takes ? 'can' : 'cannot'} take over`, () => {
+    const loop = {
+      ...emptyLoop(THREE_WAY, OPUS),
+      historyMeasured: true,
+      decision: { tier: null, activity: null, route: null, model: native, effort: 'medium' },
+    };
+    const input = continueInput({ nativeModel: native, contextKnown });
+    assert.equal(canTakeOver(THREE_WAY, loop, GLM.id, input), takes);
+  });
 
 test('a continuation whose model became held takes the nearest tier that runs, not a held session model', () => {
   const config = loadConfig({ userFile: { routes: { low: { model: 'sonnet', effort: 'high' } } } });

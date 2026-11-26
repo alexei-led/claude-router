@@ -321,13 +321,25 @@ declare module 'claude-code' {
       requestedPin: RouterTier | null;
     } | null;
     ineligible: string[];
-    // Models an API error held out of routing (lib/failover.mjs), by model id: the error and when the hold ends.
-    held?: Record<string, { error: string; until: number }>;
+    // Models an API error held out of routing (lib/failover.mjs), by model id. An ended hold stays until the model
+    // answers, as the memory of its failed retries.
+    held?: Record<string, RouterHold>;
     // Your model's simulated cache for routing vs your model: the last prompt's tokens, when, whether that reply ran
     // on your route, and the model and effort it was kept for. Null at the start and after a compaction.
     yours?: { total: number; at: number; onYours: boolean; model: string; effort: string | null } | null;
     engineModel?: string;
     suspended?: boolean;
+  }
+  // Why a model or an account is held out, since and until when (null: until released), and its failures in a row. A
+  // window hold names the plan window it waits for; `probeAt` is when an account hold is next due a try.
+  interface RouterHold {
+    kind: 'availability' | 'window' | 'calendar' | 'balance';
+    error: string;
+    since: number;
+    until: number | null;
+    streak: number;
+    window?: string;
+    probeAt?: number;
   }
   // What a route line records, under the id `$.ui.place` was given: the route that ran, its tier and why, the activity,
   // and the policy's estimate (lib/route-line.mjs).

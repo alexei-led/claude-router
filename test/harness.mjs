@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { register } from '../hooks/native-router.mjs';
+import { MIN_CLAUDE_CODE } from '../lib/config.mjs';
 import { jevResponse } from './helpers.mjs';
 
 // The engine refuses a prop it cannot read, and the whole pane with it, so the stubs refuse the same cheap cases: a
@@ -78,6 +79,8 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     ['CLAUDE_CONFIG_DIR', '/fixture/team'],
   ]);
   const requests = [];
+  // The models of the request streams closed before they were read to their end.
+  const abandoned = [];
   const files = new Map();
   const links = new Set();
   let model = 'claude-haiku-5-5';
@@ -88,12 +91,14 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   let opened = {};
   const copied = [];
   const toasts = [];
+  // The prompts the router submits with `$.prompt.submit`, in order.
+  const submitted = [];
   const views = [];
   const places = [];
   let placeResult = { isPlaced: true, requestId: 'placed-1' };
   let agents = [];
   let viewResult = {};
-  let version = '2.1.321';
+  let version = MIN_CLAUDE_CODE;
   let settings = {};
   let sessionId = 's1';
   let snapshot = new Map();
@@ -107,6 +112,8 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   const settleTimers = async () => {
     while (timers.length) await Promise.allSettled(timers.splice(0));
   };
+  // Where `$.clock.after` callbacks wait, unrun, after `holdTimers`.
+  let heldTimers = null;
   const $ = {
     plugin: { name: 'router', root: '/fixture/plugin' },
     env: { get: async (key) => env.get(key), set: async (key, value) => env.set(key, value) },
@@ -161,6 +168,10 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       },
     },
     prompt: {
+      submit: async (input) => {
+        submitted.push(input.text);
+        return { text: input.text };
+      },
       read: async () => ({ text: draft, cursor: draft.length }),
       fill: async ({ text }) => {
         draft = text;
@@ -180,7 +191,8 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     settings: { read: async () => settings },
     clock: {
       after: (_ms, fn) => {
-        timers.push(Promise.resolve(fn()));
+        if (heldTimers) heldTimers.push(fn);
+        else timers.push(Promise.resolve(fn()));
         return { cancel: () => {} };
       },
       sleep: (_ms, { signal }) =>
@@ -251,6 +263,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     state,
     env,
     requests,
+    abandoned,
     files,
     links,
     preferences,
@@ -267,6 +280,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     commandCalls: () => commandCalls,
     copied,
     toasts,
+    submitted,
     // The calls of `$.ui.place`, in order; `placeAnswer` is what it resolves to next (`{ isPlaced: false, reason }` where
     // no surface is attached).
     places,
@@ -311,6 +325,11 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     },
     // What `$.clock.after` callbacks left running, settled: a press returns before them, as in the engine.
     settle: settleTimers,
+    // From now on `$.clock.after` callbacks run only when the test calls them from the returned list.
+    holdTimers: () => {
+      heldTimers = [];
+      return heldTimers;
+    },
     render: async (props = PANE, surface = undefined) => {
       snapshot = new Map();
       return handler('ui.render', { component: 'Pane' })(
@@ -336,12 +355,14 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       const core = async () => ({ suggestions: engine });
       return (await handler('prompt.autocomplete', input)($, input, core)).suggestions;
     },
+    // `response` overrides the reply's fields; a function gets each request, for one that answers some of them. Its
+    // `chunks` replace the items the request streams.
     step: (input, response = {}, signal = new AbortController().signal) => {
       snapshot = new Map();
       const send = async function* (request) {
         requests.push(request);
-        yield { kind: 'text', text: 'ok', index: 0 };
-        return {
+        const { chunks, ...fields } = (typeof response === 'function' ? response(request) : response) ?? {};
+        const reply = {
           turnId: request.turnId,
           index: request.index,
           answer: 'ok',
@@ -354,8 +375,19 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
             cache_creation_input_tokens: 200,
             output_tokens: 10,
           },
-          ...response,
+          ...fields,
         };
+        // A request that failed streams only the engine's own items, as Claude Code's does (an API error, no answer).
+        let read = false;
+        try {
+          if (chunks) yield* chunks;
+          else if (reply.stopReason === null && reply.usage === null) yield { kind: 'engine', ref: requests.length };
+          else yield { kind: 'text', text: 'ok', index: 0 };
+          read = true;
+          return reply;
+        } finally {
+          if (!read) abandoned.push(request.model);
+        }
       };
       send.signal = signal;
       return handler('turn.step', input)($, input, send);

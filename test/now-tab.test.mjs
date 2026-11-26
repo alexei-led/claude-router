@@ -386,3 +386,19 @@ test('a session amount wider than its column still fits the pane: the difference
     assert.ok(main.length <= columns, `${columns}: ${main}`);
   }
 });
+
+test('a probed account’s HELD OUT row says the next try, and the note says it is tried', () => {
+  const spend = {
+    kind: 'calendar',
+    error: 'rate_limit',
+    since: NOW,
+    until: NOW + 7200e3,
+    streak: 1,
+    probeAt: NOW + 3600e3,
+  };
+  const all = block(lines({ holds: { accounts: { plan: spend }, models: {} } }), 'HELD OUT');
+  assert.deepEqual(all.slice(0, 2), [
+    'HELD OUT  routing skips these until back or the next try',
+    `  Claude plan  spend limit · back ${clock(NOW + 7200e3)} · next try ${clock(NOW + 3600e3)}  [ Release ]`,
+  ]);
+});

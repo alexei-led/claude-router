@@ -1,5 +1,6 @@
 import type { PluginState } from 'claude-code';
 import { expect, mock, test } from 'claude-code/testing';
+import { MIN_CLAUDE_CODE } from '../lib/config.mjs';
 
 type View = PluginState['router']['view'];
 const TABS = ['now', 'routes', 'policy', 'classifier', 'usage'];
@@ -85,7 +86,7 @@ test('desktop shell: a Routes draft keeps its save bar on other tabs and Save st
   const state = setup(on, {});
   on('session.start', (_$, e) => ({ cwd: e.cwd }));
   on('session.root', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.321' } }));
+  on('session.version', () => ({ value: { version: MIN_CLAUDE_CODE } }));
   on('command.register', () => ({ value: { command: 'router' } }));
   on('settings.read', () => ({ value: {} }));
   mock.env(on, { HOME: '/fixture', CLAUDE_CONFIG_DIR: '/fixture/team' });

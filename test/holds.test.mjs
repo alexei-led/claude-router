@@ -164,3 +164,20 @@ test('/router holds lists scope, kind, cause and end, and what an account holds 
   );
   assert.equal(holdsText(config, {}, now), 'Nothing is held out of routing.');
 });
+
+test('an account hold with a probe lists the next try, which the band’s cause leaves out', () => {
+  const calendar = {
+    kind: 'calendar',
+    error: 'rate_limit',
+    since: now,
+    until: now + 9 * HOUR,
+    streak: 1,
+    probeAt: now + HOUR,
+  };
+  const probing = { accounts: { zai: calendar }, models: {} };
+  assert.equal(
+    holdsText(config, probing, now).split('\n')[1],
+    '  zai (account) · calendar: spend limit · back 19:00 · next try 11:00 · holds out GLM 5.3',
+  );
+  assert.equal(heldCause(config, { holds: probing, fallback: null }, now), 'zai spend limit · back 19:00');
+});

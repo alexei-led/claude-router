@@ -61,6 +61,12 @@ Step 1 records both before the classifier depends on them.
 - Availability backoff: 5 → 10 → 20 → 40 → 60 min for consecutive failed retries of that model with the same error.
   A successful reply from the model clears the streak. A quota hold is never doubled.
 - When a hold ends, the model is eligible again. Nothing is resent, probed or forced: the next turn routes as usual.
+  Changed in 1.32.1: a `calendar` or `balance` hold is probed before it ends. One main turn may try the account after
+  1 h, then 2, 4, 8, 16 and 24 h, and a reply from a held account ends its hold.
+  Also in 1.32.1: when a model on probation (a due try, or an availability hold that ended with no answer since) gets no
+  reply, `table` and `shadow` hold it again and send that step once to a stand-in.
+  And a main turn that an API error ended, with something held for it, is submitted again as a new prompt, at most
+  twice in a row.
 
 ### Configuration
 
