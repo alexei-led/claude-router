@@ -28,7 +28,9 @@ a held table move then counts as a disagreement of the engines. Compare the woul
 `alt.move` says why a disagreement held or moved, and `alt.blocked` which hard constraint kept a capable candidate
 out. Agreement is a one-step comparison from the table's own route
 ([limits](auto-engine.md#shadow-rows)), not an estimate of how an auto session would behave, and not a quality or
-savings result. The Now pane's `shadow agrees` count still compares the target.
+savings result. The Now pane's `shadow agrees` count compares `alt.serve` too, and `alt.route` only on a row written
+before these fields. It is a quick reading, not this measure: it skips rows with no would-serve route, but keeps rows
+with no `alt.incumbentCap`, pools profiles, modes and pins, and covers only this session's rows.
 
 ## Replay trace recorder
 
