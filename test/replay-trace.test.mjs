@@ -282,7 +282,7 @@ test('once capped, what happens to the omitted turns leaves the retained ones us
 test('damage to the retained turns marks a record, capped or not, and so does the append that caps it', () => {
   const capped = Object.values(cappedRecords());
   for (const record of capped)
-    for (const reason of ['conflict', 'reset', 'store-guard', 'mid-session'])
+    for (const reason of ['conflict', 'reset', 'store-guard', 'mid-session', 'resume', 'reload'])
       assert.deepEqual(appendTrace(record, [], NOW + 3, { reasons: [reason] }).incomplete, [reason], reason);
   const full = appendTrace(initial(), [event()], NOW + 1);
   for (const reason of ['gap', 'mode-gap', 'aborted', 'recorder-error']) {
