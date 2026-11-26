@@ -13,6 +13,10 @@ sequenceDiagram
     participant Cls as Classifier
     participant API as Model provider
     Dev->>Code: Prompt
+    opt Subagent spawn
+        Code->>Mod: agent.spawn
+        Mod-->>Code: One model for the agent (on), or none (off)
+    end
     Code->>Mod: turn.start and turn.step
     alt Main conversation, routing on
         Mod->>Cls: Current prompt and bounded dialogue

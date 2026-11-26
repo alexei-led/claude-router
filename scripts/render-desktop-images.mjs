@@ -18,6 +18,8 @@ const SCALE = 2;
 // Flat colours need few: 64 keeps text clean and the tallest picture under 150 KB.
 const COLORS = 64;
 const BAND_WIDTH = 900;
+// Wide enough for the routed band to keep its routing mode, narrow enough to leave the switch's support out.
+const ANNOTATED_WIDTH = 1040;
 const PANE_WIDTH = 780;
 const PHONE_WIDTH = 390;
 const THEMES = ['dark', 'light'];
@@ -59,6 +61,55 @@ const runningAgents = [
   agent('a2', 'general-purpose', 'update the changelog', 'sonnet', 'sonnet', 'sonnet', null),
 ];
 
+// The callouts under the annotated band: a label and how many of the band's elements it spans, in drawing order,
+// for the route group on the left and the readings and controls on the right.
+const CALLOUTS = [
+  [
+    ['Tier', 1],
+    ['Model · effort', 1],
+    ['Activity', 1],
+    ['Reason', 1],
+    ['Mode', 1],
+  ],
+  [
+    ['Readings', 2],
+    ['Controls', 2],
+  ],
+];
+// Runs in the page, once the browser has laid the band out: a bracket under each span of elements, then its label.
+const CALLOUT_SCRIPT = `
+const host = document.getElementById('callouts');
+const origin = host.getBoundingClientRect();
+const groups = document.querySelectorAll('[data-key=router-band] > .b');
+const mark = (left, top, width, height, style, text = '') => {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:absolute;left:' + left + 'px;top:' + top + 'px;width:' + width + 'px;height:' + height + 'px;' + style;
+  el.textContent = text;
+  host.append(el);
+};
+${JSON.stringify(CALLOUTS)}.forEach((spans, side) => {
+  let next = 0;
+  for (const [label, count] of spans) {
+    const from = groups[side].children[next].getBoundingClientRect();
+    next += count;
+    const to = groups[side].children[next - 1].getBoundingClientRect();
+    const left = from.left - origin.left;
+    const width = to.right - from.left;
+    const middle = left + width / 2;
+    mark(left, 0, width, 6, 'border:solid var(--subtle);border-width:0 1px 1px');
+    mark(middle, 6, 1, 10, 'background:var(--subtle)');
+    mark(middle - 60, 18, 120, 18, 'text-align:center;white-space:nowrap;font-size:13px;font-weight:600', label);
+  }
+});`;
+function annotatedBand() {
+  const band = bandOf(base, 'desktop', ANNOTATED_WIDTH);
+  const drawn = band.props.children.map((group) => group.props.children.length);
+  const labelled = CALLOUTS.map((spans) => spans.reduce((sum, [, count]) => sum + count, 0));
+  if (drawn.join() !== labelled.join())
+    throw new Error(`the band draws ${drawn} elements, the callouts name ${labelled}`);
+  return `${padded(draw(band))}<div id="callouts" style="position:relative;height:44px;margin:0 14px"></div><script>${CALLOUT_SCRIPT}</script>`;
+}
+
 const bandStates = {
   routed: [base, {}],
   off: [states[5][1], {}],
@@ -71,6 +122,7 @@ const desktopPictures = [
     width: BAND_WIDTH,
     body: () => padded(draw(bandOf(view, 'desktop', BAND_WIDTH, extra))),
   })),
+  { name: 'desktop-band-annotated', width: ANNOTATED_WIDTH, body: annotatedBand },
   ...['now', 'routes', 'policy', 'classifier', 'usage'].map((tab) => ({
     name: `desktop-pane-${tab}`,
     width: PANE_WIDTH,
@@ -88,6 +140,19 @@ const desktopPictures = [
     name: 'desktop-pane-now-decisions',
     width: PANE_WIDTH,
     body: () => draw(paneOf(paneViews.decisions, 'desktop', PANE_WIDTH, shadowConfig)),
+  },
+  {
+    name: 'desktop-pane-usage-summary',
+    width: PANE_WIDTH,
+    // The top of the Usage tab: the period row and the Summary card.
+    body: () => {
+      const [, , body] = paneOf(paneViews.usage, 'desktop', PANE_WIDTH).props.children;
+      const [column] = body?.props?.key === 'body' ? body.props.children : [];
+      const [period, summary] = column?.props?.children ?? [];
+      if (!summary || !draw(summary).includes('Summary'))
+        throw new Error('the Usage tab does not start with its Summary');
+      return draw(elements.Box({ ...column.props, padding: 'md', children: [period, summary] }));
+    },
   },
   {
     name: 'desktop-key-card',

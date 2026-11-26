@@ -8,7 +8,21 @@ Router is a Claude Code Mod: hooks that choose the model and effort of each turn
 
 ## Set up and commands
 
-Needs Node 22 or newer (`engines`; CI runs 24.15.0) and `claude` on `PATH` for `validate`, `test:plugin` and `test:providers`. Run `npm run setup` once. Never run `npm install` at the root: a test fails on a root lockfile.
+Needs Node 22 or newer (`engines`; CI runs 24.15.0) and `claude` on `PATH` for `validate`, `test:plugin` and `test:providers`. Run `npm run setup` once. It installs Biome and TypeScript into `tools/`. Never run `npm install` at the root: the plugin root keeps no lockfile, so Claude Code installs nothing with the plugin, and a test fails on a root lockfile.
+
+To run the router from a checkout, start Claude Code in it with the directory as a local plugin and the full Haiku baseline model. Load only one copy of the router in a session:
+
+```sh
+claude --plugin-dir "$PWD" --model claude-haiku-5-5
+```
+
+In Claude Code, run `/plugin configure router` and save your classifier key in the sensitive plugin option. The Mod adds its status band and `/router` pane; no status-line setup or gateway environment variables are needed. The [user guide](docs/user-guide.md) covers the controls.
+
+Before a push, run the same checks as CI. `validate` and `test:plugin` load the Mod in the Claude Code engine, which refuses some faults that lint and unit tests miss:
+
+```sh
+npm run check && npm run typecheck && npm test && npm run validate && npm run test:plugin
+```
 
 | Command                | What it checks                                                                          | When                          |
 | ---------------------- | --------------------------------------------------------------------------------------- | ----------------------------- |
@@ -102,4 +116,17 @@ Rules that keep the layers apart:
 
 ## Pointers
 
-The documentation index is in the [README](README.md#documentation). Start with the [architecture](docs/architecture.md), then the [user guide](docs/user-guide.md) and [configuration](docs/configuration.md).
+Start with the [architecture](docs/architecture.md), then the [user guide](docs/user-guide.md) and [configuration](docs/configuration.md). Coding agents start with [AGENTS.md](AGENTS.md).
+
+- [User guide](docs/user-guide.md): install, use the controls, read the panel, and troubleshoot.
+- [Providers](docs/providers.md): provider names, router files, built-in defaults, and custom profiles.
+- [Configuration](docs/configuration.md): router-file settings, classifier keys, cache policies, and migrations.
+- [Architecture](docs/architecture.md): Mod event flow, state, safeguards, and runtime boundaries.
+- [Activity routing](docs/activity-routing.md): the default matrix by activity, why each cell, and how to change or turn it off.
+- [Routing modes](docs/routing-modes.md): `cost`, `balanced` and `quality`, where the mode comes from, and every decision per mode.
+- [Native router details](docs/native-router.md): panel semantics, tuning, and accepted limits.
+- [Automatic routing engine](docs/auto-engine.md): the opt-in `auto` engine's inputs, rules and limits.
+- [Model evidence](docs/evidence.md): benchmark data and probes behind the `auto` engine's capability map.
+- [Provider experiments](docs/provider-experiments.md): MiniMax, MiMo and Kimi evidence behind the default routes.
+- [Evaluation](docs/evaluation.md): limits, text-free trace export and replay, and the paired benchmark proposal.
+- [Changelog](CHANGELOG.md): user-visible changes by version.

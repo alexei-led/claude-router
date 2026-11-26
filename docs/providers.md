@@ -248,13 +248,86 @@ These are starting policies, not an optimal activity matrix. See [research and e
 
 ## Mix Anthropic and DeepSeek with model-proxy
 
-`model-proxy` is a custom execution profile, not another classifier or routing engine.
-Claude Code sends every request to one local `claude-proxy` endpoint. The proxy selects an explicitly configured upstream from the native model ID.
+One Claude Code session can route turns across providers. Two programs share the work:
 
-1. Install and configure [claude-proxy](https://github.com/alexei-led/claude-proxy/blob/main/docs/integration.md).
-2. Save the following complete profile as `model-proxy-router.json` in the selected Claude Code configuration directory.
-3. Start the proxy manually, then use its `connect` command from v0.1.4 or newer.
-   Older proxies forward Claude Code's built-in Artifact tool schema unchanged, and DeepSeek rejects its `pattern` regex with `400 Invalid schema for function 'Artifact'`.
+- **The router** picks the model and effort for each turn from the `model-proxy` profile.
+- **[claude-proxy](https://github.com/alexei-led/claude-proxy)**, a separate local program, receives every request and sends each exact model ID to its configured provider, with that provider's own credential.
+
+```mermaid
+flowchart LR
+  A[Claude Code<br/>router picks model and effort] --> B[claude-proxy<br/>on your machine]
+  B -->|claude-* IDs, your Claude login| C[Anthropic]
+  B -->|deepseek-* IDs, API key from a file| D[DeepSeek]
+```
+
+You can mix a Claude subscription with API-key providers: the Anthropic upstream forwards your Claude Code login, and every other upstream uses a key the proxy reads from a file and never receives your login.
+Before you start, know the limits:
+
+- Providers must speak the native Anthropic API. The proxy converts no OpenAI API.
+- Every selected provider receives the full request and history. Approve each destination, and do not mix company context into a provider that is not approved for it.
+- Compatibility is [verified for specific client and model combinations](https://github.com/alexei-led/claude-proxy/blob/main/docs/verification.md) only; OAuth refresh and billing are not verified. Start with a fresh, non-sensitive conversation.
+
+`model-proxy` is an execution profile, not another classifier or routing engine.
+
+### 1. Install claude-proxy
+
+Use version 0.4.0 or later:
+
+```sh
+brew install alexei-led/tap/claude-proxy
+claude-proxy --version
+```
+
+Release binaries and source builds are described in the [proxy's guide](https://github.com/alexei-led/claude-proxy/blob/main/docs/integration.md).
+
+### 2. Configure the proxy
+
+Save this as `~/.config/claude-proxy/personal.json`:
+
+```json
+{
+  "version": 1,
+  "profile": "personal",
+  "listen": "127.0.0.1:43171",
+  "access_token_file": "secrets/local-access.key",
+  "upstreams": {
+    "anthropic": {
+      "messages_url": "https://api.anthropic.com/v1/messages",
+      "count_tokens_url": "https://api.anthropic.com/v1/messages/count_tokens",
+      "auth": { "mode": "oauth_passthrough" }
+    },
+    "deepseek": {
+      "messages_url": "https://api.deepseek.com/anthropic/v1/messages",
+      "auth": { "mode": "bearer", "key_file": "secrets/deepseek.key" },
+      "retry": { "max_attempts": 3 }
+    }
+  },
+  "models": {
+    "claude-opus-5-5": { "upstream": "anthropic" },
+    "claude-sonnet-5-5": { "upstream": "anthropic" },
+    "claude-haiku-5-5": { "upstream": "anthropic" },
+    "claude-sonnet-5": { "upstream": "anthropic" },
+    "deepseek-flash": { "upstream": "deepseek" }
+  },
+  "runtime": { "idle_timeout": "5m", "max_inflight": 32 }
+}
+```
+
+Create the local access token, add your provider key, and check the file:
+
+```sh
+cd ~/.config/claude-proxy
+(umask 077; mkdir -p secrets; set -C; openssl rand -hex 32 > secrets/local-access.key)
+# Save the DeepSeek key to secrets/deepseek.key with your editor, then:
+chmod 600 secrets/deepseek.key
+claude-proxy --config personal.json --check
+```
+
+Secrets are files only, owned by you, with mode `0600` or `0400`. The [configuration reference](https://github.com/alexei-led/claude-proxy/blob/main/docs/configuration.md) has every field.
+
+### 3. Save the router profile
+
+Save this as `model-proxy-router.json` in the Claude Code configuration directory (`~/.claude` by default). It holds no endpoint and no credential.
 
 ```json
 {
@@ -322,27 +395,41 @@ The price fields are API list-price estimates, not subscription charges. DeepSee
 Cache-cost assumptions, activity routing and subagent routing are off initially; upstream caching remains active.
 The default classifier is Jev and needs its existing plugin credential. Select another configured classifier explicitly if needed; no local classifier server is required.
 
-```sh
-# Terminal 1: the selected account's proxy configuration
-claude-proxy --config /path/to/proxy.json
+### 4. Start the session
 
-# Terminal 2: preserve that account's existing CLAUDE_CONFIG_DIR
-CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1 CLAUDE_CODE_ATTRIBUTION_HEADER=0 ENABLE_TOOL_SEARCH=false \
-  claude-proxy connect --config /path/to/proxy.json -- claude --model 'deepseek-flash[1m]'
+`claude-proxy run` starts the proxy if none is running for this configuration, then starts Claude Code connected to it:
+
+```sh
+CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1 ENABLE_TOOL_SEARCH=false \
+  claude-proxy run --config ~/.config/claude-proxy/personal.json -- claude --model 'deepseek-flash[1m]'
 ```
 
-Any turn may reach DeepSeek, so set the same Claude Code flags a direct DeepSeek session needs:
+It sets the proxy URL, a local access header and `CLAUDE_ROUTER_PROVIDER=model-proxy` for that Claude Code process only. Your saved login and settings do not change.
+It removes `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN` from the process, and refuses to start beside another base URL, a cloud backend flag or `CLAUDE_CODE_OAUTH_TOKEN`.
+Several sessions share one proxy; it exits after the idle timeout once the last one ends. `claude-proxy status` and `claude-proxy stop`, with the same `--config`, manage it.
+
+Any turn may reach DeepSeek, so set the flags it needs:
 
 | Variable | Why |
 | --- | --- |
 | `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1` | Drops beta request fields that third-party endpoints reject. Opus turns lose those betas too. |
-| `CLAUDE_CODE_ATTRIBUTION_HEADER=0` | Omits the per-version attribution block, so the system prompt stays cacheable upstream. |
 | `ENABLE_TOOL_SEARCH=false` | Tool search sends `tool_definition` blocks; DeepSeek answers `422 unknown variant`. |
 
-`connect` supplies `CLAUDE_ROUTER_PROVIDER=model-proxy`, the local URL and the separate local access header only to the child process.
-It does not change saved OAuth, configure provider keys, start the proxy, or install this Mod.
-Without the helper, the proxy guide documents equivalent process-local environment setup.
-Endpoint and credential fields do not belong in this router JSON.
+Leave `CLAUDE_CODE_ATTRIBUTION_HEADER` at its default here. With it set to `0`, Anthropic answered auto mode's permission checks with `429` on a plan login, so auto mode denied actions (observed in November 2026; the cause was not isolated).
+
+To run the proxy in its own terminal instead, start `claude-proxy --config personal.json` there and use `claude-proxy connect` in place of `run`.
+
+### Match the proxy catalog to the router
+
+The proxy answers `404` for a model ID it does not list, and Claude Code reports `There's an issue with the selected model`. List every ID the session can ask for:
+
+- every model reached through `routes`, `activities`, `subagents` or `fallbacks` in the router profile;
+- the `--model` you launch with, and any `fallbackModel` in your settings;
+- the models Claude Code calls on its own: `claude-haiku-5-5` for background tasks and Haiku subagents, and `claude-sonnet-5`, which Anthropic's server set as the auto mode classifier at the time of writing (November 2026). It belongs in the proxy catalog only, not in a router route.
+
+Spell each ID exactly, without `[1m]`: that suffix tells Claude Code about the context window, so it stays in the router profile and in `--model`.
+
+To keep a second router profile over the same account, set `"router_provider": "model-proxy-<name>"` in another proxy configuration with its own port. The session then reads `model-proxy-<name>-router.json`.
 
 ### Choose the launch model
 
@@ -361,9 +448,16 @@ Opus uses the plan and DeepSeek uses credits, but the pane estimates both at con
 See [how dollars are paid](user-guide.md#how-dollars-are-paid).
 
 Open `/router` and check the selected file, classifier health and routing state before use.
-The catalog must contain the bare native IDs; `[1m]` is client metadata, not a proxy alias.
-Every selected provider receives the unchanged history. Approve each destination; do not mix company context into an unapproved provider.
-Native Anthropic support does not guarantee compatibility with every tool or thinking history. Start with a fresh, non-sensitive conversation.
+
+### Troubleshooting
+
+| What you see | Cause and fix |
+| --- | --- |
+| `There's an issue with the selected model`, or turns move to a fallback | The ID is missing from the proxy `models`. Add the bare ID and start a new session; `/router holds` shows a model the router holds out, and `/router release` frees it. |
+| `400 Invalid schema for function 'Artifact'` | A proxy older than 0.1.4. Upgrade it. |
+| `422 unknown variant 'tool_definition'` | Start with `ENABLE_TOOL_SEARCH=false`. |
+| One `400` on the first Anthropic request after turns on another provider | Seen on provider switches; Claude Code retried and recovered. The cause is not confirmed. |
+| A provider answers, but with another model | Some providers serve an unlisted ID with a different model. Use IDs from the provider's own model list. |
 
 ## Add another provider
 

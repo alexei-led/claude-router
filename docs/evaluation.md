@@ -209,8 +209,10 @@ outcome has been collected. Difficulty does not establish a capability value.
 
 Auto routing is available by opt-in in 1.24.0. The full paired benchmark adapter remains disabled pending checkout/profile
 isolation and approval; a full live matrix always refuses. A native pass-through or table
-run is never relabeled `auto`. The current hook reads `routingEngine` only from the selected profile file; there is
-**no** run-scoped environment/settings override. Project `.claude/router.json` can set mode only.
+run is never relabeled `auto`. The current hook reads `routingEngine` from the selected profile file, a hand-edited
+`.claude/router.local.json` (or `.claude/<provider>-router.local.json`) and a stored project override; see
+[project routing settings](configuration.md#project-routing-settings). There is **no** run-scoped environment/settings
+override. The shared project `.claude/router.json` can set mode only.
 
 Before the real paired evaluation, choose and implement one code-provenance path:
 
@@ -376,17 +378,17 @@ node scripts/probe-activity.mjs [classifier]
 
 The script sends each prompt to one classifier as the router would ask it, with activity routing forced to `on`. It reads credentials as `probe-classifier.mjs` does and needs a classifier you can reach. The run is billed on a paid classifier, and it is run by hand, not in CI. It writes accuracy, an expected-by-answered confusion matrix, p50 and p95 latency against the classifier's deadline, and error counts to `experiments/mod-router/results/activity-probe-<classifier>.json`. For Ollama the latency covers both requests. It never prints a key.
 
-Five historical turn-activity probe results are checked in, run on 2026-10-09 and 2026-10-10 (UTC) with the synthetic set above: Jev against the live typesafe.ai API, OpenAI against the live Decisions API, Clef and Clef Flash against the live Cloudflare API, Ollama with `qwen3.5:9b` on an Apple M2 Pro laptop:
+Five historical turn-activity probe results are checked in, run on 2026-10-09 and 2026-10-10 (UTC) with the synthetic set above: Jev (`jev-1.13.0`) against the live typesafe.ai API, OpenAI against the live Decisions API, Clef and Clef Flash against the live Cloudflare API, Ollama with `qwen3.5:9b` on an Apple M2 Pro laptop:
 
 | Classifier |  Correct | p50 latency | p95 latency | Result file                                                                                          |
 | ---------- | -------: | ----------: | ----------: | ---------------------------------------------------------------------------------------------------- |
-| Jev        | 70 of 70 |      260 ms |      299 ms | [`activity-probe-jev.json`](../experiments/mod-router/results/activity-probe-jev.json)               |
+| Jev 1.13.0 | 70 of 70 |      260 ms |      299 ms | [`activity-probe-jev.json`](../experiments/mod-router/results/activity-probe-jev.json)               |
 | OpenAI     | 70 of 70 |      161 ms |      286 ms | [`activity-probe-openai.json`](../experiments/mod-router/results/activity-probe-openai.json)         |
 | Clef       | 69 of 70 |      444 ms |      883 ms | [`activity-probe-clef.json`](../experiments/mod-router/results/activity-probe-clef.json)             |
 | Clef Flash | 69 of 70 |      470 ms |      874 ms | [`activity-probe-clef-flash.json`](../experiments/mod-router/results/activity-probe-clef-flash.json) |
 | Ollama     | 66 of 70 |     2986 ms |     3483 ms | [`activity-probe-ollama.json`](../experiments/mod-router/results/activity-probe-ollama.json)         |
 
-Ollama's latency covers both requests and stays inside its 5000 ms deadline; on slower hardware the activity step is skipped when less than 300 ms remain. They measured the old turn-activity contract on synthetic prompts, not the new goal/phase contract, routing quality or savings. The activity question costs little time: 30 alternating pairs of the same prompts, with and without it, gave Jev p50 259 ms both ways and p95 300 ms without, 306 ms with; OpenAI p50 163 ms and 162 ms, p95 296 ms and 349 ms. OpenAI's first request of a run took about 2.3 s of its 3000 ms deadline. The Classifier tab shows each result under its classifier, such as `activity probe 70/70 · p95 299 ms · Oct 10` (UTC date), when the classifier runs the probed model. The script regenerates `lib/probe-results.mjs` from the result files after each run; `npm run probe:results` does it alone, and a test fails when the two disagree. A run without a single activity answer (an activity or `uncertain`) or without a p95 latency, such as one with a revoked key or a model whose answers all lack the activity, exits with an error and writes neither file. `policy.activityMass` was not tuned on any classifier; run the probe before you trust it with a new one. Clef Omni has no probe result yet, so its Classifier tab row shows none.
+Ollama's latency covers both requests and stays inside its 5000 ms deadline; on slower hardware the activity step is skipped when less than 300 ms remain. They measured the old turn-activity contract on synthetic prompts, not the new goal/phase contract, routing quality or savings. The activity question costs little time: 30 alternating pairs of the same prompts, with and without it, gave Jev p50 259 ms both ways and p95 300 ms without, 306 ms with; OpenAI p50 163 ms and 162 ms, p95 296 ms and 349 ms. OpenAI's first request of a run took about 2.3 s of its 3000 ms deadline. The Classifier tab shows each result under its classifier, such as `activity probe 70/70 · p95 286 ms · Oct 10` (UTC date), when the classifier runs the probed model. The script regenerates `lib/probe-results.mjs` from the result files after each run; `npm run probe:results` does it alone, and a test fails when the two disagree. A run without a single activity answer (an activity or `uncertain`) or without a p95 latency, such as one with a revoked key or a model whose answers all lack the activity, exits with an error and writes neither file. `policy.activityMass` was not tuned on any classifier; run the probe before you trust it with a new one. Clef Omni and the default Jev model, `jev-1.14.0`, have no probe result yet, so their Classifier tab rows show none.
 
 Routing comparisons use the effective configuration for each turn, including any [project routing settings](configuration.md#project-routing-settings). Pane saves change later turns only; Delete history does not clear routing preferences.
 

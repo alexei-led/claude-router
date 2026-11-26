@@ -15,6 +15,7 @@
 
 ### Changed
 
+- **New front page and a mixed-provider guide.** The README opens with what the router does, an annotated band and a short quick start; the long material moved to the linked pages. [Providers](docs/providers.md#mix-anthropic-and-deepseek-with-model-proxy) now walks through routing across providers in one session with [claude-proxy](https://github.com/alexei-led/claude-proxy): install, proxy configuration, router profile, launch and troubleshooting. Documentation errors about the engine setting, the band, the Jev probe and the desktop pane are corrected.
 - **The band shows the routing mode in `balanced` too**, as a chip like `cost` and `quality`, and from the session's start rather than after its store read. Like the engine chip, it drops when the band is narrow.
 - **RECENT DECISIONS on the Now tab is one line per turn**: when, how long, the tier and route that ran, the work, its requests and why, with at most two notes under a turn for a failure, a classifier error, a shadow proposal that differs, or a move inside the turn, and how often shadow agreed in its heading. It shows the newest 5 turns, at most 10 lines; `/router decisions` still prints every row. The graphical surfaces draw it as a table.
 - **Decision records keep the moves.** A review that changes nothing joins the row before it with a count, its last time and its best support, and a long turn drops unchanged reviews first, so the start and every route change stay within its 10 rows. `/router decisions` prints `N checks until <time>` for a joined row.
