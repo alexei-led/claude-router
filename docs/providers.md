@@ -37,6 +37,51 @@ numeric values on this router's demand scale.
 The auto engine selects the cheapest eligible unknown when no eligible declaration is known. Neither the seeds nor
 unknown-only selections establish quality or escalation-headroom calibration; users can configure their own maps.
 
+### Where a model's capability comes from
+
+In order of precedence, per model:
+
+1. A `capability` map the profile declares for the model. It replaces the others for that model in full; cells are
+   not merged.
+2. The [local evidence overlay](evidence.md), for the configured efforts it has cells for.
+3. The preset seeds, where the overlay is silent.
+
+An overlay entry matches a model whose ID equals its key or one of its aliases; the `[1m]` suffix is ignored. When
+no entry matches an ID ending in `-fast`, the entry for the ID without that suffix applies:
+`zai-org/GLM-5.3-fast[1m]` takes the `zai-org/GLM-5.3` evidence. A `-fast` ID serves the same weights faster at a
+higher price, so quality evidence carries over; prices still come from your configuration. An entry for the `-fast`
+ID itself wins, and no other suffix is matched this way.
+
+### Unrated routes
+
+With the `auto` or `shadow` engine and routing on, the pane warns about routed cells whose capability is unknown:
+
+```
+Auto cannot rank deepseek@max, kimi-fast@high +1 more: set models.<alias>.capability
+```
+
+While a rated candidate is eligible, auto never selects an unrated one, and a move away from it is judged without
+its capability. The warning covers the tier routes and, with activity routing on, the activity cells, each read
+under its activity. With `shadow` it also covers the routes the active [routing mode](routing-modes.md) moves to,
+because those are what the table sends. Subagent routes and fallbacks are not listed. A name without `@effort` is a
+model with no efforts, or a session-effort route on a model rated at none of its efforts.
+
+To fix it, declare the effort in the profile. Include every effort you want rated, because the declared map replaces
+the overlay's and the preset's:
+
+```json
+{
+  "models": {
+    "deepseek": {
+      "capability": { "high": 1.5, "max": { "default": 2, "code": 2.5 } }
+    }
+  }
+}
+```
+
+The levels above only show the shape. In an activity map, include `default`: a route with no activity, and an
+activity the map omits, read it.
+
 ## Select a provider
 
 For DeepSeek, create `deepseek-router.json` in your Claude Code profile directory with this content:

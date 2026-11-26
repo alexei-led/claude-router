@@ -105,7 +105,8 @@ or between half-steps are invalid.
 A user-supplied map replaces the preset map in full; `{}` clears it. Replacing a model ID clears inherited
 capability, even if the same alias is kept; the `[1m]` context hint alone does not change identity. Changing
 `efforts` prunes unsupported inherited entries; unsupported explicitly supplied entries are rejected. Capability
-is separate from `strength`, which still controls the current table routing. Capability declarations affect `auto` and `shadow`; the default `table` uses strength. Built-in declarations and their evidence limits are listed in [Providers](providers.md#capability-evidence). To fill unknown entries from public benchmark data, including a private Artificial Analysis overlay, see [Model evidence](evidence.md).
+is separate from `strength`, which still controls the current table routing. The pane warns under `auto` and `shadow`
+about [routed cells with no capability](providers.md#unrated-routes). Capability declarations affect `auto` and `shadow`; the default `table` uses strength. Built-in declarations and their evidence limits are listed in [Providers](providers.md#capability-evidence). To fill unknown entries from public benchmark data, including a private Artificial Analysis overlay, see [Model evidence](evidence.md).
 
 ### Provider prices
 

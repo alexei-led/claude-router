@@ -140,7 +140,7 @@ The pane is drawn natively. From the top it has:
 
 - a **header**: `Router`, the classifier's status, the engine control (**table** / **shadow** / **auto**), and an **On** / **Off** switch for routing;
 - the **tabs**: Now, Routes, Policy, Classifier and Usage, without digits in their labels (the hotkeys 1 to 5 still work);
-- one **warnings** slot under the tabs, shown on every tab: an ignored project config, a native fallback, or missing classifier credentials;
+- one **warnings** slot under the tabs, shown on every tab: an ignored project config, a native fallback, missing classifier credentials, or [routes auto cannot rank](providers.md#unrated-routes);
 - the tab's content, then the **save bar** last.
 
 What each tab shows:
@@ -203,7 +203,7 @@ At a phone's width the same trees narrow: the band shortens its route to fit and
 | 4 Classifier | Which classifier to ask: one row per classifier to compare, the active one's deadline, wait, health and credentials, and the counts kept across sessions. |
 | 5 Usage      | What routing cost against no routing this session, today, over 7 or 30 days, this month or in all: by activity, model or tier, and what is worth a look.  |
 
-Under the tab row, one slot shows the warnings on every tab: a project config that was ignored, a native fallback, and missing classifier credentials. They no longer sit inside the Now tab's NEXT TURN block.
+Under the tab row, one slot shows the warnings on every tab: a project config that was ignored, a native fallback, missing classifier credentials, and, with the `auto` or `shadow` engine, [routes auto cannot rank](providers.md#unrated-routes). They no longer sit inside the Now tab's NEXT TURN block.
 
 The top line of every tab, `ROUTER  [ ◉ on ] [ ○ off ]  engine [ table ] [ shadow ] [ auto ]  Jev ready · 347 ms`, shows the routing mode, switches it, selects the engine, and says whether the classifier is ready. Press `o` or `f` while the pane has focus; an engine press saves a project override at once, with **Undo**. A pane too narrow for the full top line drops the engine control (`/router engine` still works). The tabs under it carry their digits, `[ 1 Now ] [ 2 Routes ] …`, and **?** shows what the numbers mean above the tab. In a pane too narrow for them, the tabs drop the digits (the keys still work), and then **?** moves to the end of the top line. While the warnings under the tabs name missing classifier credentials, the top line says `see below` instead of repeating them. When routing is unavailable, the top line reads `ROUTER  unavailable  Claude’s model is kept` with the reason under it, and offers no on or off: see [Troubleshooting](#troubleshooting).
 
