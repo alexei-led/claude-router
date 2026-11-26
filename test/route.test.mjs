@@ -363,6 +363,24 @@ test('observations count cached input only and never merge different dated snaps
   assert.equal(Object.hasOwn(moved.models, 'claude-haiku-4-5-20270101'), false);
 });
 
+test('the last request keeps the effort it ran at, unknown for a substitute model', () => {
+  for (const [name, effort, served, expected] of [
+    ['a named effort', 'max', model, 'max'],
+    ['a numeric effort', 4000, model, 4000],
+    ['no effort', null, model, null],
+    ['an unset effort', undefined, model, null],
+    ['a substitute model', 'max', 'claude-sonnet-5-5', null],
+  ]) {
+    const observed = observeResponse(DEFAULTS, emptyLoop(DEFAULTS, model), {
+      usage: usage({ model: served }),
+      requestedModel: model,
+      effort,
+      now,
+    });
+    assert.equal(observed.lastRequest.effort, expected, name);
+  }
+});
+
 test('incomplete usage cannot erase the last context measurement', () => {
   const loop = { ...emptyLoop(DEFAULTS, model), lastRequest: { tokens: 700_000, outputTokens: 10 } };
   for (const u of [

@@ -79,6 +79,19 @@ test('the summary counts how often shadow proposed the route that ran, each merg
   assert.equal(decisionsOf(DEFAULTS, []), null);
 });
 
+test('shadow agreement compares what auto would serve, and the target only on a row from before that field', () => {
+  const row = (alt) => start(NOW, OPUS_HIGH, { engine: 'shadow', alt });
+  const cases = [
+    ['serves the route that ran', { route: 'sonnet@max', serve: 'opus@high', move: 'dwell-held' }, '1/1'],
+    ['serves another route', { route: 'opus@high', serve: 'sonnet@max', move: 'upgrade' }, '0/1'],
+    ['older row, same target', { route: 'opus@high' }, '1/1'],
+    ['older row, another target', { route: 'sonnet@max' }, '0/1'],
+    ['nothing to serve', { route: 'opus@high', move: 'unavailable' }, null],
+  ];
+  for (const [name, alt, counted] of cases)
+    assert.equal(decisionsOf(DEFAULTS, [row(alt)]).summary, counted && `shadow agrees ${counted}`, name);
+});
+
 for (const columns of [88, 60, 44])
   test(`at ${columns} columns every line of the block fits, one line per turn`, () => {
     const rows = [

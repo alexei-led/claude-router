@@ -8,7 +8,7 @@ import { observedActivity, progressEvidence, routingBucket } from '../lib/facts.
 import { evaluateReplay, replayAuto, replayTable } from '../lib/replay.mjs';
 import { observedFromTrace, TRACE_PREFIX } from '../lib/replay-trace.mjs';
 import { main as replayCli } from '../scripts/replay-traces.mjs';
-import { answering, CONFIG, drain, harness, JEV_KEY, shadowHarness, step } from './harness.mjs';
+import { answering, CONFIG, drain, harness, JEV_KEY, shadowHarness, step, traceOf } from './harness.mjs';
 import { assistant, jevResponse, user } from './helpers.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
@@ -38,7 +38,7 @@ async function capture({ controls = false, continuations = false, keyword = fals
     if (continuations) await drain(h.step({ ...step, turnId, index: 1, messageCount: messages.length }));
     await h.event('turn.complete', { turnId });
   }
-  return h.preferences.get(`${TRACE_PREFIX}s1`);
+  return traceOf(h);
 }
 
 test('first low advice routes from actual DeepSeek low capability without a preceding micro turn', async (t) => {
@@ -71,7 +71,7 @@ test('first low advice routes from actual DeepSeek low capability without a prec
   assert.equal(runs[1].loop().auto.state.demand, 1);
   assert.equal(runs[1].loop().auto.state.routedDemand, 1);
   assert.equal(runs[1].loop().decision.reason, 'startup');
-  const record = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(runs[0]);
   const table = replayTable(record);
   assert.deepEqual(table.mismatches, []);
   const replayed = replayAuto(record, table.rows);
@@ -143,7 +143,7 @@ test('same-route micro adoption lets low votes and mid-turn review upgrade the r
   assert.equal(review.reason, 'upgrade');
   assert.equal(review.auto.demand, 1);
   assert.equal(states[2].decision.reason, 'same-route');
-  const trace = runs[0].h.preferences.get(`${TRACE_PREFIX}s1`);
+  const trace = traceOf(runs[0].h);
   const table = replayTable(trace);
   assert.deepEqual(table.mismatches, []);
   const replayed = replayAuto(trace, table.rows);
@@ -190,7 +190,7 @@ test('live auto and stateful replay agree on bounded multi-turn pin and forced r
     }
     runs.push(h);
   }
-  const trace = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+  const trace = traceOf(runs[0]);
   const table = replayTable(trace);
   assert.deepEqual(table.mismatches, []);
   const replayed = replayAuto(trace, table.rows);
@@ -236,7 +236,7 @@ test('live auto and stateful replay agree on keyword turns and their tool steps'
     }
     runs.push(h);
   }
-  const trace = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+  const trace = traceOf(runs[0]);
   const table = replayTable(trace);
   assert.deepEqual(table.mismatches, []);
   const replayed = replayAuto(trace, table.rows);
@@ -277,7 +277,7 @@ test('live/replay no-route suspension and next-turn reentry agree, including pin
       }
       runs.push(h);
     }
-    const record = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+    const record = traceOf(runs[0]);
     const table = replayTable(record);
     assert.deepEqual(table.mismatches, []);
     const replayed = replayAuto(record, table.rows);
@@ -319,7 +319,7 @@ test('live auto and replay both treat an allowlist expansion as catalog evidence
     }
     runs.push(h);
   }
-  const record = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(runs[0]);
   const table = replayTable(record);
   assert.deepEqual(table.mismatches, []);
   const auto = replayAuto(record, table.rows);
@@ -376,7 +376,7 @@ test('a hold recorded on a continuation replays the stand-in it routed, not the 
   await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded' });
   await drain(h.step({ ...step, turnId: 't1', index: 1 }));
   await h.event('turn.complete', { turnId: 't1' });
-  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(h);
   const continuation = record.events
     .filter((event) => event.type === 'request' && event.turn === 1)
     .flatMap((event) => event.operations)
@@ -410,7 +410,7 @@ test('a held model replays the stand-in in table and never returns through auto'
   await h.event('turn.start', { turnId: 't2', text: 'Synthetic task' });
   await drain(h.step({ ...step, turnId: 't2' }));
   await h.event('turn.complete', { turnId: 't2' });
-  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(h);
   const turn2 = record.events
     .filter((event) => event.type === 'request' && event.turn === 2)
     .flatMap((event) => event.operations);
@@ -607,7 +607,7 @@ async function oneTurn(config = {}, response = null, continuationModel = null, m
     );
   }
   await h.event('turn.complete', { turnId: 't1' });
-  return { h, record: h.preferences.get(`${TRACE_PREFIX}s1`) };
+  return { h, record: traceOf(h) };
 }
 
 test('synthetic exported fixture and CLI retain recorded mode history', async () => {
@@ -734,7 +734,7 @@ test('malformed shadow-only image projection never breaks a pinned table continu
   await drain(h.step({ ...step, index: 1 }));
   await h.event('turn.complete', { turnId: 't1' });
   assert.equal(h.requests.length, 2);
-  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(h);
   const result = evaluateReplay([exportOf(record)]);
   assert.equal(result.fidelity.passed, true);
   assert.ok(result.autoInputIncomplete.length);
@@ -791,7 +791,7 @@ test('rewind and mid-turn classifier reviews preserve sequential table fidelity'
   messages = [user('one')];
   await drain(h.step({ ...step, turnId: 'rewound', messageCount: 1 }));
   await h.event('turn.complete', { turnId: 'rewound' });
-  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(h);
   assert.ok(record.events.some((e) => e.type === 'reset' && e.cause === 'history'));
   assert.ok(
     record.events.some((e) => e.type === 'request' && e.index > 0 && e.operations.some((op) => op.kind === 'choose')),
@@ -819,7 +819,7 @@ test('a pinned continuation enforces context and resumes the pre-pin route next 
   h.usage({ startedAt: 0, context: { tokens: 250000, breakdown: { totalTokens: 250000 } }, rateLimits: [] });
   await drain(h.step({ ...step, index: 1 }));
   await h.event('turn.complete', { turnId: 't1' });
-  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(h);
   const table = replayTable(record);
   assert.deepEqual(table.mismatches, []);
   const auto = replayAuto(record, table.rows);
@@ -831,7 +831,7 @@ test('a pinned continuation enforces context and resumes the pre-pin route next 
   h.messages(async () => [user('one'), assistant('reply'), user('two')]);
   await drain(h.step({ ...step, turnId: 't2', messageCount: 3 }));
   await h.event('turn.complete', { turnId: 't2' });
-  const full = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const full = traceOf(h);
   const resumed = replayAuto(full, replayTable(full).rows);
   assert.deepEqual(resumed[2].pair, { model: step.model, effort: step.effort });
 });
@@ -874,7 +874,7 @@ test('bounded execute removal uses own activity evidence and reports effective d
   ]);
   await drain(h.step({ ...step, index: 1, messageCount: 3 }));
   await h.event('turn.complete', { turnId: 't1' });
-  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(h);
   const table = replayTable(record);
   assert.deepEqual(table.mismatches, []);
   const rows = replayAuto(record, table.rows);
@@ -935,7 +935,7 @@ test('checkpoint after an auto-only switch releases own pending downgrade on a c
   ];
   await drain(h.step({ ...step, index: 3, messageCount: 3 }));
   await h.event('turn.complete', { turnId: 't1' });
-  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(h);
   const table = replayTable(record);
   assert.deepEqual(table.mismatches, []);
   const rows = replayAuto(record, table.rows);
@@ -969,7 +969,7 @@ test('cross-mode reversals are recognized before partitioning and attributed to 
     await drain(h.step({ ...step, turnId, messageCount: i * 2 + 1 }));
     await h.event('turn.complete', { turnId });
   }
-  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(h);
   const within = evaluateReplay([exportOf(record)], { reversalWindow: 1 });
   const modes = within.sessions[0].modes;
   assert.equal(modes.cost.table.switches.reversals, 1);
@@ -1010,7 +1010,7 @@ test('manual-only captured traffic is not engine exposure', async () => {
   await h.event('turn.start', { turnId: 't1', text: 'Synthetic task' });
   await drain(h.step(step));
   await h.event('turn.complete', { turnId: 't1' });
-  const result = evaluateReplay([exportOf(h.preferences.get(`${TRACE_PREFIX}s1`))]);
+  const result = evaluateReplay([exportOf(traceOf(h))]);
   assert.equal(result.status, 'ok');
   assert.equal(result.exposureDiagnostic.capturedMainTurns, 1);
   assert.equal(result.exposureDiagnostic.eligibleRoutedTurns, 0);
@@ -1039,7 +1039,7 @@ test('repeated failure captured at its occurrence raises independent demand once
   await drain(h.step({ ...step, turnId: 't2', messageCount: messages.length }));
   await drain(h.step({ ...step, turnId: 't2', index: 1, messageCount: messages.length }));
   await h.event('turn.complete', { turnId: 't2' });
-  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(h);
   const table = replayTable(record);
   assert.deepEqual(table.mismatches, []);
   const rows = replayAuto(record, table.rows);
@@ -1075,7 +1075,7 @@ test('manual interval breaks reversal pairing without losing either policy move'
     await drain(h.step({ ...step, turnId, messageCount: i * 2 + 1 }));
     await h.event('turn.complete', { turnId });
   }
-  const result = evaluateReplay([exportOf(h.preferences.get(`${TRACE_PREFIX}s1`))], { reversalWindow: 10 });
+  const result = evaluateReplay([exportOf(traceOf(h))], { reversalWindow: 10 });
   const modes = result.sessions[0].modes;
   assert.equal(modes.cost.table.switches.reversals + modes.quality.table.switches.reversals, 0);
   assert.equal(modes.cost.table.switches.moves + modes.quality.table.switches.moves, 2);
@@ -1125,7 +1125,7 @@ test('replay drops the activity column when activity routing turns off', async (
   h.messages(async () => [user('one'), user('two'), user('three')]);
   await drain(h.step({ ...step, turnId: 'third', messageCount: 3 }));
   await h.event('turn.complete', { turnId: 'third' });
-  const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(h);
   const table = replayTable(record);
   const auto = replayAuto(record, table.rows);
   assert.equal(auto[0].activity, 'code');
@@ -1179,7 +1179,7 @@ test('a reset while activity routing is off drops the retained column', async (t
     h.messages(async () => [user('one'), user('two')]);
     await drain(h.step({ ...step, turnId: 'third', messageCount: 2 }));
     await h.event('turn.complete', { turnId: 'third' });
-    const record = h.preferences.get(`${TRACE_PREFIX}s1`);
+    const record = traceOf(h);
     const resets = record.events.filter((event) => event.type === 'reset');
     assert.ok(
       resets.some((event) => event.cause === (reset === 'compact' ? 'compact' : 'history')),
@@ -1217,7 +1217,7 @@ test('an activity capability map replays to the live auto route', async (t) => {
     await h.event('turn.complete', { turnId: 'first' });
     runs.push(h);
   }
-  const record = runs[0].preferences.get(`${TRACE_PREFIX}s1`);
+  const record = traceOf(runs[0]);
   assert.deepEqual(record.events[0].configured.models.sonnet.capability.high, { default: 2, code: 2.5 });
   const table = replayTable(record);
   assert.deepEqual(table.mismatches, []);

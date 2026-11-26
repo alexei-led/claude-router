@@ -293,6 +293,8 @@ declare module 'claude-code' {
     resolutions: Record<string, string>;
     lastRequest: {
       model: string;
+      // The request's effort, null when unknown; absent in loops an earlier release saved.
+      effort?: string | number | null;
       tokens: number;
       outputTokens: number;
       cacheReadTokens: number;

@@ -11,6 +11,27 @@ applicable decision. It does not run the proposed route or maintain a simulated 
 establish savings or answer quality; a next-turn cost estimate is not an observed cost or a counterfactual saving.
 The bounded decision records are not replay traces. See [Configuration](configuration.md#routing-engine).
 
+### Shadow agreement
+
+Do not compare a row's `alt.route` (the target, before any move gate) with its `route` (the table's, after its gates):
+a held table move then counts as a disagreement of the engines. Compare the would-serve route `alt.serve` with `route`:
+
+1. Take `start` and `review` rows with `engine: "shadow"`. A merged review row counts `n` times.
+2. `alt.serve` names a models key and `route` a model ID: map `opus@xhigh` through the profile's
+   `models.opus.id` before comparing. `session` stands for a route that sends no effort of its own.
+3. Exclude rows with no `alt.serve` (no route to serve, `move: "unavailable"`, a failed proposal, or a row written
+   before this field) and rows with no `alt.incumbentCap` (the incumbent declares no capability, so the move gates had
+   no level to compare). Report how many each rule removed.
+4. Split by `alt.profile` and by `mode`. Rows of different profiles describe different catalogs and must not be
+   pooled. Report pinned rows (`pinned: true`, no `mode`) separately: a pin passes no move gate.
+
+`alt.move` says why a disagreement held or moved, and `alt.blocked` which hard constraint kept a capable candidate
+out. Agreement is a one-step comparison from the table's own route
+([limits](auto-engine.md#shadow-rows)), not an estimate of how an auto session would behave, and not a quality or
+savings result. The Now pane's `shadow agrees` count compares `alt.serve` too, and `alt.route` only on a row written
+before these fields. It is a quick reading, not this measure: it skips rows with no would-serve route, but keeps rows
+with no `alt.incumbentCap`, pools profiles, modes and pins, and covers only this session's rows.
+
 ## Replay trace recorder
 
 In `routingEngine: "shadow"`, the main-turn hooks also keep text-free replay inputs separately from decision rows:
@@ -21,18 +42,61 @@ message indexes and success flags, not commands, tool results or filesystem-path
 its own switch cursor. Validated routing aliases and model IDs are preserved exactly, including path-shaped IDs;
 classifier endpoints, credentials and the config file's nativePath are not copied.
 
-Records use `trace:v2:<session id>`: 30-day retention, 128 KiB per session, 1 MiB total trace budget and a measured
+### Budgets and storage
+
+Records use `trace:v3:<session id>`: 30-day retention, 512 KiB per session, 1 MiB total trace budget and a measured
 3 MiB guard on the shared plugin store. Each flush reads only the trace records; the rest of the store is measured
 once per session, again after 15 minutes, and again whenever the guard would come within 256 KiB of its limit, so a
 store that grew between measures can pass the guard by that much. A turn's flush runs after the turn, from a timer,
-one at a time; the exit flush waits for the last. Pending turns are bounded too. A cap discards the entire pending turn,
-keeps the earlier contiguous prefix usable and counts excluded turns/events. Late starts, resume/reload, gaps,
-conflicts and lost writes are incomplete. Version 1 records (`trace:v1:`) are still read until retired. A failed write
-taints memory and persists that taint on the next success;
-an unavailable store cannot guarantee a durable failure marker. A clean session close is not required.
+one at a time; the exit flush waits for the last. Pending turns are bounded too.
+
+A request repeats most of what the one before it said, so a record stores each event as its difference from the last
+one of its kind ([`lib/trace-codec.mjs`](../lib/trace-codec.mjs)): unchanged fields are left out, whole numbers are
+kept as differences and long field names are shortened. Nothing is lost. On one profile's recorded sessions (12
+sessions, 508 requests, about 11 requests a turn) this took a request from about 1.7 KB to 0.3 KB, after an initial
+snapshot of about 9 KB. At that size one session holds about 1,600 requests: some 200 turns at 8 requests a turn, or
+150 at 11. A larger model catalog, frequent mid-turn reviews or long model allowlists that change hold fewer.
+
+Version 2 and 1 records (`trace:v2:`, `trace:v1:`), which store events whole, are still read, exported, replayed and
+retired. Export files hold the packed form; read one with `readTrace` from `lib/replay-trace.mjs`. A session open
+during the upgrade starts an unusable `trace:v3:` record, as any session first recorded after it began.
+
+The 1 MiB budget holds two full sessions, or about ten of 100 KB. Recently active sessions have a one-hour last-write
+lease against budget eviction; stale activity cannot defeat 30-day retention. Store scans, quota checks and deletion
+are best effort across processes, not atomic reservations.
+
+### What ends a recording, and what makes a session unusable
+
+A **capped** or cut-short trace is usable: replay covers the turns it holds. Once a record is capped, what happens in
+the turns it leaves out (a `gap`, `mode-gap`, `aborted` or recorder failure below) does not mark it; a `conflict` or
+`reset` still does.
+
+| Event | Result |
+| --- | --- |
+| The session reaches 512 KiB, or one turn alone would pass it | The whole turn and every later one are left out and counted as capped |
+| Reload (`/reload-plugins`, plugin update) or resume (`--continue`) of a recorded session | Recording stops; later turns are counted as capped. The earlier process's unwritten turn cannot be recovered |
+| A write is refused (store guard, trace budget full of active sessions) or fails | The turn stays in memory and the next flush writes it. If none succeeds, the stored turns remain |
+| The record was evicted while the session was idle | The session writes it again |
+| A request is interrupted, or its API call fails, before any reply, and that step is not sent again | It is recorded as unanswered; replay observes no reply and its cost stays unpriced |
+| A turn is still running when the session ends | It is left out |
+
+These mark the whole session **incomplete**, and replay excludes it:
+
+| Reason | Cause |
+| --- | --- |
+| `mid-session` | Recording began after the session did: late switch to `shadow`, a resumed or reloaded session with no stored trace, an unreadable history, or a Delete history in another session |
+| `gap` | A main step went out without a record (unreadable settings, a dropped or retried decision, a failed hook), a step was sent again at the same index after a request that got no reply, or a routing state write lost to a newer one |
+| `mode-gap` | A turn ran outside `shadow` between recorded turns |
+| `aborted` | A reply arrived under another session ID, a request was stopped before it was recorded, or a turn that never finished sits behind a recorded one |
+| `conflict` | Another writer's record under the same session diverged, or the stored record cannot be read |
+| `lost-write`, `recorder-error` | The recorder itself threw, or could not read the store when it started, so events may be missing |
+| `store-guard` | The initial configuration snapshot alone exceeds the session budget |
+| `reset` | Delete history cleared a trace the session was still writing |
+| `reload`, `resume` | The stored record could not be read. Records written before version 3 also carry these, `store-guard` and `lost-write` for any reload, resume or refused write |
+
 Freshness requires the first main request (index 0), no saved loop or trace, and readable normalized request
 history with no assistant messages. Injected startup reminders are user rows and do not make a trace incomplete;
-`classic.SessionStart` is not required. Unreadable or malformed history, reload and late enable are conservative.
+`classic.SessionStart` is not required. Unreadable or malformed history, a reload with no stored trace and late enable are conservative.
 Compaction preserves an existing trace with an explicit reset; `/clear` permits fresh history under a new session ID.
 
 Run `/router trace export` to merge retained traces into `router-traces.json` beside the selected profile's
@@ -42,8 +106,6 @@ the retained snapshot instead. Keep all export files for offline replay. Known t
 or newer clean prefix. **Delete history** clears stored traces in any mode, this session's at once and other sessions' in the background, and an export leaves out any trace from before it, but exported files remain user-owned:
 the host filesystem API has no unlink operation.
 
-Recent active sessions have a one-hour last-write lease against budget eviction; stale activity cannot defeat
-30-day retention. Store scans, quota checks and deletion are best effort across processes, not atomic reservations.
 There is no live exposure, routing-quality result or savings claim from this recorder yet.
 
 ## Offline automatic-engine replay
@@ -61,7 +123,8 @@ Omit the dated-file argument when there are no rollover files. The second comman
 The implementation follows [design §5.1 and §6 step 5](plans/2026-11-16-auto-routing-design.md#51-replay-traces-and-offline-replay).
 
 1. Merge sessions with the recorder's `mergeTraceExport`: preserve lost-write taint, overlap conflicts and capped
-   counts. Keep usable capped contiguous prefixes; report their omitted turns/events separately.
+   counts. Keep usable capped contiguous prefixes; report their omitted turns/events separately. The reasons that
+   exclude a session are [listed above](#what-ends-a-recording-and-what-makes-a-session-unusable).
 2. Replay the table chain from **only** its initial header, applying config, controls, history preparation/resets,
    choose/observed/continue operations and responses. Compare every recorded decision and request model/effort.
    An unexplained mismatch on any otherwise usable prefix returns `status: "blocked"`, exits 1 and prints **no**

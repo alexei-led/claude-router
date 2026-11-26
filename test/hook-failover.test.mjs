@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DECISIONS_PREFIX } from '../lib/decisions.mjs';
-import { readTrace, TRACE_PREFIX } from '../lib/replay-trace.mjs';
-import { answering, CONFIG, controls, drain, harness, JEV_KEY, press, step, texts } from './harness.mjs';
+import { readTrace } from '../lib/replay-trace.mjs';
+import { answering, CONFIG, controls, drain, harness, JEV_KEY, press, step, texts, traceOf } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
 // Times in toasts print in the local zone.
@@ -183,7 +183,7 @@ test('a shadow proposal never names the model the table just held out, and the t
     .at(-1);
   assert.ok(start.alt?.route);
   assert.ok(!start.alt.route.startsWith('opus@'), `shadow target names the held model: ${start.alt.route}`);
-  const stored = h.preferences.get(`${TRACE_PREFIX}s1`);
+  const stored = traceOf(h);
   const request = stored.events.find((event) => event.type === 'request' && event.turn === 2);
   assert.deepEqual(request.operations[0].held, [OPUS]);
   // The reader keeps the held ids, so a replay sees what the live proposal saw.
@@ -1142,7 +1142,7 @@ test('the shadow engine sends a failed probe again and marks its trace incomplet
   t.mock.timers.tick(HOUR);
   await sentTurn(h, 't1', opusFails);
   assert.deepEqual(sentModels(h), [OPUS, GLM_ID]);
-  assert.ok(h.preferences.get(`${TRACE_PREFIX}s1`).incomplete.includes('gap'));
+  assert.ok(traceOf(h).incomplete.includes('gap'));
 });
 
 // The engine raises StopFailure and turn.complete in either order; seen live, turn.complete came first.

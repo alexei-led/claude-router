@@ -34,8 +34,65 @@ numeric values on this router's demand scale.
 | MiniMax M3.1 Flash / `minimax-minimax-m3.1-flash`; Kimi K3.1 Pro / `moonshot-kimi-k3.1-pro` | [Provider experiments](provider-experiments.md): small synthetic checks do not calibrate repository tasks per effort. |
 | MiMo V2.6 Flash and Pro / no model-card record | [Provider experiments](provider-experiments.md): no granular effort setting; small synthetic checks do not establish demand-tier adequacy. |
 
+The private [evidence overlay](evidence.md#artificial-analysis-overlay) also carries cost data. For each configured
+effort with a positive cost per task and output price, the router derives `outputScale`: cost per task divided by
+that source's output price, a relative output volume that is comparable across models. A model with no efforts reads
+the `default` entry. Limit: the Artificial Analysis adapter writes the scores of a row without an effort suffix under
+`max` only, so a model with no efforts gets no output scale from it, although it can get a `default` capability. The
+[auto engine](auto-engine.md) uses the scale in the output part of its next-turn estimate.
+It is not capability policy, so it applies even when your profile declares that model's capability; your declarations
+and token prices stay as they are. It cannot be set in the profile file. Without an overlay value, estimates are
+unchanged.
+
 The auto engine selects the cheapest eligible unknown when no eligible declaration is known. Neither the seeds nor
 unknown-only selections establish quality or escalation-headroom calibration; users can configure their own maps.
+
+### Where a model's capability comes from
+
+In order of precedence, per model:
+
+1. A `capability` map the profile declares for the model. It replaces the others for that model in full; cells are
+   not merged.
+2. The [local evidence overlay](evidence.md), for the configured efforts it has cells for.
+3. The preset seeds, where the overlay is silent.
+
+An overlay entry matches a model whose ID equals its key or one of its aliases; the `[1m]` suffix is ignored. When
+no entry matches an ID ending in `-fast`, the entry for the ID without that suffix applies:
+`zai-org/GLM-5.3-fast[1m]` takes the `zai-org/GLM-5.3` evidence. A `-fast` ID serves the same weights faster at a
+higher price, so quality evidence carries over; prices still come from your configuration. An entry for the `-fast`
+ID itself wins, and no other suffix is matched this way.
+
+### Unrated routes
+
+With the `auto` or `shadow` engine and routing on, the pane warns about routed cells whose capability is unknown:
+
+```
+Auto cannot rank flash@low, flash@high, flash@max: set models.<alias>.capability
+```
+
+While a rated candidate is eligible, auto does not target an unrated one, except on escalation. There only rated
+candidates stronger than the incumbent count (any rated one that meets the requirement, when the incumbent is
+unrated), and when there is none, auto chooses among the unrated ones. A move away from an unrated incumbent is judged
+without its capability. The warning covers the tier routes and, with activity routing on, the activity cells, each read
+under its activity. With `shadow` it also covers the routes the active [routing mode](routing-modes.md) moves to,
+because those are what the table sends. Subagent routes and fallbacks are not listed. A name without `@effort` is a
+model with no efforts, or a session-effort route on a model rated at none of its efforts.
+
+To fix it, declare the effort in the profile, under the model's alias (`flash` in the DeepSeek preset). Include every
+effort you want rated, because the declared map replaces the overlay's and the preset's:
+
+```json
+{
+  "models": {
+    "flash": {
+      "capability": { "low": 1, "high": 1.5, "max": { "default": 2, "code": 2.5 } }
+    }
+  }
+}
+```
+
+The levels above only show the shape. In an activity map, include `default`: a route with no activity, and an
+activity the map omits, read it.
 
 ## Select a provider
 

@@ -21,7 +21,7 @@ The facts object uses the existing controller shapes:
 
 - `contextTokens`, `historyMeasured`, `hasImages`;
 - `models`: cache key → `{ prefixTokens, lastAt, ... }`;
-- `effort`: native session effort, and `lastRequest: { tokens, outputTokens, ... }`;
+- `effort`: native session effort, and `lastRequest: { model, effort, tokens, outputTokens, ... }`;
 - `ineligible`: model IDs excluded for this history;
 - `dwellAllowed`: a separate boolean for physical downgrades, required even on a new task. Set it to
   `requests - switchedAt.requests >= config.policy.minDwellRequests`, using the actual route's last switch and
@@ -40,15 +40,15 @@ before assessing cache state, as the table controller's economic config does.
 
 ## Demand, target and move
 
-| Export                  | Input                                                                                                                  | Output                                                                    |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `initialAutoState`      | `{ demand = 2, routedDemand = demand, cause = 'classifier' }`                                                          | Initial state                                                             |
-| `initialIncumbentState` | `{ config, incumbent, facts }`                                                                                         | Baseline demand with actual known incumbent capability as routed demand   |
-| `advanceDemand`         | `{ config, state, advice = null, facts, pin = null, boundedExecute = false }`                                          | `{ raw, level, reason, headroom, escalated, state }`                      |
-| `assessCandidates`      | `{ config, facts, now, incumbent, contextKnown = Number.isFinite(facts.contextTokens), availableModels, nativeModel }` | Candidate facts array                                                     |
-| `selectTarget`          | `{ candidates, demand, mode = 'balanced', headroom = false, escalation = false }`                                      | `{ outcome, route, capability, requirement, estimate, reason, headroom }` |
-| `decideMove`            | `{ config, state, demandResult, target, candidates, advice = null, facts, now, changeCause = null, startup = false }`  | `{ move, route, reason, evidence, estimate, state }`                      |
-| `proposeAutoRoute`      | Combined inputs above, using `incumbent` and optional `state`                                                          | `{ demand, candidates, target, move, state }`                             |
+| Export                  | Input                                                                                                                  | Output                                                                            |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `initialAutoState`      | `{ demand = 2, routedDemand = demand, cause = 'classifier' }`                                                          | Initial state                                                                     |
+| `initialIncumbentState` | `{ config, incumbent, facts }`                                                                                         | Baseline demand with actual known incumbent capability as routed demand           |
+| `advanceDemand`         | `{ config, state, advice = null, facts, pin = null, boundedExecute = false }`                                          | `{ raw, level, reason, headroom, escalated, state }`                              |
+| `assessCandidates`      | `{ config, facts, now, incumbent, contextKnown = Number.isFinite(facts.contextTokens), availableModels, nativeModel }` | Candidate facts array                                                             |
+| `selectTarget`          | `{ candidates, demand, mode = 'balanced', headroom = false, escalation = false }`                                      | `{ outcome, route, capability, requirement, estimate, reason, headroom, capped }` |
+| `decideMove`            | `{ config, state, demandResult, target, candidates, advice = null, facts, now, changeCause = null, startup = false }`  | `{ move, route, reason, evidence, estimate, state }`                              |
+| `proposeAutoRoute`      | Combined inputs above, using `incumbent` and optional `state`                                                          | `{ demand, candidates, target, move, state }`                                     |
 
 The facade initializes missing state with `initialIncumbentState`. Raw demand starts at `config.baselineTier`;
 routed demand starts at the actual incumbent's declared capability for its supported/resolved native effort.
@@ -69,10 +69,26 @@ On a no-effort model, numeric native effort and the generated null-effort candid
 
 All availability, context, image, effort and cold-write cash constraints run before fallback.
 An invalid incumbent and no eligible candidate produce explicit `no-route`, never an invented native route.
-Target outcomes are `meets-demand`, `declared-below-demand`, `unknown-only`, `incumbent` and `no-route`.
+Target outcomes are `meets-demand`, `declared-below-demand`, `cash-capped`, `unknown-only`, `incumbent` and
+`no-route`.
+`cash-capped` is a label on a `declared-below-demand` selection: some catalog or incumbent route declares enough
+capability and fails the cash cap alone. `target.capped` names the cheapest such route by upper estimate; it is null
+on every other outcome. The selected route, capability, estimate and moves are the same under both labels. A route
+with any second reason, such as `context-full` or `held-out`, does not count.
 
 Estimates are absolute next-turn `{ minUsd, maxUsd }` ranges: `cost.inputBounds` plus the last reply's output
-length at `cost.ratesAt` prices. This estimate is effort-blind; it does not model additional thinking tokens.
+length at `cost.ratesAt` prices. When `models.<alias>.outputScale.<effort>` is known for both the candidate and the
+model and effort that produced the last reply (`lastRequest`, which after a one-turn pin is not the incumbent), the
+output part is also multiplied by candidate scale / reply scale. The
+[evidence overlay](providers.md#capability-evidence) is the only source of these scales. Without both of them,
+including an unknown or numeric reply effort or a substituted model, the output part is unscaled and the estimate does
+not depend on effort. The scale treats a benchmark's cost per task as output spend, so it is a rough proxy for output and
+thinking volume, not a token forecast. Input and cache estimates and the switch taxes do not use it. A catalog with
+scales for only some routes compares scaled with unscaled estimates.
+The cheaper-move and downgrade economics of `decideMove` (`switchEconomics` and `downgradeTaxUsd` in `lib/cost.mjs`)
+also stay unscaled: they price the difference in output rates over the last reply's length, the same for every effort.
+Target selection can therefore rank a route cheaper by its scaled estimate while the move gate prices the switch
+differently. With an automatic cache, the switch tax has no output part.
 Selection uses the conservative `maxUsd` bound, then the incumbent, lower sufficient declared capability and
 config order. The mode margin supplies headroom through the requirement, not a tie preference. Automatic prefix
 caches have no assumed TTL or warm-cache exemption.
@@ -81,8 +97,8 @@ These are conditional estimates, not expected costs or measured savings.
 
 ## State ownership
 
-Shadow needs only `advanceDemand → assessCandidates → selectTarget`. Retain the returned demand state and
-always assess the real incumbent/cache; do not retain a hypothetical target as route history.
+Shadow's demand state needs only `advanceDemand → assessCandidates → selectTarget`. Retain the returned demand state
+and always assess the real incumbent/cache; do not retain a hypothetical target as route history.
 Pass `escalation: demand.escalated` and `headroom: demand.headroom` to `selectTarget`. After either escalation or
 pending-headroom selection, copy `target.headroom` back to the returned demand state's `headroom` field.
 It is true only on exhausted escalation, permitting retry if a stronger candidate becomes eligible.
@@ -134,6 +150,28 @@ mass, dwell or payback gates. Hard constraints and the cash cap still apply. Re-
 `reentry`, retaining the escalation hold; an equal physical target accepts current effective demand and clears
 origin without changing route cause or counting a switch. Pinned fallbacks retain normal state and
 apply the physical fallback provenance after restoring the pin. Replay counts external requests separately.
+
+### Shadow rows
+
+The table's recorded route has passed its move gates, while a shadow target has passed none. For comparison, each
+shadow row also records one counterfactual `decideMove` (`counterfactualMove`): what live auto would serve this turn if
+its incumbent were the table's running route. It takes the shadow demand result and target, the assessed candidates,
+and the facts and holds the live adapter builds (`liveEvidence`, with `dwellAllowed` from the table's switches). Its
+routed demand is the incumbent's declared capability at its effective effort, else the demand state's own
+`routedDemand`, which only a fresh state holds. The returned state is dropped.
+
+| Row field (`alt`) | Meaning |
+| ----------------- | ------- |
+| `serve`           | The route live auto would serve, `alias@effort`: the target on a move, else the incumbent; absent when it would serve none or `move` is `unavailable` |
+| `move`            | The `decideMove` reason; `pinned` for a tier pin, which serves its target; `unavailable` on a keyword turn (shadow demand does not model keywords) or when no routed demand is known |
+| `incumbentCap`    | The incumbent's declared capability; absent when unknown |
+| `blocked`         | Up to 3 candidates declared capable of the requirement but excluded, cheapest estimate first: `{ route, reasons }` with the candidate reasons, such as `cash-cap` or `context-full`; absent when there are none |
+| `profile`         | The provider name (at most 24 characters) and a hash of the configured model aliases and IDs, with no path; profiles of one provider with the same models share it |
+
+Limits: each row starts from the table's route, so it is one step and not an auto session. Routed demand is the
+incumbent's capability, where a live session keeps the demand it accepted at its last move. Shadow tracks no mode or
+catalog change (a stronger candidate at unchanged demand reads `no-evidence`), no re-entry after a native fallback and
+no activity retained from earlier turns.
 
 ## Reloads
 

@@ -1,16 +1,30 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { HOLDS_PREFIX } from '../lib/failover.mjs';
 import { evaluateReplay } from '../lib/replay.mjs';
-import { TRACE_ACTIVE_MS, TRACE_PREFIX, TRACE_RETAIN_MS, traceBytes, usableTrace } from '../lib/replay-trace.mjs';
+import {
+  appendTrace,
+  readTrace,
+  storedBytes,
+  storedTrace,
+  TRACE_ACTIVE_MS,
+  TRACE_PREFIX,
+  TRACE_RETAIN_MS,
+  TRACE_SESSION_BYTES,
+  traceBytes,
+  usableTrace,
+} from '../lib/replay-trace.mjs';
 import { chooseRoute, continueRoute, observeResponse, prepareLoop } from '../lib/route.mjs';
-import { answering, CONFIG, drain, harness, press, shadowHarness, step } from './harness.mjs';
+import { answering, CONFIG, drain, harness, press, shadowHarness, step, traceOf } from './harness.mjs';
 import { assistant, jevResponse, toolResult, user } from './helpers.mjs';
 
-const record = (h, id = 's1') => h.preferences.get(TRACE_PREFIX + id);
+const record = traceOf;
 
 const answer = jevResponse('low', { low: 1 }, 0, { code: 1 }, 'produce');
 
 const setup = (config, preferences) => shadowHarness(config, preferences, answer);
+
+const ends = (trace) => trace.events.filter((event) => event.type === 'end').length;
 
 async function begin(h) {
   await h.event('session.start', { cwd: '/fixture' });
@@ -56,7 +70,10 @@ test('startup with injected messages records and exports a usable first request 
   assert.equal(usableTrace(trace), true);
   assert.match((await h.event('command.run', { command: 'router', args: 'trace export' })).text, /Exported 1/);
   const exported = JSON.parse(h.files.get('/fixture/team/router-traces.json'));
-  assert.deepEqual(exported.sessions[`${TRACE_PREFIX}s1`], JSON.parse(JSON.stringify(trace)));
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(readTrace(exported.sessions[`${TRACE_PREFIX}s1`]))),
+    JSON.parse(JSON.stringify(trace)),
+  );
   assert.equal(evaluateReplay([exported]).fidelity.passed, true);
 });
 
@@ -103,21 +120,19 @@ test('unreadable or malformed current request history is conservatively incomple
   }
 });
 
-test('first-request evidence cannot override existing loop or trace', async () => {
+test('first-request evidence cannot override an existing loop', async () => {
   const original = setup();
   await begin(original);
   await turn(original);
-  for (const kind of ['loop', 'trace']) {
-    const h = setup({}, kind === 'trace' ? new Map(original.preferences) : new Map());
-    if (kind === 'loop') for (const [key, value] of original.state) h.state.set(key, structuredClone(value));
-    await begin(h);
-    await turn(
-      h,
-      'next',
-      Array.from({ length: 17 }, () => user('message')),
-    );
-    assert.equal(usableTrace(record(h)), false, kind);
-  }
+  const h = setup();
+  for (const [key, value] of original.state) h.state.set(key, structuredClone(value));
+  await begin(h);
+  await turn(
+    h,
+    'next',
+    Array.from({ length: 17 }, () => user('message')),
+  );
+  assert.ok(record(h).incomplete.includes('mid-session'));
 });
 
 test('duplicate Mod starts and unexplained session switches cannot establish freshness', async () => {
@@ -234,7 +249,7 @@ test('table routes have zero trace store/export side effects', async () => {
   assert.equal(h.files.has('/fixture/team/router-traces.json'), true);
 });
 
-test('append failure poisons memory and next successful write persists taint instead of falsely completing', async () => {
+test('a failed trace write loses nothing: the next flush writes every held turn', async () => {
   const h = setup();
   await begin(h);
   const set = h.$.store.set;
@@ -247,12 +262,12 @@ test('append failure poisons memory and next successful write persists taint ins
   assert.equal(record(h), undefined);
   fail = false;
   await turn(h, 't2', [user('one'), assistant('reply'), user('two')]);
-  assert.ok(record(h).lostWrites > 0);
-  assert.equal(usableTrace(record(h)), false);
+  assert.equal(ends(record(h)), 2);
+  assert.equal(usableTrace(record(h)), true);
   assert.equal(JSON.stringify(record(h)).includes('CANARY'), false);
 });
 
-test('quota reads fail closed, preserve usage, and taint on recovery', async () => {
+test('quota reads fail closed, preserve usage, and keep the turn for the next flush', async () => {
   for (const boundary of ['keys', 'value']) {
     const h = setup();
     await begin(h);
@@ -271,16 +286,16 @@ test('quota reads fail closed, preserve usage, and taint on recovery', async () 
         return get(key);
       };
     await turn(h);
-    assert.equal(record(h), undefined);
+    assert.equal(record(h), undefined, boundary);
     fail = false;
     await turn(h, 't2');
-    assert.equal(usableTrace(record(h)), false);
-    assert.ok(record(h).lostWrites > 0);
+    assert.equal(ends(record(h)), 2, boundary);
+    assert.equal(usableTrace(record(h)), true, boundary);
     assert.deepEqual(h.preferences.get('other:opaque'), { content: 'not a trace' });
   }
 });
 
-test('3MiB guard stops tracing without consuming other ledger headroom', async () => {
+test('3MiB guard holds a turn back without consuming other ledger headroom', async () => {
   const h = setup();
   await begin(h);
   h.preferences.set('usage:large', 'x'.repeat(3 * 1024 * 1024));
@@ -288,26 +303,140 @@ test('3MiB guard stops tracing without consuming other ledger headroom', async (
   assert.equal(record(h), undefined);
   h.preferences.delete('usage:large');
   await turn(h, 't2');
-  assert.ok(record(h).incomplete.includes('store-guard'));
-  assert.equal(usableTrace(record(h)), false);
+  assert.equal(ends(record(h)), 2);
+  assert.equal(usableTrace(record(h)), true);
 });
 
-test('mid-session/resume/reload cannot become usable even when the saved prefix was clean', async () => {
-  const preferences = new Map();
-  const first = setup({}, preferences);
-  await begin(first);
-  await turn(first);
-  assert.equal(usableTrace(record(first)), true);
-  const resumed = setup({}, preferences);
-  await begin(resumed);
-  await turn(resumed, 't2', [user('one'), assistant('reply'), user('two')]);
-  assert.equal(usableTrace(record(resumed)), false);
-  assert.ok(record(resumed).incomplete.includes('resume'));
+for (const [name, keepsLoop] of [
+  ['reload', true],
+  ['resume', false],
+])
+  test(`a ${name} stops recording and keeps the stored turns usable`, async () => {
+    const first = setup();
+    await begin(first);
+    await turn(first);
+    const before = record(first);
+    const next = setup({}, first.preferences);
+    if (keepsLoop) for (const [key, value] of first.state) next.state.set(key, structuredClone(value));
+    await begin(next);
+    await turn(next, 't2', [user('one'), assistant('reply'), user('two')]);
+    await turn(next, 't3', [user('one'), assistant('reply'), user('two')]);
+    assert.deepEqual(record(next).events, before.events);
+    assert.deepEqual(record(next).incomplete, []);
+    assert.equal(record(next).capped.turns, 2);
+    assert.equal(usableTrace(record(next)), true);
+  });
+
+for (const [name, disturb] of [
+  [
+    'an engine round-trip',
+    async (h) => {
+      await h.event('command.run', { command: 'router', args: 'engine table' });
+      await turn(h, 'table', [user('one'), assistant('reply'), user('two')]);
+      await h.event('command.run', { command: 'router', args: 'engine shadow' });
+    },
+  ],
+  [
+    'a step that passes through on a routing failure',
+    async (h) => {
+      const read = h.$.settings.read;
+      h.$.settings.read = async () => {
+        throw new Error('unreadable');
+      };
+      await turn(h, 'passed', [user('one'), assistant('reply'), user('two')]);
+      h.$.settings.read = read;
+    },
+  ],
+])
+  test(`${name} after a resume leaves the stored turns usable`, async () => {
+    const first = setup();
+    await begin(first);
+    await turn(first);
+    const before = record(first);
+    const next = setup({}, first.preferences);
+    await begin(next);
+    await turn(next, 't2', [user('one'), assistant('reply'), user('two')]);
+    await disturb(next);
+    await turn(next, 't3', [user('one'), assistant('reply'), user('two')]);
+    await next.event('session.end', { reason: 'exit' });
+    assert.deepEqual(record(next).events, before.events);
+    assert.deepEqual(record(next).incomplete, []);
+    assert.equal(usableTrace(record(next)), true);
+  });
+
+test('a trace first seen after its first request cannot be usable', async () => {
   const late = setup();
   await late.event('turn.start', { turnId: 't1', text: 'already running' });
   await drain(late.step({ ...step, index: 2, messageCount: 20 }));
   await late.event('turn.complete', { turnId: 't1' });
   assert.equal(usableTrace(record(late)), false);
+});
+
+test('a session’s record evicted by another session is written again without a conflict', async () => {
+  const h = setup();
+  await begin(h);
+  await turn(h);
+  h.preferences.delete(`${TRACE_PREFIX}s1`);
+  await turn(h, 't2');
+  assert.equal(ends(record(h)), 2);
+  assert.equal(usableTrace(record(h)), true);
+});
+
+test('a turn left unfinished at session end is dropped, and the recorded turns stay usable', async () => {
+  const h = setup();
+  await begin(h);
+  await turn(h);
+  await h.event('turn.start', { turnId: 'open', text: 'Synthetic task.' });
+  await drain(h.step({ ...step, turnId: 'open' }));
+  await h.event('session.end', { reason: 'exit' });
+  assert.equal(ends(record(h)), 1);
+  assert.equal(usableTrace(record(h)), true);
+});
+
+test('a turn left unfinished after a reload leaves the stored turns usable', async () => {
+  const first = setup();
+  await begin(first);
+  await turn(first);
+  await turn(first, 't2', [user('one'), assistant('reply'), user('two')]);
+  const next = setup({}, first.preferences);
+  await begin(next);
+  await next.event('turn.start', { turnId: 'open', text: 'Synthetic task.' });
+  await drain(next.step({ ...step, turnId: 'open' }));
+  await next.event('session.end', { reason: 'exit' });
+  assert.equal(usableTrace(record(next)), true);
+});
+
+async function leftOpen(h, id = 'open') {
+  await h.event('turn.start', { turnId: id, text: 'Synthetic task.' });
+  await drain(h.step({ ...step, turnId: id }));
+}
+
+test('a turn left unfinished behind a recorded one marks the write that records it', async () => {
+  const h = setup();
+  await begin(h);
+  await leftOpen(h);
+  await turn(h, 't2');
+  // No session.end: the process can die here, and a resume must still read the hole.
+  assert.deepEqual(record(h).incomplete, ['aborted']);
+  const resumed = setup({}, h.preferences);
+  await begin(resumed);
+  await turn(resumed, 't3', [user('one'), assistant('reply'), user('two')]);
+  await resumed.event('session.end', { reason: 'exit' });
+  assert.deepEqual(record(resumed).incomplete, ['aborted']);
+  assert.equal(usableTrace(record(resumed)), false);
+});
+
+test('an unfinished turn with nothing recorded past it leaves no hole, on a resumed record too', async () => {
+  const first = setup();
+  await begin(first);
+  await turn(first);
+  const next = setup({}, first.preferences);
+  await begin(next);
+  await leftOpen(next);
+  await turn(next, 't3', [user('one'), assistant('reply'), user('two')]);
+  await next.event('session.end', { reason: 'exit' });
+  assert.deepEqual(record(next).incomplete, []);
+  assert.equal(usableTrace(record(next)), true);
 });
 
 test('retention expires old whole sessions including killed active leases, not decision-row counts', async (t) => {
@@ -344,7 +473,7 @@ test('export merges retained sessions and cap metadata, preserves taint and refu
   await turn(h, 't2');
   assert.match((await exportNow()).text, /Exported 2/);
   const second = JSON.parse(h.files.get(path));
-  assert.equal(second.sessions[`${TRACE_PREFIX}s1`].events.length, 7);
+  assert.equal(readTrace(second.sessions[`${TRACE_PREFIX}s1`]).events.length, 7);
   const saved = h.files.get(path);
   h.$.fs.write = async () => {
     throw new Error('denied');
@@ -437,14 +566,14 @@ test('concurrent active session records are never evicted to admit a new trace',
       padding: 'x'.repeat(600_000),
     });
   await turn(h, 't2');
-  assert.equal(record(h).events.length, prefix.events.length);
+  assert.deepEqual(record(h).events, prefix.events);
   assert.ok(h.preferences.has(`${TRACE_PREFIX}active-a`));
   assert.ok(h.preferences.has(`${TRACE_PREFIX}active-b`));
   h.preferences.delete(`${TRACE_PREFIX}active-a`);
   h.preferences.delete(`${TRACE_PREFIX}active-b`);
   await turn(h, 't3');
-  assert.equal(usableTrace(record(h)), false);
-  assert.ok(record(h).incomplete.includes('store-guard'));
+  assert.equal(ends(record(h)), 3);
+  assert.equal(usableTrace(record(h)), true);
 });
 
 test('eviction rereads changed records and keeps a newly active writer', async (t) => {
@@ -497,7 +626,7 @@ test('export rolls over near 3MiB without rewriting or dropping the earlier arch
   await begin(h);
   await turn(h);
   const sessions = {};
-  const sample = record(h);
+  const sample = h.preferences.get(`${TRACE_PREFIX}s1`);
   const count = Math.floor((3 * 1024 * 1024 - 100) / (traceBytes(sample) + 30));
   for (let i = 0; i < count; i++) sessions[`${TRACE_PREFIX}archive-${i}`] = sample;
   let previous = { version: 1, sessions };
@@ -514,20 +643,11 @@ test('export rolls over near 3MiB without rewriting or dropping the earlier arch
   assert.equal([...h.files.keys()].filter((name) => name.includes('router-traces-')).length, 1);
 });
 
-test('reload and oversized initial snapshots are explicitly unusable', async () => {
-  const first = setup();
-  await begin(first);
-  await turn(first);
-  const reloaded = setup({}, first.preferences);
-  for (const [key, value] of first.state) reloaded.state.set(key, structuredClone(value));
-  await begin(reloaded);
-  await turn(reloaded, 't2');
-  assert.ok(record(reloaded).incomplete.includes('reload'));
-  assert.equal(usableTrace(record(reloaded)), false);
+test('an oversized initial snapshot is explicitly unusable', async () => {
   const models = {};
-  for (let i = 0; i < 700; i++)
+  for (let i = 0; i < 800; i++)
     models[`m${i}`] = {
-      id: `synthetic-model-${i}`,
+      id: `synthetic-model-${i}-${'x'.repeat(800)}`,
       strength: 1,
       contextWindow: 200000,
       input: 1,
@@ -541,7 +661,7 @@ test('reload and oversized initial snapshots are explicitly unusable', async () 
   await begin(oversized);
   await turn(oversized);
   assert.equal(usableTrace(record(oversized)), false);
-  assert.ok(traceBytes(record(oversized)) < 128 * 1024);
+  assert.ok(storedBytes(record(oversized)) < TRACE_SESSION_BYTES);
   assert.ok(record(oversized).incomplete.includes('store-guard'));
 });
 
@@ -591,6 +711,37 @@ test('observed moves and continuation availability/context inputs are recorded, 
   assert.equal(JSON.stringify(record(h)).includes('CANARY'), false);
 });
 
+// The stored record with a replay reset appended whose size brings it to `bytes` in the store.
+function paddedTo(trace, bytes) {
+  const pad = (length) =>
+    appendTrace(
+      trace,
+      [{ type: 'reset', at: trace.updatedAt, cause: 'compact', loop: { ineligible: ['x'.repeat(length)] } }],
+      trace.updatedAt,
+    );
+  const padded = pad(bytes - storedBytes(pad(1)) + 1);
+  assert.equal(storedBytes(padded), bytes);
+  assert.equal(usableTrace(padded), true);
+  return storedTrace(padded);
+}
+
+test('a resume keeps a stored trace that fills the session budget', async () => {
+  for (const bytes of [TRACE_SESSION_BYTES - 1024, TRACE_SESSION_BYTES - 1023, TRACE_SESSION_BYTES]) {
+    const first = setup();
+    await begin(first);
+    await turn(first);
+    first.preferences.set(`${TRACE_PREFIX}s1`, paddedTo(record(first), bytes));
+    const before = record(first);
+    const next = setup({}, first.preferences);
+    await begin(next);
+    await turn(next, 't2', [user('one'), assistant('reply'), user('two')]);
+    await next.event('session.end', { reason: 'exit' });
+    assert.deepEqual(record(next).events, before.events, `${bytes}`);
+    assert.equal(record(next).capped.turns, 1, `${bytes}`);
+    assert.equal(usableTrace(record(next)), true, `${bytes}`);
+  }
+});
+
 test('shadow-table-shadow between steps cannot lose an unflushed turn silently', async () => {
   const h = setup();
   await begin(h);
@@ -612,8 +763,12 @@ test('shadow-table-shadow between steps cannot lose an unflushed turn silently',
   assert.ok(record(h).incomplete.includes('mode-gap'));
 });
 
-test('aborted manual replies and unfinished streamed requests persist explicit incompleteness', async () => {
-  for (const manual of [false, true]) {
+for (const [name, manual, stop] of [
+  ['an interrupted routed request', false, 'abort'],
+  ['an interrupted manual request', true, 'abort'],
+  ['a stream closed before its reply', false, 'return'],
+])
+  test(`${name} is recorded as unanswered and the trace still replays`, async () => {
     const h = setup();
     await begin(h);
     if (manual) await h.event('command.run', { command: 'router', args: 'off' });
@@ -621,22 +776,23 @@ test('aborted manual replies and unfinished streamed requests persist explicit i
     const controller = new AbortController();
     const stream = h.step(step, {}, controller.signal);
     await stream.next();
-    controller.abort();
-    await drain(stream);
+    if (stop === 'abort') {
+      controller.abort();
+      await drain(stream);
+    } else await stream.return();
     await h.event('turn.complete', { turnId: 't1' });
-    assert.equal(usableTrace(record(h)), false);
-    assert.ok(record(h).incomplete.includes('aborted'));
-  }
-  const h = setup();
-  await begin(h);
-  await h.event('turn.start', { turnId: 't1', text: 'Synthetic task.' });
-  const stream = h.step(step);
-  await stream.next();
-  await stream.return();
-  await h.event('turn.complete', { turnId: 't1' });
-  assert.equal(usableTrace(record(h)), false);
-  assert.ok(record(h).incomplete.includes('gap'));
-});
+    await turn(h, 't2', [user('one'), assistant('reply'), user('two')]);
+    const replies = record(h).events.filter((event) => event.type === 'response');
+    assert.deepEqual(
+      replies.map((reply) => reply.unanswered ?? false),
+      [true, false],
+    );
+    assert.equal(usableTrace(record(h)), true);
+    assert.equal(
+      evaluateReplay([{ version: 1, sessions: { [`${TRACE_PREFIX}s1`]: record(h) } }]).fidelity.passed,
+      true,
+    );
+  });
 
 test('real hook snapshots retain unused odd catalog aliases and custom cache economics', async () => {
   const alias = 'unused modèle 模型';
@@ -748,7 +904,35 @@ test('recorder failures during controls, compaction and turn completion do not e
   assert.equal(JSON.stringify(record(h)).includes('CANARY'), false);
 });
 
-test('failed session-end tracing does not prevent session lifecycle and resume stays incomplete', async (t) => {
+test('a recorder failure while a turn is appended leaves the missing turn marked, never a usable hole', async (t) => {
+  const h = setup();
+  await begin(h);
+  await turn(h, 't1');
+  await h.event('turn.start', { turnId: 't2', text: 'Synthetic task.' });
+  await drain(h.step({ ...step, turnId: 't2' }));
+  const encode = TextEncoder.prototype.encode;
+  let failed = false;
+  // The first whole record measured from here on is the one taking the turn.
+  t.mock.method(TextEncoder.prototype, 'encode', function (value) {
+    if (!failed && value.startsWith('{"version":')) {
+      failed = true;
+      throw new Error('CANARY_APPEND_FAILURE');
+    }
+    return encode.call(this, value);
+  });
+  await h.event('turn.complete', { turnId: 't2' });
+  assert.equal(failed, true);
+  assert.equal(usableTrace(record(h)), false);
+  await turn(h, 't3');
+  const trace = record(h);
+  assert.equal(ends(trace), 2);
+  assert.equal(trace.lostWrites, 1);
+  assert.ok(trace.incomplete.includes('lost-write'));
+  assert.ok(trace.incomplete.includes('recorder-error'));
+  assert.equal(usableTrace(trace), false);
+});
+
+test('failed session-end tracing does not prevent the session lifecycle and the stored turns stay usable', async (t) => {
   const h = setup();
   await begin(h);
   await turn(h);
@@ -763,8 +947,67 @@ test('failed session-end tracing does not prevent session lifecycle and resume s
   const resumed = setup({}, h.preferences);
   await begin(resumed);
   await turn(resumed);
-  assert.equal(usableTrace(record(resumed)), false);
-  assert.ok(record(resumed).incomplete.includes('resume'));
+  assert.equal(ends(record(resumed)), 1);
+  assert.equal(usableTrace(record(resumed)), true);
+});
+
+test('a reply the loop took is recorded as answered even when reading the holds afterwards fails', async () => {
+  const h = setup();
+  await begin(h);
+  await turn(h, 't1');
+  const agent = { ...step, agentId: 'a1', model: 'claude-haiku-5-5' };
+  await drain(h.step({ ...agent, turnId: 'a1-t' }, { usage: undefined }));
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded', agent_id: 'a1' });
+  assert.deepEqual(Object.keys(h.loop().held), [agent.model]);
+  // The agent's successful reply lands while the main step is deciding, so its clear waits for the main write.
+  let release = () => {};
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  let entered = () => {};
+  const reached = new Promise((resolve) => {
+    entered = resolve;
+  });
+  let gated = false;
+  h.messages(async () => {
+    if (!gated) {
+      gated = true;
+      entered();
+      await gate;
+    }
+    return [user('Synthetic task.')];
+  });
+  await h.event('turn.start', { turnId: 't2', text: 'Synthetic task.' });
+  const main = drain(h.step({ ...step, turnId: 't2' }));
+  await reached;
+  await drain(h.step({ ...agent, turnId: 'a1-t2' }));
+  let fail = false;
+  let threw = false;
+  const { set } = h.$.state;
+  h.$.state.set = async (ref, value, options) => {
+    const result = await set(ref, value, options);
+    // The write that carries the cleared hold is the main reply's.
+    if (ref.key === 'loops' && !Object.keys(value.held ?? {}).length) fail = true;
+    return result;
+  };
+  const { get } = h.$.store;
+  h.$.store.get = (key) => {
+    if (fail && key.startsWith(HOLDS_PREFIX)) {
+      threw = true;
+      throw new Error('holds read failed');
+    }
+    return get(key);
+  };
+  release();
+  await main.catch(() => {});
+  fail = false;
+  await h.event('turn.complete', { turnId: 't2' });
+  assert.equal(threw, true);
+  const replies = record(h).events.filter((event) => event.type === 'response');
+  assert.deepEqual(
+    replies.map((reply) => reply.unanswered ?? false),
+    [false, false],
+  );
 });
 
 test('a step that passes through on a routing failure leaves the trace incomplete', async () => {
@@ -864,7 +1107,7 @@ test('a trace export right after a turn includes that turn’s queued trace', as
   await turn(h);
   assert.match((await h.event('command.run', { command: 'router', args: 'trace export' })).text, /Exported 1 /);
   const exported = JSON.parse(h.files.get('/fixture/team/router-traces.json'));
-  assert.equal(exported.sessions[`${TRACE_PREFIX}s1`].events.filter((event) => event.type === 'end').length, 1);
+  assert.equal(ends(readTrace(exported.sessions[`${TRACE_PREFIX}s1`])), 1);
 });
 
 test('a shadow turn’s trace is written after turn.complete returns, and session.end writes one still waiting', async () => {

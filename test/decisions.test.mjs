@@ -204,13 +204,25 @@ test('shadow proposals roundtrip only numeric facts and bounded identifiers, in 
   }
 });
 
+test('a cash-capped outcome survives storage and is listed for shadow and auto rows', () => {
+  const proposal = { demand: 3, outcome: 'cash-capped', route: 'sonnet@max', capability: 2 };
+  for (const row of [
+    decisionRow({ at: T, kind: 'start', decision, engine: 'shadow', alt: proposal }),
+    decisionRow({ at: T, kind: 'start', decision: { ...decision, auto: proposal }, engine: 'auto' }),
+  ]) {
+    const [stored] = readDecisions({ version: 1, since: T, rows: [row] }).rows;
+    assert.deepEqual(stored, row);
+    assert.match(decisionLines([stored])[0] ?? '', /; cash-capped/);
+  }
+});
+
 test('malformed shadow fields cannot retain arbitrary text on read or write', () => {
   const alt = {
     demand: 4,
     requirement: NaN,
     reason: 'secret prompt',
     outcome: 'secret tools',
-    route: '/private/project@high',
+    route: 'secret\nprompt@high',
     capability: -1,
     headroom: 'yes',
     minUsd: -1,
@@ -627,4 +639,124 @@ test('a failure row is listed with what it held and never its text', () => {
   assert.match(held ?? '', /failure +rate_limit {2}window held account plan$/);
   assert.match(nothing ?? '', /failure +authentication_failed {2}held nothing$/);
   assert.doesNotMatch(`${held}${nothing}`, /secret/);
+});
+
+test('a shadow row keeps its counterfactual move, blocked candidates and profile on write and read', () => {
+  const extra = {
+    serve: 'sonnet@high',
+    move: 'downgrade-pending',
+    incumbentCap: 2,
+    blocked: [{ route: 'fable@max', reasons: ['context-full', 'cash-cap'] }],
+    profile: 'anthropic.0a1b2c3d',
+  };
+  const row = decisionRow({
+    at: T,
+    kind: 'start',
+    decision,
+    engine: 'shadow',
+    alt: { reason: 'classifier', ...extra },
+  });
+  const stored = readDecisions({ version: 1, since: T, rows: [row] }).rows[0];
+  for (const [field, value] of Object.entries(extra)) assert.deepEqual(stored.alt[field], value, field);
+  assert.match(decisionLines([stored])[0], /auto would serve sonnet@high \(downgrade-pending\)/);
+});
+
+for (const [name, field, value] of [
+  ['a would-serve route without an effort', 'serve', '/private/project'],
+  ['a would-serve route over 64 alias characters', 'serve', `${'m'.repeat(65)}@high`],
+  ['an unknown move reason', 'move', 'secret prompt'],
+  ['an incumbent capability out of range', 'incumbentCap', 9],
+  ['a profile path', 'profile', '/Users/someone/router.json'],
+  ['blocked text', 'blocked', 'secret'],
+  ['a blocked route with a control character', 'blocked', [{ route: 'secret\u001b@high', reasons: ['cash-cap'] }]],
+  ['blocked unknown reasons only', 'blocked', [{ route: 'fable@max', reasons: ['secret'] }]],
+  ['an empty blocked list', 'blocked', []],
+]) {
+  test(`a shadow row drops ${name}`, () => {
+    const row = decisionRow({ at: T, kind: 'start', decision, engine: 'shadow', alt: { [field]: value } });
+    assert.equal(Object.hasOwn(row.alt, field), false);
+  });
+}
+
+test('a shadow row keeps routes named by any alias the config accepts', () => {
+  for (const alias of ['modèle', '模型', 'my model', 'gpt+5', 'vendor/model']) {
+    const route = `${alias}@high`;
+    const alt = { route, serve: route, blocked: [{ route, reasons: ['cash-cap'] }] };
+    const row = decisionRow({ at: T, kind: 'start', decision, engine: 'shadow', alt });
+    const [stored] = readDecisions({ version: 1, since: T, rows: [row] }).rows;
+    for (const kept of [row, stored])
+      assert.deepEqual([kept.alt.route, kept.alt.serve, kept.alt.blocked], [route, route, alt.blocked], alias);
+  }
+});
+
+test('a shadow row keeps at most 3 blocked candidates and only their known reasons', () => {
+  const blocked = Array.from({ length: 5 }, (_, i) => ({
+    route: `model${i}@max`,
+    reasons: ['cash-cap', 'cash-cap', 'secret'],
+    estimate: 1,
+  }));
+  const row = decisionRow({ at: T, kind: 'start', decision, engine: 'shadow', alt: { blocked } });
+  assert.deepEqual(
+    row.alt.blocked,
+    [0, 1, 2].map((i) => ({ route: `model${i}@max`, reasons: ['cash-cap'] })),
+  );
+});
+
+test('the largest shadow proposal a row can hold stays under 1.2 KB', () => {
+  const route = `${'m'.repeat(64)}@session`;
+  const reasons = [
+    'model-missing',
+    'effort-unsupported',
+    'unavailable',
+    'held-out',
+    'context-full',
+    'context-unknown',
+    'images',
+    'cash-cap',
+  ];
+  const alt = {
+    demand: 2.5,
+    reason: 'downgrade-pending',
+    headroom: false,
+    targetReason: 'escalation-exhausted',
+    requirement: 2.5,
+    outcome: 'declared-below-demand',
+    route,
+    capability: 2.5,
+    minUsd: 1234.123456,
+    maxUsd: 1234.123456,
+    serve: route,
+    move: 'escalation-exhausted',
+    incumbentCap: 2.5,
+    blocked: Array.from({ length: 9 }, () => ({ route, reasons })),
+    profile: `${'p'.repeat(24)}.ffffffff`,
+  };
+  const row = decisionRow({ at: T, kind: 'start', decision, engine: 'shadow', alt });
+  assert.equal(row.alt.blocked.length, 3);
+  assert.equal(row.alt.profile, alt.profile);
+  assert.ok(JSON.stringify(row.alt).length <= 1200, String(JSON.stringify(row.alt).length));
+});
+
+test('reviews whose would-serve route changed stay separate rows', () => {
+  const review = (serve) =>
+    decisionRow({ at: T, kind: 'review', decision, engine: 'shadow', alt: { route: 'sonnet@high', serve } });
+  assert.equal(addTurnRow([review('opus@high')], review('opus@high')).length, 1);
+  assert.equal(addTurnRow([review('opus@high')], review('sonnet@high')).length, 2);
+});
+
+test('reviews held for different move reasons stay separate rows', () => {
+  const review = (move) =>
+    decisionRow({
+      at: T,
+      kind: 'review',
+      decision,
+      engine: 'shadow',
+      alt: { route: 'sonnet@high', serve: 'opus@high', move },
+    });
+  assert.equal(addTurnRow([review('dwell-held')], review('dwell-held')).length, 1);
+  const rows = addTurnRow([review('downgrade-pending')], review('dwell-held'));
+  assert.deepEqual(
+    rows.map((row) => row.alt.move),
+    ['downgrade-pending', 'dwell-held'],
+  );
 });
