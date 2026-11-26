@@ -42,6 +42,17 @@ test('no warning when every routed cell is rated, or while routing is off or una
   assert.deepEqual(warnings(config('auto', ['deepseek']), { phase: 'unavailable' }), []);
 });
 
+test('under shadow the pane also names the routes the active routing mode moves to', () => {
+  const given = { ...config('shadow', ['deepseek']), activities: {} };
+  given.models.deepseek = { ...given.models.deepseek, capability: { high: 2 } };
+  const routingMode = { mode: 'quality', source: 'profile' };
+  assert.deepEqual(warnings(given), []);
+  assert.deepEqual(warnings(given, { routingMode }), [
+    'Auto cannot rank deepseek@xhigh: set models.<alias>.capability',
+  ]);
+  assert.deepEqual(warnings({ ...given, routingEngine: 'auto' }, { routingMode }), []);
+});
+
 test('a long list keeps the cells that fit the docked pane and counts the rest', () => {
   const [line] = warnings(config('auto', ['kimi-fast', 'glm-flash', 'deepseek', 'glm-fast']));
   assert.equal(line, 'Auto cannot rank kimi-fast@high, glm-flash@high +2 more: set models.<alias>.capability');

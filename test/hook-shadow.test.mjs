@@ -83,17 +83,25 @@ test('an incumbent without capability after the first turn records no counterfac
   assert.equal(Object.hasOwn(row.alt, 'incumbentCap'), false);
 });
 
-test('a stronger candidate over the cash cap is recorded as blocked, cheapest first', async () => {
+test('blocked candidates are the capable ones over the cash cap, cheapest estimate first', async () => {
+  const onlyMax = { low: 0, medium: 0, high: 1, xhigh: 1, max: 3 };
+  const onCredits = (capability) => ({ billing: 'credits', capability });
   const h = await shadowSession({
-    models: { ...MODELS, fable: { ...MODELS.fable, billing: 'credits' } },
+    // Fable comes first in the catalog and costs more than Opus; Sonnet is blocked too, but below the requirement.
+    models: {
+      ...MODELS,
+      fable: onCredits(onlyMax),
+      opus: onCredits(onlyMax),
+      sonnet: onCredits(MODELS.sonnet.capability),
+    },
     policy: { cashCapUsd: 0 },
   });
   const { alt } = await turn(h, 't1');
-  assert.ok(alt.blocked.length >= 1 && alt.blocked.length <= 3);
-  for (const { route, reasons } of alt.blocked) {
-    assert.match(route, /^fable@/);
-    assert.deepEqual(reasons, ['cash-cap']);
-  }
+  assert.equal(alt.requirement, 3);
+  assert.deepEqual(alt.blocked, [
+    { route: 'opus@max', reasons: ['cash-cap'] },
+    { route: 'fable@max', reasons: ['cash-cap'] },
+  ]);
 });
 
 test('a row with every stronger candidate eligible has no blocked field', async () => {
