@@ -38,16 +38,20 @@ test('a 60-column band keeps the missing-credential warning and Set up beside th
   }
 });
 
-test('the engine shows as a chip only when it is not the table default', () => {
+test('the engine shows as a chip only when it is not the table default; the routing mode always does', () => {
   const view = { mode: 'auto', phase: 'routed', tier: 'medium', selectedModel: 'claude-opus-5-5', effort: 'medium' };
-  const chips = (config) =>
-    bandSegments(config, view, null, quiet)
+  const chips = (config, routingMode = undefined) =>
+    bandSegments(config, { ...view, routingMode }, null, quiet)
       .flatMap((s) => s.parts)
       .filter((p) => p.chip)
       .map((p) => p.text);
-  assert.deepEqual(chips(DEFAULTS), []);
-  assert.deepEqual(chips({ ...DEFAULTS, routingEngine: 'auto' }), [' auto ']);
-  assert.deepEqual(chips({ ...DEFAULTS, routingEngine: 'shadow' }), [' shadow ']);
+  assert.deepEqual(chips(DEFAULTS), [' balanced ']);
+  assert.deepEqual(chips({ ...DEFAULTS, routingEngine: 'auto' }), [' auto ', ' balanced ']);
+  assert.deepEqual(chips({ ...DEFAULTS, routingEngine: 'shadow' }, { mode: 'quality', source: 'profile' }), [
+    ' shadow ',
+    ' quality ',
+  ]);
+  assert.deepEqual(chips(DEFAULTS, { mode: 'cost', source: 'session' }), [' cost ']);
 });
 
 test('a wide band shows the warning, the route kept and the reason', () => {
@@ -139,14 +143,14 @@ test('each mode draws one mode control, on one row, and the band fits at 60, 80 
   }
 });
 
-// The hover controls take the wider free stretch of the row: here, with no readings at its end, the one after Router,
-// 52 columns in.
-test('the hover controls pin low to high by the route each runs, drop the names, then 2 rows and the pins, and keep Turn off', () => {
+// The hover controls take the wider free stretch of the row, and what does not fit there the other; a control that
+// fits neither whole is left out, never cut.
+test('the hover controls pin low to high by the route each runs, drop the names, then the pins, and keep Turn off', () => {
   const { view } = modeBands.auto;
   for (const [columns, expected] of [
-    [160, 'pin [ ▂ Haiku·medium ] [ ▂▄ Haiku·high ] [ ▂▄▆ Opus·medium ] [ ▂▄▆█ Opus·xhigh ]  [ Turn off ]  [ 2 rows ]'],
-    [120, 'pin [ ▂ ] [ ▂▄ ] [ ▂▄▆ ] [ ▂▄▆█ ]  [ Turn off ]  [ 2 rows ]'],
-    [100, 'pin [ ▂ ] [ ▂▄ ] [ ▂▄▆ ] [ ▂▄▆█ ]  [ Turn off ]'],
+    [180, 'pin [ ▂ Haiku·medium ] [ ▂▄ Haiku·high ] [ ▂▄▆ Opus·medium ] [ ▂▄▆█ Opus·xhigh ]  [ Turn off ]  [ 2 rows ]'],
+    [130, 'pin [ ▂ ] [ ▂▄ ] [ ▂▄▆ ] [ ▂▄▆█ ]  [ Turn off ]  [ 2 rows ]'],
+    [100, '[ Turn off ]'],
     [60, '[ Turn off ]'],
   ])
     assert.equal(
@@ -156,10 +160,19 @@ test('the hover controls pin low to high by the route each runs, drop the names,
     );
 });
 
+test('a hover control that fits neither stretch whole is left out, never cut', () => {
+  const tree = renderBand(ELEMENTS, DEFAULTS, modeBands.auto.view, null, { columns: 100 }, quiet);
+  const overlays = tree.props.children[0].props.children.filter((child) => child?.props.display === 'none');
+  assert.deepEqual(
+    overlays.map((overlay) => drawn(overlay).trimEnd()),
+    ['[ Turn off ]', '[ 2 rows ]'],
+  );
+});
+
 test('a narrow two-row band keeps 1 row beside Turn off, the only way back to one row', () => {
   const view = { ...modeBands.auto.view, bandDetail: true };
   for (const [columns, expected] of [
-    [110, 'pin [ ▂ ] [ ▂▄ ] [ ▂▄▆ ] [ ▂▄▆█ ]  [ Turn off ]  [ 1 row ]'],
+    [130, 'pin [ ▂ ] [ ▂▄ ] [ ▂▄▆ ] [ ▂▄▆█ ]  [ Turn off ]  [ 1 row ]'],
     [75, '[ Turn off ]  [ 1 row ]'],
   ])
     assert.equal(
@@ -382,7 +395,7 @@ test('in cost, the band says when the mode changed only the effort of the route 
   const haiku = { ...view, tier: 'medium', selectedModel: 'claude-haiku-5-5', activity: null };
   assert.doesNotMatch(line(bandSegments(DEFAULTS, haiku, null, quiet)), /effort only/);
   const balanced = { ...view, routingMode: { mode: 'balanced', source: 'default' } };
-  assert.doesNotMatch(line(bandSegments(DEFAULTS, balanced, null, quiet)), /effort only|balanced/);
+  assert.match(line(bandSegments(DEFAULTS, balanced, null, quiet)), / balanced $/);
 });
 
 test('fitSegments keeps every segment whole when the width is unknown', () => {
@@ -400,7 +413,7 @@ test('fitSegments keeps every segment whole when the width is unknown', () => {
 for (const [name, ends] of [
   ['routed-activity-estimate', 'cache 90% last  Router'],
   ['routed-goal', 'ctx ▰▱▱▱▱ 12%  [ Router ]'],
-  ['pending-pin', '↑ clearly stronger  [ Router ]'],
+  ['pending-pin', '↑ clearly stronger    balanced   [ Router ]'],
   ['detail', 'ctx ▰▱▱▱▱ 12%  [ Router ]'],
 ])
   test(`at 100 columns the ${name} band ends with ${ends}`, () => {

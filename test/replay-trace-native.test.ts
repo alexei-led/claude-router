@@ -17,6 +17,8 @@ for (const hasAssistant of [false, true]) {
       return { value: undefined };
     });
     on('store.keys', () => ({ value: [...store.keys()] }));
+    // The trace is written from a timer after the turn: the kit's clock runs it when this answers.
+    on('clock.after', () => ({ value: undefined }));
     on('command.register', () => ({ value: { command: 'router' } }));
     mock.env(on, { HOME: '/fixture', CLAUDE_CONFIG_DIR: '/fixture/team', TYPESAFE_API_KEY: 'CANARY_KEY' });
     const files = new Map([['/fixture/team/router.json', JSON.stringify({ routingEngine: 'shadow' })]]);
@@ -90,6 +92,9 @@ for (const hasAssistant of [false, true]) {
       isAborted: false,
       reason: 'answer',
     });
+    // The flush runs from a timer after the turn, so the test waits for its write.
+    for (let i = 0; i < 400 && !store.has('trace:v2:native-trace'); i++)
+      await new Promise((resolve) => setTimeout(resolve, 5));
     expect(store.has('trace:v2:native-trace')).toBe(true);
     const recorded = store.get('trace:v2:native-trace');
     expect(usableTrace(recorded)).toBe(!hasAssistant);

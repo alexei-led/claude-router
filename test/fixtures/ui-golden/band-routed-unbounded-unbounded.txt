@@ -20,6 +20,10 @@ Box flexDirection="column" key="router-band"
       "↑ clearly stronger"
     Text
       "   "
+    Text backgroundColor="#2a3040" color="subtle"
+      " balanced "
+    Text
+      "   "
     Text dimColor=true
       "ctx "
     Text color="success"
@@ -31,7 +35,7 @@ Box flexDirection="column" key="router-band"
     Text
       "  "
     Button key="details" label="Router"
-    Box display="none" hover={"display":"flex"} left=72 position="absolute" top=0
+    Box display="none" hover={"display":"flex"} left=85 position="absolute" top=0
       Text dimColor=true
         "pin "
       Button key="band-pin-micro" label="▂ Haiku·medium"

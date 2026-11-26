@@ -19,9 +19,13 @@ Box flexDirection="column" key="router-band"
     Text dimColor=true
       "ready"
     Text
+      "   "
+    Text backgroundColor="#2a3040" color="subtle"
+      " balanced "
+    Text
       "  "
     Button key="details" label="Router" plain=true
-    Box display="none" hover={"display":"flex"} left=39 position="absolute" top=0
+    Box display="none" hover={"display":"flex"} left=52 position="absolute" top=0
       Text dimColor=true
         "pin "
       Button key="band-pin-micro" label="▂"
@@ -38,7 +42,8 @@ Box flexDirection="column" key="router-band"
         "  "
       Button key="band-manual" label="Turn off"
       Text
-        "  "
+        " "
+    Box display="none" hover={"display":"flex"} left=24 position="absolute" top=0
       Button key="band-detail" label="2 rows"
       Text
-        "  "
+        "        "

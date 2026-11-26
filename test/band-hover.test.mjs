@@ -61,6 +61,10 @@ for (const [name, { view, usage }] of Object.entries(BAND_STATES))
       for (const [i, one] of placed.entries())
         for (const other of placed.slice(i + 1)) assert.ok(one.to <= other.from || other.to <= one.from, 'overlap');
       if (columns !== null) assert.ok(Math.max(0, ...placed.map((one) => one.to)) <= columns, 'past the band');
+      const cut = hoverOf(tree).flatMap((overlay) =>
+        find(overlay, (node) => node.type === 'Text' && String(node.props.children).endsWith('…')),
+      );
+      assert.deepEqual(cut, [], 'a hover control cut short');
       const keys = hoverOf(tree).flatMap((overlay) => buttonsOf(overlay).map((node) => node.props.key));
       assert.deepEqual(
         keys.filter((key, i) => keys.indexOf(key) !== i),
@@ -80,7 +84,7 @@ for (const name of ['routed', 'routed-goal', 'native-fallback'])
   });
 
 for (const [columns, left] of [
-  [100, 52],
+  [140, 69],
   [60, 24],
 ])
   test(`with nothing at the row's end, at ${columns} columns the hover controls start at column ${left}: the wider stretch`, () => {

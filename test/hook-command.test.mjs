@@ -20,15 +20,16 @@ const labels = async (h, text, engine) => (await h.autocomplete(typed(text), eng
 test('typeahead after /router offers the words that start with what is typed', async () => {
   const h = await started();
   const cases = [
-    ['/router a', ['activities <off|on>']],
-    ['/router e', ['engine <table|shadow|auto>']],
-    ['/router p', ['pin <tier>']],
+    ['/router a', ['activities off', 'activities on']],
+    ['/router e', ['engine table', 'engine shadow', 'engine auto']],
+    ['/router p', ['pin micro', 'pin low', 'pin medium', 'pin high']],
     ['/router d', ['decisions [n]']],
     ['/router t', ['trace export']],
     ['/router h', ['holds']],
     ['/router r', ['release <model|account>']],
     ['/router release p', []],
-    ['/router m', ['mode <mode>']],
+    ['/router m', ['mode cost', 'mode balanced', 'mode quality', 'mode default']],
+    ['/router mode', ['mode cost', 'mode balanced', 'mode quality', 'mode default']],
     ['/router  o', ['on', 'off']],
     ['/router O', ['on', 'off']],
     ['/router z', []],
@@ -54,12 +55,27 @@ test('typeahead stays out of every other prompt', async () => {
 test('typeahead rows follow the engine’s own and say what taking them writes', async () => {
   const h = await started();
   const engine = [{ text: '/router-help' }];
-  const rows = await h.autocomplete(typed('/router p'), engine);
+  const rows = await h.autocomplete(typed('/router mode q'), engine);
   assert.deepEqual(rows, [
     engine[0],
-    { text: 'pin ', label: 'pin <tier>', description: 'Pin the next turn to a tier' },
+    { text: 'quality', label: 'quality', description: 'Stronger: one effort level more, else the tier above' },
   ]);
   assert.deepEqual(await h.autocomplete(typed('/router z'), engine), engine);
+});
+
+// Claude Code asks for rows only while a token is under the caret, so after `/router mode ` it asks nothing: a word
+// that takes a value is offered with each value, a row that writes the whole command.
+test('a word that takes a value is offered with each value and what it does, never as a word to finish', async () => {
+  const h = await started();
+  for (const sub of SUBCOMMANDS.filter((one) => one.values)) {
+    const rows = await h.autocomplete(typed(`/router ${sub.name}`));
+    assert.deepEqual(
+      rows.map((row) => row.text),
+      sub.values.map((value) => `${sub.name} ${value}`),
+      sub.name,
+    );
+    for (const row of rows) assert.match(row.description ?? '', /\S/, row.text);
+  }
 });
 
 test('typeahead names the model each tier runs', async () => {

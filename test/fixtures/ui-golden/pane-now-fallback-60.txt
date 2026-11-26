@@ -81,12 +81,60 @@ Box flexDirection="column"
     "    other models: /model, with routing off"
   Text
     " "
-  Text color="suggestion" weight="semibold"
-    "RECENT DECISIONS"
-  Text
-    "15:50:00  start     composer  asked code 91% code 80%  new task  -> medium code claude-sonnet-5-5@high  (jump)"
-  Text
-    "15:55:00  start     composer  asked timeout  -> medium claude-sonnet-5-5@high  (no-advice)"
+  Box
+    Text color="suggestion" weight="semibold"
+      "RECENT DECISIONS"
+  Text dimColor=true
+    "time   route                   work  calls  why"
+  Box
+    Text dimColor=true
+      "15:50"
+    Text
+      "  "
+    Text color="#d7af5f"
+      "▂▄▆"
+    Text
+      "  "
+    Text
+      "Sonnet 5.5 · high"
+    Text
+      "  "
+    Text color="#d77757" italic=true
+      "code"
+    Text
+      "      —  "
+    Text
+      "↑ clearly stron…"
+  Box
+    Text dimColor=true
+      "15:55"
+    Text
+      "  "
+    Text color="#d7af5f"
+      "▂▄▆"
+    Text
+      "  "
+    Text
+      "Sonnet 5.5 · high"
+    Text
+      "  "
+    Text
+      "    "
+    Text
+      "      …  "
+    Text
+      "= no advice"
+  Box
+    Text
+      "       "
+    Text color="warning"
+      "⚠ classifier"
+    Text
+      " "
+    Text dimColor=true
+      "timeout"
+  Text dimColor=true
+    "every row: /router decisions"
   Text
     " "
   Box

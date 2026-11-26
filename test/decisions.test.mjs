@@ -419,6 +419,46 @@ test('a turn keeps its start row and its newest others', () => {
   assert.equal(rows.at(-1).at, T + MAX_TURN_ROWS + 4);
 });
 
+const review = (at, overrides = {}, decisionOverrides = {}) =>
+  decisionRow({
+    at,
+    kind: 'review',
+    advice: { ...advice, choice: 'medium', probabilities: { medium: overrides.p ?? 0.6 } },
+    decision: {
+      ...decision,
+      reason: 'downgrade-pending',
+      estimate: { downgradeMass: overrides.mass ?? 0.6, threshold: 0.95 },
+      ...decisionOverrides,
+    },
+  });
+
+test('a review that changes nothing joins the one before it: its count, its last time and its best support', () => {
+  let rows = [decisionRow({ at: T, kind: 'start', advice, decision })];
+  for (const [i, mass] of [0.63, 0.75, 0.7].entries()) rows = addTurnRow(rows, review(T + 1000 * (i + 1), { mass }));
+  assert.equal(rows.length, 2);
+  assert.deepEqual([rows[1].at, rows[1].last, rows[1].n, rows[1].mass], [T + 1000, T + 3000, 3, 0.75]);
+  assert.deepEqual(readDecisions({ version: 1, since: T, rows }).rows[1], rows[1]);
+  assert.match(decisionLines(rows)[1], /3 checks until \d\d:\d\d:\d\d/);
+});
+
+test('a long turn drops the reviews that changed nothing before the one that moved the route', () => {
+  let rows = [decisionRow({ at: T, kind: 'start', advice, decision: { ...decision, effort: 'high' } })];
+  rows = addTurnRow(rows, review(T + 1, {}, { reason: 'upgrade', effort: 'xhigh' }));
+  for (let i = 0; i < MAX_TURN_ROWS + 5; i += 1)
+    rows = addTurnRow(
+      rows,
+      review(T + 10 + i, { mass: 0.6 }, { reason: i % 2 ? 'downgrade-pending' : 'hold', effort: 'xhigh' }),
+    );
+  assert.equal(rows.length, MAX_TURN_ROWS);
+  assert.deepEqual(
+    rows.slice(0, 2).map((row) => [row.at, row.reason, row.route]),
+    [
+      [T, 'upgrade', 'claude-opus-5-5@high'],
+      [T + 1, 'upgrade', 'claude-opus-5-5@xhigh'],
+    ],
+  );
+});
+
 test('a progress turn asks about the active goal, with the report as the newest dialogue line', () => {
   const turns = [
     { role: 'user', text: 'a' },

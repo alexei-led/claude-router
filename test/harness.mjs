@@ -102,6 +102,11 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     throw new Error('unexpected HTTP');
   };
   const keyOf = (ref) => `${ref.key}:${ref.id ?? ''}`;
+  // What `$.clock.after` callbacks left running: an event resolves once they settle, as in the engine's test kit.
+  const timers = [];
+  const settleTimers = async () => {
+    while (timers.length) await Promise.allSettled(timers.splice(0));
+  };
   const $ = {
     plugin: { name: 'router', root: '/fixture/plugin' },
     env: { get: async (key) => env.get(key), set: async (key, value) => env.set(key, value) },
@@ -175,7 +180,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     settings: { read: async () => settings },
     clock: {
       after: (_ms, fn) => {
-        fn();
+        timers.push(Promise.resolve(fn()));
         return { cancel: () => {} };
       },
       sleep: (_ms, { signal }) =>
@@ -300,8 +305,12 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
     },
     event: async (name, input) => {
       snapshot = new Map();
-      return handler(name, input)($, input, next);
+      const result = await handler(name, input)($, input, next);
+      await settleTimers();
+      return result;
     },
+    // What `$.clock.after` callbacks left running, settled: a press returns before them, as in the engine.
+    settle: settleTimers,
     render: async (props = PANE, surface = undefined) => {
       snapshot = new Map();
       return handler('ui.render', { component: 'Pane' })(

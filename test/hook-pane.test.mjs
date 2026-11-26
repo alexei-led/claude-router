@@ -603,7 +603,9 @@ test('Delete history clears usage, activity and subagent records, the session co
   await h.event('turn.complete', { turnId: 't1' });
   assert.equal(h.view().activityStats.byActivity.code.turns, 1);
   assert.deepEqual(h.preferences.get(`${STORE_PREFIX}s1`).confusion, { code: { talk: 1 } });
-  h.preferences.set(`${STORE_PREFIX}s0`, h.preferences.get(`${STORE_PREFIX}s1`));
+  // Another session's records, from before the reset: one started at the reset's millisecond counts as written after it.
+  const earlier = (key) => ({ ...h.preferences.get(key), since: 1 });
+  h.preferences.set(`${STORE_PREFIX}s0`, earlier(`${STORE_PREFIX}s1`));
   h.preferences.set(STORE_KEY, {
     version: 1,
     confusion: { ops: { ops: 2 } },
@@ -615,8 +617,8 @@ test('Delete history clears usage, activity and subagent records, the session co
   assert.equal(summarize(readUsage(h.preferences.get('usage:v1:s1')), { from: null, to: null }).replies, 1);
   assert.equal(h.preferences.get('savings:v1:s1'), undefined);
   assert.ok(h.preferences.get('activity:metrics:v1:s1').latency.jev);
-  h.preferences.set('activity:metrics:v1:s0', h.preferences.get('activity:metrics:v1:s1'));
-  h.preferences.set('usage:v1:s0', h.preferences.get('usage:v1:s1'));
+  h.preferences.set('activity:metrics:v1:s0', earlier('activity:metrics:v1:s1'));
+  h.preferences.set('usage:v1:s0', earlier('usage:v1:s1'));
   h.preferences.set('savings:v1:s0', {
     version: 1,
     since: 1,
@@ -630,6 +632,7 @@ test('Delete history clears usage, activity and subagent records, the session co
   await press(h, 'tab-usage');
   await press(h, 'delete-history');
   await press(h, 'delete-confirm');
+  await h.settle();
   assert.equal(h.view().activityStats, null);
   assert.equal(sessionOf(h).replies, 0);
   assert.deepEqual(h.view().activityStore, emptyStore());

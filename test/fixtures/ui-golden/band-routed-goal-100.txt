@@ -23,7 +23,11 @@ Box flexDirection="column" key="router-band"
     Text dimColor=true
       "= fits"
     Text
-      "                       "
+      "   "
+    Text backgroundColor="#2a3040" color="subtle"
+      " balanced "
+    Text
+      "          "
     Text dimColor=true
       "ctx "
     Text color="success"

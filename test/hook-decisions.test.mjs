@@ -76,7 +76,7 @@ test('shadow proposals leave real requests and cache observations identical to t
   );
   const listing = await shadow.h.event('command.run', { command: 'router', args: 'decisions' });
   assert.match(listing.text, /shadow demand .*target/);
-  assert.match(texts(await shadow.h.render()).join('\n'), /shadow demand .*target/);
+  assert.match(texts(await shadow.h.render()).join('\n'), /shadow agrees \d+\/\d+/);
 });
 
 test('shadow uses the base demand policy in every mode and changes only the requirement', async () => {
