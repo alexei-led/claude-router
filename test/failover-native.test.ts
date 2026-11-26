@@ -85,15 +85,32 @@ function session(
       },
     };
   });
-  const request = async (turnId: string) => {
+  // The prompts the router queues. `submission` is what the engine answers each with: it resolves when its turn starts.
+  const prompts: string[] = [];
+  const submission = { answer: async () => {} };
+  on('prompt.submit', async (_$, e) => {
+    prompts.push(e.text);
+    await submission.answer();
+    return { text: e.text, origin: e.origin };
+  });
+  const run = async (turnId: string) => {
     await $.turn.start({ turnId, text: 'Synthetic task.' });
     const stream = $.turn.step({ turnId, index: 0, model: 'claude-opus-5-5', effort: 'medium', messageCount: 1 });
     let result = await stream.next();
     while (!result.done) result = await stream.next();
+  };
+  const request = async (turnId: string) => {
+    await run(turnId);
     await $.turn.complete({ turnId, answer: 'ok', durationMs: 1, isAborted: false, reason: 'answer' });
   };
+  // One turn that an API error ends, in the engine's order: StopFailure, then turn.complete.
+  const fail = async (turnId: string, error: 'overloaded' | 'billing_error' | 'invalid_request', text?: string) => {
+    await run(turnId);
+    await $.classic.StopFailure({ error, ...(text === undefined ? {} : { last_assistant_message: text }) });
+    await $.turn.complete({ turnId, answer: '', durationMs: 1, isAborted: false, reason: 'error' });
+  };
   const held = () => (state.get('loops:main')?.value as { held?: object } | undefined)?.held;
-  return { sent, toasts, held, request, store };
+  return { sent, toasts, held, request, store, prompts, submission, run, fail };
 }
 
 // The engine raises classic.StopFailure for a main turn that ended on an API error: an overloaded model is held out, so
@@ -202,4 +219,103 @@ test('a model with no failure history is not sent again in the step', async ($, 
   await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
   await request('t1');
   expect(sent).toEqual(['claude-opus-5-5']);
+});
+
+const SPEND_TEXT = "You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit";
+const rerunText = (model: string, cause: string) =>
+  `The last request failed on ${model} (${cause}), so the router moved this session to another model. Continue the task from where it stopped.`;
+const WORK_OPUS = { models: { opus: { account: 'work-claude' } } };
+const START = { cwd: '/fixture/project', surface: null, isInteractive: false };
+
+test('a turn that a spend cap ends is run again, once, on another model', async ($, on) => {
+  const { sent, toasts, prompts, request, fail } = session($, on, [], WORK_OPUS);
+  await $.session.start(START);
+  await fail('t1', 'billing_error', SPEND_TEXT);
+  expect(prompts).toEqual([rerunText('Opus 5.5', 'spend limit')]);
+  expect(toasts).toContain('Retrying on another model: spend limit');
+  await request('t2');
+  expect(sent.at(-1) === 'claude-opus-5-5').toBe(false);
+  expect(prompts.length).toBe(1);
+});
+
+test('an error that holds nothing is not run again', async ($, on) => {
+  const { prompts, fail } = session($, on);
+  await $.session.start(START);
+  await fail('t1', 'invalid_request', "API Error: Opus 5.5's safeguards flagged this message");
+  expect(prompts).toEqual([]);
+});
+
+test('the third turn in a row that fails is not run again, and the router says it stopped', async ($, on) => {
+  const { toasts, prompts, fail } = session($, on);
+  await $.session.start(START);
+  await fail('t1', 'overloaded');
+  await fail('t2', 'overloaded');
+  expect(prompts.length).toBe(2);
+  await fail('t3', 'overloaded');
+  expect(prompts.length).toBe(2);
+  expect(toasts.at(-1)).toBe('Stopped retrying after 2 re-runs in a row: overloaded');
+});
+
+test('a turn that ends any other way starts the count of re-runs over', async ($, on) => {
+  const { prompts, request, fail } = session($, on);
+  await $.session.start(START);
+  await fail('t1', 'overloaded');
+  await fail('t2', 'overloaded');
+  await request('t3');
+  await fail('t4', 'overloaded');
+  expect(prompts.length).toBe(3);
+});
+
+test('nothing is run again when every configured model is held', async ($, on) => {
+  const { prompts, fail } = session($, on);
+  await $.session.start(START);
+  await fail('t1', 'billing_error', SPEND_TEXT);
+  expect(prompts).toEqual([]);
+});
+
+test('nothing is run again with routing off', async ($, on) => {
+  const { prompts, fail } = session($, on);
+  await $.session.start(START);
+  await $.command.run({ command: 'router', args: 'off' });
+  await fail('t1', 'overloaded');
+  expect(prompts).toEqual([]);
+});
+
+test('an aborted turn and a subagent’s failure are not run again', async ($, on) => {
+  const { prompts, run } = session($, on);
+  await $.session.start(START);
+  await run('t1');
+  await $.classic.StopFailure({ error: 'overloaded' });
+  await $.turn.complete({ turnId: 't1', answer: '', durationMs: 1, isAborted: true, reason: 'aborted' });
+  await run('t2');
+  await $.classic.StopFailure({ error: 'overloaded', agent_id: 'a1' });
+  await $.turn.complete({
+    turnId: 'a1-t',
+    agentId: 'a1',
+    answer: '',
+    durationMs: 1,
+    isAborted: false,
+    reason: 'error',
+  });
+  await $.turn.complete({ turnId: 't2', answer: '', durationMs: 1, isAborted: false, reason: 'error' });
+  expect(prompts).toEqual([]);
+});
+
+// The submission resolves only when its turn starts, which cannot happen while this turn.complete runs.
+test('the turn completes without waiting for the re-run to start', async ($, on) => {
+  const { prompts, submission, fail } = session($, on);
+  await $.session.start(START);
+  submission.answer = () => new Promise<void>(() => {});
+  await fail('t1', 'overloaded');
+  expect(prompts.length).toBe(1);
+});
+
+test('a re-run the engine refuses leaves the turn as it ended', async ($, on) => {
+  const { prompts, submission, fail } = session($, on);
+  await $.session.start(START);
+  submission.answer = async () => {
+    throw new Error('refused');
+  };
+  await fail('t1', 'overloaded');
+  expect(prompts.length).toBe(1);
 });

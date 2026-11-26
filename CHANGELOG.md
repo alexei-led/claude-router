@@ -7,6 +7,7 @@
 - **A spend cap holds its account.** The router now reads the error message Claude Code shows when the failure has no error details, so "You've hit your individual spend limit" holds the account until its reset (`accounts.<name>.reset`, else 24 hours) instead of the one model for a few minutes. More quota texts are recognised, and a message that names a plan window (session, 5-hour or weekly limit) is never read as a spend cap or an empty balance.
 - **A spend cap or empty balance is tried again.** After 1 hour, then 2, 4, 8, 16 and 24 hours, one main turn may try the held account again; an answer from any of its models, a subagent's included, ends the hold. `/router holds`, the pane and the hold notice show the next try. A hold written by 1.32.0 has no next try and ends as before.
 - **A failed try does not end the turn.** Under `table` and `shadow`, when a due try of a held account, or the first request to a model after its availability hold ended, gets no reply, the router holds it again and sends the same step once to the stand-in, with a toast such as "Opus 5.5 still limited → GLM 5.3". A model with no earlier failure is not sent again.
+- **A turn that an API error ended is run again.** When the router holds something for a failed main turn and another configured model is free, it submits a prompt that says which model failed and asks to continue, with the toast "Retrying on another model: spend limit". At most 2 re-runs follow each other; after that a toast says it stopped.
 
 ## 1.32.0 (2026-11-26)
 

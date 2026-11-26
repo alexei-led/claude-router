@@ -92,6 +92,7 @@ import {
   HOLDS_PREFIX,
   heldAsSeen,
   heldIds,
+  holdCause,
   holdModel,
   isActive,
   planAccountsOf,
@@ -291,6 +292,10 @@ function createRouter(options) {
     lastRequested: /** @type {string | null} */ (null),
     // The latest main turn's id: `StopFailure` carries none, and its failure row belongs to that turn.
     mainTurnId: /** @type {string | null} */ (null),
+    // The main turn whose API error held something, until turn.complete runs it again (rerunFailedTurn), and how many
+    // re-runs in a row were queued: a turn that ends any other way starts the count over.
+    failedTurn: /** @type {{ turnId: string, model: string, cause: string } | null} */ (null),
+    reruns: 0,
     decisionRecord: null,
     trace: /** @type {TraceHold | null} */ (null),
     traceFreshSession: null,
@@ -4017,6 +4022,8 @@ async function noticeUnavailable($, router, e) {
 }
 
 const MODEL_SELECTED_MANUALLY = 'model selected manually';
+// The most turns in a row that an API error ended which the router runs again on its own.
+const MAX_RERUNS = 2;
 const MANUAL_SWITCH_SOURCES = new Set(['picker', 'sdk']);
 
 // A person chose the session's model: routing turns off and keeps it.
@@ -4064,6 +4071,7 @@ async function holdFailedModel($, router, e, agentModel = null) {
     if (agentModel !== null) return;
     const turnId = router.mainTurnId;
     if (turnId === null) return;
+    if (held?.hold) router.failedTurn = { turnId, model, cause: holdCause(held.hold) };
     addDecision(
       router,
       turnId,
@@ -4250,9 +4258,9 @@ async function releaseCommand($, router, word) {
 
 const accountLabel = (account) => (account === PLAN_ACCOUNT ? 'Claude plan' : account);
 
-// Holds `key`, the account or model a failure names, and returns it, or null when nothing was held. $.store has no
-// atomic update, so two sessions that fail together can each write their own hold; the later write stands, and both
-// say the same account is out.
+// Holds `key`, the account or model a failure names, and returns it with the hold now on it, or null when nothing was
+// held. $.store has no atomic update, so two sessions that fail together can each write their own hold; the later write
+// stands, and both say the same account is out.
 async function applyHold($, router, failure, error, key, now) {
   if (failure.scope === 'account') {
     const store = `${HOLDS_PREFIX}${key}`;
@@ -4263,7 +4271,7 @@ async function applyHold($, router, failure, error, key, now) {
     if (hold !== running) await $.store.set(store, hold);
     if ((await modeOf($, router)) === 'auto')
       $.ui.toast(`${accountLabel(key)} held out of routing: ${holdText(hold, now)}`);
-    return { key, models: null };
+    return { key, hold, models: null };
   }
   const ref = { ...LOOP, id: 'main' };
   // A write that lost to another holds nothing: reads are frozen for the event, so reading the loop again would only
@@ -4277,7 +4285,37 @@ async function applyHold($, router, failure, error, key, now) {
   const hold = activeHolds(held, at)[key];
   if (hold && (await modeOf($, router)) === 'auto')
     $.ui.toast(`${modelName(key)} held out of routing: ${holdText(hold, at)}`);
-  return { key, models: held };
+  return { key, hold, models: held };
+}
+
+// Whether routing is on and some configured model is not held now, so a turn run again can go to another one.
+async function canRerun($, router) {
+  const view = router.view;
+  if (view?.phase === 'unavailable' || (await modeOf($, router, view?.mode)) === 'manual') return false;
+  const { accounts, models } = await readHolds($, router);
+  const held = heldIds(router.config, models, accounts, Date.now());
+  return Object.values(router.config.models).some((spec) => !held.some((id) => isSameModel(id, spec.id)));
+}
+
+// A main turn that an API error ended, after the router held its cause, is run again as a new prompt, so the work goes on
+// without the person; at most MAX_RERUNS in a row, as a task that fails on every model would never stop.
+async function rerunFailedTurn($, router, e) {
+  const failed = router.failedTurn;
+  router.failedTurn = null;
+  if (e.reason !== 'error') {
+    router.reruns = 0;
+    return;
+  }
+  if (failed?.turnId !== e.turnId || !(await canRerun($, router))) return;
+  if (router.reruns >= MAX_RERUNS) {
+    $.ui.toast(`Stopped retrying after ${MAX_RERUNS} re-runs in a row: ${failed.cause}`);
+    return;
+  }
+  router.reruns += 1;
+  $.ui.toast(`Retrying on another model: ${failed.cause}`);
+  const text = `The last request failed on ${modelName(failed.model)} (${failed.cause}), so the router moved this session to another model. Continue the task from where it stopped.`;
+  // Not awaited: it resolves when the queued turn starts, which waits for this turn.complete to return.
+  $.prompt.submit({ text }).catch((error) => $.ui.log(`router re-run not queued: ${error}`, { to: 'debug' }));
 }
 
 async function ensureInitialized($, router) {
@@ -4340,6 +4378,8 @@ async function startSession($, router, e) {
   router.lastRoute = null;
   router.lastRequested = null;
   router.mainTurnId = null;
+  router.failedTurn = null;
+  router.reruns = 0;
   router.initialized = false;
   router.loadFailed = false;
   router.noticeSurfaces.clear();
@@ -4445,6 +4485,7 @@ export function register(on, options) {
   on('turn.complete', async ($, e, next) => {
     // The router's bookkeeping never keeps the turn from completing.
     await completeTurn($, router, e).catch(() => {});
+    if (e.agentId === undefined) await rerunFailedTurn($, router, e).catch(() => {});
     return next(e);
   });
 
