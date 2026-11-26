@@ -1340,3 +1340,106 @@ test('a numeric capability is one value for every activity', () => {
     assert.equal(candidates.find((candidate) => candidate.route.model === 'b').capability, 2);
   }
 });
+
+const scaled = (input, outputScale, extra = {}) =>
+  model(null, input, {
+    efforts: ['low', 'max'],
+    capability: { low: 2, max: 2 },
+    contextWindow: 1_000_000,
+    ...(outputScale ? { outputScale } : {}),
+    ...extra,
+  });
+const replied = facts({ lastRequest: { tokens: 1000, outputTokens: 100_000 } });
+const upperBounds = (cfg, incumbent) =>
+  Object.fromEntries(
+    assessCandidates({ config: cfg, incumbent, facts: replied, now: T0 })
+      .filter((c) => c.selectable)
+      .map((c) => [`${c.route.model}@${c.route.effort}`, Number(c.estimate.maxUsd.toFixed(6))]),
+  );
+
+test('output scales move the winner from a cheap model at max effort to a pricier model at low effort', () => {
+  const pick = (a, b) => {
+    const cfg = config({ a: scaled(1, a, { capability: { low: 1, max: 2 } }), b: scaled(2, b) });
+    const candidates = assessCandidates({ config: cfg, incumbent: route('a', 'max'), facts: replied, now: T0 });
+    return selectTarget({ candidates, demand: 2 }).route;
+  };
+  assert.deepEqual(pick(null, null), route('a', 'max'));
+  assert.deepEqual(pick({ low: 4, max: 20 }, { low: 1, max: 8 }), route('b', 'low'));
+});
+
+test('the output estimate scales by the candidate volume over the incumbent volume, input unchanged', () => {
+  // The next context is 101k tokens: $0.101 on a, $0.303 on b. The last reply's output is $0.2 on a, $0.6 on b.
+  const cfg = config({ a: scaled(1, { low: 1, max: 4 }), b: scaled(3, { low: 0.5 }) });
+  assert.deepEqual(upperBounds(cfg, route('a', 'max')), {
+    'a@low': 0.151,
+    'a@max': 0.301,
+    'b@low': 0.378,
+    'b@max': 0.903,
+  });
+});
+
+test('an output estimate stays unscaled unless both the candidate and the incumbent volume are known', () => {
+  const plain = config({ a: scaled(1), b: scaled(3) });
+  const scales = config({ a: scaled(1, { low: 1, max: 4 }), b: scaled(3, { low: 0.5 }) });
+  const noIncumbentScale = config({ a: scaled(1, { low: 1 }), b: scaled(3, { low: 0.5, max: 2 }) });
+  for (const [name, cfg, incumbent] of [
+    ['incumbent effort without a scale', noIncumbentScale, route('a', 'max')],
+    ['unresolved native effort', scales, route('a', null)],
+    ['numeric native effort', scales, route('a', 4000)],
+    ['incumbent outside the catalog', scales, route('gone', 'max')],
+  ]) {
+    const expected = upperBounds(plain, incumbent);
+    assert.deepEqual(upperBounds(cfg, incumbent), expected, name);
+  }
+  assert.equal(upperBounds(scales, route('a', 'max'))['b@max'], upperBounds(plain, route('a', 'max'))['b@max']);
+});
+
+test('a native session effort selects the incumbent output volume', () => {
+  const cfg = config({ a: scaled(1, { low: 1, max: 4 }) });
+  const candidates = assessCandidates({
+    config: cfg,
+    incumbent: route('a', null),
+    facts: { ...replied, effort: 'max' },
+    now: T0,
+  });
+  assert.equal(Number(candidates.find((c) => c.route.effort === 'low').estimate.maxUsd.toFixed(6)), 0.151);
+});
+
+test('a stronger route blocked only by the cash cap names the shortfall cash-capped without changing the route', () => {
+  const capped = (input, extra = {}) => model(3, input, { billing: 'credits', ...extra });
+  for (const [name, blocked, options, outcome, cappedRoute] of [
+    ['cheapest cash-capped route', { c: capped(4000), d: capped(3000) }, {}, 'cash-capped', route('d')],
+    ['context full', { c: model(3, 1, { contextWindow: 100 }) }, {}, 'declared-below-demand', null],
+    ['held out', { c: model(3, 1) }, { held: ['c'] }, 'declared-below-demand', null],
+    ['cash cap and held out', { c: capped(3000) }, { held: ['c'] }, 'declared-below-demand', null],
+    ['capped but still below demand', { c: model(2, 3000, { billing: 'credits' }) }, {}, 'declared-below-demand', null],
+    [
+      'capped with unknown capability',
+      { c: model(null, 3000, { billing: 'credits' }) },
+      {},
+      'declared-below-demand',
+      null,
+    ],
+  ]) {
+    const cfg = config({ a: model(1), b: model(2, 2), ...blocked });
+    const { target } = targetFor(cfg, 3, 'balanced', options);
+    assert.deepEqual(
+      [target.outcome, target.capped, target.route, target.capability],
+      [outcome, cappedRoute, route('b'), 2],
+      name,
+    );
+    assert.equal(target.estimate.maxUsd, targetFor(config({ a: model(1), b: model(2, 2) }), 3).target.estimate.maxUsd);
+  }
+});
+
+test('a cash-capped route leaves other outcomes alone', () => {
+  const capped = model(3, 3000, { billing: 'credits' });
+  for (const [name, models, outcome] of [
+    ['demand met elsewhere', { a: model(3), c: capped }, 'meets-demand'],
+    ['nothing declared is eligible', { a: model(null), c: capped }, 'unknown-only'],
+    ['nothing is eligible', { c: capped }, 'no-route'],
+  ]) {
+    const { target } = targetFor(config(models), 3, 'balanced', { incumbent: route('c') });
+    assert.deepEqual([target.outcome, target.capped], [outcome, null], name);
+  }
+});

@@ -80,6 +80,13 @@ test('every accepted catalog identifier and custom cache rate survives the froze
   assert.equal(coldWriteUsd(projected, 'opus', 1000, NOW), 0.04);
 });
 
+test('the snapshot keeps numeric output scales, so replay prices output as the live engine did', () => {
+  const opus = { ...config.models.opus, outputScale: { low: 0.5, max: 4, junk: 1, high: 'text' } };
+  const projected = traceConfig({ ...config, models: { ...config.models, opus } });
+  assert.deepEqual(projected.models.opus.outputScale, { low: 0.5, max: 4 });
+  assert.equal(Object.hasOwn(projected.models.haiku, 'outputScale'), false);
+});
+
 test('partial activity overrides stay partial for route inheritance', () => {
   const projected = traceConfig({ ...config, activities: { code: { low: { effort: 'max' } } } });
   assert.deepEqual(projected.activities.code.low, { effort: 'max' });

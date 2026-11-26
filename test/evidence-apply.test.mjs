@@ -158,3 +158,55 @@ test('the generated module text parses without importing it', () => {
   for (const bad of [null, undefined, 42, '', 'export const OTHER = {};', 'export const EVIDENCE_LOCAL = {'])
     assert.equal(parseEvidenceOverlay(bad), null, String(bad));
 });
+
+const score = (costPerTaskUsd, output) => ({ costPerTaskUsd, pricing: { input: 1, output } });
+const scored = (aliases, scores, capability = {}) => ({ ...entry(aliases, capability), scores });
+
+test('cost per task over the output price projects a relative output volume per configured effort', () => {
+  const result = applyEvidenceOverlay(
+    config({ glm: model({ id: 'glm-5.3' }) }),
+    overlay({ glm: scored(['glm-5.3'], { low: score(1, 4), high: score(6, 4), max: score(40, 4) }) }),
+  );
+  assert.deepEqual(result.models.glm.outputScale, { low: 0.25, high: 1.5 });
+});
+
+test('a model with no efforts takes the default output scale', () => {
+  const result = applyEvidenceOverlay(
+    config({ flash: model({ efforts: [] }) }),
+    overlay({ flash: scored(['test-model'], { default: score(3, 2), max: score(9, 2) }) }),
+  );
+  assert.deepEqual(result.models.flash.outputScale, { default: 1.5 });
+});
+
+test('output scale is cost data, so a user-declared capability map keeps it and its own capability', () => {
+  const declared = { low: 0.5 };
+  const result = applyEvidenceOverlay(
+    config({ glm: model({ capability: { ...declared } }) }),
+    overlay({ glm: scored(['test-model'], { high: score(8, 2) }, { high: { default: 3 } }) }),
+    { models: { glm: { capability: declared } } },
+  );
+  assert.deepEqual(result.models.glm.capability, declared);
+  assert.deepEqual(result.models.glm.outputScale, { high: 4 });
+});
+
+test('a missing, non-positive or non-numeric cost or price gives no output scale', () => {
+  for (const [name, row] of Object.entries({
+    absent: undefined,
+    text: 'text',
+    noCost: { pricing: { output: 2 } },
+    noPricing: { costPerTaskUsd: 1 },
+    zeroCost: score(0, 2),
+    negativeCost: score(-1, 2),
+    textCost: score('1', 2),
+    infiniteCost: score(Number.POSITIVE_INFINITY, 2),
+    zeroPrice: score(1, 0),
+    negativePrice: score(1, -2),
+    textPrice: score(1, '2'),
+    nanPrice: score(1, Number.NaN),
+    overflow: score(Number.MAX_VALUE, Number.MIN_VALUE),
+  })) {
+    const base = config({ glm: model() });
+    const result = applyEvidenceOverlay(base, overlay({ glm: scored(['test-model'], { high: row }) }));
+    assert.deepEqual(result, base, name);
+  }
+});

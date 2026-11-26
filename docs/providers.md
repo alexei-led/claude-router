@@ -34,6 +34,14 @@ numeric values on this router's demand scale.
 | MiniMax M3.1 Flash / `minimax-minimax-m3.1-flash`; Kimi K3.1 Pro / `moonshot-kimi-k3.1-pro` | [Provider experiments](provider-experiments.md): small synthetic checks do not calibrate repository tasks per effort. |
 | MiMo V2.6 Flash and Pro / no model-card record | [Provider experiments](provider-experiments.md): no granular effort setting; small synthetic checks do not establish demand-tier adequacy. |
 
+The private [evidence overlay](evidence.md#artificial-analysis-overlay) also carries cost data. For each configured
+effort with a positive cost per task and output price, the router derives `outputScale`: cost per task divided by
+that source's output price, a relative output volume that is comparable across models. A model with no efforts reads
+the `default` entry. The [auto engine](auto-engine.md) uses it to scale the output part of its next-turn estimate.
+It is not capability policy, so it applies even when your profile declares that model's capability; your declarations
+and token prices stay as they are. It cannot be set in the profile file. Without an overlay value, estimates are
+unchanged.
+
 The auto engine selects the cheapest eligible unknown when no eligible declaration is known. Neither the seeds nor
 unknown-only selections establish quality or escalation-headroom calibration; users can configure their own maps.
 
