@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { renderBand } from '../lib/band.mjs';
 import { renderPanel } from '../lib/panel.mjs';
 import { draw, elements, pageHtml } from './desktop-html.mjs';
-import { base, config, NOW, paneViews, states, usage } from './doc-samples.mjs';
+import { base, config, NOW, paneViews, shadowConfig, states, usage } from './doc-samples.mjs';
 
 const OUT = fileURLToPath(new URL('../docs/images', import.meta.url));
 const CHROME = process.env.CHROME ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -84,6 +84,11 @@ const desktopPictures = [
         ),
       ),
   })),
+  {
+    name: 'desktop-pane-now-decisions',
+    width: PANE_WIDTH,
+    body: () => draw(paneOf(paneViews.decisions, 'desktop', PANE_WIDTH, shadowConfig)),
+  },
   {
     name: 'desktop-key-card',
     width: PANE_WIDTH,

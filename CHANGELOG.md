@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **The band's Router button opens the pane at once.** Claude Code runs a plugin's store calls one at a time and reads its whole store file for each. With a large store the router's reads before `$.ui.open` ran past the 10 s press budget, so the pane showed late or not at all, and the pane's own draw waited behind them and stayed empty. The pane now opens first, draws only from memory, and refreshes the counts kept across sessions from a timer.
+- **Turns no longer wait on the shadow trace.** With `routingEngine: "shadow"`, each turn's end and each exit read every key in the store twice to check the trace size guard: up to 119 s of `turn.complete` on a large store, and about 23 s before the next prompt's first token. The trace flush now reads only the trace records, measures the rest of the store at most every 15 minutes or near the 3 MiB guard, and runs after the turn from a timer. The session's own counts are saved before the trace at exit.
+- **Faster session start.** The router's `session.start` read one store record per session ever run (18 s on a 3000-key store), and Claude Code drops band presses until `session.start` settles. It now returns in well under a second, and the reads run afterwards from a timer, a slice at a time, so a press or a turn's own store call waits for one slice at most.
+- **Smaller store, over time.** A session start folds other sessions' settled usage, subagent, metrics, activity and savings records into one archive record of its own, 10 records at a time with pauses, under a store lease that keeps a second session from folding while one does; the totals stay the same, also when a fold is cut off by an exit or a failed delete, the folded session itself included. The store has no atomic update, so a session writing its record inside a fold's own read-and-delete window can still lose that write; [Evaluation](docs/evaluation.md) lists the gaps. Only sessions with no usage in the last 30 days are folded. All but the newest 100 per-session `mode:` keys are deleted in the background.
+- **Each request in a turn does less store work.** The auto|manual mode is no longer rewritten before every turn's first request, and the account holds are read once per turn instead of up to three times per request.
+- **Presses redraw before they save.** Turn off/on, 1 row/2 rows and the Usage period update the band and pane before the store write. **Delete history** deletes this session's records at once and every other session's in the background; the reset marker already hides them from every reader, a record a session started over after the reset is kept, and a trace export leaves out the traces the background delete has not reached yet.
+- **`/router mode` and the other words with values offer each value with what it does** (`mode cost`, `mode balanced`, …). Claude Code asks for suggestions only while a word is under the caret, so the earlier `mode ` row led nowhere.
+- The band's hover controls no longer show a cut label (`p…`) when the pins do not fit; they are left out instead.
+
+### Changed
+
+- **The band shows the routing mode in `balanced` too**, as a chip like `cost` and `quality`, and from the session's start rather than after its store read. Like the engine chip, it drops when the band is narrow.
+- **RECENT DECISIONS on the Now tab is one line per turn**: when, how long, the tier and route that ran, the work, its requests and why, with at most two notes under a turn for a failure, a classifier error, a shadow proposal that differs, or a move inside the turn, and how often shadow agreed in its heading. It shows the newest 5 turns, at most 10 lines; `/router decisions` still prints every row. The graphical surfaces draw it as a table.
+- **Decision records keep the moves.** A review that changes nothing joins the row before it with a count, its last time and its best support, and a long turn drops unchanged reviews first, so the start and every route change stay within its 10 rows. `/router decisions` prints `N checks until <time>` for a joined row.
+
 ## 1.31.0 (2026-11-23)
 
 ### Changed

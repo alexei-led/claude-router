@@ -1,6 +1,7 @@
 // Sample views, configs and usage records the doc-picture scripts draw from, so the terminal SVGs
 // (render-doc-images.mjs) and the desktop PNGs (render-desktop-images.mjs) show the same session.
 import { loadConfig } from '../lib/config.mjs';
+import { decisionRow, endRow, failureRow } from '../lib/decisions.mjs';
 import { emptySubagentStore, recordAgent, spawnRecord } from '../lib/subagents.mjs';
 import { routeDraftOf } from '../lib/ui/model/draft.mjs';
 import { emptyUsage, mergeUsage, recordUsage, replyEntry } from '../lib/usage.mjs';
@@ -349,6 +350,49 @@ const usageView = (props) => ({
   subagentSession: SESSION_AGENTS,
   ...props,
 });
+// The shadow engine, whose turns keep RECENT DECISIONS on the Now tab: three turns of this session, the first moved up
+// mid-turn with shadow proposing another route, the second with an API error that held the model out.
+export const shadowConfig = { ...config, routingEngine: 'shadow' };
+const MIN = 60_000;
+const decided = (tier, model, effort, reason, extra = {}) => ({
+  tier,
+  model,
+  effort,
+  reason,
+  activity: 'code',
+  ...extra,
+});
+const shadowAlt = (route, minUsd, maxUsd) => ({ engine: 'shadow', alt: { route, minUsd, maxUsd } });
+const decisionRows = [
+  decisionRow({
+    at: NOW - 70 * MIN,
+    kind: 'start',
+    decision: decided('medium', 'claude-opus-5-5', 'high', 'same-tier'),
+    ...shadowAlt('opus@high', 0.02, 0.4),
+  }),
+  decisionRow({
+    at: NOW - 64 * MIN,
+    kind: 'review',
+    decision: decided('high', 'claude-opus-5-5', 'xhigh', 'upgrade'),
+    ...shadowAlt('sonnet@max', 0.01, 0.38),
+  }),
+  endRow({ at: NOW - 28 * MIN, observed: 'code', requests: 172, priced: 172 }),
+  decisionRow({
+    at: NOW - 25 * MIN,
+    kind: 'start',
+    decision: decided('high', 'claude-opus-5-5', 'xhigh', 'same-tier'),
+    ...shadowAlt('opus@xhigh', 0.05, 0.6),
+  }),
+  failureRow({ at: NOW - 12 * MIN, error: 'overloaded', failure: 'availability', scope: 'model', held: 'Opus 5.5' }),
+  endRow({ at: NOW - 2 * MIN, observed: 'code', requests: 49, priced: 49 }),
+  decisionRow({
+    at: NOW - MIN,
+    kind: 'start',
+    decision: decided('low', 'claude-haiku-5-5', 'high', 'downgrade'),
+    ...shadowAlt('haiku@high', 0, 0.02),
+  }),
+];
+
 export const paneViews = {
   now: {
     ...base,
@@ -358,6 +402,16 @@ export const paneViews = {
     strip,
     subagentSession: SESSION_AGENTS,
     subagentsRunning: 1,
+  },
+  // The Now tab with the shadow engine (shadowConfig) and this session's decision rows.
+  decisions: {
+    ...base,
+    ...yours,
+    usageSession,
+    usageStore,
+    strip,
+    subagentSession: SESSION_AGENTS,
+    decisionRows,
   },
   routes: { ...base, tab: 'routes', routeDraft: draft, routeCell: 'code.high' },
   policy: {

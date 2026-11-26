@@ -4,7 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { renderBand } from '../lib/band.mjs';
 import { renderPanel } from '../lib/panel.mjs';
-import { COLUMNS, classifierConfig, config, NOW, paneViews, states, usage } from './doc-samples.mjs';
+import { COLUMNS, classifierConfig, config, NOW, paneViews, shadowConfig, states, usage } from './doc-samples.mjs';
 
 const OUT = fileURLToPath(new URL('../docs', import.meta.url));
 const element = (type) => (props) => ({ type, props });
@@ -238,6 +238,13 @@ pane(
   'Router pane, Now tab',
   'Each block in a single-line box. NEXT TURN: the tier meter, model and activity, the reason with the classifier support it weighed and the switch cost, and the dropdown that pins the next turn to a tier. PLAN: the 5-hour and 7-day windows with their resets. SESSION: the total of the main thread and one running subagent as a configured-rate API estimate, the difference against unrouted, the main thread and the subagents as bars on one scale, and a strip of every reply colored by tier with the replies per tier. CONTEXT: the window fill and the cache reuse.',
   'router-pane-now.svg',
+);
+pane(
+  paneViews.decisions,
+  'Router pane, Now tab, Recent decisions',
+  'With the shadow engine, RECENT DECISIONS under NEXT TURN: how often shadow proposed the route that ran, then a line per turn with its start time, how long it ran, the tier meter and route that ran last, the work, its requests and why, and under a turn at most two notes: an API error and what it held out, the route shadow proposed when it differed, or a move within the turn.',
+  'router-pane-now-decisions.svg',
+  shadowConfig,
 );
 pane(
   paneViews.usage,
