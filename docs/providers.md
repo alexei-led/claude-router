@@ -52,6 +52,36 @@ no entry matches an ID ending in `-fast`, the entry for the ID without that suff
 higher price, so quality evidence carries over; prices still come from your configuration. An entry for the `-fast`
 ID itself wins, and no other suffix is matched this way.
 
+### Unrated routes
+
+With the `auto` or `shadow` engine and routing on, the pane warns about routed cells whose capability is unknown:
+
+```
+Auto cannot rank deepseek@max, kimi-fast@high +1 more: set models.<alias>.capability
+```
+
+While a rated candidate is eligible, auto never selects an unrated one, and a move away from it is judged without
+its capability. The warning covers the tier routes and, with activity routing on, the activity cells, each read
+under its activity. With `shadow` it also covers the routes the active [routing mode](routing-modes.md) moves to,
+because those are what the table sends. Subagent routes and fallbacks are not listed. A name without `@effort` is a
+model with no efforts, or a session-effort route on a model rated at none of its efforts.
+
+To fix it, declare the effort in the profile. Include every effort you want rated, because the declared map replaces
+the overlay's and the preset's:
+
+```json
+{
+  "models": {
+    "deepseek": {
+      "capability": { "high": 1.5, "max": { "default": 2, "code": 2.5 } }
+    }
+  }
+}
+```
+
+The levels above only show the shape. In an activity map, include `default`: a route with no activity, and an
+activity the map omits, read it.
+
 ## Select a provider
 
 For DeepSeek, create `deepseek-router.json` in your Claude Code profile directory with this content:
