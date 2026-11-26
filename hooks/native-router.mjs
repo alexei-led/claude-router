@@ -463,22 +463,23 @@ async function ensureTrace($, router, e, turn, loop, loaded, fresh) {
             message.content.every((block) => block && typeof block.type === 'string' && block.type.length > 0),
         );
     }
+    // A restored record is capped, so it keeps its turns however full it is.
     if (!stored) {
       if (!freshHistory) held.reasons.add('mid-session');
       held.record = newTrace(at, { configured: turn.configured, config: turn.config, loop }, [...held.reasons]);
-    }
-    if (storedBytes(held.record) > TRACE_SESSION_BYTES - 1024) {
-      held.record = {
-        version: TRACE_VERSION,
-        startedAt: at,
-        updatedAt: at,
-        active: true,
-        incomplete: ['mid-session', 'store-guard'],
-        lostWrites: 0,
-        capped: { at, turns: 0, events: 0 },
-        events: [],
-      };
-      held.reasons.add('store-guard');
+      if (storedBytes(held.record) > TRACE_SESSION_BYTES - 1024) {
+        held.record = {
+          version: TRACE_VERSION,
+          startedAt: at,
+          updatedAt: at,
+          active: true,
+          incomplete: ['mid-session', 'store-guard'],
+          lostWrites: 0,
+          capped: { at, turns: 0, events: 0 },
+          events: [],
+        };
+        held.reasons.add('store-guard');
+      }
     }
     held.config = JSON.stringify({ configured: traceConfig(turn.configured), config: traceConfig(turn.config) });
   } catch {

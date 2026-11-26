@@ -3,8 +3,10 @@ import test from 'node:test';
 import { HOLDS_PREFIX } from '../lib/failover.mjs';
 import { evaluateReplay } from '../lib/replay.mjs';
 import {
+  appendTrace,
   readTrace,
   storedBytes,
+  storedTrace,
   TRACE_ACTIVE_MS,
   TRACE_PREFIX,
   TRACE_RETAIN_MS,
@@ -707,6 +709,37 @@ test('observed moves and continuation availability/context inputs are recorded, 
   assert.equal(continuation.contextKnown, true);
   assert.ok(continuation.contextTokens >= 8000);
   assert.equal(JSON.stringify(record(h)).includes('CANARY'), false);
+});
+
+// The stored record with a replay reset appended whose size brings it to `bytes` in the store.
+function paddedTo(trace, bytes) {
+  const pad = (length) =>
+    appendTrace(
+      trace,
+      [{ type: 'reset', at: trace.updatedAt, cause: 'compact', loop: { ineligible: ['x'.repeat(length)] } }],
+      trace.updatedAt,
+    );
+  const padded = pad(bytes - storedBytes(pad(1)) + 1);
+  assert.equal(storedBytes(padded), bytes);
+  assert.equal(usableTrace(padded), true);
+  return storedTrace(padded);
+}
+
+test('a resume keeps a stored trace that fills the session budget', async () => {
+  for (const bytes of [TRACE_SESSION_BYTES - 1024, TRACE_SESSION_BYTES - 1023, TRACE_SESSION_BYTES]) {
+    const first = setup();
+    await begin(first);
+    await turn(first);
+    first.preferences.set(`${TRACE_PREFIX}s1`, paddedTo(record(first), bytes));
+    const before = record(first);
+    const next = setup({}, first.preferences);
+    await begin(next);
+    await turn(next, 't2', [user('one'), assistant('reply'), user('two')]);
+    await next.event('session.end', { reason: 'exit' });
+    assert.deepEqual(record(next).events, before.events, `${bytes}`);
+    assert.equal(record(next).capped.turns, 1, `${bytes}`);
+    assert.equal(usableTrace(record(next)), true, `${bytes}`);
+  }
 });
 
 test('shadow-table-shadow between steps cannot lose an unflushed turn silently', async () => {
