@@ -325,6 +325,43 @@ for (const [name, keepsLoop] of [
     assert.equal(usableTrace(record(next)), true);
   });
 
+for (const [name, disturb] of [
+  [
+    'an engine round-trip',
+    async (h) => {
+      await h.event('command.run', { command: 'router', args: 'engine table' });
+      await turn(h, 'table', [user('one'), assistant('reply'), user('two')]);
+      await h.event('command.run', { command: 'router', args: 'engine shadow' });
+    },
+  ],
+  [
+    'a step that passes through on a routing failure',
+    async (h) => {
+      const read = h.$.settings.read;
+      h.$.settings.read = async () => {
+        throw new Error('unreadable');
+      };
+      await turn(h, 'passed', [user('one'), assistant('reply'), user('two')]);
+      h.$.settings.read = read;
+    },
+  ],
+])
+  test(`${name} after a resume leaves the stored turns usable`, async () => {
+    const first = setup();
+    await begin(first);
+    await turn(first);
+    const before = record(first);
+    const next = setup({}, first.preferences);
+    await begin(next);
+    await turn(next, 't2', [user('one'), assistant('reply'), user('two')]);
+    await disturb(next);
+    await turn(next, 't3', [user('one'), assistant('reply'), user('two')]);
+    await next.event('session.end', { reason: 'exit' });
+    assert.deepEqual(record(next).events, before.events);
+    assert.deepEqual(record(next).incomplete, []);
+    assert.equal(usableTrace(record(next)), true);
+  });
+
 test('a trace first seen after its first request cannot be usable', async () => {
   const late = setup();
   await late.event('turn.start', { turnId: 't1', text: 'already running' });

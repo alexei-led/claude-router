@@ -252,6 +252,47 @@ test('intentional cap retains a usable whole-turn prefix and counts excluded tur
   assert.equal(next.events.length, 1);
 });
 
+// A record can be capped by size, or by the reload or resume that restored it; either way it takes no more events.
+const cappedRecords = () => {
+  const full = appendTrace(initial(), [event()], NOW + 1);
+  return {
+    size: appendTrace(full, [event()], NOW + 2, { maxBytes: storedBytes(full) + 1 }),
+    reload: readTrace(storedTrace({ ...full, capped: { at: NOW + 2, turns: 0, events: 0 } })),
+  };
+};
+
+test('once capped, what happens to the omitted turns leaves the retained ones usable', () => {
+  for (const [cause, record] of Object.entries(cappedRecords()))
+    for (const options of [
+      { reasons: ['gap'] },
+      { reasons: ['mode-gap'] },
+      { reasons: ['aborted'] },
+      { reasons: ['recorder-error'], lostWrites: 1 },
+      { reasons: ['lost-write'] },
+      { lostWrites: 1 },
+    ])
+      for (const events of [[], [event()]]) {
+        const next = appendTrace(record, events, NOW + 3, options);
+        const name = `${cause} ${JSON.stringify(options)} ${events.length}`;
+        assert.deepEqual([next.incomplete, next.lostWrites, usableTrace(next)], [[], 0, true], name);
+        assert.equal(next.capped.turns, record.capped.turns + events.length, name);
+      }
+});
+
+test('damage to the retained turns marks a record, capped or not, and so does the append that caps it', () => {
+  const capped = Object.values(cappedRecords());
+  for (const record of capped)
+    for (const reason of ['conflict', 'reset', 'store-guard', 'mid-session'])
+      assert.deepEqual(appendTrace(record, [], NOW + 3, { reasons: [reason] }).incomplete, [reason], reason);
+  const full = appendTrace(initial(), [event()], NOW + 1);
+  for (const reason of ['gap', 'mode-gap', 'aborted', 'recorder-error']) {
+    const next = appendTrace(full, [event()], NOW + 2, { reasons: [reason], maxBytes: storedBytes(full) + 1 });
+    assert.ok(next.capped, reason);
+    assert.deepEqual(next.incomplete, [reason], reason);
+    assert.deepEqual(appendTrace(full, [event()], NOW + 2, { reasons: [reason] }).incomplete, [reason], reason);
+  }
+});
+
 test('a long single turn discards its entire bounded buffer and counts subsequent payload-free events', () => {
   let buffer;
   for (let i = 0; i < 10_000; i++) {

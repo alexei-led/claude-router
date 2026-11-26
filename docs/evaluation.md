@@ -67,7 +67,9 @@ are best effort across processes, not atomic reservations.
 
 ### What ends a recording, and what makes a session unusable
 
-A **capped** or cut-short trace is usable: replay covers the turns it holds.
+A **capped** or cut-short trace is usable: replay covers the turns it holds. Once a record is capped, what happens in
+the turns it leaves out (a `gap`, `mode-gap`, `aborted` or recorder failure below) does not mark it; a `conflict` or
+`reset` still does.
 
 | Event | Result |
 | --- | --- |
