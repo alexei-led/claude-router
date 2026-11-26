@@ -3936,9 +3936,11 @@ async function holdFailedModel($, router, e, agentModel = null) {
     const limits = planLimits(usage);
     const now = Date.now();
     const account = accountOfModel(config, model);
+    // Some failures, a spend cap among them, carry no error_details: only the synthetic message names the cause.
+    const details = [e.error_details, e.last_assistant_message].find((text) => typeof text === 'string' && text !== '');
     const failure = classifyFailure({
       error: e.error,
-      details: e.error_details,
+      details,
       limits,
       billing: billingOf(config, usage),
       planAccounts: planAccountsOf(config),
@@ -3962,7 +3964,7 @@ async function holdFailedModel($, router, e, agentModel = null) {
       failureRow({
         at: now,
         error: e.error,
-        details: e.error_details,
+        details,
         limits,
         failure: held ? failure.kind : null,
         scope: held ? failure.scope : null,

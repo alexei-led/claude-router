@@ -472,6 +472,14 @@ test('a failure with no text records none, and one that holds nothing records wh
   ]);
 });
 
+test('an empty error_details leaves the last assistant message to classify and record', async (t) => {
+  const h = await started(t);
+  const text = "You've hit your individual spend limit";
+  await turn(h, 't1', { error: 'rate_limit', error_details: '', last_assistant_message: text });
+  assert.equal(h.preferences.get(HOLDS_PLAN).kind, 'calendar');
+  assert.equal(failureRows(h)[0].details, text);
+});
+
 test('a model hold is recorded with the model that was held', async (t) => {
   const h = await started(t);
   await turn(h, 't1', { error: 'overloaded', error_details: 'Overloaded' });

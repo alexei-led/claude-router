@@ -5,7 +5,7 @@ type Engine = Parameters<Parameters<typeof test>[1]>;
 
 // An Opus session whose classifier answers medium: the models each step sent, the toasts, the loop's holds, and one
 // whole turn.
-function session($: Engine[0], on: Engine[1], rateLimits: object[] = []) {
+function session($: Engine[0], on: Engine[1], rateLimits: object[] = [], file?: object) {
   const store = new Map<string, unknown>();
   on('store.get', (_$, e) => ({ value: store.get(e.key) }));
   on('store.set', (_$, e) => {
@@ -27,7 +27,8 @@ function session($: Engine[0], on: Engine[1], rateLimits: object[] = []) {
     return { value: { isSet: true, version: previous + 1 } };
   });
   mock.env(on, { HOME: '/fixture', CLAUDE_CONFIG_DIR: '/fixture/team', TYPESAFE_API_KEY: 'synthetic-key' });
-  on('fs.exists', () => ({ value: false }));
+  on('fs.exists', (_$, e) => ({ value: file !== undefined && e.path === '/fixture/team/router.json' }));
+  on('fs.read', () => ({ value: JSON.stringify(file) }));
   on('command.register', () => ({ value: { command: 'router' } }));
   on('session.id', () => ({ value: 'native-failover' }));
   on('session.model', () => ({ value: 'claude-opus-5-5' }));
@@ -125,4 +126,18 @@ test('a used-up 5h plan window holds the plan account in the engine’s store, n
   expect(stored?.until).toBe(Date.parse(resetsAt) + 60_000);
   expect(held()).toBeUndefined();
   expect(toasts.at(-1)).toMatch(/^Claude plan held out of routing: usage limit, /);
+});
+
+// A spend cap reaches the plugin only as the synthetic error message: Claude Code gives no error_details for it.
+test('a spend cap named only in the last assistant message holds the account until its calendar reset', async ($, on) => {
+  const { held, request, store } = session($, on, [], { models: { opus: { account: 'work-claude' } } });
+  await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
+  await request('t1');
+  await $.classic.StopFailure({
+    error: 'rate_limit',
+    last_assistant_message:
+      "You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit",
+  });
+  expect((store.get('holds/work-claude') as { kind: string } | undefined)?.kind).toBe('calendar');
+  expect(held()).toBeUndefined();
 });

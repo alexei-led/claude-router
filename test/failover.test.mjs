@@ -214,6 +214,50 @@ for (const [name, input, expected] of [
     assert.deepEqual(classify(input.error, input), expected);
   });
 
+// The texts Claude Code gives for a used-up quota, as found in transcripts, each with a straight and a curly apostrophe.
+// The account is billed by key unless `plan` names the Claude plan, whose rate limit is never a balance.
+const calendar = { kind: 'calendar', scope: 'account', until: now + DAY };
+const balance = { kind: 'balance', scope: 'account', until: null };
+for (const [text, expected, extra] of [
+  ["You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit", calendar],
+  ["You've hit your monthly spend limit", calendar],
+  ["You've hit your org's monthly spend limit", calendar],
+  ["You've hit your channel's monthly spend limit", calendar],
+  ["You've hit your team's pooled group budget", calendar],
+  ["You've hit your individual usage limit", calendar],
+  ["You've hit your usage credit limit", calendar],
+  ['Usage is paused for your organization', calendar],
+  ["You've hit your session limit · resets 7pm (Asia/Jerusalem)", availability],
+  ["You've hit your weekly limit · resets Nov 3 at 7am (Asia/Jerusalem)", availability],
+  ["You've hit your 5-hour limit · run /usage-credits to continue", availability],
+  [
+    "You've hit your monthly spend limit · raise it at claude.ai/settings/usage · your 5-hour limit resets 12:40am (Asia/Jerusalem)",
+    availability,
+  ],
+  ['Your credit balance is running low … please recharge', balance],
+  ['[1113][Insufficient balance or no resource package. Please recharge.]', balance],
+  ["You're out of usage credits", balance],
+  ['Your org is out of usage · add funds', balance],
+  ["You're out of extra usage", balance],
+  ['Fable 5 requires usage credits', balance],
+  ['Credit balance is too low', balance],
+  ["You're out of usage credits", availability, { account: 'plan', billing: 'plan' }],
+  ['Your org is out of usage · add funds', availability, { account: 'plan', billing: 'plan' }],
+])
+  for (const details of new Set([text, text.replaceAll("'", '\u2019')]))
+    test(`"${details}" on ${extra ? 'the plan' : 'a billed account'} classifies as ${expected.kind}`, () => {
+      const input = { details, account: 'work-claude', billing: 'billed', ...extra };
+      assert.deepEqual(classify('rate_limit', input), expected);
+    });
+
+for (const [name, details, expected] of [
+  ['a spend cap', "You've hit your individual spend limit", calendar],
+  ['a plan window', "You've hit your weekly limit", none],
+])
+  test(`a billing error that names ${name} classifies as ${expected.kind ?? 'nothing to hold'}`, () => {
+    assert.deepEqual(classify('billing_error', { details, account: 'work-claude', billing: 'billed' }), expected);
+  });
+
 for (const [name, reset, at, expected] of [
   ['next month on the 1st', { monthly: 1, tz: 'UTC' }, '2026-11-19T10:00:00Z', '2026-12-01T00:00:00Z'],
   ['this month when the day is ahead', { monthly: 25, tz: 'UTC' }, '2026-11-19T10:00:00Z', '2026-11-25T00:00:00Z'],
