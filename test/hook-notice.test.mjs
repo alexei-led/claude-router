@@ -13,7 +13,7 @@ const CAUSES = {
 
 test('a session that starts with routing unavailable toasts why, once', async () => {
   const wording = {
-    'an old Claude Code': /requires Claude Code 2\.1\.321 or newer/,
+    'an old Claude Code': /requires Claude Code 2\.1\.332 or newer/,
     'v0.8 gateway settings': /v0\.8 gateway settings remain/,
     'a router.json that does not load': /invalid router configuration/,
   };
@@ -41,7 +41,7 @@ test('the same cause toasts again only after a day, each cause on its own clock'
     mock.timers.setTime(1_000_000 + DAY);
     await h.event('session.start', REPL);
     assert.equal(h.toasts.length, 2);
-    h.version('2.1.321');
+    h.version('2.1.332');
     CAUSES['v0.8 gateway settings'](h);
     await h.event('session.start', REPL);
     assert.equal(h.toasts.length, 3);

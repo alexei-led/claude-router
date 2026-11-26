@@ -1,6 +1,6 @@
 # Native router: behavior and evidence
 
-This guide describes the Mod shipped in the plugin. Claude Code 2.1.321 is the minimum tested version. The router changes `model` and `effort` on main-conversation steps. Claude Code handles the Anthropic request, credentials, stream, tool execution, and cost ledger. Subagent steps keep their model and effort; the router chooses an agent's model once, at spawn, unless its definition pins one ([configuration](configuration.md#subagent-routing)).
+This guide describes the Mod shipped in the plugin. Claude Code 2.1.332 is the minimum tested version. The router changes `model` and `effort` on main-conversation steps. Claude Code handles the Anthropic request, credentials, stream, tool execution, and cost ledger. Subagent steps keep their model and effort; the router chooses an agent's model once, at spawn, unless its definition pins one ([configuration](configuration.md#subagent-routing)).
 
 ## Turn behavior
 

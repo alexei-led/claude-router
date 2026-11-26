@@ -33,4 +33,4 @@ Native usage has no 5m/1h split. Switching estimates use conservative cost scena
 
 Mods are early access, with a minimum tested Claude Code version of 2.1.289. Future host changes require compatibility validation.
 
-Historical: the floor is now 2.1.321 (`MIN_CLAUDE_CODE` in `lib/config.mjs`). The native band and pane for the desktop app, VS Code and mobile need it, and older builds leave routing off.
+Historical: the floor is now 2.1.332 (`MIN_CLAUDE_CODE` in `lib/config.mjs`). The native band and pane for the desktop app, VS Code and mobile need it, and older builds leave routing off.

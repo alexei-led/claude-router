@@ -47,7 +47,7 @@ function session(
   on('session.id', () => ({ value: 'native-failover' }));
   on('session.model', () => ({ value: 'claude-opus-5-5' }));
   on('session.cwd', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.321' } }));
+  on('session.version', () => ({ value: { version: '2.1.332' } }));
   on('session.messages', () => ({ value: [user('Synthetic task.')] }));
   on('session.usage', () => ({
     value: { context: { tokens: 8000, breakdown: { totalTokens: 8000 } }, rateLimits },
@@ -230,7 +230,7 @@ test('a model with no failure history is not sent again in the step', async ($, 
 
 const SPEND_TEXT = "You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit";
 const rerunText = (model: string, cause: string) =>
-  `The last request failed on ${model} (${cause}), so the router moved this session to another model. Continue the task from where it stopped.`;
+  `The last request failed on ${model} (${cause}), so the router held it out of routing. Continue the task from where it stopped.`;
 const WORK_OPUS = { models: { opus: { account: 'work-claude' } } };
 const START = { cwd: '/fixture/project', surface: null, isInteractive: false };
 

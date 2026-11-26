@@ -32,7 +32,7 @@ for (const hasAssistant of [false, true]) {
     on('session.id', () => ({ value: 'native-trace' }));
     on('session.model', () => ({ value: 'claude-haiku-5-5' }));
     on('session.cwd', () => ({ value: '/fixture/project' }));
-    on('session.version', () => ({ value: { version: '2.1.325' } }));
+    on('session.version', () => ({ value: { version: '2.1.332' } }));
     const messages = Array.from({ length: 17 }, () => user('CANARY_PROMPT'));
     if (hasAssistant) messages[8] = assistant('CANARY_REPLY');
     on('session.messages', () => ({ value: messages }));

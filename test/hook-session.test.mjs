@@ -352,7 +352,7 @@ test('an unsupported Claude version leaves the native request unchanged', async 
   await h.event('command.run', { command: 'router', args: 'pin high' });
   await drain(h.step(step));
   assert.equal(h.view().phase, 'unavailable');
-  assert.match(h.view().error, /2\.1\.321/);
+  assert.match(h.view().error, /2\.1\.332/);
   assert.equal(h.view().pendingPin, null);
   assert.equal(h.requests[0].model, step.model);
   assert.equal(h.requests[0].effort, step.effort);
@@ -363,7 +363,7 @@ test('while routing is unavailable, /router says why and its on, off, engine and
   h.version('2.1.320');
   await start(h);
   const command = async (args) => (await h.event('command.run', { command: 'router', args })).text;
-  const why = 'Routing unavailable: requires Claude Code 2.1.321 or newer. Claude’s model is kept.';
+  const why = 'Routing unavailable: requires Claude Code 2.1.332 or newer. Claude’s model is kept.';
   const mode = h.preferences.get('mode:s1');
   for (const args of ['on', 'off', 'engine auto', 'pin high', 'activities off'])
     assert.equal(await command(args), why, args);

@@ -20,7 +20,7 @@ test('a press on a running agent’s row asks the engine to show that agent', as
   on('session.id', () => ({ value: 'band-agents' }));
   on('session.model', () => ({ value: 'claude-opus-5-5' }));
   on('session.cwd', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.321' } }));
+  on('session.version', () => ({ value: { version: '2.1.332' } }));
   on('session.usage', () => ({ value: { startedAt: 0, context: { tokens: 8000 }, rateLimits: [] } }));
   on('settings.read', () => ({ value: {} }));
   on('ui.log', () => ({ value: undefined }));

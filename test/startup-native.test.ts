@@ -32,7 +32,7 @@ test('first routed quality startup uses native capability and survives reload wi
   on('session.id', () => ({ value: 'native-quality-startup' }));
   on('session.model', () => ({ value: 'deepseek-flash[1m]' }));
   on('session.cwd', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.321' } }));
+  on('session.version', () => ({ value: { version: '2.1.332' } }));
   on('session.messages', () => ({ value: [user('Synthetic task.')] }));
   on('session.usage', () => ({
     value: { context: { tokens: 8000, breakdown: { totalTokens: 8000 } }, rateLimits: [] },

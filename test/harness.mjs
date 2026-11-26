@@ -93,7 +93,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
   let placeResult = { isPlaced: true, requestId: 'placed-1' };
   let agents = [];
   let viewResult = {};
-  let version = '2.1.321';
+  let version = '2.1.332';
   let settings = {};
   let sessionId = 's1';
   let snapshot = new Map();

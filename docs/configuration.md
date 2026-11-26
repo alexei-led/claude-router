@@ -433,7 +433,7 @@ Workflow agents are routed by default, classified like `general-purpose`. The ke
 - A classifier failure or a missing key keeps the model Claude Code gives the agent, and so does a model that `availableModels` blocks, or settings the router cannot read. So does routing off: `/router off`, or a `/model` choice.
 - A spawn sets a model, not an effort. An agent's `effort` frontmatter still applies.
 
-The Usage tab's **SUBAGENTS** section shows, per agent type, what routing cost against the model Claude Code would have used, and which agents passed through and why. [Evaluation](evaluation.md#subagent-routing) says what to look for. To stop it, set `"off"`. Router 1.8 rejects both keys as unknown, so remove `subagentRouting` and `subagents` before you downgrade. Subagent routing needs the `agent.spawn` hook: it is checked on Claude Code 2.1.321, the minimum version.
+The Usage tab's **SUBAGENTS** section shows, per agent type, what routing cost against the model Claude Code would have used, and which agents passed through and why. [Evaluation](evaluation.md#subagent-routing) says what to look for. To stop it, set `"off"`. Router 1.8 rejects both keys as unknown, so remove `subagentRouting` and `subagents` before you downgrade. Subagent routing needs the `agent.spawn` hook: it was checked live on Claude Code 2.1.321.
 
 ## Optional `router.json`
 

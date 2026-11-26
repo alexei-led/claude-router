@@ -4318,7 +4318,7 @@ async function rerunFailedTurn($, router, e) {
   }
   router.reruns += 1;
   $.ui.toast(`Retrying on another model: ${failed.cause}`);
-  const text = `The last request failed on ${modelName(failed.model)} (${failed.cause}), so the router moved this session to another model. Continue the task from where it stopped.`;
+  const text = `The last request failed on ${modelName(failed.model)} (${failed.cause}), so the router held it out of routing. Continue the task from where it stopped.`;
   // Not awaited: it resolves when the queued turn starts, which waits for this turn.complete to return.
   $.prompt.submit({ text }).catch((error) => $.ui.log(`router re-run not queued: ${error}`, { to: 'debug' }));
 }
@@ -4494,7 +4494,7 @@ export function register(on, options) {
     return next(e);
   });
 
-  // Since 2.1.296 (present at the 2.1.321 floor): a turn that ended on an API error. A subagent's holds the model its
+  // Since 2.1.296 (present at the floor): a turn that ended on an API error. A subagent's holds the model its
   // agent ran, when that request is known. A hook failure leaves the event to the hooks beneath, as without the router.
   on('classic.StopFailure', async ($, e, next) => {
     const result = await next(e);

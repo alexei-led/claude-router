@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- **Claude Code 2.1.332 or newer is required** (was 2.1.321): the failover below was checked on it. An older build shows routing unavailable and keeps Claude's model.
+
 ### Fixed
 
 - **A spend cap holds its account.** The router now reads the error message Claude Code shows when the failure has no error details, so "You've hit your individual spend limit" holds the account until its reset (`accounts.<name>.reset`, else 24 hours) instead of the one model for a few minutes. More quota texts are recognised, and a message that names a plan window (session, 5-hour or weekly limit) is never read as a spend cap or an empty balance (a `billing_error` still holds its account as a balance).

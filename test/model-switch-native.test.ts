@@ -17,7 +17,7 @@ test('a picker or SDK model switch turns routing off; a fallback or resume does 
   on('session.id', () => ({ value: 'model-switch' }));
   on('session.model', () => ({ value: 'claude-opus-5-5' }));
   on('session.cwd', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.321' } }));
+  on('session.version', () => ({ value: { version: '2.1.332' } }));
   on('ui.log', () => ({ value: undefined }));
   on('classic.PostModelSwitch', () => ({}));
   const modes: Record<string, unknown> = {};

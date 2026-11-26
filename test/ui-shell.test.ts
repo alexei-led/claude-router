@@ -85,7 +85,7 @@ test('desktop shell: a Routes draft keeps its save bar on other tabs and Save st
   const state = setup(on, {});
   on('session.start', (_$, e) => ({ cwd: e.cwd }));
   on('session.root', () => ({ value: '/fixture/project' }));
-  on('session.version', () => ({ value: { version: '2.1.321' } }));
+  on('session.version', () => ({ value: { version: '2.1.332' } }));
   on('command.register', () => ({ value: { command: 'router' } }));
   on('settings.read', () => ({ value: {} }));
   mock.env(on, { HOME: '/fixture', CLAUDE_CONFIG_DIR: '/fixture/team' });
