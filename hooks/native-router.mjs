@@ -163,6 +163,7 @@ import {
   ownRoute,
   prepareLoop,
   resetHistory,
+  selectableModels,
   servesOneTurn,
 } from '../lib/route.mjs';
 import { LINE_MODES, lineId, lineModeOf, lineOf, routeOf, showsLine } from '../lib/route-line.mjs';
@@ -3682,13 +3683,15 @@ async function standInStep($, router, e, { cfg, loop, failed, probation, nativeM
 }
 
 // The model holds a failed try renewed, written before the stand-in is sent: an aborted stand-in writes no reply, and
-// the next turn would try the failed model at once. Returns the loop and the version its reply is written at.
+// the next turn would try the failed model at once. Returns the loop and the version its reply is written at, or null
+// when the write did not succeed: the loop the stand-in was chosen from may be stale, and the stand-in held by now.
 async function keepRenewedHold($, router, loop, held, loopVersion) {
   const renewed = { ...loop, held };
   const written = await $.state.set({ ...LOOP, id: 'main' }, renewed, { ifVersion: loopVersion }).catch(() => null);
+  if (!written?.isSet) return null;
   const shown = /** @type {import('../lib/holds.mjs').HoldSet | null | undefined} */ (router.view?.holds);
-  if (written?.isSet && shown) await updateView($, router, { holds: { ...shown, models: held } }).catch(() => {});
-  return { loop: renewed, loopVersion: written?.isSet ? written.version : loopVersion };
+  if (shown) await updateView($, router, { holds: { ...shown, models: held } }).catch(() => {});
+  return { loop: renewed, loopVersion: written.version };
 }
 
 // The row, toast and view of a step sent again as `decision` routes it. Everything but the view's save is done when it
@@ -3750,9 +3753,13 @@ async function* sendRouted($, router, e, next, step) {
   if (probation && unanswered && !next.signal.aborted && (await $.session.id()) === sessionId) {
     const failed = request.model;
     const retry = { cfg, loop, failed, probation, nativeModel, context, availableModels };
-    const moved = await standInStep($, router, e, retry);
+    let moved = await standInStep($, router, e, retry);
+    if (moved && probation.ended) {
+      const kept = await keepRenewedHold($, router, loop, moved.held, loopVersion);
+      if (kept) ({ loop, loopVersion } = kept);
+      else moved = null;
+    }
     if (moved) {
-      if (probation.ended) ({ loop, loopVersion } = await keepRenewedHold($, router, loop, moved.held, loopVersion));
       // Read last: routing turned off or a new session since the try sends the conversation nowhere else.
       const live = (await $.session.id()) === sessionId && !(await routingOff($, router));
       if (live && !next.signal.aborted) {
@@ -4378,20 +4385,22 @@ async function applyHold($, router, failure, error, key, now) {
   return { key, hold, models: held };
 }
 
-// Whether routing is on and some model the session may select is not held now, so a turn run again can go to another.
+// Whether routing is on and a turn run again can go to a model not held now: `auto` picks from the whole catalog the
+// session may select; `table` and `shadow` reach only what their routes select, or the session model.
 async function canRerun($, router) {
-  const [{ accounts, models }, settings, nativeModel] = await Promise.all([
+  const [{ accounts, models }, settings, nativeModel, { config }] = await Promise.all([
     readHolds($, router),
     $.settings.read().catch(() => null),
     $.session.model(),
+    turnConfigOf($, router),
   ]);
   // Settings that cannot be read may hold an availableModels list. The mode is read last, after the waits.
   if (!settings || (await routingOff($, router))) return false;
-  const held = heldIds(router.config, models, accounts, Date.now());
-  return Object.values(router.config.models).some(
-    (spec) =>
-      isModelAllowed(spec.id, settings.availableModels, nativeModel) && !held.some((id) => isSameModel(id, spec.id)),
-  );
+  const held = heldIds(config, models, accounts, Date.now());
+  const free = (model) => !held.some((id) => isSameModel(id, model));
+  const usable = (model) => isModelAllowed(model, settings.availableModels, nativeModel) && free(model);
+  if (config.routingEngine === 'auto') return Object.values(config.models).some((spec) => usable(spec.id));
+  return free(nativeModel) || selectableModels(config, held).some(usable);
 }
 
 // A main turn's end: one that an API error ended runs again once its StopFailure has held the cause, now or when the

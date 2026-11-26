@@ -1275,6 +1275,64 @@ for (const [name, standIn, prepare] of [
     assert.deepEqual(sentModels(h), [OPUS]);
   });
 
+// Another write reaches the loop while the failed try is on its way, so the stand-in was chosen from a stale loop.
+for (const [name, interfere] of [
+  [
+    'loses to another write',
+    (h) => {
+      const stored = h.state.get('loops:main');
+      h.state.set('loops:main', { ...stored, version: stored.version + 1 });
+    },
+  ],
+  [
+    'is rejected',
+    (h) => {
+      const set = h.$.state.set;
+      h.$.state.set = async (ref, ...rest) => {
+        if (ref.key !== 'loops') return set(ref, ...rest);
+        h.$.state.set = set;
+        throw new Error('state unavailable');
+      };
+    },
+  ],
+])
+  test(`a step whose renewed model hold ${name} is not sent again and passes its failure on`, async (t) => {
+    const h = await started(t, CHAINED);
+    await failedTurn(h, 't1', { error: 'overloaded' });
+    t.mock.timers.tick(5 * MINUTE);
+    await h.event('turn.start', { turnId: 't2', text: 'One edit.' });
+    const response = () => {
+      interfere(h);
+      return NO_REPLY;
+    };
+    const items = await streamedItems(h.step({ ...step, turnId: 't2', model: OPUS }, response));
+    assert.deepEqual(items, ['engine']);
+    assert.deepEqual(sentModels(h).slice(1), [OPUS]);
+    assert.deepEqual(
+      h.toasts.filter((text) => text.includes('still limited')),
+      [],
+    );
+  });
+
+// Too full for every route, a resumed conversation keeps the session model with no tier, on a history not yet measured.
+for (const [name, window] of [
+  ['a smaller window than the session model’s', 200_000],
+  ['the session model’s window and too little room in it', 1_000_000],
+])
+  test(`a failed probe on a native decision is not sent to a stand-in with ${name}`, async (t) => {
+    const h = await started(t, {
+      models: { glm: { ...GLM, contextWindow: window } },
+      routes: { low: { model: 'glm', effort: 'max' } },
+    });
+    h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+    h.usage({ startedAt: 0, context: { tokens: 900_000, breakdown: { totalTokens: 900_000 } }, rateLimits: [] });
+    t.mock.timers.tick(HOUR);
+    await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+    await drain(h.step({ ...step, turnId: 't1', model: OPUS, messageCount: 41 }, NO_REPLY));
+    assert.deepEqual([h.loop().decision.tier, h.loop().decision.route], [null, null]);
+    assert.deepEqual(sentModels(h), [OPUS]);
+  });
+
 test('a stream closed after its first item closes the request’s stream', async (t) => {
   const h = await probing(t);
   t.mock.timers.tick(HOUR);
@@ -1399,6 +1457,22 @@ for (const [name, allowed, reruns] of [
   test(`a failed turn with ${name} ${reruns ? 'is' : 'is not'} run again`, async (t) => {
     const h = await started(t);
     h.settings({ availableModels: allowed });
+    await erroredTurn(h, 't1');
+    assert.equal(h.submitted.length, reruns);
+  });
+
+// Fable is allowed and free, and only a route or a held route's fallback chain leads to it.
+for (const [name, router, reruns] of [
+  ['no route or chain selects', null, 0],
+  ['a tier route selects', { routes: { low: { model: 'fable' } } }, 1],
+  ['an activity route selects', { activities: { docs: { low: { model: 'fable' } } } }, 1],
+  ['the held model’s chain selects', { fallbacks: { opus: ['fable'] } }, 1],
+  ['only the chain of a model that is not held selects', { fallbacks: { sonnet: ['fable'] } }, 0],
+  ['the auto engine can select from the catalog', { routingEngine: 'auto' }, 1],
+])
+  test(`a failed turn whose only free model ${name} ${reruns ? 'is' : 'is not'} run again`, async (t) => {
+    const h = await started(t, router);
+    h.settings({ availableModels: ['opus', 'fable'] });
     await erroredTurn(h, 't1');
     assert.equal(h.submitted.length, reruns);
   });
