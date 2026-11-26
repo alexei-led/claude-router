@@ -337,7 +337,7 @@ test('another session reads the account hold back, and a weaker failure there do
   second.usage(planReadings(['five_hour', 100, HOUR]));
   await second.event('session.start', { cwd: '/fixture' });
   t.mock.timers.tick(MINUTE);
-  await turn(second, 't1', { error: 'rate_limit' });
+  await failedTurn(second, 't1', { error: 'rate_limit' });
   assert.deepEqual(second.preferences.get(HOLDS_PLAN), stored);
 });
 
@@ -359,9 +359,10 @@ test('a billing error holds the plan account until it is released, not a model',
     since: 1_000_000,
     until: null,
     streak: 1,
+    probeAt: 1_000_000 + HOUR,
   });
   assert.equal(h.loop().held, undefined);
-  assert.deepEqual(h.toasts, ['Claude plan held out of routing: no balance, until released']);
+  assert.deepEqual(h.toasts, ['Claude plan held out of routing: no balance, until released, next try 01:16']);
 });
 
 test('the monthly spend limit holds a day when the account has no reset', async (t) => {
@@ -497,6 +498,7 @@ test('the auto engine records the failure and holds what the table engine would'
     since: 1_000_000,
     until: null,
     streak: 1,
+    probeAt: 1_000_000 + HOUR,
   });
   assert.deepEqual(
     failureRows(h).map((row) => [row.err, row.fail, row.scope, row.held]),
@@ -637,7 +639,7 @@ test('/router holds lists a plan hold and a model hold with scope, kind, cause a
   assert.deepEqual(await command(h, 'holds'), { text: nothingHeld });
   h.usage(planReadings(['five_hour', 100, 3 * HOUR]));
   await turn(h, 't1', { error: 'rate_limit' });
-  await turn(h, 't2', { error: 'overloaded' });
+  await failedTurn(h, 't2', { error: 'overloaded' });
   const { text } = await command(h, 'holds');
   assert.deepEqual(text.split('\n').slice(0, 3), [
     'Held out of routing:',
@@ -820,4 +822,149 @@ test('a failure that arrives while its turn completes keeps the turn’s end row
     decisions(h).rows.map((row) => row.kind),
     ['start', 'failure', 'end'],
   );
+});
+
+// A spend-cap hold on the plan account, its first probe an hour after it was set.
+const SPEND_HOLD = {
+  kind: 'calendar',
+  error: 'rate_limit',
+  since: 1_000_000,
+  until: 1_000_000 + 24 * HOUR,
+  streak: 1,
+  probeAt: 1_000_000 + HOUR,
+};
+const ANSWERED = 'Claude plan answered again: routing may use it';
+const NO_REPLY = { stopReason: null, usage: null };
+
+async function probing(t, hold = SPEND_HOLD) {
+  const h = await started(t, CHAINED);
+  h.preferences.set(HOLDS_PLAN, hold);
+  return h;
+}
+
+// One main turn whose request gets `response`, with no StopFailure.
+async function sentTurn(h, turnId, response = {}) {
+  await h.event('turn.start', { turnId, text: 'One edit.' });
+  await drain(h.step({ ...step, turnId, model: OPUS }, response));
+  await h.event('turn.complete', { turnId, isAborted: false });
+  return h.requests.at(-1).model;
+}
+
+test('a held account is tried again once its probe is due, and an answer ends the hold', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR - 1);
+  assert.equal(await sentTurn(h, 't1'), GLM_ID);
+  assert.equal(h.preferences.has(HOLDS_PLAN), true);
+  t.mock.timers.tick(1);
+  assert.equal(await sentTurn(h, 't2'), OPUS);
+  assert.equal(h.preferences.has(HOLDS_PLAN), false);
+  assert.deepEqual(h.view().holds.accounts, {});
+  assert.equal(h.toasts.filter((text) => text === ANSWERED).length, 1);
+});
+
+test('a hold stored without a probe time is not tried before it ends', async (t) => {
+  const { probeAt, ...old } = SPEND_HOLD;
+  const h = await probing(t, old);
+  t.mock.timers.tick(2 * HOUR);
+  assert.equal(await sentTurn(h, 't1'), GLM_ID);
+});
+
+test('a probe that gets no reply waits twice as long, and the next turn uses the stand-in', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't1', model: OPUS }, NO_REPLY));
+  assert.equal(h.requests.at(-1).model, OPUS);
+  assert.deepEqual(h.preferences.get(HOLDS_PLAN), { ...SPEND_HOLD, streak: 2, probeAt: 1_000_000 + 3 * HOUR });
+  assert.equal(h.view().holds.accounts.plan.probeAt, 1_000_000 + 3 * HOUR);
+  await h.event('turn.complete', { turnId: 't1', isAborted: false });
+  assert.equal(await sentTurn(h, 't2'), GLM_ID);
+});
+
+test('the failure that ends a probe’s turn extends the hold and keeps its backoff', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  await sentTurn(h, 't1', NO_REPLY);
+  await h.event('classic.StopFailure', {
+    hook_event_name: 'StopFailure',
+    error: 'rate_limit',
+    last_assistant_message: "You've hit your individual spend limit",
+  });
+  const held = h.preferences.get(HOLDS_PLAN);
+  assert.deepEqual([held.streak, held.probeAt, held.until], [2, 1_000_000 + 3 * HOUR, 1_000_000 + 25 * HOUR]);
+});
+
+test('an aborted probe stays due', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  const abort = new AbortController();
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  abort.abort();
+  await drain(h.step({ ...step, turnId: 't1', model: OPUS }, NO_REPLY, abort.signal));
+  assert.deepEqual(h.preferences.get(HOLDS_PLAN), SPEND_HOLD);
+});
+
+test('a probe another session released is not written back', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't1', model: OPUS }));
+  assert.equal(h.preferences.has(HOLDS_PLAN), false);
+  h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+  await h.event('turn.start', { turnId: 't2', text: 'One edit.' });
+  const get = h.$.store.get;
+  let reads = 0;
+  h.$.store.get = async (key) => {
+    if (key === HOLDS_PLAN && ++reads === 2) h.preferences.delete(HOLDS_PLAN);
+    return get(key);
+  };
+  await drain(h.step({ ...step, turnId: 't2', model: OPUS }, NO_REPLY));
+  assert.equal(h.preferences.has(HOLDS_PLAN), false);
+});
+
+test('a subagent spawn still sees a hold whose probe is due', async (t) => {
+  const h = await probing(t);
+  answering(h, LOW);
+  t.mock.timers.tick(HOUR);
+  const input = {
+    subagentType: 'Explore',
+    description: 'Look',
+    prompt: 'Find the file.',
+    parentModel: OPUS,
+    agentId: undefined,
+  };
+  const { sent } = await h.spawn(input);
+  assert.equal(sent, input);
+});
+
+test('a subagent reply from a held account’s model ends the hold', async (t) => {
+  const h = await started(t);
+  h.preferences.set(HOLDS_PLAN, { ...SPEND_HOLD, kind: 'window' });
+  // The main turn reads the hold; the agent's reply ends it from that reading.
+  await sentTurn(h, 't1', NO_REPLY);
+  await drain(h.step({ ...step, turnId: 'a1-t', agentId: 'a1', model: HAIKU }));
+  assert.equal(h.preferences.has(HOLDS_PLAN), false);
+  assert.deepEqual(h.view().holds.accounts, {});
+  assert.deepEqual(h.toasts, [ANSWERED]);
+});
+
+test('a reply from another model leaves the account hold', async (t) => {
+  const h = await started(t);
+  h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+  await sentTurn(h, 't1', NO_REPLY);
+  await drain(
+    h.step(
+      { ...step, turnId: 'a1-t', agentId: 'a1', model: HAIKU },
+      { usage: { model: GLM_ID, input_tokens: 1, output_tokens: 1 } },
+    ),
+  );
+  assert.equal(h.preferences.has(HOLDS_PLAN), true);
+});
+
+test('a reply to a request sent before the hold was set leaves it', async (t) => {
+  const h = await started(t);
+  h.preferences.set(HOLDS_PLAN, { ...SPEND_HOLD, since: 1_000_001 });
+  await sentTurn(h, 't1', NO_REPLY);
+  await drain(h.step({ ...step, turnId: 'a1-t', agentId: 'a1', model: HAIKU }));
+  assert.equal(h.preferences.has(HOLDS_PLAN), true);
 });

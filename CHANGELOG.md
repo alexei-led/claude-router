@@ -5,6 +5,7 @@
 ### Fixed
 
 - **A spend cap holds its account.** The router now reads the error message Claude Code shows when the failure has no error details, so "You've hit your individual spend limit" holds the account until its reset (`accounts.<name>.reset`, else 24 hours) instead of the one model for a few minutes. More quota texts are recognised, and a message that names a plan window (session, 5-hour or weekly limit) is never read as a spend cap or an empty balance.
+- **A spend cap or empty balance is tried again.** After 1 hour, then 2, 4, 8, 16 and 24 hours, one main turn may try the held account again; an answer from any of its models, a subagent's included, ends the hold. `/router holds`, the pane and the hold notice show the next try. A hold written by 1.32.0 has no next try and ends as before.
 
 ## 1.32.0 (2026-11-26)
 

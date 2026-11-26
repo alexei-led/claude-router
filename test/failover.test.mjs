@@ -8,6 +8,7 @@ import {
   classifyFailure,
   clearedModel,
   clearedSince,
+  dueProbes,
   failureHold,
   heldAsSeen,
   heldIds,
@@ -15,11 +16,12 @@ import {
   holdCause,
   holdModel,
   holdMs,
-  holdText,
   nextReset,
+  probeFailed,
   readHold,
   releaseHold,
 } from '../lib/failover.mjs';
+import { holdText } from '../lib/holds.mjs';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -433,6 +435,7 @@ for (const [kind, failure, until] of [
       since: now,
       until,
       streak: 1,
+      ...(kind === 'window' ? {} : { probeAt: now + HOUR }),
     });
   });
 
@@ -597,4 +600,67 @@ test('a held id is named too by the snapshot its reply resolved it to', () => {
     'a-dated',
     'b-dated',
   ]);
+});
+
+const quotaHold = (kind, until, running, at = now) =>
+  failureHold({ kind, scope: 'account', until }, 'rate_limit', running, at);
+
+test('each failed probe doubles the wait for the next one, up to a day', () => {
+  let hold = quotaHold('balance', null);
+  const waits = [hold.probeAt - now];
+  for (let i = 0; i < 6; i += 1) {
+    const at = hold.probeAt;
+    hold = probeFailed(hold, at);
+    waits.push(hold.probeAt - at);
+  }
+  assert.deepEqual(
+    waits.map((ms) => ms / HOUR),
+    [1, 2, 4, 8, 16, 24, 24],
+  );
+  assert.equal(hold.streak, 7);
+});
+
+for (const [name, hold] of [
+  ['a first probe at the hold’s end', quotaHold('calendar', now + HOUR)],
+  ['a next probe past the hold’s end', probeFailed(quotaHold('calendar', now + 2 * HOUR), now + HOUR)],
+  ['a window hold', quotaHold('window', now + 5 * HOUR)],
+  ['an availability hold', failureHold(classified('overloaded'), 'overloaded', undefined, now)],
+])
+  test(`${name} gets no probe`, () => {
+    assert.equal(Object.hasOwn(hold, 'probeAt'), false);
+  });
+
+test('a probe is due from its time until the hold ends', () => {
+  const holds = { work: quotaHold('calendar', now + DAY), plan: quotaHold('window', now + DAY) };
+  assert.deepEqual(dueProbes(holds, now + HOUR - 1), []);
+  assert.deepEqual(dueProbes(holds, now + HOUR), ['work']);
+  assert.deepEqual(dueProbes(holds, now + DAY), []);
+  assert.deepEqual(dueProbes(undefined, now), []);
+});
+
+test('another failure on a held account keeps the backoff its probes reached', () => {
+  const probed = probeFailed(quotaHold('calendar', now + DAY), now + HOUR);
+  const again = quotaHold('calendar', now + 2 * DAY, probed, now + HOUR);
+  assert.deepEqual([again.until, again.streak, again.probeAt], [now + 2 * DAY, 2, now + 3 * HOUR]);
+  const balance = quotaHold('balance', null, probed, now + HOUR);
+  assert.deepEqual([balance.until, balance.streak, balance.probeAt], [null, 2, now + 3 * HOUR]);
+});
+
+test('a longer failure on a hold whose probes had run out schedules the next one', () => {
+  const spent = probeFailed(quotaHold('calendar', now + 2 * HOUR), now + HOUR);
+  const again = quotaHold('calendar', now + DAY, spent, now + HOUR);
+  assert.deepEqual([again.streak, again.probeAt], [2, now + 3 * HOUR]);
+});
+
+test('a stored hold reads back with its probe time, and without one that is not a time', () => {
+  const hold = quotaHold('calendar', now + DAY);
+  assert.deepEqual(readHold(hold), hold);
+  assert.equal(Object.hasOwn(readHold({ ...hold, probeAt: 'soon' }), 'probeAt'), false);
+});
+
+test('a hold with a probe says when the next try is, in local time', () => {
+  const at = new Date(2026, 10, 19, 10, 0).getTime();
+  const hold = quotaHold('calendar', at + DAY, undefined, at);
+  assert.equal(holdText(hold, at), 'spend limit, 24 h, next try 11:00');
+  assert.equal(holdText(hold, at + HOUR), 'spend limit, 23 h, next try now');
 });

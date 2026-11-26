@@ -87,18 +87,19 @@ import {
   classifyFailure,
   clearedModel,
   clearedSince,
+  dueProbes,
   failureHold,
   HOLDS_PREFIX,
   heldAsSeen,
   heldIds,
   holdModel,
-  holdText,
   isActive,
   planAccountsOf,
+  probeFailed,
   readHold,
   releaseHold,
 } from '../lib/failover.mjs';
-import { heldCause, heldRows, holdsText, releaseRow } from '../lib/holds.mjs';
+import { heldCause, heldRows, holdsText, holdText, releaseRow } from '../lib/holds.mjs';
 import { KEYWORDS, keywordRaises, promptKeyword } from '../lib/keywords.mjs';
 import {
   absorbedKeys,
@@ -301,7 +302,9 @@ function createRouter(options) {
     traceFlushing: /** @type {Promise<void> | null} */ (null),
     traceDue: /** @type {Set<() => void>} */ (new Set()),
     // The account holds a turn read (accountHoldsOf), by the accounts' names; null to read them again.
-    accountHolds: /** @type {{ id: string, value: Record<string, unknown> } | null} */ (null),
+    accountHolds: /** @type {{ id: string, value: Record<string, import('../lib/failover.mjs').Hold> } | null} */ (
+      null
+    ),
     // The auto|manual mode this process last wrote or read for each session, so a turn does not write it again.
     storedModes: /** @type {Map<string, string>} */ (new Map()),
     // The read of the counts kept across sessions in progress (readLedgers), a refresh of them due from a timer
@@ -1789,7 +1792,7 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
   const sessionId = await $.session.id();
   if (turn.config.routingEngine === 'shadow')
     traceRequest(router, e, turn, e, reason === 'manual' ? 'manual' : 'auto', loop);
-  const response = yield* next(e);
+  const response = yield* sendMain($, router, e, next, turn.config);
   if (!next.signal.aborted && (await $.session.id()) === sessionId) {
     const at = Date.now();
     const cfg = auto ? turn.config : router.config;
@@ -1985,7 +1988,7 @@ async function decideTurn($, router, e, signal, step) {
       router.turnConfigs.set(e.turnId, { config: { ...cfg, routingMode: step.cfg.routingMode }, configured: cfg });
     // A keyword is read from a prompt a person or an agent sent, never from a progress report or a pinned turn.
     const keyword = pin || isProgressOrigin(origin) ? null : promptKeyword(router.prompts.get(e.turnId));
-    const accountHolds = await accountHoldsOf($, cfg, router);
+    const accountHolds = await routingHoldsOf($, cfg, router);
     const traceInput = {
       facts,
       advice: result.advice,
@@ -2179,7 +2182,7 @@ async function moveOnObserved($, router, cfg, loop, e, context) {
   const observed = routingBucket(
     observedActivity(messages, Math.max(promptIndex(messages), (loop.observedFrom ?? 0) - 1)),
   );
-  const observedHolds = await accountHoldsOf($, cfg, router);
+  const observedHolds = await routingHoldsOf($, cfg, router);
   const now = Date.now();
   const traceInput = {
     observed,
@@ -2235,7 +2238,7 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
     const advice =
       messages.length === review.observedUpTo ? review.answer.advice : { ...review.answer.advice, phase: null };
     const facts = { ...stepFacts(cfg, router, loop, e, messages, context), midTurn: true };
-    const reviewHolds = await accountHoldsOf($, cfg, router);
+    const reviewHolds = await routingHoldsOf($, cfg, router);
     const traceInput = {
       facts,
       advice,
@@ -3044,7 +3047,9 @@ async function* stepAgent($, router, e, next) {
   // The model this agent's request ran, for a failure's hold: StopFailure names no model and `lastRequested` is the
   // main conversation's request.
   if (typeof e.model === 'string') router.agentRequests.set(e.agentId, e.model);
+  const sentAt = Date.now();
   const response = yield* next(e);
+  if (response?.usage) await endAnsweredHold($, router, router.config, e.model, response.usage, sentAt);
   if (router.agents.has(e.agentId) && response?.usage) {
     try {
       const ttl = await subagentTtlOf($);
@@ -3574,6 +3579,19 @@ function configurationError(error) {
   return error.message === 'selected provider router file is missing' ? error.message : 'invalid router configuration';
 }
 
+// A main request on its way to the API. A reply ends a hold on the account of its model; a request to an account whose
+// probe is due is that probe, and one that gets no reply (a failed request resolves empty) waits longer for the next.
+async function* sendMain($, router, request, next, cfg) {
+  const sentAt = Date.now();
+  const held = cachedAccountHold(router, cfg, request.model, sentAt);
+  const probe = held && dueProbes({ [held.account]: held.hold }, sentAt).length > 0;
+  const response = yield* next(request);
+  if (response?.usage) await endAnsweredHold($, router, cfg, request.model, response.usage, sentAt);
+  else if (probe && response?.stopReason === null && !next.signal.aborted)
+    await rescheduleProbe($, router, held.account);
+  return response;
+}
+
 async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, sessionId, nativeModel, turn }) {
   const pinPresses = router.turnPins.get(e.turnId);
   if (pinPresses !== undefined) {
@@ -3590,7 +3608,7 @@ async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, session
     traceRequest(router, e, router.turnConfigs.get(e.turnId) ?? turn, request, 'auto', loop);
   // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
   router.lastRequested = request.model;
-  const response = yield* next(request);
+  const response = yield* sendMain($, router, request, next, cfg);
   if (!next.signal.aborted && (await $.session.id()) === sessionId)
     await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
   else if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('aborted');
@@ -3782,7 +3800,7 @@ async function* mainStep($, router, e, next) {
     // A review answer applies first, so tool calls made after its snapshot can still move the route up.
     loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
     loop = await moveOnObserved($, router, cfg, loop, e, context);
-    const stepHolds = await accountHoldsOf($, cfg, router);
+    const stepHolds = await routingHoldsOf($, cfg, router);
     const traceInput = {
       hasImages: cfg.routingEngine === 'auto' ? false : await imagesOf($, cfg, loop.decision),
       nativeModel,
@@ -3996,6 +4014,56 @@ async function accountHoldsOf($, cfg, router = null) {
   return value;
 }
 
+// The account holds main routing skips: one whose probe is due is left out, so a main turn may try its account.
+// Spawns, the pane, the band and `/router holds` read every hold.
+async function routingHoldsOf($, cfg, router) {
+  const holds = await accountHoldsOf($, cfg, router);
+  const due = dueProbes(holds, Date.now());
+  return Object.fromEntries(Object.entries(holds).filter(([account]) => !due.includes(account)));
+}
+
+// The running hold on `model`'s account among those already read, or null. Never a store read: a reply waits on none.
+function cachedAccountHold(router, cfg, model, now) {
+  const account = accountOfModel(cfg, model);
+  const hold = account === null ? undefined : router.accountHolds?.value[account];
+  return account !== null && hold && isActive(hold, now) ? { account, hold } : null;
+}
+
+// `account`'s hold as now known, in the holds read for this turn and in the view; null when it has none.
+async function showAccountHold($, router, account, hold) {
+  const patched = (holds) => (hold ? { ...holds, [account]: hold } : releaseHold(holds, account));
+  const read = router.accountHolds;
+  if (read) router.accountHolds = { ...read, value: patched(read.value) };
+  const shown = /** @type {import('../lib/holds.mjs').HoldSet | null | undefined} */ (router.view?.holds);
+  if (shown) await updateView($, router, { holds: { ...shown, accounts: patched(shown.accounts) } });
+}
+
+// A model of a held account answered: the limit was raised or reset early. A reply to a request sent before the hold
+// was set says nothing about it, and a substitute's reply is not the account's.
+async function endAnsweredHold($, router, cfg, model, usage, sentAt) {
+  try {
+    const held = cachedAccountHold(router, cfg, model, Date.now());
+    if (!held || held.hold.since > sentAt || !usage.model || !isSameModel(model, usage.model)) return;
+    // The view and the turn's holds drop it before the delete, so a reply that lands meanwhile does not end it again.
+    await showAccountHold($, router, held.account, null);
+    await $.store.delete(`${HOLDS_PREFIX}${held.account}`);
+    $.ui.toast(`${accountLabel(held.account)} answered again: routing may use it`);
+  } catch {}
+}
+
+// A probe got no reply. The hold is read again: another session may have released it or already put its probe off.
+async function rescheduleProbe($, router, account) {
+  try {
+    const store = `${HOLDS_PREFIX}${account}`;
+    const current = readHold(await $.store.get(store));
+    const now = Date.now();
+    const due = current !== null && dueProbes({ [account]: current }, now).length > 0;
+    const hold = due ? probeFailed(current, now) : current;
+    if (due) await $.store.set(store, hold);
+    await showAccountHold($, router, account, hold);
+  } catch {}
+}
+
 // The holds in force now, as the pane, the band and `/router holds` read them: each account's from $.store and the models'
 // from the loop. A read that fails shows none. The read replaces what a turn holds.
 async function readHolds($, router) {
@@ -4086,6 +4154,8 @@ async function releaseCommand($, router, word) {
   return found.row ? releaseHeld($, router, found.row) : found.text;
 }
 
+const accountLabel = (account) => (account === PLAN_ACCOUNT ? 'Claude plan' : account);
+
 // Holds `key`, the account or model a failure names, and returns it, or null when nothing was held. $.store has no
 // atomic update, so two sessions that fail together can each write their own hold; the later write stands, and both
 // say the same account is out.
@@ -4098,7 +4168,7 @@ async function applyHold($, router, failure, error, key, now) {
     router.accountHolds = null;
     if (hold !== running) await $.store.set(store, hold);
     if ((await modeOf($, router)) === 'auto')
-      $.ui.toast(`${key === PLAN_ACCOUNT ? 'Claude plan' : key} held out of routing: ${holdText(hold, now)}`);
+      $.ui.toast(`${accountLabel(key)} held out of routing: ${holdText(hold, now)}`);
     return { key, models: null };
   }
   const ref = { ...LOOP, id: 'main' };

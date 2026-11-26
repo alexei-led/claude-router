@@ -141,3 +141,21 @@ test('a spend cap named only in the last assistant message holds the account unt
   expect((store.get('holds/work-claude') as { kind: string } | undefined)?.kind).toBe('calendar');
   expect(held()).toBeUndefined();
 });
+
+test('a held account whose probe is due runs again, and its answer ends the hold', async ($, on) => {
+  const { sent, toasts, request, store } = session($, on);
+  const now = Date.now();
+  store.set('holds/plan', {
+    kind: 'calendar',
+    error: 'rate_limit',
+    since: now - 2 * 60 * 60_000,
+    until: now + 60 * 60_000,
+    streak: 1,
+    probeAt: now - 60 * 60_000,
+  });
+  await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
+  await request('t1');
+  expect(sent.at(-1)).toBe('claude-opus-5-5');
+  expect(store.has('holds/plan')).toBe(false);
+  expect(toasts).toContain('Claude plan answered again: routing may use it');
+});
