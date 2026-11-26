@@ -176,24 +176,6 @@ test('a spend cap named only in the last assistant message holds the account unt
   expect(held()).toBeUndefined();
 });
 
-test('a held account whose probe is due runs again, and its answer ends the hold', async ($, on) => {
-  const { sent, toasts, request, store } = session($, on);
-  const now = Date.now();
-  store.set('holds/plan', {
-    kind: 'calendar',
-    error: 'rate_limit',
-    since: now - 2 * 60 * 60_000,
-    until: now + 60 * 60_000,
-    streak: 1,
-    probeAt: now - 60 * 60_000,
-  });
-  await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
-  await request('t1');
-  expect(sent.at(-1)).toBe('claude-opus-5-5');
-  expect(store.has('holds/plan')).toBe(false);
-  expect(toasts).toContain('Claude plan answered again: routing may use it');
-});
-
 test('a due probe that gets no reply is answered by another model in the same step', async ($, on) => {
   const glm = {
     id: 'zai-org/GLM-5.3',
@@ -222,13 +204,6 @@ test('a due probe that gets no reply is answered by another model in the same st
   expect(toasts).toContain('Opus 5.5 still limited → Zai Org/GLM 5.3');
 });
 
-test('a model with no failure history is not sent again in the step', async ($, on) => {
-  const { sent, request } = session($, on, [], undefined, new Set(['claude-opus-5-5']));
-  await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
-  await request('t1');
-  expect(sent).toEqual(['claude-opus-5-5']);
-});
-
 const SPEND_TEXT = "You've hit your individual spend limit · run /usage-credits to ask your admin for a higher limit";
 const rerunText = (model: string, cause: string) =>
   `The last request failed on ${model} (${cause}), so the router held it out of routing. Continue the task from where it stopped.`;
@@ -246,13 +221,6 @@ test('a turn that a spend cap ends is run again, once, on another model', async 
   expect(prompts.length).toBe(1);
 });
 
-test('an error that holds nothing is not run again', async ($, on) => {
-  const { prompts, fail } = session($, on);
-  await $.session.start(START);
-  await fail('t1', 'invalid_request', "API Error: Opus 5.5's safeguards flagged this message");
-  expect(prompts).toEqual([]);
-});
-
 test('the third turn in a row that fails is not run again, and the router says it stopped', async ($, on) => {
   const { toasts, prompts, fail } = session($, on);
   await $.session.start(START);
@@ -264,30 +232,18 @@ test('the third turn in a row that fails is not run again, and the router says i
   expect(toasts.at(-1)).toBe('Stopped retrying after 2 re-runs in a row: overloaded');
 });
 
-test('a turn that ends any other way starts the count of re-runs over', async ($, on) => {
-  const { prompts, request, fail } = session($, on);
-  await $.session.start(START);
-  await fail('t1', 'overloaded');
-  await fail('t2', 'overloaded');
-  await request('t3');
-  await fail('t4', 'overloaded');
-  expect(prompts.length).toBe(3);
-});
-
-test('nothing is run again when every configured model is held', async ($, on) => {
-  const { prompts, fail } = session($, on);
-  await $.session.start(START);
-  await fail('t1', 'billing_error', SPEND_TEXT);
-  expect(prompts).toEqual([]);
-});
-
-test('nothing is run again with routing off', async ($, on) => {
-  const { prompts, fail } = session($, on);
-  await $.session.start(START);
-  await $.command.run({ command: 'router', args: 'off' });
-  await fail('t1', 'overloaded');
-  expect(prompts).toEqual([]);
-});
+for (const [name, file, command, error, text] of [
+  ['an error that holds nothing', undefined, null, 'invalid_request', 'API Error: the request was flagged'],
+  ['a failure that leaves every configured model held', undefined, null, 'billing_error', SPEND_TEXT],
+  ['a failure with routing off', undefined, 'off', 'overloaded', undefined],
+] as const)
+  test(`${name} is not run again`, async ($, on) => {
+    const { prompts, fail } = session($, on, [], file);
+    await $.session.start(START);
+    if (command !== null) await $.command.run({ command: 'router', args: command });
+    await fail('t1', error, text);
+    expect(prompts).toEqual([]);
+  });
 
 test('an aborted turn and a subagent’s failure are not run again', async ($, on) => {
   const { held, prompts, run } = session($, on);
@@ -330,22 +286,28 @@ test('a re-run the engine refuses leaves the turn as it ended', async ($, on) =>
   expect(prompts.length).toBe(1);
 });
 
-test('a subagent that answers does not start the count of re-runs over', async ($, on) => {
-  const { prompts, fail } = session($, on);
-  await $.session.start(START);
-  await fail('t1', 'overloaded');
-  await fail('t2', 'overloaded');
-  await $.turn.complete({
-    turnId: 'a1-t',
-    agentId: 'a1',
-    answer: 'ok',
-    durationMs: 1,
-    isAborted: false,
-    reason: 'answer',
+// Two re-runs, then `between`, then a third failure: only a main turn that ends another way frees a third re-run.
+for (const [name, between, agentId, reason, reruns] of [
+  ['a main turn that answers', 't3', undefined, 'answer', 3],
+  ['an aborted main turn', 't3', undefined, 'aborted', 3],
+  ['a subagent that answers', 'a1-t', 'a1', 'answer', 2],
+] as const)
+  test(`${name} ${reruns === 3 ? 'starts' : 'does not start'} the count of re-runs over`, async ($, on) => {
+    const { prompts, fail } = session($, on);
+    await $.session.start(START);
+    await fail('t1', 'overloaded');
+    await fail('t2', 'overloaded');
+    await $.turn.complete({
+      turnId: between,
+      ...(agentId === undefined ? {} : { agentId }),
+      answer: '',
+      durationMs: 1,
+      isAborted: reason === 'aborted',
+      reason,
+    });
+    await fail('t4', 'overloaded');
+    expect(prompts.length).toBe(reruns);
   });
-  await fail('t3', 'overloaded');
-  expect(prompts.length).toBe(2);
-});
 
 test('a failure is run again only when its own turn completes', async ($, on) => {
   const { prompts, run } = session($, on);

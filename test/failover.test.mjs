@@ -245,20 +245,15 @@ for (const [text, expected, extra] of [
   ['Credit balance is too low', balance],
   ["You're out of usage credits", availability, { account: 'plan', billing: 'plan' }],
   ['Your org is out of usage · add funds', availability, { account: 'plan', billing: 'plan' }],
+  ['Usage is paused for your organization', calendar, { error: 'billing_error' }],
+  // A billing error stays a balance, whatever window its text names.
+  ['5-hour limit', balance, { error: 'billing_error' }],
 ])
   for (const details of new Set([text, text.replaceAll("'", '\u2019')]))
-    test(`"${details}" on ${extra ? 'the plan' : 'a billed account'} classifies as ${expected.kind}`, () => {
-      const input = { details, account: 'work-claude', billing: 'billed', ...extra };
-      assert.deepEqual(classify('rate_limit', input), expected);
+    test(`${extra?.error ?? 'rate_limit'} "${details}" on ${extra?.account ?? 'a billed account'} classifies as ${expected.kind}`, () => {
+      const { error = 'rate_limit', ...input } = { details, account: 'work-claude', billing: 'billed', ...extra };
+      assert.deepEqual(classify(error, input), expected);
     });
-
-for (const [name, details, expected] of [
-  ['a spend cap', "You've hit your individual spend limit", calendar],
-  ['a plan window', "You've hit your weekly limit", balance],
-])
-  test(`a billing error that names ${name} classifies as ${expected.kind ?? 'nothing to hold'}`, () => {
-    assert.deepEqual(classify('billing_error', { details, account: 'work-claude', billing: 'billed' }), expected);
-  });
 
 for (const [name, reset, at, expected] of [
   ['next month on the 1st', { monthly: 1, tz: 'UTC' }, '2026-11-19T10:00:00Z', '2026-12-01T00:00:00Z'],
@@ -640,9 +635,10 @@ test('a probe is due from its time until the hold ends', () => {
 
 test('another failure on a held account keeps the backoff its probes reached', () => {
   const probed = probeFailed(quotaHold('calendar', now + DAY), now + HOUR);
-  const again = quotaHold('calendar', now + 2 * DAY, probed, now + HOUR);
+  // Between the two probes, so a wait counted again from this failure would end at another time.
+  const again = quotaHold('calendar', now + 2 * DAY, probed, now + 2 * HOUR);
   assert.deepEqual([again.until, again.streak, again.probeAt], [now + 2 * DAY, 2, now + 3 * HOUR]);
-  const balance = quotaHold('balance', null, probed, now + HOUR);
+  const balance = quotaHold('balance', null, probed, now + 2 * HOUR);
   assert.deepEqual([balance.until, balance.streak, balance.probeAt], [null, 2, now + 3 * HOUR]);
 });
 
@@ -665,11 +661,11 @@ test('a hold with a probe says when the next try is, in local time', () => {
   assert.equal(holdText(hold, at + HOUR), 'spend limit, 23 h, next try now');
 });
 
-for (const [name, running, next] of [
-  ['one that ends later', quotaHold('calendar', now + DAY), quotaHold.bind(null, 'calendar', now + 2 * DAY)],
-  ['one that ends no later', quotaHold('calendar', now + DAY), quotaHold.bind(null, 'calendar', now + DAY)],
+for (const [name, until] of [
+  ['one that ends later', now + 2 * DAY],
+  ['one that ends no later', now + DAY],
 ])
   test(`a failure once the probe is due counts as a failed probe: ${name}`, () => {
-    const again = next(running, now + 5 * HOUR);
-    assert.deepEqual([again.streak, again.probeAt], [2, now + 7 * HOUR]);
+    const again = quotaHold('calendar', until, quotaHold('calendar', now + DAY), now + 5 * HOUR);
+    assert.deepEqual([again.until, again.streak, again.probeAt], [until, 2, now + 7 * HOUR]);
   });

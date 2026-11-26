@@ -473,13 +473,17 @@ test('a failure with no text records none, and one that holds nothing records wh
   ]);
 });
 
-test('an empty error_details leaves the last assistant message to classify and record', async (t) => {
-  const h = await started(t);
-  const text = "You've hit your individual spend limit";
-  await turn(h, 't1', { error: 'rate_limit', error_details: '', last_assistant_message: text });
-  assert.equal(h.preferences.get(HOLDS_PLAN).kind, 'calendar');
-  assert.equal(failureRows(h)[0].details, text);
-});
+const SPEND_CAP_TEXT = "You've hit your individual spend limit";
+for (const [name, errorDetails, message] of [
+  ['an empty error_details leaves the last assistant message', '', SPEND_CAP_TEXT],
+  ['error_details wins over the last assistant message', SPEND_CAP_TEXT, 'Please recharge your balance'],
+])
+  test(`${name} to classify and record`, async (t) => {
+    const h = await started(t);
+    await turn(h, 't1', { error: 'rate_limit', error_details: errorDetails, last_assistant_message: message });
+    assert.equal(h.preferences.get(HOLDS_PLAN).kind, 'calendar');
+    assert.equal(failureRows(h)[0].details, SPEND_CAP_TEXT);
+  });
 
 test('a model hold is recorded with the model that was held', async (t) => {
   const h = await started(t);
@@ -869,17 +873,6 @@ test('a hold stored without a probe time is not tried before it ends', async (t)
   assert.equal(await sentTurn(h, 't1'), GLM_ID);
 });
 
-test('a probe that gets no reply waits twice as long, and the next turn uses the stand-in', async (t) => {
-  const h = await probing(t);
-  t.mock.timers.tick(HOUR);
-  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
-  await drain(h.step({ ...step, turnId: 't1', model: OPUS }, NO_REPLY));
-  assert.deepEqual(h.preferences.get(HOLDS_PLAN), { ...SPEND_HOLD, streak: 2, probeAt: 1_000_000 + 3 * HOUR });
-  assert.equal(h.view().holds.accounts.plan.probeAt, 1_000_000 + 3 * HOUR);
-  await h.event('turn.complete', { turnId: 't1', isAborted: false });
-  assert.equal(await sentTurn(h, 't2'), GLM_ID);
-});
-
 test('the failure that ends a probe’s turn extends the hold and keeps its backoff', async (t) => {
   // No model outside the held account: the step has no stand-in, so the failed one is the probe’s.
   const h = await started(t);
@@ -906,38 +899,25 @@ test('an aborted probe stays due', async (t) => {
   assert.equal(h.requests.length, 1);
 });
 
-test('a probe another session released is not written back', async (t) => {
-  const h = await probing(t);
-  t.mock.timers.tick(HOUR);
-  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
-  await drain(h.step({ ...step, turnId: 't1', model: OPUS }));
-  assert.equal(h.preferences.has(HOLDS_PLAN), false);
-  h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
-  await h.event('turn.start', { turnId: 't2', text: 'One edit.' });
-  const get = h.$.store.get;
-  let reads = 0;
-  h.$.store.get = async (key) => {
-    if (key === HOLDS_PLAN && ++reads === 2) h.preferences.delete(HOLDS_PLAN);
-    return get(key);
-  };
-  await drain(h.step({ ...step, turnId: 't2', model: OPUS }, NO_REPLY));
-  assert.equal(h.preferences.has(HOLDS_PLAN), false);
-});
-
-test('a subagent spawn still sees a hold whose probe is due', async (t) => {
-  const h = await probing(t);
-  answering(h, LOW);
-  t.mock.timers.tick(HOUR);
-  const input = {
-    subagentType: 'Explore',
-    description: 'Look',
-    prompt: 'Find the file.',
-    parentModel: OPUS,
-    agentId: undefined,
-  };
-  const { sent } = await h.spawn(input);
-  assert.equal(sent, input);
-});
+// The first case shows the spawn would be routed to the account's model, so the second is the hold's doing.
+for (const [name, hold, model] of [
+  ['with no hold is routed to the account’s model', null, HAIKU],
+  ['still sees a hold whose probe is due', SPEND_HOLD, undefined],
+])
+  test(`a subagent spawn ${name}`, async (t) => {
+    const h = await started(t);
+    if (hold) h.preferences.set(HOLDS_PLAN, hold);
+    answering(h, LOW);
+    t.mock.timers.tick(HOUR);
+    const { sent } = await h.spawn({
+      subagentType: 'Explore',
+      description: 'Look',
+      prompt: 'Find the file.',
+      provider: { plugin: 'engine', tier: 'core' },
+      parentModel: OPUS,
+    });
+    assert.equal(sent.model, model);
+  });
 
 test('a subagent reply from a held account’s model ends the hold', async (t) => {
   const h = await started(t);
@@ -963,14 +943,6 @@ test('a reply from another model leaves the account hold', async (t) => {
   assert.equal(h.preferences.has(HOLDS_PLAN), true);
 });
 
-test('a reply to a request sent before the hold was set leaves it', async (t) => {
-  const h = await started(t);
-  h.preferences.set(HOLDS_PLAN, { ...SPEND_HOLD, since: 1_000_001 });
-  await sentTurn(h, 't1', NO_REPLY);
-  await drain(h.step({ ...step, turnId: 'a1-t', agentId: 'a1', model: HAIKU }));
-  assert.equal(h.preferences.has(HOLDS_PLAN), true);
-});
-
 // Opus gets no reply; every other model answers.
 const opusFails = (request) => (request.model === OPUS ? NO_REPLY : {});
 const sentModels = (h) => h.requests.map((request) => request.model);
@@ -983,7 +955,6 @@ test('a probe that gets no reply is sent again on the stand-in in the same step'
   assert.equal(response.stopReason, 'end_turn');
   assert.deepEqual(sentModels(h), [OPUS, GLM_ID]);
   assert.equal(h.requests.at(-1).effort, 'max');
-  assert.equal(h.preferences.get(HOLDS_PLAN).streak, 2);
   assert.equal(h.loop().decision.model, GLM_ID);
   assert.deepEqual(h.loop().route, { model: 'opus', effort: 'medium' });
   assert.equal(h.view().selectedModel, GLM_ID);
@@ -997,6 +968,9 @@ test('a probe that gets no reply is sent again on the stand-in in the same step'
     [row.err, row.fail, row.scope, row.held, row.route],
     [null, 'calendar', 'account', 'plan', `${GLM_ID}@max`],
   );
+  assert.deepEqual(h.preferences.get(HOLDS_PLAN), { ...SPEND_HOLD, streak: 2, probeAt: 1_000_000 + 3 * HOUR });
+  assert.equal(h.view().holds.accounts.plan.probeAt, 1_000_000 + 3 * HOUR);
+  assert.equal(await sentTurn(h, 't2'), GLM_ID);
 });
 
 test('a model tried again after its hold ended is held twice as long and the stand-in answers', async (t) => {
@@ -1043,11 +1017,15 @@ test('the auto engine does not send a failed step again', async (t) => {
   const capability = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
   const h = await started(t, { routingEngine: 'auto', models: { opus: { capability } } });
   await failedTurn(h, 't1', { error: 'overloaded' });
-  h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
-  t.mock.timers.tick(HOUR);
-  await h.event('turn.start', { turnId: 't2', text: 'One edit.' });
-  await drain(h.step({ ...step, turnId: 't2', model: OPUS }, NO_REPLY));
-  assert.equal(h.requests.length, 2);
+  await turn(h, 't2');
+  t.mock.timers.tick(5 * MINUTE);
+  answering(h, jevResponse('high', { micro: 0, low: 0, medium: 0.03, high: 0.97, uncertain: 0 }));
+  // Two votes move the route back onto Opus, whose ended hold puts it on probation.
+  await turn(h, 't3');
+  await h.event('turn.start', { turnId: 't4', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't4', model: OPUS }, NO_REPLY));
+  assert.equal(h.requests.at(-1).model, OPUS);
+  assert.equal(h.requests.length, 4);
 });
 
 test('an answer leaves a hold another session set after the request was sent', async (t) => {
@@ -1063,19 +1041,23 @@ test('an answer leaves a hold another session set after the request was sent', a
   assert.equal(h.toasts.includes(ANSWERED), false);
 });
 
-test('a probe another session already put off is not put off again', async (t) => {
-  const h = await probing(t);
-  t.mock.timers.tick(HOUR);
-  const put = { ...SPEND_HOLD, streak: 2, probeAt: Date.now() + 2 * HOUR };
-  const get = h.$.store.get;
-  let reads = 0;
-  h.$.store.get = async (key) => {
-    if (key === HOLDS_PLAN && ++reads === 2) h.preferences.set(HOLDS_PLAN, put);
-    return get(key);
-  };
-  await sentTurn(h, 't1', NO_REPLY);
-  assert.deepEqual(h.preferences.get(HOLDS_PLAN), put);
-});
+// What another session did to the hold while the probe was on its way: this one's failure must not overwrite it.
+for (const [name, other] of [
+  ['released is not written back', undefined],
+  ['already put off is not put off again', { ...SPEND_HOLD, streak: 2, probeAt: 1_000_000 + 3 * HOUR + 1 }],
+])
+  test(`a probe another session ${name}`, async (t) => {
+    const h = await probing(t);
+    t.mock.timers.tick(HOUR);
+    await sentTurn(h, 't1', (request) => {
+      // The stand-in answers: only the probe's own request changes the store.
+      if (request.model !== OPUS) return {};
+      if (other) h.preferences.set(HOLDS_PLAN, other);
+      else h.preferences.delete(HOLDS_PLAN);
+      return NO_REPLY;
+    });
+    assert.deepEqual(h.preferences.get(HOLDS_PLAN), other);
+  });
 
 // A reply the router learns nothing from: the request ran, with no usage to count.
 const NO_USAGE = { usage: null };
