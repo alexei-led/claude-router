@@ -65,6 +65,8 @@ Step 1 records both before the classifier depends on them.
   1 h, then 2, 4, 8, 16 and 24 h, and a reply from a held account ends its hold.
   Also in 1.32.1: when a model on probation (a due try, or an availability hold that ended with no answer since) gets no
   reply, `table` and `shadow` hold it again and send that step once to a stand-in.
+  And a main turn that an API error ended, with something held for it, is submitted again as a new prompt, at most
+  twice in a row.
 
 ### Configuration
 
