@@ -97,7 +97,7 @@ Project JSON links are refused, and invalid optional sources are ignored with a 
 - Unsupported Claude Code versions and leftover v0.8 gateway settings (the `jev-router` model or the `127.0.0.1:43170` base URL) mark the router unavailable. `/router` lists the settings to remove. A local gateway does not run as part of this Mod.
 - A session that starts with the router unavailable shows one toast with the reason (`$.ui.toast`, not `$.ui.notify`, which is a native terminal notification). It repeats at most once a day per cause: the time is kept in `$.store` as `notice:unavailable:<version|gateway|config>`. A `claude -p` run shows none.
 - While the router is unavailable, the pane header reads `ROUTER  unavailable  Claude’s model is kept` with the reason, and offers no on/off pair or pins. `/router` without a surface starts with `Routing unavailable: <reason>. Claude’s model is kept.`, and `/router on`, `off`, `engine`, `pin`, and `activities` reply the same and change nothing.
-- A context-window error makes that model ineligible until the next history reset. The Mod does not retry an Anthropic request after a stream begins.
+- A context-window error makes that model ineligible until the next history reset. The Mod sends a request again only when a [model on probation](user-guide.md#when-a-model-fails) got no reply.
 - Unknown context retains the current model. There is no characters-to-tokens fallback.
 - Unknown model substitutions receive no cache credit for the requested model.
 - Clear, rewind, branch, or committed compaction clears cache evidence and policy votes. Resume restores the selected session's mode, not its old cache evidence.

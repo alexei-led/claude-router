@@ -336,6 +336,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
       const core = async () => ({ suggestions: engine });
       return (await handler('prompt.autocomplete', input)($, input, core)).suggestions;
     },
+    // `response` overrides the reply's fields; a function gets each request, for one that answers some of them.
     step: (input, response = {}, signal = new AbortController().signal) => {
       snapshot = new Map();
       const send = async function* (request) {
@@ -354,7 +355,7 @@ export function harness(options = {}, preferences = new Map(), state = new Map()
             cache_creation_input_tokens: 200,
             output_tokens: 10,
           },
-          ...response,
+          ...(typeof response === 'function' ? response(request) : response),
         };
       };
       send.signal = signal;

@@ -5,7 +5,14 @@ type Engine = Parameters<Parameters<typeof test>[1]>;
 
 // An Opus session whose classifier answers medium: the models each step sent, the toasts, the loop's holds, and one
 // whole turn.
-function session($: Engine[0], on: Engine[1], rateLimits: object[] = [], file?: object) {
+// A model in `failing` gets no reply, as a failed request resolves in a step.
+function session(
+  $: Engine[0],
+  on: Engine[1],
+  rateLimits: object[] = [],
+  file?: object,
+  failing: ReadonlySet<string> = new Set(),
+) {
   const store = new Map<string, unknown>();
   on('store.get', (_$, e) => ({ value: store.get(e.key) }));
   on('store.set', (_$, e) => {
@@ -61,6 +68,8 @@ function session($: Engine[0], on: Engine[1], rateLimits: object[] = [], file?: 
   on('turn.step', async function* (_$, e) {
     sent.push(e.model);
     yield* [];
+    if (failing.has(e.model))
+      return { turnId: e.turnId, index: e.index, answer: '', toolUses: [], stopReason: null, usage: null };
     return {
       turnId: e.turnId,
       index: e.index,
@@ -158,4 +167,39 @@ test('a held account whose probe is due runs again, and its answer ends the hold
   expect(sent.at(-1)).toBe('claude-opus-5-5');
   expect(store.has('holds/plan')).toBe(false);
   expect(toasts).toContain('Claude plan answered again: routing may use it');
+});
+
+test('a due probe that gets no reply is answered by another model in the same step', async ($, on) => {
+  const glm = {
+    id: 'zai-org/GLM-5.3',
+    input: 1,
+    output: 2,
+    cacheRead: 0.1,
+    contextWindow: 1_000_000,
+    billing: 'credits',
+    efforts: ['high', 'max'],
+  };
+  const file = { models: { glm }, fallbacks: { opus: ['glm@max'] } };
+  const { sent, toasts, request, store } = session($, on, [], file, new Set(['claude-opus-5-5']));
+  const now = Date.now();
+  store.set('holds/plan', {
+    kind: 'calendar',
+    error: 'rate_limit',
+    since: now - 2 * 60 * 60_000,
+    until: now + 24 * 60 * 60_000,
+    streak: 1,
+    probeAt: now - 60 * 60_000,
+  });
+  await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
+  await request('t1');
+  expect(sent).toEqual(['claude-opus-5-5', glm.id]);
+  expect((store.get('holds/plan') as { streak: number } | undefined)?.streak).toBe(2);
+  expect(toasts).toContain('Opus 5.5 still limited → Zai Org/GLM 5.3');
+});
+
+test('a model with no failure history is not sent again in the step', async ($, on) => {
+  const { sent, request } = session($, on, [], undefined, new Set(['claude-opus-5-5']));
+  await $.session.start({ cwd: '/fixture/project', surface: null, isInteractive: false });
+  await request('t1');
+  expect(sent).toEqual(['claude-opus-5-5']);
 });

@@ -874,7 +874,6 @@ test('a probe that gets no reply waits twice as long, and the next turn uses the
   t.mock.timers.tick(HOUR);
   await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
   await drain(h.step({ ...step, turnId: 't1', model: OPUS }, NO_REPLY));
-  assert.equal(h.requests.at(-1).model, OPUS);
   assert.deepEqual(h.preferences.get(HOLDS_PLAN), { ...SPEND_HOLD, streak: 2, probeAt: 1_000_000 + 3 * HOUR });
   assert.equal(h.view().holds.accounts.plan.probeAt, 1_000_000 + 3 * HOUR);
   await h.event('turn.complete', { turnId: 't1', isAborted: false });
@@ -882,7 +881,9 @@ test('a probe that gets no reply waits twice as long, and the next turn uses the
 });
 
 test('the failure that ends a probe’s turn extends the hold and keeps its backoff', async (t) => {
-  const h = await probing(t);
+  // No model outside the held account: the step has no stand-in, so the failed one is the probe’s.
+  const h = await started(t);
+  h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
   t.mock.timers.tick(HOUR);
   await sentTurn(h, 't1', NO_REPLY);
   await h.event('classic.StopFailure', {
@@ -902,6 +903,7 @@ test('an aborted probe stays due', async (t) => {
   abort.abort();
   await drain(h.step({ ...step, turnId: 't1', model: OPUS }, NO_REPLY, abort.signal));
   assert.deepEqual(h.preferences.get(HOLDS_PLAN), SPEND_HOLD);
+  assert.equal(h.requests.length, 1);
 });
 
 test('a probe another session released is not written back', async (t) => {
@@ -967,4 +969,83 @@ test('a reply to a request sent before the hold was set leaves it', async (t) =>
   await sentTurn(h, 't1', NO_REPLY);
   await drain(h.step({ ...step, turnId: 'a1-t', agentId: 'a1', model: HAIKU }));
   assert.equal(h.preferences.has(HOLDS_PLAN), true);
+});
+
+// Opus gets no reply; every other model answers.
+const opusFails = (request) => (request.model === OPUS ? NO_REPLY : {});
+const sentModels = (h) => h.requests.map((request) => request.model);
+
+test('a probe that gets no reply is sent again on the stand-in in the same step', async (t) => {
+  const h = await probing(t);
+  t.mock.timers.tick(HOUR);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  const response = await drain(h.step({ ...step, turnId: 't1', model: OPUS }, opusFails));
+  assert.equal(response.stopReason, 'end_turn');
+  assert.deepEqual(sentModels(h), [OPUS, GLM_ID]);
+  assert.equal(h.requests.at(-1).effort, 'max');
+  assert.equal(h.preferences.get(HOLDS_PLAN).streak, 2);
+  assert.equal(h.loop().decision.model, GLM_ID);
+  assert.deepEqual(h.loop().route, { model: 'opus', effort: 'medium' });
+  assert.equal(h.view().selectedModel, GLM_ID);
+  assert.deepEqual(
+    h.toasts.filter((text) => text.includes('still limited')),
+    ['Opus 5.5 still limited → GLM 5.3'],
+  );
+  await h.event('turn.complete', { turnId: 't1', isAborted: false });
+  const [row] = failureRows(h);
+  assert.deepEqual(
+    [row.err, row.fail, row.scope, row.held, row.route],
+    [null, 'calendar', 'account', 'plan', `${GLM_ID}@max`],
+  );
+});
+
+test('a model tried again after its hold ended is held twice as long and the stand-in answers', async (t) => {
+  const h = await started(t, CHAINED);
+  await failedTurn(h, 't1', { error: 'overloaded' });
+  t.mock.timers.tick(5 * MINUTE);
+  await h.event('turn.start', { turnId: 't2', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't2', model: OPUS }, opusFails));
+  assert.deepEqual(sentModels(h).slice(1), [OPUS, GLM_ID]);
+  assert.deepEqual(h.loop().held[OPUS], {
+    kind: 'availability',
+    error: 'overloaded',
+    since: Date.now(),
+    until: Date.now() + 10 * MINUTE,
+    streak: 2,
+  });
+  assert.deepEqual(Object.keys(h.view().holds.models), [OPUS]);
+  await h.event('turn.complete', { turnId: 't2', isAborted: false });
+  const row = failureRows(h).at(-1);
+  assert.deepEqual([row.fail, row.scope, row.held], ['availability', 'model', OPUS]);
+});
+
+test('a step retries once: a stand-in that gets no reply either is the model a failure then holds', async (t) => {
+  const h = await started(t, CHAINED);
+  await failedTurn(h, 't1', { error: 'overloaded' });
+  t.mock.timers.tick(5 * MINUTE);
+  await h.event('turn.start', { turnId: 't2', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't2', model: OPUS }, NO_REPLY));
+  assert.deepEqual(sentModels(h).slice(1), [OPUS, GLM_ID]);
+  await h.event('classic.StopFailure', { hook_event_name: 'StopFailure', error: 'overloaded' });
+  assert.deepEqual(Object.keys(h.loop().held), [OPUS, GLM_ID]);
+  assert.equal(h.loop().held[OPUS].streak, 2);
+});
+
+test('a model with no failure history is not sent again', async (t) => {
+  const h = await started(t, CHAINED);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  const response = await drain(h.step({ ...step, turnId: 't1', model: OPUS }, opusFails));
+  assert.equal(response.stopReason, null);
+  assert.deepEqual(sentModels(h), [OPUS]);
+});
+
+test('the auto engine does not send a failed step again', async (t) => {
+  const capability = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
+  const h = await started(t, { routingEngine: 'auto', models: { opus: { capability } } });
+  await failedTurn(h, 't1', { error: 'overloaded' });
+  h.preferences.set(HOLDS_PLAN, SPEND_HOLD);
+  t.mock.timers.tick(HOUR);
+  await h.event('turn.start', { turnId: 't2', text: 'One edit.' });
+  await drain(h.step({ ...step, turnId: 't2', model: OPUS }, NO_REPLY));
+  assert.equal(h.requests.length, 2);
 });

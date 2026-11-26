@@ -3583,16 +3583,89 @@ function configurationError(error) {
 // probe is due is that probe, and one that gets no reply (a failed request resolves empty) waits longer for the next.
 async function* sendMain($, router, request, next, cfg) {
   const sentAt = Date.now();
-  const held = cachedAccountHold(router, cfg, request.model, sentAt);
-  const probe = held && dueProbes({ [held.account]: held.hold }, sentAt).length > 0;
+  const probe = dueProbeOf(router, cfg, request.model, sentAt);
   const response = yield* next(request);
   if (response?.usage) await endAnsweredHold($, router, cfg, request.model, response.usage, sentAt);
   else if (probe && response?.stopReason === null && !next.signal.aborted)
-    await rescheduleProbe($, router, held.account);
+    await rescheduleProbe($, router, probe.account);
   return response;
 }
 
-async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, sessionId, nativeModel, turn }) {
+// What a main request to `model` tries again: its account, held with a probe due, or the model itself, whose
+// availability hold ended with no answer since. Null for a model with no failure to try again.
+function probationOf(router, cfg, loop, model, now) {
+  const probe = dueProbeOf(router, cfg, model, now);
+  const hold = loop.held?.[model];
+  const ended = hold?.kind === 'availability' && !isActive(hold, now) ? hold : null;
+  return probe || ended ? { probe, ended } : null;
+}
+
+// The second request for a step whose try of a model on probation got no reply: the model or its account is held
+// again and the step's route is computed around it. Null when no other model can serve, and the failure stands.
+// Only a model on probation: a step does not see why a request failed, so any other failure ends the turn, where
+// StopFailure names it, and a request the provider refused is not sent to another model.
+async function standInStep($, router, e, { cfg, loop, failed, probation, nativeModel, context, availableModels }) {
+  try {
+    const { probe, ended } = probation;
+    const now = Date.now();
+    const held = ended
+      ? holdModel(loop.held, failed, { kind: 'availability', scope: 'model', until: null }, ended.error, now)
+      : loop.held;
+    const holds = await routingHoldsOf($, cfg, router);
+    // The probed account stays held for this step even when its next probe could not be written.
+    const accountHolds = probe ? { ...holds, [probe.account]: probe.hold } : holds;
+    const messages = await transcript($);
+    const moved = continueRoute(
+      cfg,
+      { ...loop, held },
+      {
+        nativeModel,
+        contextTokens: context.tokens,
+        contextKnown: context.known,
+        availableModels,
+        effort: e.effort,
+        // An unreadable transcript cannot establish that a stand-in without image input is safe.
+        hasImages: messages === null || hasImages(messages),
+        accountHolds,
+        now,
+      },
+    );
+    const { model, effort } = moved.decision;
+    if (isSameModel(model, failed)) return null;
+    addDecision(
+      router,
+      e.turnId,
+      failureRow({
+        at: now,
+        failure: probe ? probe.hold.kind : 'availability',
+        scope: probe ? 'account' : 'model',
+        held: probe ? probe.account : failed,
+        route: `${model}@${effort ?? 'session'}`,
+      }),
+    );
+    const shown = /** @type {import('../lib/holds.mjs').HoldSet | null | undefined} */ (router.view?.holds);
+    await updateView($, router, {
+      ...continuationView(cfg, moved.decision, context),
+      ...(shown ? { holds: { ...shown, models: held ?? {} } } : {}),
+    }).catch(() => {});
+    $.ui.toast(`${modelName(failed)} still limited → ${modelName(model)}`);
+    return moved;
+  } catch {
+    return null;
+  }
+}
+
+// The step's request as `decision` routes it.
+function routedRequest(e, decision) {
+  const request = { ...e, model: decision.model };
+  if (decision.effort === null) delete request.effort;
+  else request.effort = decision.effort;
+  return request;
+}
+
+async function* sendRouted($, router, e, next, step) {
+  const { cfg, loopVersion, sessionId, nativeModel, context, availableModels, turn } = step;
+  let { loop } = step;
   const pinPresses = router.turnPins.get(e.turnId);
   if (pinPresses !== undefined) {
     router.turnPins.delete(e.turnId);
@@ -3600,15 +3673,29 @@ async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, session
   }
   if (cfg.routingEngine === 'auto' && !loop.decision.route)
     return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'no-route-native', router);
-  const request = { ...e, model: loop.decision.model };
-  if (loop.decision.effort === null) delete request.effort;
-  else request.effort = loop.decision.effort;
+  let request = routedRequest(e, loop.decision);
   // Read again, not `turn`: a pinned turn's decision (decideTurn) fixed its pin's configs during this step.
   if (cfg.routingEngine === 'shadow' && !next.signal.aborted && (await $.session.id()) === sessionId)
     traceRequest(router, e, router.turnConfigs.get(e.turnId) ?? turn, request, 'auto', loop);
   // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
   router.lastRequested = request.model;
-  const response = yield* sendMain($, router, request, next, cfg);
+  // `auto` keeps a failed step as it is: its turn ends, and the failure holds what it names.
+  const probation = cfg.routingEngine === 'auto' ? null : probationOf(router, cfg, loop, request.model, Date.now());
+  let response = yield* sendMain($, router, request, next, cfg);
+  const unanswered = response?.stopReason === null && response.usage === null;
+  if (probation && unanswered && !next.signal.aborted && (await $.session.id()) === sessionId) {
+    const failed = request.model;
+    const retry = { cfg, loop, failed, probation, nativeModel, context, availableModels };
+    const moved = await standInStep($, router, e, retry);
+    if (moved && !next.signal.aborted) {
+      loop = moved;
+      request = routedRequest(e, loop.decision);
+      // A trace holds one request per step, so a replay cannot follow this one.
+      traceGap(router, cfg.routingEngine);
+      router.lastRequested = request.model;
+      response = yield* sendMain($, router, request, next, cfg);
+    }
+  }
   if (!next.signal.aborted && (await $.session.id()) === sessionId)
     await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
   else if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('aborted');
@@ -3824,7 +3911,8 @@ async function* mainStep($, router, e, next) {
     (next.signal.aborted || (await $.session.id()) !== sessionId || (await modeOf($, router)) !== 'auto')
   )
     return yield* next(e);
-  return yield* sendRouted($, router, e, next, { cfg, loop, loopVersion, sessionId, nativeModel, turn });
+  const step = { cfg, loop, loopVersion, sessionId, nativeModel, context, availableModels, turn };
+  return yield* sendRouted($, router, e, next, step);
 }
 
 async function initializeSession($, router) {
@@ -4027,6 +4115,12 @@ function cachedAccountHold(router, cfg, model, now) {
   const account = accountOfModel(cfg, model);
   const hold = account === null ? undefined : router.accountHolds?.value[account];
   return account !== null && hold && isActive(hold, now) ? { account, hold } : null;
+}
+
+// That hold when its probe is due, so a request to `model` is the probe.
+function dueProbeOf(router, cfg, model, now) {
+  const held = cachedAccountHold(router, cfg, model, now);
+  return held && dueProbes({ [held.account]: held.hold }, now).length > 0 ? held : null;
 }
 
 // `account`'s hold as now known, in the holds read for this turn and in the view; null when it has none.
