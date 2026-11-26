@@ -92,8 +92,8 @@ These are conditional estimates, not expected costs or measured savings.
 
 ## State ownership
 
-Shadow needs only `advanceDemand → assessCandidates → selectTarget`. Retain the returned demand state and
-always assess the real incumbent/cache; do not retain a hypothetical target as route history.
+Shadow's demand state needs only `advanceDemand → assessCandidates → selectTarget`. Retain the returned demand state
+and always assess the real incumbent/cache; do not retain a hypothetical target as route history.
 Pass `escalation: demand.escalated` and `headroom: demand.headroom` to `selectTarget`. After either escalation or
 pending-headroom selection, copy `target.headroom` back to the returned demand state's `headroom` field.
 It is true only on exhausted escalation, permitting retry if a stronger candidate becomes eligible.
@@ -145,6 +145,28 @@ mass, dwell or payback gates. Hard constraints and the cash cap still apply. Re-
 `reentry`, retaining the escalation hold; an equal physical target accepts current effective demand and clears
 origin without changing route cause or counting a switch. Pinned fallbacks retain normal state and
 apply the physical fallback provenance after restoring the pin. Replay counts external requests separately.
+
+### Shadow rows
+
+The table's recorded route has passed its move gates, while a shadow target has passed none. For comparison, each
+shadow row also records one counterfactual `decideMove` (`counterfactualMove`): what live auto would serve this turn if
+its incumbent were the table's running route. It takes the shadow demand result and target, the assessed candidates,
+and the facts and holds the live adapter builds (`liveEvidence`, with `dwellAllowed` from the table's switches). Its
+routed demand is the incumbent's declared capability at its effective effort, else the demand state's own
+`routedDemand`, which only a fresh state holds. The returned state is dropped.
+
+| Row field (`alt`) | Meaning |
+| ----------------- | ------- |
+| `serve`           | The route live auto would serve, `alias@effort`: the target on a move, else the incumbent; absent when it would serve none or `move` is `unavailable` |
+| `move`            | The `decideMove` reason; `pinned` for a tier pin, which serves its target; `unavailable` on a keyword turn (shadow demand does not model keywords) or when no routed demand is known |
+| `incumbentCap`    | The incumbent's declared capability; absent when unknown |
+| `blocked`         | Up to 3 candidates declared capable of the requirement but excluded, cheapest estimate first: `{ route, reasons }` with the candidate reasons, such as `cash-cap` or `context-full`; absent when there are none |
+| `profile`         | The provider name (at most 24 characters) and a hash of the configured model aliases and IDs, with no path; profiles of one provider with the same models share it |
+
+Limits: each row starts from the table's route, so it is one step and not an auto session. Routed demand is the
+incumbent's capability, where a live session keeps the demand it accepted at its last move. Shadow tracks no mode or
+catalog change (a stronger candidate at unchanged demand reads `no-evidence`), no re-entry after a native fallback and
+no activity retained from earlier turns.
 
 ## Reloads
 

@@ -11,6 +11,25 @@ applicable decision. It does not run the proposed route or maintain a simulated 
 establish savings or answer quality; a next-turn cost estimate is not an observed cost or a counterfactual saving.
 The bounded decision records are not replay traces. See [Configuration](configuration.md#routing-engine).
 
+### Shadow agreement
+
+Do not compare a row's `alt.route` (the target, before any move gate) with its `route` (the table's, after its gates):
+a held table move then counts as a disagreement of the engines. Compare the would-serve route `alt.serve` with `route`:
+
+1. Take `start` and `review` rows with `engine: "shadow"`. A merged review row counts `n` times.
+2. `alt.serve` names a models key and `route` a model ID: map `opus@xhigh` through the profile's
+   `models.opus.id` before comparing. `session` stands for a route that sends no effort of its own.
+3. Exclude rows with no `alt.serve` (no route to serve, `move: "unavailable"`, a failed proposal, or a row written
+   before this field) and rows with no `alt.incumbentCap` (the incumbent declares no capability, so the move gates had
+   no level to compare). Report how many each rule removed.
+4. Split by `alt.profile` and by `mode`. Rows of different profiles describe different catalogs and must not be
+   pooled. Report pinned rows (`pinned: true`, no `mode`) separately: a pin passes no move gate.
+
+`alt.move` says why a disagreement held or moved, and `alt.blocked` which hard constraint kept a capable candidate
+out. Agreement is a one-step comparison from the table's own route
+([limits](auto-engine.md#shadow-rows)), not an estimate of how an auto session would behave, and not a quality or
+savings result. The Now pane's `shadow agrees` count still compares the target.
+
 ## Replay trace recorder
 
 In `routingEngine: "shadow"`, the main-turn hooks also keep text-free replay inputs separately from decision rows:

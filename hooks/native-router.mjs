@@ -9,8 +9,15 @@ import {
   recordTurn,
   turnActivity,
 } from '../lib/activity-stats.mjs';
-import { advanceDemand, assessCandidates, initialAutoState, selectTarget } from '../lib/auto-engine.mjs';
-import { adviceActivity, autoRoute, observeAutoFallback } from '../lib/auto-route.mjs';
+import {
+  advanceDemand,
+  assessCandidates,
+  blockedCandidates,
+  counterfactualMove,
+  initialAutoState,
+  selectTarget,
+} from '../lib/auto-engine.mjs';
+import { adviceActivity, autoRoute, liveEvidence, observeAutoFallback } from '../lib/auto-route.mjs';
 import { renderBand, renderRouteLine, switchToast } from '../lib/band.mjs';
 import { ClassifierClient } from '../lib/classifier-client.mjs';
 import { classifierDestination, resolveCredentials } from '../lib/classifier-contract.mjs';
@@ -46,6 +53,7 @@ import {
   isProgressOrigin,
   MAX_ROWS,
   originKind,
+  profileTag,
   progressInput,
   prunedDecisions,
   queueOrigin,
@@ -1840,18 +1848,24 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
   return response;
 }
 
+// A route as a shadow row names it: the models key and the effort, `session` when the route sends none of its own.
+const shadowRoute = (route) =>
+  route ? `${route.model}@${typeof route.effort === 'string' ? route.effort : 'session'}` : null;
+
 // Shadow retains demand evidence only; target selection sees the actual incumbent and cache. The proposal
 // respects the holds in force now, as a live auto session would, so the recorded alt never names a held model.
+// The row also holds what live auto would serve from that incumbent (`serve`, `move`): computed for the row alone.
 function shadowProposal(
   config,
   loop,
   selected,
-  { facts, advice, pin, nativeModel, contextKnown, availableModels, accountHolds, now, mode, offSwitches },
+  { facts, advice, pin, keyword, nativeModel, contextKnown, availableModels, accountHolds, now, mode, offSwitches },
 ) {
   if (config.routingEngine !== 'shadow') {
     delete selected.shadow;
     return null;
   }
+  const profile = profileTag(config);
   try {
     const projected = economicConfig(config, loop);
     const oneTurn = servesOneTurn(loop.decision);
@@ -1880,9 +1894,10 @@ function shadowProposal(
         acceptActivity(config, advice) !== null &&
         acceptPhase(config, advice) === 'execute',
     });
+    const live = liveEvidence(projected, loop, { facts, accountHolds, now });
     const candidates = assessCandidates({
       config: projected,
-      facts: { ...facts, ineligible: loop.ineligible.map((id) => loop.resolutions[id] ?? id) },
+      facts: live.facts,
       now,
       incumbent,
       contextKnown,
@@ -1890,7 +1905,7 @@ function shadowProposal(
       nativeModel,
       // The shadow alternative ranks by the same capability column the live auto decision would use.
       activity: adviceActivity(config, advice),
-      held: heldAsSeen(heldIds(projected, loop.held, accountHolds ?? {}, now), loop.resolutions),
+      held: live.held,
     });
     const target = selectTarget({
       candidates,
@@ -1899,9 +1914,27 @@ function shadowProposal(
       headroom: demand.headroom,
       escalation: demand.escalated,
     });
-    if (demand.escalated || demand.headroom) demand.state = { ...demand.state, headroom: target.headroom };
+    if (demand.escalated || demand.headroom) {
+      demand.headroom = target.headroom;
+      demand.state = { ...demand.state, headroom: target.headroom };
+    }
     const { routedDemand: _routed, routeCause: _cause, ...demandState } = pin ? state : demand.state;
     selected.shadow = { generation: loop.generation, offSwitches, state: demandState };
+    // A keyword turn runs live auto as a pin to a tier this proposal's demand does not model.
+    const served = keyword
+      ? { route: null, reason: 'unavailable' }
+      : counterfactualMove({
+          config: projected,
+          state: demand.state,
+          demandResult: demand,
+          target,
+          candidates,
+          advice,
+          facts: live.facts,
+          now,
+          startup: !hasRoutedDecision(loop),
+          pinned: Boolean(pin),
+        });
     return {
       demand: demand.level,
       reason: demand.reason,
@@ -1909,16 +1942,22 @@ function shadowProposal(
       targetReason: target.reason,
       requirement: target.requirement,
       outcome: target.outcome,
-      route: target.route
-        ? `${target.route.model}@${typeof target.route.effort === 'string' ? target.route.effort : 'session'}`
-        : null,
+      route: shadowRoute(target.route),
       capability: target.capability,
       minUsd: target.estimate?.minUsd,
       maxUsd: target.estimate?.maxUsd,
+      serve: shadowRoute(served.route),
+      move: served.reason,
+      incumbentCap: candidates.find((candidate) => candidate.incumbent)?.capability,
+      blocked: blockedCandidates(candidates, target.requirement).map(({ route, reasons }) => ({
+        route: shadowRoute(route),
+        reasons,
+      })),
+      profile,
     };
   } catch {
     delete selected.shadow;
-    return { reason: 'error' };
+    return { reason: 'error', profile };
   }
 }
 
@@ -2006,6 +2045,7 @@ async function decideTurn($, router, e, signal, step) {
       facts,
       advice: result.advice,
       pin,
+      keyword,
       nativeModel,
       contextKnown: context.known,
       availableModels,
@@ -2256,6 +2296,8 @@ async function reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, av
       facts,
       advice,
       pin: null,
+      // A keyword turn is never reviewed (servesOneTurn).
+      keyword: null,
       nativeModel,
       contextKnown: context.known,
       availableModels,
