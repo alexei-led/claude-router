@@ -129,6 +129,10 @@ import {
   mergeTraceExport,
   newTrace,
   readTrace,
+  settleTrace,
+  storedBytes,
+  storedTrace,
+  storedTraceExport,
   TRACE_ACTIVE_MS,
   TRACE_EXPORT_BYTES,
   TRACE_PREFIX,
@@ -246,6 +250,7 @@ async function getMany($, keys) {
  * @property {string | null} config
  * @property {{ events: object[], excludedEvents?: number } | null} controls
  * @property {{ bytes: number, at: number } | null} [measured] the store's bytes outside the trace records, and when
+ * @property {{ record: TraceRecord, bytes: number } | null} [measuredRecord] `record`'s stored bytes
  */
 
 // Everything the hooks change between events, in one object `register()` creates and passes to its helpers. Module
@@ -401,14 +406,20 @@ async function ensureTrace($, router, e, turn, loop, loaded, fresh) {
       config: null,
       controls: null,
       measured: null,
+      measuredRecord: null,
     };
     router.trace = held;
     router.traceFailures = 0;
+    /** @type {TraceRecord | null} */
+    let stored = null;
     try {
       const raw = await $.store.get(`${TRACE_PREFIX}${sessionId}`);
-      held.record = readTrace(raw);
+      stored = readTrace(raw);
       held.persisted = raw;
-      if (raw !== undefined) held.reasons.add(loaded ? 'reload' : 'resume');
+      // A reload or a resume lost what the earlier process still held, so a stored trace takes no more events: they
+      // count as capped, and the turns before them stay usable.
+      if (stored) held.record = { ...stored, active: true, capped: stored.capped ?? { at, turns: 0, events: 0 } };
+      else if (raw !== undefined) held.reasons.add(loaded ? 'reload' : 'resume');
     } catch {
       held.lostWrites++;
       held.reasons.add('lost-write');
@@ -428,9 +439,11 @@ async function ensureTrace($, router, e, turn, loop, loaded, fresh) {
             message.content.every((block) => block && typeof block.type === 'string' && block.type.length > 0),
         );
     }
-    if (!freshHistory) held.reasons.add('mid-session');
-    held.record ??= newTrace(at, { configured: turn.configured, config: turn.config, loop }, [...held.reasons]);
-    if (traceBytes(held.record) > TRACE_SESSION_BYTES - 1024) {
+    if (!stored) {
+      if (!freshHistory) held.reasons.add('mid-session');
+      held.record = newTrace(at, { configured: turn.configured, config: turn.config, loop }, [...held.reasons]);
+    }
+    if (storedBytes(held.record) > TRACE_SESSION_BYTES - 1024) {
       held.record = {
         version: TRACE_VERSION,
         startedAt: at,
@@ -465,7 +478,10 @@ function addTrace(router, e, event) {
       turn.buffer = { events: [], bytes: 2, excludedEvents: (turn.buffer?.excludedEvents ?? 0) + 1 };
       return;
     }
-    const remaining = Math.max(0, TRACE_SESSION_BYTES - traceBytes(held.record) - 1024);
+    // Measured once per turn: the record changes only when a turn's flush appends to it.
+    if (held.measuredRecord?.record !== held.record)
+      held.measuredRecord = { record: held.record, bytes: storedBytes(held.record) };
+    const remaining = Math.max(0, TRACE_SESSION_BYTES - held.measuredRecord.bytes - 1024);
     turn.buffer = bufferTrace(turn.buffer, { ...event, turn: turn.number, index: e.index }, remaining);
   } catch {
     traceFailed(router);
@@ -564,6 +580,74 @@ function traceControl(router) {
   }
 }
 
+// What a flush adds to the held record: the turn's events, and at session end the controls no request followed.
+function pendingTrace(held, turn, ending) {
+  const events = settleTrace(turn?.buffer?.events ?? []);
+  const controls = ending && held.controls && !held.controls.excludedEvents ? held.controls.events : [];
+  return {
+    events: [...events, ...controls],
+    excludedEvents: turn?.buffer?.excludedEvents ?? held.controls?.excludedEvents ?? 0,
+  };
+}
+
+// The record takes the turn in memory before it is written, and each write holds the whole record, so a refused or
+// failed write loses nothing: a later flush writes it, and until then the stored prefix stays usable. Nothing from
+// before the last reset is kept: a turn whose flush waited across a reset in another session keeps only what came
+// after it.
+function appendHeld(held, { events, excludedEvents }, at, resetAt) {
+  held.record = appendTrace(
+    held.record,
+    events.filter((event) => !(Number.isFinite(resetAt) && event.at < resetAt)),
+    at,
+    { lostWrites: held.lostWrites, reasons: [...held.reasons], excludedEvents },
+  );
+  held.lostWrites = 0;
+  held.reasons.clear();
+}
+
+// A record begun before the last reset is history it deleted: the session starts over, unusable.
+function restartHeld(held, at, resetAt) {
+  if (!Number.isFinite(resetAt) || held.record.startedAt >= resetAt) return;
+  held.record = {
+    version: TRACE_VERSION,
+    startedAt: at,
+    updatedAt: at,
+    active: true,
+    incomplete: ['reset', 'mid-session'],
+    lostWrites: 0,
+    capped: null,
+    events: [],
+  };
+  held.persisted = undefined;
+  held.reasons.add('reset');
+}
+
+// Takes in a stored record this process did not write.
+function mergeHeld(held, key, raw, resetAt) {
+  if (raw !== undefined && !readTrace(raw)) throw new Error('conflict');
+  // A record gone from the store was evicted to make room, not written by another: the held one is written again. A
+  // stored trace from before the last reset is history it deleted, though another session's background delete may not
+  // have reached it yet: it is written over, never merged back.
+  if (raw === undefined || (Number.isFinite(resetAt) && !startedSince(raw, resetAt))) return;
+  if (JSON.stringify(raw) === JSON.stringify(held.persisted)) return;
+  held.reasons.add('conflict');
+  held.record = mergeTraceExport(null, [
+    [key, held.record],
+    [key, raw],
+  ]).sessions[key];
+  held.persisted = raw;
+}
+
+function commitHeld(held, record, stored, ending) {
+  held.record = record;
+  held.persisted = stored;
+  // Sized here, after the turn, so the next turn's first event does not pack the whole record to learn it.
+  held.measuredRecord = { record, bytes: traceBytes(stored) };
+  if (ending) held.controls = null;
+}
+
+const measuredAs = (held, bytes, at) => Object.assign(held, { measured: { bytes, at } });
+
 // `captured`: a completed turn flushTraceLater took when the turn ended, written even after the engine left shadow.
 async function flushTrace($, router, turnId = null, ending = false, captured = null) {
   try {
@@ -571,66 +655,38 @@ async function flushTrace($, router, turnId = null, ending = false, captured = n
     if (!held || (router.config.routingEngine !== 'shadow' && !captured)) return;
     const turn = captured ?? held.turns.get(turnId);
     held.turns.delete(turnId);
+    const at = Date.now();
+    const pending = pendingTrace(held, turn, ending);
+    let resetAt;
+    let appended = false;
+    const append = () => {
+      if (appended) return;
+      appended = true;
+      appendHeld(held, pending, at, resetAt);
+    };
     try {
-      const at = Date.now();
       // Only the trace records are read each time; the rest of the store is measured now and then (measureStore).
       const keys = await $.store.keys();
       let traces = await readTraces($, keys);
       if (traces.some(([, value]) => value === undefined)) throw new Error('store-guard');
       const traceTotal = traceBytes(Object.fromEntries(traces));
-      const measured = held.measured;
+      const { measured } = held;
       if (
         !measured ||
         at - measured.at > TRACE_MEASURE_MS ||
         measured.bytes + traceTotal > TRACE_STORE_BYTES - TRACE_MEASURE_MARGIN
       )
-        held.measured = { bytes: await measureStore($, keys), at };
+        measuredAs(held, await measureStore($, keys), at);
       const otherBytes = held.measured?.bytes ?? 0;
       if (otherBytes + traceTotal > TRACE_STORE_BYTES) throw new Error('store-guard');
-      const resetAt = await $.store.get(SAVINGS_RESET_KEY);
-      if (Number.isFinite(resetAt) && held.record.startedAt < resetAt) {
-        held.record = {
-          version: TRACE_VERSION,
-          startedAt: at,
-          updatedAt: at,
-          active: true,
-          incomplete: ['reset', 'mid-session'],
-          lostWrites: 0,
-          capped: null,
-          events: [],
-        };
-        held.persisted = undefined;
-        held.reasons.add('reset');
-      }
+      resetAt = await $.store.get(SAVINGS_RESET_KEY);
+      restartHeld(held, at, resetAt);
       const key = `${TRACE_PREFIX}${held.sessionId}`;
-      const raw = traces.find(([name]) => name === key)?.[1];
-      if (raw !== undefined && !readTrace(raw)) throw new Error('conflict');
-      // A stored trace from before the last reset is history it deleted, though another session's background delete
-      // may not have reached it yet: it is written over, never merged back.
-      const deleted = raw !== undefined && Number.isFinite(resetAt) && !startedSince(raw, resetAt);
-      if (!deleted && JSON.stringify(raw) !== JSON.stringify(held.persisted)) {
-        held.reasons.add('conflict');
-        if (raw)
-          held.record = mergeTraceExport(null, [
-            [key, held.record],
-            [key, raw],
-          ]).sessions[key];
-      }
-      if (held.record.events.length === 1 && traceBytes(held.record) > TRACE_SESSION_BYTES - 1024)
-        throw new Error('store-guard');
-      // Nothing from before the last reset is written: a turn whose flush waited across a reset in another session
-      // keeps only what came after it.
-      const sinceReset = (event) => !(Number.isFinite(resetAt) && event.at < resetAt);
-      const events = (turn?.buffer?.events ?? []).filter(sinceReset);
-      if (ending && held.controls && !held.controls.excludedEvents)
-        events.push(...held.controls.events.filter(sinceReset));
-      const candidate = appendTrace(held.record, events, at, {
-        lostWrites: held.lostWrites,
-        reasons: [...held.reasons],
-        excludedEvents: turn?.buffer?.excludedEvents ?? held.controls?.excludedEvents ?? 0,
-      });
-      candidate.active = !ending;
-      for (const victim of traceVictims(traces, at, key, candidate)) {
+      mergeHeld(held, key, traces.find(([name]) => name === key)?.[1], resetAt);
+      append();
+      const candidate = { ...held.record, active: !ending };
+      const stored = storedTrace(candidate);
+      for (const victim of traceVictims(traces, at, key, stored)) {
         const previous = traces.find(([name]) => name === victim)?.[1];
         const current = await $.store.get(victim);
         if (
@@ -642,18 +698,13 @@ async function flushTrace($, router, turnId = null, ending = false, captured = n
       }
       // Read the traces again after eviction: missing/unreadable values never become a quota undercount.
       traces = await readTraces($, await $.store.keys());
-      if (traces.some(([, value]) => value === undefined) || !traceAdmission(traces, key, candidate, otherBytes))
+      if (traces.some(([, value]) => value === undefined) || !traceAdmission(traces, key, stored, otherBytes))
         throw new Error('store-guard');
-      await $.store.set(key, candidate);
-      held.record = candidate;
-      held.persisted = candidate;
-      held.lostWrites = 0;
-      held.reasons.clear();
-      if (ending) held.controls = null;
+      await $.store.set(key, stored);
+      commitHeld(held, candidate, stored, ending);
     } catch (error) {
-      held.lostWrites++;
-      const message = /** @type {Error} */ (error).message;
-      held.reasons.add(message === 'conflict' ? 'conflict' : message === 'store-guard' ? 'store-guard' : 'lost-write');
+      if (/** @type {Error} */ (error).message === 'conflict') held.reasons.add('conflict');
+      append();
     }
   } catch {
     traceFailed(router);
@@ -705,6 +756,13 @@ function flushTraceLater($, router, turnId) {
   });
 }
 
+// A capped record takes no later turn, so none can be recorded past an unfinished one.
+const leavesHole = (held) => {
+  if (!held.record || held.record.capped) return false;
+  const recorded = Math.max(0, ...held.record.events.map((event) => event.turn ?? 0));
+  return [...held.turns.values()].some((turn) => turn.number < recorded);
+};
+
 // The queued trace flushes started at once and awaited (flushTraceLater): what completed turns hold is written.
 async function drainTraces(router) {
   for (const start of router.traceDue) start();
@@ -727,12 +785,12 @@ async function exportTraces($, router) {
     let path = `${root}/router-traces.json`;
     if ((await $.fs.exists(path)) && (await $.fs.stat(path)).isLink) throw new Error('linked export');
     const previous = (await $.fs.exists(path)) ? JSON.parse(await $.fs.read(path)) : null;
-    let merged = mergeTraceExport(previous, entries);
+    let merged = storedTraceExport(mergeTraceExport(previous, entries));
     if (traceBytes(merged) > TRACE_EXPORT_BYTES) {
       path = `${root}/router-traces-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
       if ((await $.fs.exists(path)) && (await $.fs.stat(path)).isLink) throw new Error('linked export');
       const prior = (await $.fs.exists(path)) ? JSON.parse(await $.fs.read(path)) : null;
-      merged = mergeTraceExport(prior, entries);
+      merged = storedTraceExport(mergeTraceExport(prior, entries));
     }
     if (traceBytes(merged) > TRACE_EXPORT_BYTES) return 'Trace export exceeds the file budget; no file changed.';
     await $.fs.write(path, JSON.stringify(merged));
@@ -1822,13 +1880,14 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
     const pending = mergeAgentClears(router, observed);
     observed = pending.loop;
     const written = await $.state.set(ref, observed, { ifVersion: version });
-    if (written.isSet && pending.applied) {
-      router.agentClears.clear();
-      await updateView($, router, { holds: await holdsAfter($, router, observed.held) }).catch(() => {});
-    }
+    // Recorded as soon as the loop took it: a failure below must not leave the request to read as unanswered.
     if (turn.config.routingEngine === 'shadow') {
       if (written.isSet) recordTraceResponse(router, e, e, response, compared?.ttl, at);
       else router.trace?.reasons.add('gap');
+    }
+    if (written.isSet && pending.applied) {
+      router.agentClears.clear();
+      await updateView($, router, { holds: await holdsAfter($, router, observed.held) }).catch(() => {});
     }
     if (written.isSet)
       await updateView($, router, {
@@ -1836,7 +1895,7 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
         delegatedModel: e.model,
         delegatedEffort: e.effort ?? null,
       });
-  } else if (turn.config.routingEngine === 'shadow') router.trace?.reasons.add('aborted');
+  } else if (turn.config.routingEngine === 'shadow' && !next.signal.aborted) router.trace?.reasons.add('aborted');
   return response;
 }
 
@@ -2417,11 +2476,12 @@ async function observeRouted($, router, { turnId, cfg, loop, loopVersion, reques
     if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('gap');
     return;
   }
+  // Recorded as soon as the loop took it: a failure below must not leave the request to read as unanswered.
+  if (cfg.routingEngine === 'shadow') recordTraceResponse(router, request, request, response, compared?.ttl, at);
   if (pending.applied) {
     router.agentClears.clear();
     await updateView($, router, { holds: await holdsAfter($, router, observed.held) }).catch(() => {});
   }
-  if (cfg.routingEngine === 'shadow') recordTraceResponse(router, request, request, response, compared?.ttl, at);
   // A substituted reply is not the tier's: the strip and trend must not count it as one.
   const tier = isSameModel(request.model, response.usage?.model) ? loop.decision.tier : null;
   const route = `${request.model}@${request.effort ?? 'session'}`;
@@ -3586,14 +3646,16 @@ async function* sendRouted($, router, e, next, { cfg, loop, loopVersion, session
   if (loop.decision.effort === null) delete request.effort;
   else request.effort = loop.decision.effort;
   // Read again, not `turn`: a pinned turn's decision (decideTurn) fixed its pin's configs during this step.
-  if (cfg.routingEngine === 'shadow' && !next.signal.aborted && (await $.session.id()) === sessionId)
-    traceRequest(router, e, router.turnConfigs.get(e.turnId) ?? turn, request, 'auto', loop);
+  const traced = cfg.routingEngine === 'shadow' && !next.signal.aborted && (await $.session.id()) === sessionId;
+  if (traced) traceRequest(router, e, router.turnConfigs.get(e.turnId) ?? turn, request, 'auto', loop);
   // biome-ignore lint/nursery/useAtomicUpdates: the request sent last names the model, whatever ran before it
   router.lastRequested = request.model;
   const response = yield* next(request);
   if (!next.signal.aborted && (await $.session.id()) === sessionId)
     await observeRouted($, router, { turnId: e.turnId, cfg, loop, loopVersion, request, response, nativeModel });
-  else if (cfg.routingEngine === 'shadow') router.trace?.reasons.add('aborted');
+  // A traced request stopped before its reply is recorded as unanswered when the turn is written (settleTrace). One
+  // stopped before it was traced, or answered under another session, leaves the trace short of what routing did.
+  else if (cfg.routingEngine === 'shadow' && !(traced && next.signal.aborted)) router.trace?.reasons.add('aborted');
   return response;
 }
 
@@ -4331,8 +4393,10 @@ export function register(on, options) {
     // A completed shadow turn's queued flush writes it even after a switch to another engine.
     await drainTraces(router);
     if (router.config.routingEngine === 'shadow') {
-      // The completed turns are flushed by now; any left never completed.
-      if (router.trace?.turns.size) router.trace.reasons.add('aborted');
+      // The completed turns are flushed by now; any left never completed. One left behind a recorded turn is a hole;
+      // the rest are only not recorded.
+      // biome-ignore lint/suspicious/noUnnecessaryConditions: router.trace is set by helpers that take `router`, which Biome cannot follow
+      if (router.trace && leavesHole(router.trace)) router.trace.reasons.add('aborted');
       await flushTrace($, router, null, true);
     }
     // biome-ignore lint/nursery/useAtomicUpdates: the session is over, so whatever trace the final flush held or created is dropped

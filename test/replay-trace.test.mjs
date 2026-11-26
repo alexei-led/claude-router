@@ -11,15 +11,19 @@ import {
   mergeTraceExport,
   newTrace,
   readTrace,
+  settleTrace,
+  storedBytes,
+  storedTrace,
   TRACE_ACTIVE_MS,
   TRACE_BUDGET_BYTES,
-  TRACE_LEGACY_PREFIX,
   TRACE_PREFIX,
   TRACE_RETAIN_MS,
+  TRACE_SESSION_BYTES,
   TRACE_VERSION,
   traceAdmission,
   traceBytes,
   traceConfig,
+  traceEvent,
   traceFacts,
   traceLoop,
   traceOperation,
@@ -29,6 +33,7 @@ import {
   usableTrace,
 } from '../lib/replay-trace.mjs';
 import { chooseRoute, emptyLoop, nativeFacts } from '../lib/route.mjs';
+import { packEvents } from '../lib/trace-codec.mjs';
 
 const NOW = Date.UTC(2026, 10, 16, 12);
 const configured = loadConfig();
@@ -228,7 +233,7 @@ test('lost write and mid-session/resume/reload remain incomplete on subsequent s
 
 test('intentional cap retains a usable whole-turn prefix and counts excluded turns/events', () => {
   const record = initial();
-  const capped = appendTrace(record, [event(), event()], NOW + 1, { maxBytes: traceBytes(record) + 1 });
+  const capped = appendTrace(record, [event(), event()], NOW + 1, { maxBytes: storedBytes(record) + 1 });
   assert.deepEqual(capped.events, record.events);
   assert.equal(capped.capped.turns, 1);
   assert.equal(capped.capped.events, 2);
@@ -247,7 +252,7 @@ test('a long single turn discards its entire bounded buffer and counts subsequen
       buffer?.excludedEvents ? null : { type: 'request', at: NOW, turn: 1, index: i, operations: [] },
       1000,
     );
-    assert.ok(traceBytes(buffer.events) <= 1000);
+    assert.ok(traceBytes(packEvents(buffer.events)) <= 1000);
   }
   assert.deepEqual(buffer.events, []);
   assert.equal(buffer.excludedEvents, 10_000);
@@ -379,25 +384,158 @@ test('byte counting includes UTF-8 overhead', () => {
   assert.equal(DEFAULTS.models.opus.id, configured.models.opus.id);
 });
 
-test('an activity capability map round-trips through a version 2 trace', () => {
-  assert.equal(TRACE_VERSION, 2);
-  assert.equal(TRACE_PREFIX, 'trace:v2:');
-  assert.equal(TRACE_LEGACY_PREFIX, 'trace:v1:');
+test('an activity capability map round-trips through a stored trace', () => {
+  assert.equal(TRACE_VERSION, 3);
+  assert.equal(TRACE_PREFIX, 'trace:v3:');
   const capability = { medium: 2, xhigh: { default: 3, code: 2.5 } };
   const evidence = structuredClone(configured);
   evidence.models.opus.capability = capability;
   const record = newTrace(NOW, { configured: evidence, config: evidence, loop });
-  const read = readTrace(JSON.parse(JSON.stringify(record)));
+  const read = readTrace(JSON.parse(JSON.stringify(storedTrace(record))));
   assert.equal(read.version, TRACE_VERSION);
   assert.deepEqual(read.events[0].config.models.opus.capability, capability);
   assert.deepEqual(read.events[0].configured.models.opus.capability, capability);
+});
 
-  const legacy = { ...structuredClone(record), version: 1 };
-  assert.equal(readTrace(legacy).version, TRACE_VERSION);
-  const expired = { ...initial(), version: 1, active: false, updatedAt: NOW - TRACE_RETAIN_MS - 1 };
-  assert.deepEqual(traceVictims([[`${TRACE_LEGACY_PREFIX}old`, expired]], NOW, key('own'), initial()), [
-    `${TRACE_LEGACY_PREFIX}old`,
-  ]);
+for (const version of [1, 2])
+  test(`a version ${version} trace, its events stored whole, is still read, exported and retired`, () => {
+    const whole = { ...appendTrace(initial(), [event()], NOW + 1), version };
+    const name = `trace:v${version}:old`;
+    assert.deepEqual(readTrace(JSON.parse(JSON.stringify(whole))).events, whole.events);
+    const merged = mergeTraceExport(null, [[name, whole]]);
+    assert.equal(usableTrace(merged.sessions[name]), true);
+    const expired = { ...whole, active: false, updatedAt: NOW - TRACE_RETAIN_MS - 1 };
+    assert.deepEqual(traceVictims([[name, expired]], NOW, key('own'), initial()), [name]);
+  });
+
+test('a stored trace whose packed events cannot be read is rejected', () => {
+  const stored = storedTrace(initial());
+  for (const packed of [[null], [[99, 0, {}]], [['x']]]) assert.equal(readTrace({ ...stored, packed }), null);
+});
+
+// A turn of `steps` requests as the recorder writes it: one decision, then tool continuations.
+function syntheticTurn(turn, steps, state) {
+  const events = [];
+  for (let index = 0; index < steps; index++) {
+    state.at += 3000 + ((turn * 131 + index * 17) % 5000);
+    state.messages += 2;
+    const context = state.messages * 900 + index;
+    const input = {
+      taskProgress: {
+        check: null,
+        edit: { index: state.messages - 4, ok: true },
+        run: { index: state.messages - 2, ok: true },
+        delegate: -1,
+        anyCheck: -1,
+        nonDocEdit: state.messages - 4,
+        prompt: state.messages - index * 2 - 1,
+        lastTool: state.messages - 2,
+        result: { index: state.messages - 1, error: false },
+      },
+      facts: index ? null : { hasImages: false, continuation: turn > 1, contextTokens: context },
+      advice: index
+        ? null
+        : {
+            choice: 'medium',
+            probabilities: { micro: 0, low: 0.1, medium: (turn % 7) / 10, high: 0.2, uncertain: 0 },
+            confidence: 0.7,
+            continuation: 0.4,
+            activity: { choice: 'code', probabilities: { code: 0.8, debug: (turn % 3) / 10, review: 0.1 } },
+          },
+      nativeModel: 'claude-sonnet-5-5',
+      contextKnown: true,
+      contextTokens: context,
+      hasImages: false,
+      ...(index ? { actualHasImages: false } : {}),
+      effort: 'medium',
+    };
+    const decision = { tier: 'medium', activity: 'code', model: 'claude-sonnet-5-5', effort: 'high', reason: 'same' };
+    const place = { turn, index };
+    events.push(
+      {
+        type: 'request',
+        at: state.at,
+        ...place,
+        messageCount: state.messages,
+        model: 'claude-sonnet-5-5',
+        effort: 'high',
+        mode: 'auto',
+        engineModel: 'claude-sonnet-5-5',
+        engineEffort: 'medium',
+        reviewedAt: 0,
+        observedFrom: 0,
+        operations: [traceOperation(index ? 'continue' : 'choose', state.at - 4, input, { decision })],
+      },
+      {
+        type: 'response',
+        at: state.at + 2100,
+        ...place,
+        requestedModel: 'claude-sonnet-5-5',
+        servedModel: 'claude-sonnet-5-5',
+        effort: 'high',
+        usage: {
+          input_tokens: 3 + (index % 5),
+          cache_read_input_tokens: context,
+          cache_creation_input_tokens: 700 + index,
+          output_tokens: 150 + ((turn + index) % 400),
+        },
+        stopReason: index === steps - 1 ? 'end_turn' : 'tool_use',
+        ttl: '5m',
+      },
+    );
+  }
+  events.push({ type: 'end', at: state.at + 2200, turn });
+  return events;
+}
+
+test('200 turns of eight requests fit one session, and read back as they were recorded', () => {
+  let record = initial();
+  const state = { at: NOW, messages: 0 };
+  // Ten turns an append: each append measures the whole record.
+  for (let turn = 1; turn <= 200; turn += 10) {
+    const events = Array.from({ length: 10 }, (_, i) => syntheticTurn(turn + i, 8, state)).flat();
+    record = appendTrace(record, events, state.at + 2300);
+  }
+  assert.equal(record.capped, null);
+  assert.equal(usableTrace(record), true);
+  assert.ok(storedBytes(record) <= TRACE_SESSION_BYTES);
+  assert.ok(storedBytes(record) * 5 < traceBytes(record), 'packed events are under a fifth of their whole size');
+  assert.deepEqual(readTrace(JSON.parse(JSON.stringify(storedTrace(record)))), record);
+});
+
+test('packed events read back exactly through config changes, resets, reordered catalogs and unusual aliases', () => {
+  const state = { at: NOW, messages: 0 };
+  const reordered = structuredClone(configured);
+  reordered.models = { '~extra': { ...reordered.models.opus }, ...reordered.models };
+  const record = appendTrace(
+    initial(),
+    [
+      ...syntheticTurn(1, 3, state),
+      { type: 'config', at: state.at, turn: 2, index: 0, configured: reordered, config: reordered },
+      { type: 'reset', at: state.at, cause: 'compact', loop, generation: 1 },
+      { type: 'control', at: state.at, pin: 'high', enabled: true },
+      ...syntheticTurn(2, 3, state),
+      { type: 'config', at: state.at, turn: 3, index: 0, configured, config },
+    ],
+    state.at,
+  );
+  const read = readTrace(JSON.parse(JSON.stringify(storedTrace(record))));
+  assert.deepEqual(read, record);
+  assert.equal(JSON.stringify(read.events), JSON.stringify(record.events.map(traceEvent)), 'catalog order is kept');
+});
+
+test('a completed turn’s unanswered request is settled, an answered one is left alone', () => {
+  const [request, response] = syntheticTurn(1, 1, { at: NOW, messages: 0 });
+  assert.deepEqual(settleTrace([request, response]), [request, response]);
+  const settled = settleTrace([request]);
+  assert.deepEqual(
+    settled.map((e) => [e.type, e.turn, e.index, e.unanswered ?? false]),
+    [
+      ['request', 1, 0, false],
+      ['response', 1, 0, true],
+    ],
+  );
+  assert.equal(usableTrace(appendTrace(initial(), settled, NOW + 1)), true);
 });
 
 test('trace projection keeps only valid capability cells', () => {

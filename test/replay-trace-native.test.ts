@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing';
 import { loadConfig } from '../lib/config.mjs';
-import { newTrace, observedFromTrace, traceBytes, usableTrace } from '../lib/replay-trace.mjs';
+import { newTrace, observedFromTrace, readTrace, storedTrace, traceBytes, usableTrace } from '../lib/replay-trace.mjs';
 import { emptyLoop } from '../lib/route.mjs';
 import { assistant, jevResponse, user } from './helpers.mjs';
 
@@ -93,10 +93,10 @@ for (const hasAssistant of [false, true]) {
       reason: 'answer',
     });
     // The flush runs from a timer after the turn, so the test waits for its write.
-    for (let i = 0; i < 400 && !store.has('trace:v2:native-trace'); i++)
+    for (let i = 0; i < 400 && !store.has('trace:v3:native-trace'); i++)
       await new Promise((resolve) => setTimeout(resolve, 5));
-    expect(store.has('trace:v2:native-trace')).toBe(true);
-    const recorded = store.get('trace:v2:native-trace');
+    expect(store.has('trace:v3:native-trace')).toBe(true);
+    const recorded = readTrace(store.get('trace:v3:native-trace'));
     expect(usableTrace(recorded)).toBe(!hasAssistant);
     const projected = JSON.parse(JSON.stringify(recorded));
     const continuedOp = projected.events
@@ -107,7 +107,7 @@ for (const hasAssistant of [false, true]) {
     expect(JSON.stringify(recorded).includes('CANARY')).toBe(false);
     await $.command.run({ command: 'router', args: 'trace export' });
     const exported = JSON.parse(files.get('/fixture/team/router-traces.json') ?? '{}');
-    expect(exported.sessions['trace:v2:native-trace']).toEqual(projected);
+    expect(readTrace(exported.sessions['trace:v3:native-trace'])).toEqual(projected);
   });
 }
 
@@ -118,5 +118,6 @@ test('replay projection and UTF-8 byte accounting run inside the Mod sandbox', (
   expect(usableTrace(record)).toBe(true);
   expect(traceBytes('€')).toBe(5);
   expect(traceBytes(record) > 0).toBe(true);
+  expect(readTrace(storedTrace(record))).toEqual(record);
   expect(observedFromTrace({ nonDocEdit: 2, lastTool: 2 }, 0)).toBe('code');
 });
