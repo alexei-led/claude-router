@@ -364,7 +364,7 @@ test('real resolved warm cache bypasses cold-write cap; cold candidates never co
   await command(h, 'pin high');
   await h.event('turn.start', { turnId: 'warm', text: 'Next task.' });
   await drain(h.step({ ...native, turnId: 'warm' }));
-  assert.equal(h.loop().decision.auto.outcome, 'declared-below-demand');
+  assert.equal(h.loop().decision.auto.outcome, 'cash-capped');
   assert.equal(h.loop().decision.model, 'claude-haiku-4-5');
   assert.equal(h.loop().decision.effort, null);
   assert.equal(h.loop().decision.auto.capability, 1);

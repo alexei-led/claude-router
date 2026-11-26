@@ -1404,3 +1404,42 @@ test('a native session effort selects the incumbent output volume', () => {
   });
   assert.equal(Number(candidates.find((c) => c.route.effort === 'low').estimate.maxUsd.toFixed(6)), 0.151);
 });
+
+test('a stronger route blocked only by the cash cap names the shortfall cash-capped without changing the route', () => {
+  const capped = (input, extra = {}) => model(3, input, { billing: 'credits', ...extra });
+  for (const [name, blocked, options, outcome, cappedRoute] of [
+    ['cheapest cash-capped route', { c: capped(4000), d: capped(3000) }, {}, 'cash-capped', route('d')],
+    ['context full', { c: model(3, 1, { contextWindow: 100 }) }, {}, 'declared-below-demand', null],
+    ['held out', { c: model(3, 1) }, { held: ['c'] }, 'declared-below-demand', null],
+    ['cash cap and held out', { c: capped(3000) }, { held: ['c'] }, 'declared-below-demand', null],
+    ['capped but still below demand', { c: model(2, 3000, { billing: 'credits' }) }, {}, 'declared-below-demand', null],
+    [
+      'capped with unknown capability',
+      { c: model(null, 3000, { billing: 'credits' }) },
+      {},
+      'declared-below-demand',
+      null,
+    ],
+  ]) {
+    const cfg = config({ a: model(1), b: model(2, 2), ...blocked });
+    const { target } = targetFor(cfg, 3, 'balanced', options);
+    assert.deepEqual(
+      [target.outcome, target.capped, target.route, target.capability],
+      [outcome, cappedRoute, route('b'), 2],
+      name,
+    );
+    assert.equal(target.estimate.maxUsd, targetFor(config({ a: model(1), b: model(2, 2) }), 3).target.estimate.maxUsd);
+  }
+});
+
+test('a cash-capped route leaves other outcomes alone', () => {
+  const capped = model(3, 3000, { billing: 'credits' });
+  for (const [name, models, outcome] of [
+    ['demand met elsewhere', { a: model(3), c: capped }, 'meets-demand'],
+    ['nothing declared is eligible', { a: model(null), c: capped }, 'unknown-only'],
+    ['nothing is eligible', { c: capped }, 'no-route'],
+  ]) {
+    const { target } = targetFor(config(models), 3, 'balanced', { incumbent: route('c') });
+    assert.deepEqual([target.outcome, target.capped], [outcome, null], name);
+  }
+});

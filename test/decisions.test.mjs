@@ -204,6 +204,18 @@ test('shadow proposals roundtrip only numeric facts and bounded identifiers, in 
   }
 });
 
+test('a cash-capped outcome survives storage and is listed for shadow and auto rows', () => {
+  const proposal = { demand: 3, outcome: 'cash-capped', route: 'sonnet@max', capability: 2 };
+  for (const row of [
+    decisionRow({ at: T, kind: 'start', decision, engine: 'shadow', alt: proposal }),
+    decisionRow({ at: T, kind: 'start', decision: { ...decision, auto: proposal }, engine: 'auto' }),
+  ]) {
+    const [stored] = readDecisions({ version: 1, since: T, rows: [row] }).rows;
+    assert.deepEqual(stored, row);
+    assert.match(decisionLines([stored])[0] ?? '', /; cash-capped/);
+  }
+});
+
 test('malformed shadow fields cannot retain arbitrary text on read or write', () => {
   const alt = {
     demand: 4,

@@ -40,15 +40,15 @@ before assessing cache state, as the table controller's economic config does.
 
 ## Demand, target and move
 
-| Export                  | Input                                                                                                                  | Output                                                                    |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `initialAutoState`      | `{ demand = 2, routedDemand = demand, cause = 'classifier' }`                                                          | Initial state                                                             |
-| `initialIncumbentState` | `{ config, incumbent, facts }`                                                                                         | Baseline demand with actual known incumbent capability as routed demand   |
-| `advanceDemand`         | `{ config, state, advice = null, facts, pin = null, boundedExecute = false }`                                          | `{ raw, level, reason, headroom, escalated, state }`                      |
-| `assessCandidates`      | `{ config, facts, now, incumbent, contextKnown = Number.isFinite(facts.contextTokens), availableModels, nativeModel }` | Candidate facts array                                                     |
-| `selectTarget`          | `{ candidates, demand, mode = 'balanced', headroom = false, escalation = false }`                                      | `{ outcome, route, capability, requirement, estimate, reason, headroom }` |
-| `decideMove`            | `{ config, state, demandResult, target, candidates, advice = null, facts, now, changeCause = null, startup = false }`  | `{ move, route, reason, evidence, estimate, state }`                      |
-| `proposeAutoRoute`      | Combined inputs above, using `incumbent` and optional `state`                                                          | `{ demand, candidates, target, move, state }`                             |
+| Export                  | Input                                                                                                                  | Output                                                                            |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `initialAutoState`      | `{ demand = 2, routedDemand = demand, cause = 'classifier' }`                                                          | Initial state                                                                     |
+| `initialIncumbentState` | `{ config, incumbent, facts }`                                                                                         | Baseline demand with actual known incumbent capability as routed demand           |
+| `advanceDemand`         | `{ config, state, advice = null, facts, pin = null, boundedExecute = false }`                                          | `{ raw, level, reason, headroom, escalated, state }`                              |
+| `assessCandidates`      | `{ config, facts, now, incumbent, contextKnown = Number.isFinite(facts.contextTokens), availableModels, nativeModel }` | Candidate facts array                                                             |
+| `selectTarget`          | `{ candidates, demand, mode = 'balanced', headroom = false, escalation = false }`                                      | `{ outcome, route, capability, requirement, estimate, reason, headroom, capped }` |
+| `decideMove`            | `{ config, state, demandResult, target, candidates, advice = null, facts, now, changeCause = null, startup = false }`  | `{ move, route, reason, evidence, estimate, state }`                              |
+| `proposeAutoRoute`      | Combined inputs above, using `incumbent` and optional `state`                                                          | `{ demand, candidates, target, move, state }`                                     |
 
 The facade initializes missing state with `initialIncumbentState`. Raw demand starts at `config.baselineTier`;
 routed demand starts at the actual incumbent's declared capability for its supported/resolved native effort.
@@ -69,7 +69,12 @@ On a no-effort model, numeric native effort and the generated null-effort candid
 
 All availability, context, image, effort and cold-write cash constraints run before fallback.
 An invalid incumbent and no eligible candidate produce explicit `no-route`, never an invented native route.
-Target outcomes are `meets-demand`, `declared-below-demand`, `unknown-only`, `incumbent` and `no-route`.
+Target outcomes are `meets-demand`, `declared-below-demand`, `cash-capped`, `unknown-only`, `incumbent` and
+`no-route`.
+`cash-capped` is a label on a `declared-below-demand` selection: some catalog or incumbent route declares enough
+capability and fails the cash cap alone. `target.capped` names the cheapest such route by upper estimate; it is null
+on every other outcome. The selected route, capability, estimate and moves are the same under both labels. A route
+with any second reason, such as `context-full` or `held-out`, does not count.
 
 Estimates are absolute next-turn `{ minUsd, maxUsd }` ranges: `cost.inputBounds` plus the last reply's output
 length at `cost.ratesAt` prices. When `models.<alias>.outputScale.<effort>` is known for both the candidate and the
