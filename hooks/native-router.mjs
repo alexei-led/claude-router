@@ -1986,10 +1986,13 @@ function shadowProposal(
     }
     const { routedDemand: _routed, routeCause: _cause, ...demandState } = pin ? state : demand.state;
     selected.shadow = { generation: loop.generation, offSwitches, state: demandState };
-    // A keyword turn runs live auto as a pin to a tier this proposal's demand does not model.
-    const served = keyword
-      ? { route: null, reason: 'unavailable' }
-      : counterfactualMove({
+    // Recording only: a failure here costs these fields, never the proposal or its demand state.
+    let served = { route: null, reason: 'unavailable' };
+    let blocked;
+    try {
+      // A keyword turn runs live auto as a pin to a tier this proposal's demand does not model.
+      if (!keyword)
+        served = counterfactualMove({
           config: projected,
           state: demand.state,
           demandResult: demand,
@@ -2001,6 +2004,13 @@ function shadowProposal(
           startup: !hasRoutedDecision(loop),
           pinned: Boolean(pin),
         });
+      blocked = blockedCandidates(candidates, target.requirement).map(({ route, reasons }) => ({
+        route: shadowRoute(route),
+        reasons,
+      }));
+    } catch {
+      served = { route: null, reason: 'unavailable' };
+    }
     return {
       demand: demand.level,
       reason: demand.reason,
@@ -2015,10 +2025,7 @@ function shadowProposal(
       serve: shadowRoute(served.route),
       move: served.reason,
       incumbentCap: candidates.find((candidate) => candidate.incumbent)?.capability,
-      blocked: blockedCandidates(candidates, target.requirement).map(({ route, reasons }) => ({
-        route: shadowRoute(route),
-        reasons,
-      })),
+      blocked,
       profile,
     };
   } catch {
