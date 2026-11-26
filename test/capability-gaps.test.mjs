@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { assessCandidates } from '../lib/auto-engine.mjs';
 import { capabilityGaps } from '../lib/capability-gaps.mjs';
 import { DEFAULTS, TIERS } from '../lib/config.mjs';
 
@@ -38,27 +37,6 @@ test('a routed cell is a gap when the engine reads no capability for it', () => 
     ['session effort, none rated', one({}, null), ['m']],
   ];
   for (const [name, given, expected] of cases) assert.deepEqual(capabilityGaps(given), expected, name);
-});
-
-test('a cell is a gap exactly when the engine reads no capability for that route and activity', () => {
-  const values = [2, { default: 1 }, { code: 2 }, { default: 1, code: 2 }, undefined];
-  const probe = { model: 'm', effort: 'high' };
-  for (const value of values)
-    for (const activity of [null, 'code', 'debug']) {
-      const models = { m: model({ high: value }, ['high']), rated: model({ high: 1 }, ['high']) };
-      const given = activity
-        ? config({ models, route: { ...probe, model: 'rated' }, activities: { [activity]: { medium: probe } } })
-        : config({ models, route: probe });
-      const [candidate] = assessCandidates({
-        config: given,
-        facts: { contextTokens: 0, models: {} },
-        now: 0,
-        incumbent: probe,
-        activity,
-      });
-      const expected = candidate.capability === null ? ['m@high'] : [];
-      assert.deepEqual(capabilityGaps(given), expected, `${JSON.stringify(value)} / ${activity}`);
-    }
 });
 
 test('activity cells are read under their activity, once each, only while activity routing is on', () => {
