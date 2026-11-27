@@ -5,7 +5,7 @@
 ### Fixed
 
 - **A project file cannot stall turns.** A project `.claude/router.local.json` (or `<provider>-router.local.json`) that sets `classifiers.<id>.timeoutMs` above 5000 ms, the pane's largest deadline, is now ignored, and the warning names the setting. Your own `router.json` is not limited.
-- **A project file no longer applies silently.** When a project local router file applies, each session start shows one toast with the file and the names of the settings it sets.
+- **A project local router file no longer applies silently.** When a project local router file applies, each session start shows one toast with the file and the names of the settings it sets.
 
 ## 1.33.0 (2026-11-26)
 

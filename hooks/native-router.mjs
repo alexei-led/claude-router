@@ -352,6 +352,8 @@ function createRouter(options) {
     // Whether this session already said its auto catalog declares no capability, so it says it once.
     capabilityNoticed: false,
     projectNoticed: false,
+    // The session start or surface attachment a notice can be drawn for; null before either.
+    audience: /** @type {{ isInteractive: boolean, surface?: string | null } | null} */ (null),
     controllers: new Set(),
     turnControllers: new Map(),
     view: /** @type {Record<string, unknown> | null} */ (null),
@@ -4221,10 +4223,10 @@ async function noticeUnavailable($, router, e) {
 // One toast per session start when the project's local file applies: a cloned repository can carry one, and it can
 // change routes and the engine. As noticeUnavailable, it needs a surface that draws it, so it can wait for one to attach.
 // The shared router.json raises none: it only picks a mode among the user's own routes.
-function noticeProjectFile($, router, e) {
+function noticeProjectFile($, router) {
   const notice = router.initialized ? router.project?.localNotice : null;
   if (!notice || router.projectNoticed || router.view?.phase === 'unavailable') return;
-  if (!e.isInteractive || !e.surface) return;
+  if (!router.audience?.isInteractive || !router.audience.surface) return;
   router.projectNoticed = true;
   $.ui.toast(notice);
 }
@@ -4576,7 +4578,10 @@ async function ensureInitialized($, router) {
   router.initializing ??= initializeSession($, router).finally(() => {
     router.initializing = null;
   });
-  return router.initializing;
+  const initialized = await router.initializing;
+  // Here, not at session start alone: an initialization that failed there can succeed at a later event.
+  noticeProjectFile($, router);
+  return initialized;
 }
 
 // A main turn's end: its pins, reviews and decision jobs go, and its route line, activity, usage, decisions and trace
@@ -4638,6 +4643,7 @@ async function startSession($, router, e) {
   router.noticeSurfaces.clear();
   router.capabilityNoticed = false;
   router.projectNoticed = false;
+  router.audience = e;
   // A clear queued by a previous session's agent says nothing about this session's holds.
   router.agentClears.clear();
   const sessionId = await $.session.id();
@@ -4646,7 +4652,6 @@ async function startSession($, router, e) {
   router.traceStartedSession = sessionId;
   await ensureInitialized($, router);
   await noticeUnavailable($, router, e);
-  noticeProjectFile($, router, e);
 }
 
 export function register(on, options) {
@@ -4666,9 +4671,9 @@ export function register(on, options) {
   // The terminal's own attachment raises nothing; a desktop, VS Code or mobile surface attaches after session.start.
   on('session.attach', async ($, e, next) => {
     const result = await next(e);
-    const attached = { isInteractive: true, surface: e.surface };
-    await noticeUnavailable($, router, attached);
-    noticeProjectFile($, router, attached);
+    router.audience = { isInteractive: true, surface: e.surface };
+    await noticeUnavailable($, router, router.audience);
+    noticeProjectFile($, router);
     return result;
   });
 

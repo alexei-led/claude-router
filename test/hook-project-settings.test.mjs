@@ -375,6 +375,21 @@ test('the local file toast waits for a surface that attaches after session start
   assert.deepEqual(projectToasts(h), ['Project .claude/router.local.json changes mode: /router to review']);
 });
 
+test('the local file toast follows an initialization that succeeds after session start', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(LOCAL, '{"mode":"cost"}');
+  const model = h.$.session.model;
+  h.$.session.model = async () => {
+    h.$.session.model = model;
+    throw new Error('transient');
+  };
+  await sessionStart(h);
+  assert.deepEqual(projectToasts(h), []);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  await h.event('turn.start', { turnId: 't2', text: 'Another edit.' });
+  assert.deepEqual(projectToasts(h), ['Project .claude/router.local.json changes mode: /router to review']);
+});
+
 for (const [name, path, text] of [
   ['the shared mode file', SHARED, '{"mode":"cost"}'],
   ['an empty local file', LOCAL, '{}'],
