@@ -123,7 +123,7 @@ import {
 import { addTurn, checkDue, checkedHeld, heldRecord, historyKeys, LEDGER_KINDS, LEDGERS } from '../lib/ledgers.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel } from '../lib/panel.mjs';
-import { sameTaskOf } from '../lib/policy.mjs';
+import { adviceOutage, CLASSIFIER_OUTAGE, sameTaskOf } from '../lib/policy.mjs';
 import {
   applyRoutingEdits,
   applyRoutingPatch,
@@ -1885,14 +1885,17 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
       stopReason: response.stopReason,
       now: at,
     });
-    if (auto && ['no-route-native', 'native-fallback'].includes(reason))
+    const suspends = ['no-route-native', 'native-fallback'].includes(reason);
+    // An outage turn ran a model routing did not select, so it becomes auto's incumbent too. Its later steps stay the
+    // outage's, so nothing is suspended.
+    if (auto && (suspends || reason === CLASSIFIER_OUTAGE))
       observed = {
         ...observeAutoFallback(cfg, observed, {
           requestedModel: e.model,
           effort: e.effort,
           usage: response.usage,
         }),
-        suspended: true,
+        ...(suspends ? { suspended: true } : {}),
       };
     if (reason === 'no-route-native' && loop.auto?.savedPin) {
       observed.switchedAt = loop.auto.savedPin.switchedAt;
@@ -2110,11 +2113,13 @@ async function decideTurn($, router, e, signal, step) {
     // A keyword is read from a prompt a person or an agent sent, never from a progress report or a pinned turn.
     const keyword = pin || isProgressOrigin(origin) ? null : promptKeyword(router.prompts.get(e.turnId));
     const accountHolds = await routingHoldsOf($, cfg, router);
+    const outage = adviceOutage(loop.noAdvice, result);
     const traceInput = {
       facts,
       advice: result.advice,
       pin,
       keyword,
+      ownModel: outage.ownModel,
       nativeModel,
       contextKnown: context.known,
       availableModels,
@@ -2140,6 +2145,7 @@ async function decideTurn($, router, e, signal, step) {
       offSwitches: router.offSwitches,
     });
     selected.engineModel = e.model;
+    selected.noAdvice = outage.streak;
     const written = await $.state.set(ref, selected, { ifVersion: loopVersion });
     // The written route serves the turn's next steps, even if an abort lands now.
     if (written.isSet && pin) router.turnPins.set(e.turnId, pinPresses);
@@ -3848,8 +3854,12 @@ async function* sendRouted($, router, e, next, step) {
     router.turnPins.delete(e.turnId);
     if (pinPresses === router.pinPresses) await updateView($, router, { pendingPin: null });
   }
-  if (cfg.routingEngine === 'auto' && !loop.decision.route)
-    return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'no-route-native', router);
+  // An outage turn, and an auto decision without a route, send the step as Claude Code built it.
+  const outage = loop.decision.reason === CLASSIFIER_OUTAGE;
+  if (outage || (cfg.routingEngine === 'auto' && !loop.decision.route)) {
+    const reason = outage ? CLASSIFIER_OUTAGE : 'no-route-native';
+    return yield* passMain($, e, next, loop, loopVersion, nativeModel, reason, router);
+  }
   let request = routedRequest(e, loop.decision);
   // Read again, not `turn`: a pinned turn's decision (decideTurn) fixed its pin's configs during this step.
   const traced = cfg.routingEngine === 'shadow' && !next.signal.aborted && (await $.session.id()) === sessionId;
@@ -4078,7 +4088,7 @@ async function* mainStep($, router, e, next) {
     }
     loop = selected.loop;
     loopVersion = selected.version;
-  } else {
+  } else if (loop.decision.reason !== CLASSIFIER_OUTAGE) {
     // A review answer applies first, so tool calls made after its snapshot can still move the route up.
     loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
     loop = await moveOnObserved($, router, cfg, loop, e, context);

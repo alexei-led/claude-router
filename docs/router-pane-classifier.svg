@@ -87,7 +87,7 @@
 <text x="226.8" y="319" fill="#7c7c7c" xml:space="preserve">p95 874 ms in its probe</text>
 <path d="M893.7 305V324" fill="none" stroke="#7c7c7c"/>
 <path d="M27.9 324V343" fill="none" stroke="#7c7c7c"/>
-<text x="133.2" y="338" fill="#7c7c7c" xml:space="preserve">past the deadline the turn keeps its model</text>
+<text x="133.2" y="338" fill="#7c7c7c" xml:space="preserve">past the deadline the turn gets no advice</text>
 <path d="M893.7 324V343" fill="none" stroke="#7c7c7c"/>
 <path d="M27.9 343V362" fill="none" stroke="#7c7c7c"/>
 <text x="39.6" y="357" fill="#d0d0d0" xml:space="preserve">Sends</text>

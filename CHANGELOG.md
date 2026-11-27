@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- **A classifier outage no longer keeps you on a cheaper model.** After three turns in a row without classifier advice (a timeout, a network error, a bad answer, a busy classifier), or at once while the classifier is paused after repeated failures, a turn runs your session's model until advice returns. The band reads `! classifier unavailable · your model`. Pinned and keyword turns run as before, and a classifier without credentials behaves as before.
+
 ## 1.33.0 (2026-11-26)
 
 ### Summary

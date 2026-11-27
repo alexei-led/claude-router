@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { loadConfig, resolveRoute } from '../lib/config.mjs';
 import { switchingTaxUsd } from '../lib/cost.mjs';
-import { decide, fitTier, initialState, massAbove, massAtOrBelow } from '../lib/policy.mjs';
+import { adviceOutage, decide, fitTier, initialState, massAbove, massAtOrBelow } from '../lib/policy.mjs';
 import { advice, served, T0 } from './helpers.mjs';
 
 const config = loadConfig({});
@@ -493,6 +493,22 @@ test('fitTier climbs past models whose window the context would overflow', () =>
   for (const { tier, tokens, want } of cases)
     assert.equal(fitTier(smallMicro, tier, tokens), want, `${tier} @ ${tokens}`);
 });
+
+const ANSWER = advice('low', { low: 1 });
+for (const [name, streak, result, want] of [
+  ['advice ends the streak', 5, { advice: ANSWER, error: null }, { streak: 0, ownModel: false }],
+  ['a first failure keeps the route', undefined, { advice: null, error: 'timeout' }, { streak: 1, ownModel: false }],
+  ['the third failure keeps the route', 2, { advice: null, error: 'unreachable' }, { streak: 3, ownModel: false }],
+  ['the failure after three leaves it', 3, { advice: null, error: 'malformed' }, { streak: 4, ownModel: true }],
+  ['a busy classifier counts', 3, { advice: null, error: 'busy' }, { streak: 4, ownModel: true }],
+  ['a pause leaves it at once', 0, { advice: null, error: 'paused' }, { streak: 1, ownModel: true }],
+  ['a pinned turn asks nothing', 4, { advice: null, error: null }, { streak: 4, ownModel: false }],
+  ['a missing key is not an outage', 4, { advice: null, error: 'missing-key' }, { streak: 4, ownModel: false }],
+  ['a missing account is not an outage', 4, { advice: null, error: 'missing-account' }, { streak: 4, ownModel: false }],
+])
+  test(`classifier outage: ${name}`, () => {
+    assert.deepEqual(adviceOutage(streak, result), want);
+  });
 
 test('fitTier looks down, then to the largest window, when no higher route fits', () => {
   const cfg = loadConfig({
