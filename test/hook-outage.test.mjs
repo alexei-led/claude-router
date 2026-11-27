@@ -7,6 +7,7 @@ import { jevResponse } from './helpers.mjs';
 const OPUS = 'claude-opus-5-5';
 const HAIKU = 'claude-haiku-5-5';
 const LOW = jevResponse('low', { micro: 0, low: 0.97, medium: 0.03, high: 0, uncertain: 0 });
+const MEDIUM = jevResponse('medium', { micro: 0, low: 0.03, medium: 0.97, high: 0, uncertain: 0 });
 const CAPABILITY = { low: 2, medium: 2.5, high: 2.5, xhigh: 3, max: 3 };
 const ENGINES = {
   table: {},
@@ -76,9 +77,29 @@ test('a paused classifier hands the turn to the session’s model at once', asyn
   const { h, cheap } = await routedDown(t);
   failing(h);
   for (const id of ['f1', 'f2', 'f3']) assert.equal(await turn(h, id), cheap, id);
+  // A streak below three, so only the pause can hand the turn over.
+  const loop = h.state.get('loops:main');
+  h.state.set('loops:main', { ...loop, value: { ...loop.value, noAdvice: 0 } });
   assert.equal(await turn(h, 'paused'), OWN);
   assert.equal(h.view().error, 'paused');
+  assert.equal(h.loop().noAdvice, 1);
 });
+
+for (const engine of ['table', 'shadow'])
+  test(`${engine}: in cost mode an outage starts from the session model’s configured tier, as a new session does`, async (t) => {
+    const { h, cheap } = await routedDown(t, { ...ENGINES[engine], mode: 'cost' });
+    await outage(t, h, cheap);
+    assert.equal(await turn(h, 'own'), OWN);
+    // Cost mode runs Opus at `high`; the configured routes name it at `medium`.
+    assert.equal(h.loop().lastRoute, 'medium');
+    if (engine !== 'shadow') return;
+    // `medium` keeps the configured tier, and would be a move down from the mode's: the replay must start there too.
+    answering(h, MEDIUM);
+    t.mock.timers.tick(61_000);
+    await turn(h, 'back');
+    assert.equal(h.loop().decision.reason, 'same-tier');
+    assert.deepEqual(replayTable(traceOf(h)).mismatches, []);
+  });
 
 test('a pinned turn asks nothing, so it neither counts toward the outage nor ends it', async (t) => {
   const { h, cheap } = await routedDown(t);

@@ -2120,6 +2120,7 @@ async function decideTurn($, router, e, signal, step) {
       pin,
       keyword,
       ownModel: outage.ownModel,
+      configured: step.configured,
       nativeModel,
       contextKnown: context.known,
       availableModels,
