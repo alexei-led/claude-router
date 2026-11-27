@@ -80,6 +80,15 @@ lower layers. A project activity cell of `null` explicitly uses the tier's route
 or effort. `effort: null` instead leaves the effort to the session. See [Save and undo changes](user-guide.md#save-and-undo-changes)
 for clearing stored overrides and recovering from a store failure.
 
+In the local file, `timeoutMs` may be at most 5000, the largest deadline the pane offers: a cloned repository cannot
+make each turn wait longer. A higher value makes Router ignore the whole file and warn with the setting's name. The
+limit does not apply to your own `router.json`.
+
+When the local file applies, an interactive session shows one toast per session start, for example
+`Project .claude/router.local.json changes routes, classifiers: /router to review`. It names the top-level settings the
+file sets, never their values. The shared `.claude/router.json` raises no toast: it can only choose a mode among your
+own routes and policies.
+
 ## Model capability declarations
 
 `models.<alias>.capability` is an optional map of supported efforts to adequacy levels: 0 (micro),
