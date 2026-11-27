@@ -127,6 +127,8 @@ import { sameTaskOf } from '../lib/policy.mjs';
 import {
   applyRoutingEdits,
   applyRoutingPatch,
+  ProjectSettingError,
+  projectFileNotice,
   readRoutingPreference,
   routingConflict,
   routingEdits,
@@ -349,6 +351,7 @@ function createRouter(options) {
     noticeSurfaces: new Set(),
     // Whether this session already said its auto catalog declares no capability, so it says it once.
     capabilityNoticed: false,
+    projectNoticed: false,
     controllers: new Set(),
     turnControllers: new Map(),
     view: /** @type {Record<string, unknown> | null} */ (null),
@@ -1050,8 +1053,10 @@ async function readProjectFile($, scope, name, parse) {
   }
   try {
     return { value: parse(text), error: null };
-  } catch {
-    return ignored('has invalid or unsupported routing settings');
+  } catch (error) {
+    return ignored(
+      error instanceof ProjectSettingError ? error.message : 'has invalid or unsupported routing settings',
+    );
   }
 }
 
@@ -1079,7 +1084,8 @@ async function loadProjectRouting($, { config, profile, userFile }, overlay) {
   const inherited = sharedMode === null ? trusted : { ...trusted, mode: sharedMode };
   const local = await readProjectFile($, scope, scope?.localFile, (text) => {
     const patch = JSON.parse(text);
-    return { config: applyRoutingPatch(inherited, patch), mode: patch.mode ?? null };
+    const applied = applyRoutingPatch(inherited, patch);
+    return { config: applied, mode: patch.mode ?? null, settings: Object.keys(patch) };
   });
   const base = local.value?.config ?? inherited;
   return {
@@ -1088,6 +1094,7 @@ async function loadProjectRouting($, { config, profile, userFile }, overlay) {
     sharedMode,
     profileMode: userFile?.mode ?? null,
     localMode: local.value?.mode ?? null,
+    localNotice: scope && local.value ? projectFileNotice(scope.localFile, local.value.settings) : null,
     fileErrors: [
       resolved?.error,
       shared.error ?? (shared.value?.error && `${shared.value.error}; edit or remove it and reload plugins`),
@@ -4211,6 +4218,17 @@ async function noticeUnavailable($, router, e) {
   } catch {}
 }
 
+// One toast per session start when the project's local file applies: a cloned repository can carry one, and it can
+// change routes and the engine. As noticeUnavailable, it needs a surface that draws it, so it can wait for one to attach.
+// The shared router.json raises none: it only picks a mode among the user's own routes.
+function noticeProjectFile($, router, e) {
+  const notice = router.initialized ? router.project?.localNotice : null;
+  if (!notice || router.projectNoticed || router.view?.phase === 'unavailable') return;
+  if (!e.isInteractive || !e.surface) return;
+  router.projectNoticed = true;
+  $.ui.toast(notice);
+}
+
 const MODEL_SELECTED_MANUALLY = 'model selected manually';
 // The most turns in a row that an API error ended which the router runs again on its own.
 const MAX_RERUNS = 2;
@@ -4619,6 +4637,7 @@ async function startSession($, router, e) {
   router.loadFailed = false;
   router.noticeSurfaces.clear();
   router.capabilityNoticed = false;
+  router.projectNoticed = false;
   // A clear queued by a previous session's agent says nothing about this session's holds.
   router.agentClears.clear();
   const sessionId = await $.session.id();
@@ -4627,6 +4646,7 @@ async function startSession($, router, e) {
   router.traceStartedSession = sessionId;
   await ensureInitialized($, router);
   await noticeUnavailable($, router, e);
+  noticeProjectFile($, router, e);
 }
 
 export function register(on, options) {
@@ -4646,7 +4666,9 @@ export function register(on, options) {
   // The terminal's own attachment raises nothing; a desktop, VS Code or mobile surface attaches after session.start.
   on('session.attach', async ($, e, next) => {
     const result = await next(e);
-    await noticeUnavailable($, router, { isInteractive: true, surface: e.surface });
+    const attached = { isInteractive: true, surface: e.surface };
+    await noticeUnavailable($, router, attached);
+    noticeProjectFile($, router, attached);
     return result;
   });
 

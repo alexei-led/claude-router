@@ -323,3 +323,67 @@ test('direct classifier picks save only the trusted ID, and clearing a local pic
   assert.match(h.view().notice, /Classifier prompts go to api\.typesafe\.ai/);
   assert.deepEqual(projectPatch(h), {});
 });
+
+test('a project file deadline above the pane choices is refused with an error that names the setting only', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(LOCAL, '{"mode":"cost","classifiers":{"jev":{"timeoutMs":30000}}}');
+  await start(h);
+  assert.match(h.view().projectError, /router\.local\.json sets classifiers\.jev\.timeoutMs above 5000 ms/);
+  assert.doesNotMatch(h.view().projectError, /30000/);
+  assert.deepEqual(h.view().routingMode, { mode: 'balanced', source: 'default' });
+});
+
+test('a project file deadline equal to the largest pane choice applies', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(LOCAL, '{"classifiers":{"jev":{"timeoutMs":5000}}}');
+  await start(h);
+  assert.equal(h.view().projectError, null);
+});
+
+test('the profile router file may set a deadline above the pane choices', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(CONFIG, '{"classifiers":{"jev":{"timeoutMs":30000}}}');
+  h.files.set(LOCAL, '{"mode":"cost"}');
+  await start(h);
+  assert.equal(h.view().projectError, null);
+  assert.deepEqual(h.view().routingMode, { mode: 'cost', source: 'project local' });
+});
+
+const sessionStart = (h, surface = 'terminal') =>
+  h.event('session.start', { cwd: '/fixture', isInteractive: true, surface });
+const projectToasts = (h) => h.toasts.filter((text) => text.startsWith('Project '));
+
+test('an applied local file toasts once per session start with the settings it sets and no values', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(LOCAL, '{"routes":{"high":{"effort":"max"}},"classifiers":{"jev":{"timeoutMs":3000}}}');
+  const notice = 'Project .claude/router.local.json changes routes, classifiers: /router to review';
+  await sessionStart(h);
+  await h.event('turn.start', { turnId: 't1', text: 'One edit.' });
+  await h.event('turn.start', { turnId: 't2', text: 'Another edit.' });
+  await h.event('session.attach', { surface: 'desktop' });
+  assert.deepEqual(projectToasts(h), [notice]);
+  await sessionStart(h);
+  assert.deepEqual(projectToasts(h), [notice, notice]);
+});
+
+test('the local file toast waits for a surface that attaches after session start', async () => {
+  const h = harness(JEV_KEY);
+  h.files.set(LOCAL, '{"mode":"cost"}');
+  await sessionStart(h, null);
+  assert.deepEqual(projectToasts(h), []);
+  await h.event('session.attach', { surface: 'desktop' });
+  assert.deepEqual(projectToasts(h), ['Project .claude/router.local.json changes mode: /router to review']);
+});
+
+for (const [name, path, text] of [
+  ['the shared mode file', SHARED, '{"mode":"cost"}'],
+  ['an empty local file', LOCAL, '{}'],
+  ['a refused local file', LOCAL, '{"classifier":"ollama"}'],
+]) {
+  test(`${name} raises no project toast`, async () => {
+    const h = harness(JEV_KEY);
+    h.files.set(path, text);
+    await sessionStart(h);
+    assert.deepEqual(projectToasts(h), []);
+  });
+}
