@@ -124,7 +124,7 @@ Box flexDirection="column"
           Text dimColor=true
             "p95 ≤ 350 ms over 20 turns"
         Text dimColor=true wrap="wrap"
-          "past the deadline the turn keeps its model"
+          "past the deadline the turn gets no advice"
     Box
       Box flexShrink=0 width=12
         Text

@@ -88,7 +88,7 @@ for (const columns of [82, 84])
 
 // The active classifier's help lines hang under its settings, as Policy's do.
 for (const words of [
-  'past the deadline the turn keeps its model',
+  'past the deadline the turn gets no advice',
   'the bounded active goal and current step also go to the classifier',
 ])
   for (const columns of [60, null])
@@ -117,7 +117,7 @@ for (const [columns, boxed] of [
     assert.equal(boxes[0]?.props.borderStyle, 'single');
     assert.deepEqual(texts(boxes[0]).slice(0, 2), ['JEV', ' · active']);
     assert.ok(!find(boxes[0], (node) => /^classifier-/.test(node.props.key ?? '')).length);
-    assert.equal(hangs(tree, 'past the deadline the turn keeps its model', 12), 'hangs');
+    assert.equal(hangs(tree, 'past the deadline the turn gets no advice', 12), 'hangs');
   });
 
 test('at 88 columns the comparison rows stay wide and no line of the active box is wider than the pane', () => {

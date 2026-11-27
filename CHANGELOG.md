@@ -10,6 +10,7 @@
 
 - **A project file cannot stall turns.** A project `.claude/router.local.json` (or `<provider>-router.local.json`) that sets `classifiers.<id>.timeoutMs` above 5000 ms, the pane's largest deadline, is now ignored, and the warning names the setting. Your own `router.json` is not limited.
 - **A project local router file no longer applies silently.** When a project local router file applies, each session start shows one toast with the file and the names of the settings it sets.
+- **A classifier outage no longer keeps you on a cheaper model.** After three turns in a row without classifier advice (a timeout, a network error, a bad answer, a busy classifier), or at once while the classifier is paused after repeated failures, a turn runs your session's model until advice returns. The band shows the classifier's warning and, when there is room, `! classifier unavailable · your model`. Pinned and keyword turns run as before, and a classifier without credentials behaves as before.
 
 ## 1.33.0 (2026-11-26)
 
