@@ -645,7 +645,7 @@ test('Delete history clears usage, activity and subagent records, the session co
   assert.ok(Number.isFinite(h.preferences.get('savings:reset:v1')));
   assert.equal(h.view().notice, 'History deleted: usage, activity and subagent records of every session.');
   await press(h, 'tab-classifier');
-  assert.ok(!texts(await h.render()).includes('ACROSS SESSIONS · since the last reset'));
+  assert.ok(!texts(await h.render()).includes('ACROSS SESSIONS'));
   assert.deepEqual(
     [...h.preferences.keys()].filter((key) => key.startsWith('activity:')),
     [],
@@ -680,8 +680,8 @@ test('opening the pane reloads the counts another session added', async () => {
   assert.equal(h.view().activityStore.lateral.taken, 3);
   await press(h, 'tab-classifier');
   const lines = texts(await h.render());
-  assert.ok(lines.includes('Tool compatibility (not accuracy): 4 of 4 turns (100%)'));
-  assert.ok(lines.includes('Code/ops/explore  classifier vs tools: 4 of 4 turns (100%)'));
+  assert.ok(lines.includes(' · 4 turns since the last reset'), lines.join('\n'));
+  assert.ok(lines.includes('  4 of 4 · too few to judge'), lines.join('\n'));
 });
 
 test('Delete history during a turn completion is not undone by that turn', async () => {
@@ -777,7 +777,7 @@ test('Delete history while a turn writes its counts leaves the readout empty', a
   assert.deepEqual(h.view().activityMetrics.latency, {});
   assert.deepEqual(h.view().activityStore, emptyStore());
   await press(h, 'tab-classifier');
-  assert.ok(!texts(await h.render()).includes('ACROSS SESSIONS · since the last reset'));
+  assert.ok(!texts(await h.render()).includes('ACROSS SESSIONS'));
 });
 
 test('Use tier model is an explicit override even for a legacy no-effect activity cell', async () => {

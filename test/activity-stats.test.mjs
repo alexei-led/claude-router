@@ -615,14 +615,12 @@ test('storeSummary counts labelled turns, agreement over activity rows, and the 
       { predicted: 'code', observed: 'read', n: 3 },
       { predicted: 'ops', observed: 'code', n: 3 },
     ],
-    lateral: { taken: 4, refused: 2 },
   });
   assert.deepEqual(storeSummary(emptyStore()), {
     labelled: 0,
     agreement: { matched: 0, total: 0 },
     focus: { matched: 0, total: 0 },
     disagreements: [],
-    lateral: { taken: 0, refused: 0 },
   });
 });
 

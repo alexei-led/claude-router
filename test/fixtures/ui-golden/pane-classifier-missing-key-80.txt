@@ -144,25 +144,41 @@ Box flexDirection="column"
       Button hotkey="k" key="key" label="Edit"
       Text dimColor=true
         "  opens /plugin configure"
-    Text
-      " "
-    Text color="suggestion" weight="semibold"
-      "THIS SESSION"
-    Text
-      "Tool compatibility (not accuracy): 19 of 22 turns (86%)"
   Text
     " "
-  Text color="suggestion" weight="semibold"
-    "ACROSS SESSIONS · since the last reset"
-  Text
-    "Labelled   22 turns"
-  Text
-    "Tool compatibility (not accuracy): 16 of 20 turns (80%)"
-  Text
-    "Code/ops/explore  classifier vs tools: 14 of 18 turns (78%)"
-  Text
-    "Mismatch   code → read 3 · ops → code 1"
-  Text
-    "Activity moves  4 taken · 2 refused"
-  Text
-    "Escalations  after a cheaper activity move: 1 in 12 moves"
+  Box
+    Text color="suggestion" weight="semibold"
+      "ACROSS SESSIONS"
+    Text dimColor=true
+      " · 22 turns since the last reset"
+  Box
+    Box flexShrink=0 width=19
+      Text
+        "Label fits tools"
+    Text color="success"
+      "████████"
+    Text dimColor=true
+      "░░"
+    Text
+      "  80%"
+    Text dimColor=true
+      "  16 of 20 · this session 86%"
+  Box
+    Box flexShrink=0 width=19
+      Text
+        "Cheaper → back up"
+    Text color="success"
+      "█"
+    Text dimColor=true
+      "░░░░░░░░░"
+    Text
+      "   8%"
+    Text dimColor=true
+      "  1 of 12 cheaper moves"
+  Box
+    Box flexShrink=0 width=19
+      Text
+        "Misses"
+    Box flexDirection="column" flexGrow=1 flexShrink=1
+      Text wrap="wrap"
+        "code → read ×3 · ops → code ×1"
