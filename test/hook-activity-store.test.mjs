@@ -45,8 +45,9 @@ test('the counts across sessions reach the view and survive a restart', async ()
   assert.deepEqual(h.view().activityStore, savedStats(h.preferences));
   await press(h, 'tab-classifier');
   const lines = texts(await h.render());
-  assert.ok(lines.includes('THIS SESSION'));
-  assert.ok(lines.includes('Tool compatibility (not accuracy): 2 of 2 turns (100%)'));
+  // The session's figure sits in the note of the fit across sessions.
+  assert.ok(!lines.includes('THIS SESSION'));
+  assert.ok(lines.includes('  2 of 2 · this session 100% · too few to judge'), lines.join('\n'));
   h.surfaces([]);
   const detail = async (r) => (await r.event('command.run', { command: 'router', args: '' })).text;
   assert.match(
@@ -60,7 +61,9 @@ test('the counts across sessions reach the view and survive a restart', async ()
   assert.equal(reloaded.view().activityStats, null);
   assert.deepEqual(reloaded.view().activityStore, savedStats(h.preferences));
   await press(reloaded, 'tab-classifier');
-  assert.ok(texts(await reloaded.render()).includes('Labelled   2 turns'));
+  const restored = texts(await reloaded.render());
+  assert.ok(restored.includes(' · 2 turns since the last reset'), restored.join('\n'));
+  assert.ok(restored.includes('  2 of 2 · too few to judge'), restored.join('\n'));
 });
 
 test('two sessions finishing turns at the same moment both keep their counts', async () => {
@@ -129,7 +132,7 @@ test('a corrupted or unreadable stats store shows an empty readout and never bre
     assert.equal(h.view().phase, 'ready', name);
     await press(h, 'tab-classifier');
     const lines = texts(await h.render());
-    assert.ok(!lines.includes('ACROSS SESSIONS · since the last reset'), name);
+    assert.ok(!lines.includes('ACROSS SESSIONS'), name);
     h.surfaces([]);
     const { text } = await h.event('command.run', { command: 'router', args: '' });
     assert.match(text, /^Tool compatibility across sessions: no labelled turns yet$/m, name);

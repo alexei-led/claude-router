@@ -228,7 +228,7 @@ pane(
 pane(
   paneViews.classifier,
   'Router pane, Classifier tab',
-  'One row per classifier to compare: where the prompt goes, its activity probe, its p95 wait and whether its credentials are complete, with Set up for a missing Jev API key; the active classifier’s deadline against its wait, the host that receives the prompt, health and credentials; the agreement with tools across sessions; and Undo after a switch.',
+  'One row per classifier to compare: where the prompt goes, its activity probe, its p95 wait and whether its credentials are complete, with Set up for a missing Jev API key; the active classifier’s deadline against its wait, the host that receives the prompt, health and credentials; across sessions, bars for how often the label fits the tools and how often a cheaper move went back up, then the misses; and Undo after a switch.',
   'router-pane-classifier.svg',
   classifierConfig,
 );

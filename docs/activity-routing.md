@@ -289,8 +289,8 @@ Limits:
 
 - The answer quality of routed sessions.
 - How well the classifier labels real turns. On 70 synthetic prompts, Jev (`jev-1.13.0`, not the current default) and OpenAI labelled all 70 right; see
-  [Evaluation](evaluation.md#activity-probe-set). The **Tool compatibility** lines, on the
-  Classifier tab for this session and across sessions, check your own turns against the tools they used.
+  [Evaluation](evaluation.md#activity-probe-set). The **Label fits tools** bar on the Classifier tab, with this
+  session's figure beside it, checks your own turns against the tools they used.
 - Whether an effort change on the same model always keeps the cache. Claude Code's prompt-caching docs say it does on
   Fable 5.1 and later and the 5.5 models with an API key or a subscription, and the router prices it so. On 2026-11-11 we counted
   104 such changes with under 270 seconds between requests in 30 days of Claude Code transcripts, main thread only, up

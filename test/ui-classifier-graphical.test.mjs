@@ -139,10 +139,14 @@ for (const surface of SURFACES) {
     const tree = draw({}, { surface });
     const jev = card(tree, 'Jev');
     const words = texts(jev);
-    for (const label of ['Prompt goes to', 'Wait', 'Tool agreement', 'Deadline', 'Sends', 'Health'])
+    for (const label of ['Prompt goes to', 'Wait', 'Deadline', 'Sends', 'Health'])
       assert.ok(words.includes(label), label);
     assert.ok(words.includes('p95 ≤ 350 ms over 20 turns'), words.join('|'));
-    assert.ok(words.includes('19 of 22 turns (86%) this session'));
+    // The session's agreement is in the note of the fit across sessions, not on the card as well.
+    assert.ok(!words.includes('Tool agreement'));
+    const alone = texts(card(draw({ activityStore: null }, { surface }), 'Jev'));
+    assert.ok(alone.includes('Tool agreement'));
+    assert.ok(alone.includes('19 of 22 turns (86%) this session'));
     assert.ok(words.includes('Not paused · 1 recent failure · last 347 ms'));
     assert.equal(byKey(jev, 'key').props.label, 'Edit credentials');
     assert.equal(byKey(jev, 'key').props.hotkey, 'k');
@@ -198,14 +202,35 @@ for (const surface of SURFACES) {
     );
   });
 
-  test(`${surface}: Across sessions holds the stored counts as label and value rows`, () => {
-    const tree = draw({}, { surface });
-    const across = card(tree, 'Across sessions');
-    const words = texts(across);
-    for (const label of ['Labelled', 'Tool agreement', 'Activity moves', 'Escalations'])
-      assert.ok(words.includes(label), label);
-    assert.ok(words.includes('4 taken · 2 refused'));
-    assert.ok(words.includes('1 after 12 cheaper activity moves'));
+  test(`${surface}: Across sessions shows a judged bar per share, then the misses`, () => {
+    const across = card(draw({}, { surface }), 'Across sessions');
+    assert.deepEqual(texts(across), [
+      'Across sessions',
+      '18 turns since the last reset',
+      'Label fits tools',
+      '78%',
+      '14 of 18 · this session 86%',
+      'Cheaper → back up',
+      '8%',
+      '1 of 12 cheaper moves',
+      'Misses',
+      'code → read ×3 · ops → code ×1',
+    ]);
+    // Each bar is filled to its share in its verdict's colour.
+    const fills = find(across, (n) => n.type === 'Box' && /%$/.test(String(n.props.width ?? '')));
+    assert.deepEqual(
+      fills.map((n) => [n.props.width, n.props.backgroundColor]),
+      [
+        ['78%', toneColor('warning', 'graphical')],
+        ['8%', toneColor('success', 'graphical')],
+      ],
+    );
+    // Each label has a column it fits in.
+    for (const label of ['Label fits tools', 'Cheaper → back up']) {
+      const columns = find(across, (n) => n.type === 'Box' && n.props.width > 0 && texts(n).join() === label);
+      assert.equal(columns.length, 1, label);
+      assert.ok(columns[0].props.width >= label.length, label);
+    }
     assert.equal(card(draw({ activityStore: null }, { surface }), 'Across sessions'), undefined);
   });
 

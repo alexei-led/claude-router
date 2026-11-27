@@ -123,10 +123,12 @@ import {
 import { addTurn, checkDue, checkedHeld, heldRecord, historyKeys, LEDGER_KINDS, LEDGERS } from '../lib/ledgers.mjs';
 import { applyMode, modeLabel, readProjectMode, resolveRoutingMode } from '../lib/modes.mjs';
 import { renderPanel } from '../lib/panel.mjs';
-import { sameTaskOf } from '../lib/policy.mjs';
+import { adviceOutage, CLASSIFIER_OUTAGE, sameTaskOf } from '../lib/policy.mjs';
 import {
   applyRoutingEdits,
   applyRoutingPatch,
+  ProjectSettingError,
+  projectFileNotice,
   readRoutingPreference,
   routingConflict,
   routingEdits,
@@ -349,6 +351,9 @@ function createRouter(options) {
     noticeSurfaces: new Set(),
     // Whether this session already said its auto catalog declares no capability, so it says it once.
     capabilityNoticed: false,
+    projectNoticed: false,
+    // The session start or surface attachment a notice can be drawn for; null before either.
+    audience: /** @type {{ isInteractive: boolean, surface?: string | null } | null} */ (null),
     controllers: new Set(),
     turnControllers: new Map(),
     view: /** @type {Record<string, unknown> | null} */ (null),
@@ -1050,8 +1055,10 @@ async function readProjectFile($, scope, name, parse) {
   }
   try {
     return { value: parse(text), error: null };
-  } catch {
-    return ignored('has invalid or unsupported routing settings');
+  } catch (error) {
+    return ignored(
+      error instanceof ProjectSettingError ? error.message : 'has invalid or unsupported routing settings',
+    );
   }
 }
 
@@ -1079,7 +1086,8 @@ async function loadProjectRouting($, { config, profile, userFile }, overlay) {
   const inherited = sharedMode === null ? trusted : { ...trusted, mode: sharedMode };
   const local = await readProjectFile($, scope, scope?.localFile, (text) => {
     const patch = JSON.parse(text);
-    return { config: applyRoutingPatch(inherited, patch), mode: patch.mode ?? null };
+    const applied = applyRoutingPatch(inherited, patch);
+    return { config: applied, mode: patch.mode ?? null, settings: Object.keys(patch) };
   });
   const base = local.value?.config ?? inherited;
   return {
@@ -1088,6 +1096,7 @@ async function loadProjectRouting($, { config, profile, userFile }, overlay) {
     sharedMode,
     profileMode: userFile?.mode ?? null,
     localMode: local.value?.mode ?? null,
+    localNotice: scope && local.value ? projectFileNotice(scope.localFile, local.value.settings) : null,
     fileErrors: [
       resolved?.error,
       shared.error ?? (shared.value?.error && `${shared.value.error}; edit or remove it and reload plugins`),
@@ -1885,14 +1894,17 @@ async function* passMain($, e, next, previous, version, nativeModel, reason, rou
       stopReason: response.stopReason,
       now: at,
     });
-    if (auto && ['no-route-native', 'native-fallback'].includes(reason))
+    const suspends = ['no-route-native', 'native-fallback'].includes(reason);
+    // An outage turn ran a model routing did not select, so it becomes auto's incumbent too. Its later steps stay the
+    // outage's, so nothing is suspended.
+    if (auto && (suspends || reason === CLASSIFIER_OUTAGE))
       observed = {
         ...observeAutoFallback(cfg, observed, {
           requestedModel: e.model,
           effort: e.effort,
           usage: response.usage,
         }),
-        suspended: true,
+        ...(suspends ? { suspended: true } : {}),
       };
     if (reason === 'no-route-native' && loop.auto?.savedPin) {
       observed.switchedAt = loop.auto.savedPin.switchedAt;
@@ -2110,11 +2122,14 @@ async function decideTurn($, router, e, signal, step) {
     // A keyword is read from a prompt a person or an agent sent, never from a progress report or a pinned turn.
     const keyword = pin || isProgressOrigin(origin) ? null : promptKeyword(router.prompts.get(e.turnId));
     const accountHolds = await routingHoldsOf($, cfg, router);
+    const outage = adviceOutage(loop.noAdvice, result);
     const traceInput = {
       facts,
       advice: result.advice,
       pin,
       keyword,
+      ownModel: outage.ownModel,
+      configured: step.configured,
       nativeModel,
       contextKnown: context.known,
       availableModels,
@@ -2140,6 +2155,7 @@ async function decideTurn($, router, e, signal, step) {
       offSwitches: router.offSwitches,
     });
     selected.engineModel = e.model;
+    selected.noAdvice = outage.streak;
     const written = await $.state.set(ref, selected, { ifVersion: loopVersion });
     // The written route serves the turn's next steps, even if an abort lands now.
     if (written.isSet && pin) router.turnPins.set(e.turnId, pinPresses);
@@ -3848,8 +3864,12 @@ async function* sendRouted($, router, e, next, step) {
     router.turnPins.delete(e.turnId);
     if (pinPresses === router.pinPresses) await updateView($, router, { pendingPin: null });
   }
-  if (cfg.routingEngine === 'auto' && !loop.decision.route)
-    return yield* passMain($, e, next, loop, loopVersion, nativeModel, 'no-route-native', router);
+  // An outage turn, and an auto decision without a route, send the step as Claude Code built it.
+  const outage = loop.decision.reason === CLASSIFIER_OUTAGE;
+  if (outage || (cfg.routingEngine === 'auto' && !loop.decision.route)) {
+    const reason = outage ? CLASSIFIER_OUTAGE : 'no-route-native';
+    return yield* passMain($, e, next, loop, loopVersion, nativeModel, reason, router);
+  }
   let request = routedRequest(e, loop.decision);
   // Read again, not `turn`: a pinned turn's decision (decideTurn) fixed its pin's configs during this step.
   const traced = cfg.routingEngine === 'shadow' && !next.signal.aborted && (await $.session.id()) === sessionId;
@@ -4078,7 +4098,7 @@ async function* mainStep($, router, e, next) {
     }
     loop = selected.loop;
     loopVersion = selected.version;
-  } else {
+  } else if (loop.decision.reason !== CLASSIFIER_OUTAGE) {
     // A review answer applies first, so tool calls made after its snapshot can still move the route up.
     loop = await reviewMidTurn($, router, cfg, loop, e, { context, nativeModel, availableModels });
     loop = await moveOnObserved($, router, cfg, loop, e, context);
@@ -4209,6 +4229,17 @@ async function noticeUnavailable($, router, e) {
     router.noticeSurfaces.add(e.surface);
     $.ui.toast(`Routing off: ${unavailableReason(view)}. Claude’s model is kept.`);
   } catch {}
+}
+
+// One toast per session start when the project's local file applies: a cloned repository can carry one, and it can
+// change routes and the engine. As noticeUnavailable, it needs a surface that draws it, so it can wait for one to attach.
+// The shared router.json raises none: it only picks a mode among the user's own routes.
+function noticeProjectFile($, router) {
+  const notice = router.initialized ? router.project?.localNotice : null;
+  if (!notice || router.projectNoticed || router.view?.phase === 'unavailable') return;
+  if (!router.audience?.isInteractive || !router.audience.surface) return;
+  router.projectNoticed = true;
+  $.ui.toast(notice);
 }
 
 const MODEL_SELECTED_MANUALLY = 'model selected manually';
@@ -4558,7 +4589,10 @@ async function ensureInitialized($, router) {
   router.initializing ??= initializeSession($, router).finally(() => {
     router.initializing = null;
   });
-  return router.initializing;
+  const initialized = await router.initializing;
+  // Here, not at session start alone: an initialization that failed there can succeed at a later event.
+  noticeProjectFile($, router);
+  return initialized;
 }
 
 // A main turn's end: its pins, reviews and decision jobs go, and its route line, activity, usage, decisions and trace
@@ -4619,6 +4653,8 @@ async function startSession($, router, e) {
   router.loadFailed = false;
   router.noticeSurfaces.clear();
   router.capabilityNoticed = false;
+  router.projectNoticed = false;
+  router.audience = e;
   // A clear queued by a previous session's agent says nothing about this session's holds.
   router.agentClears.clear();
   const sessionId = await $.session.id();
@@ -4646,7 +4682,9 @@ export function register(on, options) {
   // The terminal's own attachment raises nothing; a desktop, VS Code or mobile surface attaches after session.start.
   on('session.attach', async ($, e, next) => {
     const result = await next(e);
-    await noticeUnavailable($, router, { isInteractive: true, surface: e.surface });
+    router.audience = { isInteractive: true, surface: e.surface };
+    await noticeUnavailable($, router, router.audience);
+    noticeProjectFile($, router);
     return result;
   });
 

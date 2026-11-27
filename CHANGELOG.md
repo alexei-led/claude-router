@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- **Across sessions is easier to read.** On the Classifier tab it is now two bars with a coloured verdict: **Label fits tools** (green from 80%, yellow from 60%, with this session's figure beside it) and **Cheaper → back up**, the cheaper moves followed by an escalation (green up to 10%, yellow up to 25%), then the commonest **Misses**. A bar with fewer than 10 counted is grey and says "too few to judge". The labelled turns moved into the heading, and **THIS SESSION** and the card's **Tool agreement** show only before there are counts across sessions. The **Code/ops/explore** and **Activity moves** rows left the pane; `/router` text still gives the `code/ops/explore` agreement.
+
+### Fixed
+
+- **A project file cannot stall turns.** A project `.claude/router.local.json` (or `<provider>-router.local.json`) that sets `classifiers.<id>.timeoutMs` above 5000 ms, the pane's largest deadline, is now ignored, and the warning names the setting. Your own `router.json` is not limited.
+- **A project local router file no longer applies silently.** When a project local router file applies, each session start shows one toast with the file and the names of the settings it sets.
+- **A classifier outage no longer keeps you on a cheaper model.** After three turns in a row without classifier advice (a timeout, a network error, a bad answer, a busy classifier), or at once while the classifier is paused after repeated failures, a turn runs your session's model until advice returns. The band shows the classifier's warning and, when there is room, `! classifier unavailable · your model`. Pinned and keyword turns run as before, and a classifier without credentials behaves as before.
+
 ## 1.33.0 (2026-11-26)
 
 ### Summary

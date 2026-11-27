@@ -80,6 +80,15 @@ lower layers. A project activity cell of `null` explicitly uses the tier's route
 or effort. `effort: null` instead leaves the effort to the session. See [Save and undo changes](user-guide.md#save-and-undo-changes)
 for clearing stored overrides and recovering from a store failure.
 
+In the local file, `timeoutMs` may be at most 5000, the largest deadline the pane offers: a cloned repository cannot
+make each turn wait longer. A higher value makes Router ignore the whole file and warn with the setting's name. The
+limit does not apply to your own `router.json`.
+
+When the local file applies, an interactive session shows one toast per session start, for example
+`Project .claude/router.local.json changes routes, classifiers: /router to review`. It names the top-level settings the
+file sets, never their values. The shared `.claude/router.json` raises no toast: it can only choose a mode among your
+own routes and policies.
+
 ## Model capability declarations
 
 `models.<alias>.capability` is an optional map of supported efforts to adequacy levels: 0 (micro),
@@ -265,7 +274,7 @@ The classifier names the task goal separately from its current phase. The existi
 
 A `router.json` that still sets `"shadow"`, a mode removed in 1.10.1, is read as not setting it: the default, `on`, runs, and the next save from the pane drops the value.
 
-The seven activities are `code`, `debug`, `explore`, `plan`, `review`, `ops`, and `docs`. The classifier may also answer `uncertain`. In `on`, an activity applies only when its probability is at least `policy.activityMass`. Below that, or on `uncertain`, a new task goes back to its base route if the move passes the cache checks. On the running task the activity can move either way during the turn; see [Changes during a task](user-guide.md#changes-during-a-task). When the classifier gives no usable activity answer, the running activity stays and the tier answer still applies. When it gives no answer at all, the running route stays. In `off`, the base route runs.
+The seven activities are `code`, `debug`, `explore`, `plan`, `review`, `ops`, and `docs`. The classifier may also answer `uncertain`. In `on`, an activity applies only when its probability is at least `policy.activityMass`. Below that, or on `uncertain`, a new task goes back to its base route if the move passes the cache checks. On the running task the activity can move either way during the turn; see [Changes during a task](user-guide.md#changes-during-a-task). When the classifier gives no usable activity answer, the running activity stays and the tier answer still applies. When it gives no answer at all, the running route stays, until an [outage](user-guide.md#when-the-classifier-gives-no-advice) hands the turn to your session's model. In `off`, the base route runs.
 
 `activities` maps an activity to a tier to a route override. An override may set `model`, `effort`, or both. A field it leaves out comes from the built-in override for that cell, or from the tier's own route, the **base route**, where there is none:
 

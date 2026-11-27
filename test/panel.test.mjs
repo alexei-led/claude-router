@@ -6,8 +6,8 @@ import { renderPanel } from '../lib/panel.mjs';
 import { isSameModel } from '../lib/route.mjs';
 import { bandSegments } from '../lib/ui/model/band.mjs';
 import { routeDraftOf, routingChanges } from '../lib/ui/model/draft.mjs';
-import { TIER_COLOR } from '../lib/ui/tokens.mjs';
-import { controls, ELEMENTS, quiet, recorder, screen, texts, unboxed } from './harness.mjs';
+import { TIER_COLOR, toneColor } from '../lib/ui/tokens.mjs';
+import { controls, ELEMENTS, find, quiet, recorder, screen, texts, unboxed } from './harness.mjs';
 
 const KEYS_SET = { jev: null, clef: null, 'clef-flash': null, 'clef-omni': null };
 const view = (props = {}) => ({ mode: 'auto', phase: 'routed', credentials: KEYS_SET, tab: 'now', ...props });
@@ -584,15 +584,13 @@ const METRICS = {
   latency: { jev: [0, 0, 0, 3, 15, 1, 1, ...Array(15).fill(0)], openai: [9, ...Array(21).fill(0)] },
   downMoves: { moves: 12, escalations: 1 },
 };
-const ACROSS = 'ACROSS SESSIONS · since the last reset';
+const ACROSS_HEAD = 'ACROSS SESSIONS · 22 turns since the last reset';
+const BACK_UP_LINE = 'Cheaper → back up  █░░░░░░░░░   8%  1 of 12 cheaper moves';
 const ACROSS_LINES = [
-  ACROSS,
-  'Labelled   22 turns',
-  'Tool compatibility (not accuracy): 16 of 20 turns (80%)',
-  'Code/ops/explore  classifier vs tools: 14 of 18 turns (78%)',
-  'Mismatch   code → read 3 · ops → code 1',
-  'Activity moves  4 taken · 2 refused',
-  'Escalations  after a cheaper activity move: 1 in 12 moves',
+  ACROSS_HEAD,
+  'Label fits tools   ████████░░  80%  16 of 20',
+  BACK_UP_LINE,
+  'Misses             code → read ×3 · ops → code ×1',
 ];
 test('the Now tab keeps Claude’s readings on one line, and details show them with the trend and the estimates', () => {
   const comparison = { incumbent: 'low', candidate: 'high', minUsd: -0.0123, maxUsd: 0.5, paybackTurns: 3 };
@@ -646,32 +644,100 @@ test('the Usage tab shows no plan quota and no Claude readings: the status line 
 const classifierLines = (props, config = { ...DEFAULTS, activityRouting: 'on' }) =>
   unboxed(screen(renderPanel(ELEMENTS, config, view({ tab: 'classifier', ...props }), null, quiet, { columns: 100 })));
 
-test('the Classifier tab shows the counts across sessions when there are any', () => {
-  for (const [name, activityStore, expected] of [
-    ['counts from earlier sessions', STORE, ACROSS_LINES],
-    ['nothing recorded', null, []],
-    ['a corrupted store', 'garbage', []],
+// The `count` lines from the Across sessions heading on; none where the heading is absent.
+const acrossLines = (lines, count) => {
+  const at = lines.findIndex((line) => line.startsWith('ACROSS SESSIONS'));
+  return at < 0 ? [] : lines.slice(at, at + count);
+};
+
+for (const [name, activityStore, expected] of [
+  ['counts from earlier sessions', STORE, ACROSS_LINES],
+  ['nothing recorded', null, []],
+  ['a corrupted store', 'garbage', []],
+  [
+    'few labelled turns',
+    { ...STORE, confusion: { debug: { code: 2, talk: 1 } } },
     [
-      'no code, ops or explore answers',
-      {
-        ...STORE,
-        confusion: { debug: { code: 2, talk: 1 } },
-        lateral: { taken: 0, refused: 0 },
-      },
-      [
-        ACROSS,
-        'Labelled   3 turns',
-        'Tool compatibility (not accuracy): 2 of 3 turns (67%)',
-        'Mismatch   debug → talk 1',
-        'Escalations  after a cheaper activity move: 1 in 12 moves',
-      ],
+      'ACROSS SESSIONS · 3 turns since the last reset',
+      'Label fits tools   ███████░░░  67%  2 of 3 · too few to judge',
+      BACK_UP_LINE,
+      'Misses             debug → talk ×1',
     ],
-    ['a store saved with the retired shadow readout', { ...STORE, shadow: { differs: 6, turns: 18 } }, ACROSS_LINES],
-  ]) {
+  ],
+  [
+    'labelled turns that name no activity',
+    { ...STORE, confusion: { uncertain: { talk: 1 } } },
+    ['ACROSS SESSIONS · 1 turn since the last reset', BACK_UP_LINE],
+  ],
+  ['a store saved with the retired shadow readout', { ...STORE, shadow: { differs: 6, turns: 18 } }, ACROSS_LINES],
+])
+  test(`the Classifier tab across sessions with ${name}`, () => {
     const lines = classifierLines({ activityStore, activityMetrics: METRICS });
-    const at = lines.indexOf(ACROSS);
-    assert.deepEqual(at < 0 ? [] : lines.slice(at, at + expected.length), expected, name);
-  }
+    assert.deepEqual(acrossLines(lines, expected.length || 1), expected);
+  });
+
+// A store of `total` labelled turns, `matched` of which fit their tools.
+const fitStore = (matched, total) => ({ ...STORE, confusion: { code: { code: matched, read: total - matched } } });
+// The Across sessions bar that starts with `label`: the colour of its filled cells, and its line.
+const verdict = (label, props) => {
+  const tree = renderPanel(ELEMENTS, DEFAULTS, view({ tab: 'classifier', ...props }), null, quiet, { columns: 100 });
+  const row = find(tree, (n) => n.type === 'Box' && texts(n)[0] === label && texts(n).length > 1).at(-1);
+  const [filled] = find(row, (n) => n.type === 'Text' && /^█+$/.test(n.props.children));
+  return { color: filled?.props.color ?? null, line: texts(row).join('') };
+};
+
+for (const [matched, total, tone, shown, doubt] of [
+  [10, 10, 'success', '100%', false],
+  [16, 20, 'success', '80%', false],
+  [79, 100, 'warning', '79%', false],
+  [12, 20, 'warning', '60%', false],
+  [59, 100, 'danger', '59%', false],
+  // Rounding would carry these over a bound the share has not reached.
+  [43, 54, 'warning', '79%', false],
+  [31, 52, 'danger', '59%', false],
+  [9, 9, 'muted', '100%', true],
+  [1, 9, 'muted', '11%', true],
+])
+  test(`the fit of ${matched} in ${total} turns is judged ${tone}`, () => {
+    const { color, line } = verdict('Label fits tools', { activityStore: fitStore(matched, total) });
+    assert.equal(color, toneColor(tone, 'terminal'));
+    assert.ok(line.includes(`${shown}  ${matched} of ${total}`), line);
+    assert.equal(line.endsWith(' · too few to judge'), doubt, line);
+  });
+
+for (const [escalations, moves, tone, shown, doubt] of [
+  [1, 10, 'success', '10%', false],
+  [11, 100, 'warning', '11%', false],
+  [5, 20, 'warning', '25%', false],
+  [26, 100, 'danger', '26%', false],
+  // Rounding would carry these under a bound the share is over.
+  [5, 48, 'warning', '11%', false],
+  [14, 55, 'danger', '26%', false],
+  [9, 9, 'muted', '100%', true],
+  [1, 1, 'muted', '100%', true],
+])
+  test(`${escalations} escalations in ${moves} cheaper moves are judged ${tone}`, () => {
+    const activityMetrics = { ...METRICS, downMoves: { moves, escalations } };
+    const { color, line } = verdict('Cheaper → back up', { activityStore: STORE, activityMetrics });
+    assert.equal(color, toneColor(tone, 'terminal'));
+    assert.ok(line.includes(`${shown}  ${escalations} of ${moves} cheaper move`), line);
+    assert.equal(line.endsWith(' · too few to judge'), doubt, line);
+  });
+
+test('a share of nothing draws an empty bar, and no cheaper move draws no back-up row', () => {
+  const none = { ...METRICS, downMoves: { moves: 12, escalations: 0 } };
+  const lines = classifierLines({ activityStore: STORE, activityMetrics: none });
+  assert.ok(lines.includes('Cheaper → back up  ░░░░░░░░░░   0%  0 of 12 cheaper moves'), lines.join('\n'));
+  const unmoved = classifierLines({ activityStore: STORE, activityMetrics: null });
+  assert.ok(!unmoved.some((line) => line.startsWith('Cheaper')));
+});
+
+test('a narrow pane puts a bar’s note under it', () => {
+  const props = view({ tab: 'classifier', activityStore: STORE });
+  const lines = screen(renderPanel(ELEMENTS, DEFAULTS, props, null, quiet, { columns: 40 }));
+  const at = lines.indexOf('Label fits tools   ████████░░  80%');
+  assert.ok(at >= 0, lines.join('\n'));
+  assert.equal(lines[at + 1], '                   16 of 20');
 });
 
 test('the deadline line compares the active classifier’s wait with its deadline', () => {
@@ -724,7 +790,7 @@ test('where the prompt goes names the host the request reaches', () => {
   );
 });
 
-test('the Classifier tab says this session’s tool agreement once a turn was labelled', () => {
+test('this session’s tool agreement has its own block until there are counts across sessions', () => {
   const stats = (matched, total) => ({
     byActivity: {},
     switches: { tier: 0, activity: 0 },
@@ -734,6 +800,9 @@ test('the Classifier tab says this session’s tool agreement once a turn was la
   const at = lines.indexOf('THIS SESSION');
   assert.equal(lines[at + 1], 'Tool compatibility (not accuracy): 19 of 22 turns (86%)');
   assert.ok(!classifierLines({ activityStats: stats(0, 0) }).includes('THIS SESSION'));
+  const across = classifierLines({ activityStats: stats(19, 22), activityStore: STORE });
+  assert.ok(!across.includes('THIS SESSION'));
+  assert.ok(across.includes('Label fits tools   ████████░░  80%  16 of 20 · this session 86%'), across.join('\n'));
 });
 
 const HOUR = 3_600_000;
