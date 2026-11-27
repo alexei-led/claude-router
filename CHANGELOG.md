@@ -1,6 +1,15 @@
 # Changelog
 
-## Unreleased
+## 1.33.1 (2026-11-27)
+
+### Summary
+
+A patch release for the moments routing goes wrong. A classifier outage now falls back to your session's model, a project's router file can no longer stall turns or apply without notice, and the Classifier tab shows its figures across sessions as two judged bars.
+
+### Upgrade
+
+1. Run `/reload-plugins` or restart each running session. A session still on 1.33.0 cannot read a `shadow` replay record that holds an outage turn.
+2. If a project `.claude/router.local.json` (or `<provider>-router.local.json`) sets a classifier deadline above 5000 ms, lower it or move it to your own `router.json`. Otherwise the whole project file is ignored.
 
 ### Changed
 
@@ -10,7 +19,7 @@
 
 - **A project file cannot stall turns.** A project `.claude/router.local.json` (or `<provider>-router.local.json`) that sets `classifiers.<id>.timeoutMs` above 5000 ms, the pane's largest deadline, is now ignored, and the warning names the setting. Your own `router.json` is not limited.
 - **A project local router file no longer applies silently.** When a project local router file applies, each session start shows one toast with the file and the names of the settings it sets.
-- **A classifier outage no longer keeps you on a cheaper model.** After three turns in a row without classifier advice (a timeout, a network error, a bad answer, a busy classifier), or at once while the classifier is paused after repeated failures, a turn runs your session's model until advice returns. The band shows the classifier's warning and, when there is room, `! classifier unavailable · your model`. Pinned and keyword turns run as before, and a classifier without credentials behaves as before.
+- **A classifier outage no longer keeps you on a cheaper model.** After three turns in a row without classifier advice (a timeout, a network error, a bad answer, a busy classifier), or at once while the classifier is paused after repeated failures, a turn runs your session's model until advice returns. The band shows the classifier's warning and, when there is room, `! classifier unavailable · your model`. Pinned and keyword turns run as before, and a classifier without credentials behaves as before. Like other turns the router does not route, these are not counted in **Usage**.
 
 ## 1.33.0 (2026-11-26)
 
