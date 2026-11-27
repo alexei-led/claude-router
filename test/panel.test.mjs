@@ -692,6 +692,9 @@ for (const [matched, total, tone, shown, doubt] of [
   [79, 100, 'warning', '79%', false],
   [12, 20, 'warning', '60%', false],
   [59, 100, 'danger', '59%', false],
+  // Rounding would carry these over a bound the share has not reached.
+  [43, 54, 'warning', '79%', false],
+  [31, 52, 'danger', '59%', false],
   [9, 9, 'muted', '100%', true],
   [1, 9, 'muted', '11%', true],
 ])
@@ -702,19 +705,22 @@ for (const [matched, total, tone, shown, doubt] of [
     assert.equal(line.endsWith(' · too few to judge'), doubt, line);
   });
 
-for (const [escalations, moves, tone, doubt] of [
-  [1, 10, 'success', false],
-  [11, 100, 'warning', false],
-  [5, 20, 'warning', false],
-  [26, 100, 'danger', false],
-  [9, 9, 'muted', true],
-  [1, 1, 'muted', true],
+for (const [escalations, moves, tone, shown, doubt] of [
+  [1, 10, 'success', '10%', false],
+  [11, 100, 'warning', '11%', false],
+  [5, 20, 'warning', '25%', false],
+  [26, 100, 'danger', '26%', false],
+  // Rounding would carry these under a bound the share is over.
+  [5, 48, 'warning', '11%', false],
+  [14, 55, 'danger', '26%', false],
+  [9, 9, 'muted', '100%', true],
+  [1, 1, 'muted', '100%', true],
 ])
   test(`${escalations} escalations in ${moves} cheaper moves are judged ${tone}`, () => {
     const activityMetrics = { ...METRICS, downMoves: { moves, escalations } };
     const { color, line } = verdict('Cheaper → back up', { activityStore: STORE, activityMetrics });
     assert.equal(color, toneColor(tone, 'terminal'));
-    assert.ok(line.includes(`${escalations} of ${moves} cheaper move`), line);
+    assert.ok(line.includes(`${shown}  ${escalations} of ${moves} cheaper move`), line);
     assert.equal(line.endsWith(' · too few to judge'), doubt, line);
   });
 
